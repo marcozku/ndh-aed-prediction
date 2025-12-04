@@ -4,43 +4,61 @@ const { Pool } = require('pg');
 let pool = null;
 
 function initPool() {
+    // Try individual environment variables first (Railway sets these)
+    const pgHost = process.env.PGHOST;
+    const pgUser = process.env.PGUSER || process.env.POSTGRES_USER;
+    const pgPassword = process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD;
+    const pgDatabase = process.env.PGDATABASE || process.env.POSTGRES_DB;
+    const pgPort = process.env.PGPORT || 5432;
+    
+    // Or try DATABASE_URL
     const dbUrl = process.env.DATABASE_URL;
     
-    if (!dbUrl) {
-        console.log('⚠️ DATABASE_URL not set');
-        return null;
-    }
-    
-    console.log('📡 DATABASE_URL detected, attempting connection...');
-    
-    // Check if URL contains unresolved variables
-    if (dbUrl.includes('${{')) {
-        console.error('❌ DATABASE_URL contains unresolved variables. Please check Railway variable references.');
-        return null;
-    }
-    
-    try {
-        // Parse the URL manually to avoid issues
-        const url = new URL(dbUrl);
+    if (pgHost && pgUser && pgPassword && pgDatabase) {
+        console.log('📡 Using individual PG environment variables...');
         const poolConfig = {
-            user: url.username,
-            password: url.password,
-            host: url.hostname,
-            port: parseInt(url.port) || 5432,
-            database: url.pathname.slice(1) // Remove leading /
+            user: pgUser,
+            password: pgPassword,
+            host: pgHost,
+            port: parseInt(pgPort),
+            database: pgDatabase
         };
 
-        // Only enable SSL for external connections (not Railway internal)
-        if (!url.hostname.includes('.railway.internal')) {
+        // Only enable SSL for external connections
+        if (!pgHost.includes('.railway.internal')) {
             poolConfig.ssl = { rejectUnauthorized: false };
         }
         
         console.log(`📍 Connecting to ${poolConfig.host}:${poolConfig.port}/${poolConfig.database}`);
         return new Pool(poolConfig);
-    } catch (err) {
-        console.error('❌ Failed to parse DATABASE_URL:', err.message);
-        return null;
     }
+    
+    if (dbUrl && !dbUrl.includes('${{')) {
+        console.log('📡 Using DATABASE_URL...');
+        try {
+            const url = new URL(dbUrl);
+            const poolConfig = {
+                user: url.username,
+                password: decodeURIComponent(url.password),
+                host: url.hostname,
+                port: parseInt(url.port) || 5432,
+                database: url.pathname.slice(1)
+            };
+
+            if (!url.hostname.includes('.railway.internal')) {
+                poolConfig.ssl = { rejectUnauthorized: false };
+            }
+            
+            console.log(`📍 Connecting to ${poolConfig.host}:${poolConfig.port}/${poolConfig.database}`);
+            return new Pool(poolConfig);
+        } catch (err) {
+            console.error('❌ Failed to parse DATABASE_URL:', err.message);
+        }
+    }
+    
+    console.log('⚠️ No valid database configuration found');
+    console.log('   Set PGHOST, PGUSER, PGPASSWORD, PGDATABASE or DATABASE_URL');
+    return null;
 }
 
 pool = initPool();
