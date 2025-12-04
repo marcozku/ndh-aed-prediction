@@ -21,5 +21,8 @@
   },
   "devDependencies": {
     "sharp": "^0.34.5"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
   }
 }
