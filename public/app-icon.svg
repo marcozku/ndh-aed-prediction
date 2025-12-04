@@ -5,22 +5,28 @@
       <rect x="0" y="0" width="1024" height="1024" rx="228" ry="228"/>
     </clipPath>
     
-    <!-- Background gradient -->
-    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#0D4F8B"/>
-      <stop offset="50%" style="stop-color:#1565A8"/>
-      <stop offset="100%" style="stop-color:#0A3D6B"/>
+    <!-- HA Green gradient (Hospital Authority style) -->
+    <linearGradient id="haGreenGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00796B"/>
+      <stop offset="50%" style="stop-color:#009688"/>
+      <stop offset="100%" style="stop-color:#00695C"/>
     </linearGradient>
     
-    <!-- Accent gradient -->
+    <!-- Accent orange/gold -->
     <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#00D4AA"/>
-      <stop offset="100%" style="stop-color:#00A085"/>
+      <stop offset="0%" style="stop-color:#FF9800"/>
+      <stop offset="100%" style="stop-color:#F57C00"/>
+    </linearGradient>
+    
+    <!-- White gradient for depth -->
+    <linearGradient id="whiteGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF"/>
+      <stop offset="100%" style="stop-color:#E0F2F1"/>
     </linearGradient>
     
     <!-- Glow effect -->
     <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="15" result="coloredBlur"/>
+      <feGaussianBlur stdDeviation="12" result="coloredBlur"/>
       <feMerge>
         <feMergeNode in="coloredBlur"/>
         <feMergeNode in="SourceGraphic"/>
@@ -29,54 +35,73 @@
     
     <!-- Shadow -->
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.3"/>
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#004D40" flood-opacity="0.3"/>
     </filter>
   </defs>
   
   <!-- Background with clip -->
   <g clip-path="url(#iconMask)">
-    <!-- Main background -->
-    <rect x="0" y="0" width="1024" height="1024" fill="url(#bgGradient)"/>
+    <!-- Main background - HA Teal Green -->
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#haGreenGradient)"/>
     
     <!-- Subtle pattern overlay -->
     <g opacity="0.08">
-      <circle cx="150" cy="150" r="200" fill="#fff"/>
-      <circle cx="900" cy="900" r="300" fill="#fff"/>
-      <circle cx="800" cy="200" r="150" fill="#fff"/>
+      <circle cx="100" cy="100" r="200" fill="#fff"/>
+      <circle cx="950" cy="950" r="300" fill="#fff"/>
     </g>
     
-    <!-- Hospital Cross Symbol -->
+    <!-- Stylized Hospital Building -->
     <g filter="url(#shadow)">
-      <rect x="432" y="180" width="160" height="400" rx="20" fill="#fff"/>
-      <rect x="312" y="300" width="400" height="160" rx="20" fill="#fff"/>
+      <!-- Main building shape -->
+      <rect x="362" y="180" width="300" height="400" rx="20" fill="url(#whiteGradient)"/>
+      
+      <!-- Building top accent -->
+      <rect x="412" y="140" width="200" height="60" rx="10" fill="#fff"/>
+      
+      <!-- Windows pattern -->
+      <rect x="392" y="230" width="60" height="60" rx="8" fill="#00796B" opacity="0.3"/>
+      <rect x="482" y="230" width="60" height="60" rx="8" fill="#00796B" opacity="0.3"/>
+      <rect x="572" y="230" width="60" height="60" rx="8" fill="#00796B" opacity="0.3"/>
+      
+      <rect x="392" y="320" width="60" height="60" rx="8" fill="#00796B" opacity="0.3"/>
+      <rect x="482" y="320" width="60" height="60" rx="8" fill="#00796B" opacity="0.3"/>
+      <rect x="572" y="320" width="60" height="60" rx="8" fill="#00796B" opacity="0.3"/>
+      
+      <!-- Door -->
+      <rect x="462" y="440" width="100" height="140" rx="10" fill="#00796B"/>
+      <circle cx="542" cy="510" r="8" fill="#fff"/>
     </g>
     
-    <!-- Prediction Chart/Pulse Line -->
+    <!-- Medical Cross on building -->
+    <g transform="translate(512, 170)">
+      <rect x="-30" y="-8" width="60" height="16" rx="4" fill="#00796B"/>
+      <rect x="-8" y="-30" width="16" height="60" rx="4" fill="#00796B"/>
+    </g>
+    
+    <!-- Prediction Chart Line -->
     <g filter="url(#glow)">
-      <path d="M180 680 L320 680 L380 580 L440 720 L500 620 L560 700 L620 550 L680 650 L740 600 L844 600" 
+      <path d="M120 700 L220 700 L280 620 L360 740 L440 660 L520 720 L600 560 L680 680 L760 640 L860 640" 
             stroke="url(#accentGradient)" 
-            stroke-width="24" 
+            stroke-width="26" 
             stroke-linecap="round" 
             stroke-linejoin="round"
             fill="none"/>
     </g>
     
-    <!-- Accent dots on chart -->
-    <circle cx="620" cy="550" r="16" fill="#00D4AA"/>
-    <circle cx="740" cy="600" r="12" fill="#00D4AA" opacity="0.8"/>
-    <circle cx="844" cy="600" r="10" fill="#00D4AA" opacity="0.6"/>
+    <!-- Accent pulse dots -->
+    <circle cx="600" cy="560" r="18" fill="#FF9800"/>
+    <circle cx="760" cy="640" r="14" fill="#FF9800" opacity="0.8"/>
+    <circle cx="860" cy="640" r="10" fill="#FF9800" opacity="0.6"/>
     
-    <!-- App Name: 北區醫院預測 -->
-    <text x="512" y="880" 
+    <!-- App Name -->
+    <text x="512" y="870" 
           text-anchor="middle" 
           font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif" 
-          font-size="100" 
+          font-size="80" 
           font-weight="700"
-          fill="#fff"
-          letter-spacing="8">北區醫院預測</text>
+          fill="#fff">北區醫院預測</text>
     
     <!-- Subtitle glow line -->
-    <rect x="280" y="910" width="464" height="4" rx="2" fill="url(#accentGradient)" opacity="0.6"/>
+    <rect x="280" y="900" width="464" height="4" rx="2" fill="url(#accentGradient)" opacity="0.7"/>
   </g>
 </svg>
-

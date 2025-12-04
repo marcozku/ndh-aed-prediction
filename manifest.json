@@ -4,8 +4,8 @@
   "description": "北區醫院急症室人流預測系統",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0D4F8B",
-  "theme_color": "#1565A8",
+  "background_color": "#4A90C2",
+  "theme_color": "#4A90C2",
   "orientation": "portrait-primary",
   "icons": [
     {
