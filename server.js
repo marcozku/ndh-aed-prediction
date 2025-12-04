@@ -133,19 +133,102 @@ const apiHandlers = {
 
     // Database status
     'GET /api/db-status': async (req, res) => {
-        if (!db) {
+        if (!db || !db.pool) {
             return sendJson(res, { connected: false, message: 'Database not configured' });
         }
         try {
             await db.pool.query('SELECT 1');
             const stats = await db.getAccuracyStats();
+            const actualCount = await db.pool.query('SELECT COUNT(*) FROM actual_data');
+            const predCount = await db.pool.query('SELECT COUNT(*) FROM predictions');
             sendJson(res, { 
                 connected: true, 
                 model_version: MODEL_VERSION,
+                actual_data_count: parseInt(actualCount.rows[0].count),
+                predictions_count: parseInt(predCount.rows[0].count),
                 stats 
             });
         } catch (err) {
             sendJson(res, { connected: false, error: err.message }, 500);
+        }
+    },
+
+    // Seed historical data
+    'POST /api/seed-historical': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        try {
+            const { seedHistoricalData } = require('./seed-data');
+            const results = await seedHistoricalData(db);
+            sendJson(res, { 
+                success: true, 
+                message: `成功導入 ${results.length} 筆歷史數據`,
+                count: results.length 
+            });
+        } catch (err) {
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+
+    // Generate and store predictions for next N days
+    'POST /api/generate-predictions': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        try {
+            const data = await parseBody(req);
+            const days = data.days || 30;
+            
+            // Simple prediction logic (should match prediction.js)
+            const today = new Date();
+            const predictions = [];
+            
+            // Get historical average from database
+            const avgResult = await db.pool.query('SELECT AVG(patient_count) as avg FROM actual_data');
+            const globalMean = parseFloat(avgResult.rows[0].avg) || 255;
+            const stdDev = 25; // Approximate standard deviation
+            
+            for (let i = 0; i < days; i++) {
+                const targetDate = new Date(today);
+                targetDate.setDate(today.getDate() + i);
+                const dateStr = targetDate.toISOString().split('T')[0];
+                const dow = targetDate.getDay();
+                
+                // Day of week factors
+                const dowFactors = {
+                    0: 0.93, // Sunday
+                    1: 1.08, // Monday
+                    2: 1.00, // Tuesday
+                    3: 0.99, // Wednesday
+                    4: 1.01, // Thursday
+                    5: 0.98, // Friday
+                    6: 0.92  // Saturday
+                };
+                
+                const predicted = Math.round(globalMean * dowFactors[dow]);
+                const ci80 = { low: predicted - 32, high: predicted + 32 };
+                const ci95 = { low: predicted - 49, high: predicted + 49 };
+                
+                const result = await db.insertPrediction(
+                    today.toISOString().split('T')[0],
+                    dateStr,
+                    predicted,
+                    ci80,
+                    ci95,
+                    MODEL_VERSION
+                );
+                predictions.push(result);
+            }
+            
+            sendJson(res, { 
+                success: true, 
+                message: `成功生成 ${predictions.length} 筆預測數據`,
+                count: predictions.length,
+                data: predictions 
+            });
+        } catch (err) {
+            sendJson(res, { error: err.message }, 500);
         }
     }
 };
