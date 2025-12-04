@@ -1,10 +1,17 @@
 const { Pool } = require('pg');
 
 // Railway PostgreSQL connection
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
+const dbUrl = process.env.DATABASE_URL;
+const poolConfig = {
+    connectionString: dbUrl
+};
+
+// Only enable SSL for external connections (not Railway internal)
+if (dbUrl && !dbUrl.includes('.railway.internal')) {
+    poolConfig.ssl = { rejectUnauthorized: false };
+}
+
+const pool = new Pool(poolConfig);
 
 // Initialize database tables
 async function initDatabase() {
