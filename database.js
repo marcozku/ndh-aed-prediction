@@ -2,19 +2,36 @@ const { Pool } = require('pg');
 
 // Railway PostgreSQL connection
 const dbUrl = process.env.DATABASE_URL;
-const poolConfig = {
-    connectionString: dbUrl
-};
 
-// Only enable SSL for external connections (not Railway internal)
-if (dbUrl && !dbUrl.includes('.railway.internal')) {
-    poolConfig.ssl = { rejectUnauthorized: false };
+let pool = null;
+
+if (dbUrl) {
+    console.log('📡 DATABASE_URL detected, attempting connection...');
+    // Check if URL contains unresolved variables
+    if (dbUrl.includes('${{')) {
+        console.error('❌ DATABASE_URL contains unresolved variables. Please check Railway variable references.');
+    } else {
+        const poolConfig = {
+            connectionString: dbUrl
+        };
+
+        // Only enable SSL for external connections (not Railway internal)
+        if (!dbUrl.includes('.railway.internal')) {
+            poolConfig.ssl = { rejectUnauthorized: false };
+        }
+
+        pool = new Pool(poolConfig);
+    }
+} else {
+    console.log('⚠️ DATABASE_URL not set');
 }
-
-const pool = new Pool(poolConfig);
 
 // Initialize database tables
 async function initDatabase() {
+    if (!pool) {
+        console.log('⚠️ Database pool not initialized, skipping table creation');
+        return;
+    }
     const client = await pool.connect();
     try {
         // Table for actual/real patient data (uploaded by user)
