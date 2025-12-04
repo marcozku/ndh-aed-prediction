@@ -360,7 +360,7 @@ async function getComparisonData(limit = 30) {
 }
 
 module.exports = {
-    pool,
+    get pool() { return pool; },
     initDatabase,
     insertActualData,
     insertBulkActualData,
