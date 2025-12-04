@@ -1,34 +1,23 @@
 {
-  "name": "NDH AED 病人數量預測系統",
-  "short_name": "NDH預測",
+  "name": "北區醫院預測",
+  "short_name": "北區預測",
   "description": "北區醫院急症室人流預測系統",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1a2e",
-  "theme_color": "#1a1a2e",
+  "background_color": "#0D4F8B",
+  "theme_color": "#1565A8",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "favicon-32.png",
-      "sizes": "32x32",
-      "type": "image/png"
-    },
-    {
-      "src": "apple-touch-icon.png",
-      "sizes": "180x180",
-      "type": "image/png",
+      "src": "public/app-icon-simple.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-512.png",
+      "src": "public/app-icon.svg",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ],
