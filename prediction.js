@@ -601,9 +601,97 @@ class NDHAttendancePredictor {
 }
 
 // ============================================
-// 圖表渲染
+// 圖表渲染 - Professional World-Class Design
 // ============================================
 let forecastChart, dowChart, monthChart, historyChart;
+
+// Chart.js 全域設定 - 專業風格
+Chart.defaults.font.family = "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif";
+Chart.defaults.font.weight = 500;
+Chart.defaults.color = '#64748b';
+
+// 專業配色方案
+const chartColors = {
+    primary: '#4f46e5',
+    primaryLight: 'rgba(79, 70, 229, 0.1)',
+    success: '#059669',
+    successLight: 'rgba(5, 150, 105, 0.08)',
+    danger: '#dc2626',
+    dangerLight: 'rgba(220, 38, 38, 0.1)',
+    warning: '#d97706',
+    muted: '#94a3b8',
+    mutedLight: 'rgba(148, 163, 184, 0.15)',
+    text: '#1e293b',
+    textSecondary: '#64748b',
+    grid: 'rgba(0, 0, 0, 0.06)',
+    border: 'rgba(0, 0, 0, 0.1)'
+};
+
+// 專業圖表選項
+const professionalOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+        intersect: false,
+        mode: 'index'
+    },
+    plugins: {
+        legend: {
+            display: true,
+            position: 'top',
+            align: 'end',
+            labels: {
+                usePointStyle: true,
+                pointStyle: 'circle',
+                padding: 20,
+                color: chartColors.textSecondary,
+                font: { size: 12, weight: 500 }
+            }
+        },
+        tooltip: {
+            backgroundColor: 'rgba(255, 255, 255, 0.98)',
+            titleColor: chartColors.text,
+            bodyColor: chartColors.textSecondary,
+            borderColor: chartColors.border,
+            borderWidth: 1,
+            cornerRadius: 12,
+            padding: 14,
+            boxPadding: 6,
+            usePointStyle: true,
+            titleFont: { size: 13, weight: 600 },
+            bodyFont: { size: 12 }
+        }
+    },
+    scales: {
+        x: {
+            ticks: { 
+                color: chartColors.textSecondary,
+                font: { size: 11 },
+                padding: 8
+            },
+            grid: { 
+                display: false
+            },
+            border: {
+                display: false
+            }
+        },
+        y: {
+            ticks: { 
+                color: chartColors.textSecondary,
+                font: { size: 11 },
+                padding: 12
+            },
+            grid: { 
+                color: chartColors.grid,
+                drawBorder: false
+            },
+            border: {
+                display: false
+            }
+        }
+    }
+};
 
 function initCharts(predictor) {
     // 獲取今天日期 (香港時間 HKT UTC+8)
@@ -613,237 +701,255 @@ function initCharts(predictor) {
     // 未來30天預測
     const predictions = predictor.predictRange(today, 30);
     
-    // 1. 預測趨勢圖
+    // 1. 預測趨勢圖 - 專業線圖
     const forecastCtx = document.getElementById('forecast-chart').getContext('2d');
+    
+    // 創建漸變填充
+    const forecastGradient = forecastCtx.createLinearGradient(0, 0, 0, 280);
+    forecastGradient.addColorStop(0, 'rgba(5, 150, 105, 0.15)');
+    forecastGradient.addColorStop(1, 'rgba(5, 150, 105, 0)');
+    
     forecastChart = new Chart(forecastCtx, {
         type: 'line',
         data: {
-            labels: predictions.map(p => p.date),
+            labels: predictions.map(p => {
+                const d = new Date(p.date);
+                return `${d.getMonth()+1}/${d.getDate()}`;
+            }),
             datasets: [
                 {
                     label: '預測值',
                     data: predictions.map(p => p.predicted),
-                    borderColor: '#00b894',
-                    backgroundColor: 'rgba(0, 184, 148, 0.1)',
-                    borderWidth: 3,
-                    fill: false,
-                    tension: 0.3,
+                    borderColor: chartColors.success,
+                    backgroundColor: forecastGradient,
+                    borderWidth: 2.5,
+                    fill: true,
+                    tension: 0.4,
                     pointRadius: 4,
+                    pointHoverRadius: 6,
                     pointBackgroundColor: predictions.map(p => 
-                        p.isHoliday ? '#ff6b6b' : p.isWeekend ? '#95a5a6' : '#00b894'
-                    )
+                        p.isHoliday ? chartColors.danger : p.isWeekend ? chartColors.muted : chartColors.success
+                    ),
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
                 },
                 {
-                    label: '95% CI 上限',
+                    label: '95% 信賴區間',
                     data: predictions.map(p => p.ci95.upper),
-                    borderColor: 'rgba(0, 184, 148, 0.3)',
+                    borderColor: 'rgba(5, 150, 105, 0.25)',
                     borderWidth: 1,
-                    borderDash: [5, 5],
+                    borderDash: [4, 4],
                     fill: false,
-                    pointRadius: 0
+                    pointRadius: 0,
+                    tension: 0.4
                 },
                 {
-                    label: '95% CI 下限',
+                    label: '',
                     data: predictions.map(p => p.ci95.lower),
-                    borderColor: 'rgba(0, 184, 148, 0.3)',
+                    borderColor: 'rgba(5, 150, 105, 0.25)',
                     borderWidth: 1,
-                    borderDash: [5, 5],
+                    borderDash: [4, 4],
                     fill: '-1',
-                    backgroundColor: 'rgba(0, 184, 148, 0.1)',
-                    pointRadius: 0
+                    backgroundColor: 'rgba(5, 150, 105, 0.04)',
+                    pointRadius: 0,
+                    tension: 0.4
                 },
                 {
                     label: '歷史平均',
                     data: predictions.map(() => predictor.globalMean),
-                    borderColor: '#e74c3c',
+                    borderColor: chartColors.danger,
                     borderWidth: 2,
-                    borderDash: [10, 5],
+                    borderDash: [8, 4],
                     fill: false,
                     pointRadius: 0
                 }
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            ...professionalOptions,
             plugins: {
-                legend: {
-                    labels: { color: 'rgba(255,255,255,0.7)' }
-                },
+                ...professionalOptions.plugins,
                 tooltip: {
+                    ...professionalOptions.plugins.tooltip,
                     callbacks: {
                         afterLabel: function(context) {
+                            if (context.datasetIndex !== 0) return '';
                             const p = predictions[context.dataIndex];
                             let info = [];
-                            if (p.isHoliday) info.push(`假期: ${p.holidayName}`);
-                            if (p.isWeekend) info.push('週末');
-                            if (p.isFluSeason) info.push('流感季節');
-                            return info.join(', ');
+                            if (p.isHoliday) info.push(`🎌 ${p.holidayName}`);
+                            if (p.isWeekend) info.push('📅 週末');
+                            if (p.isFluSeason) info.push('🤧 流感季節');
+                            return info.length ? info.join(' · ') : '';
                         }
                     }
-                }
-            },
-            scales: {
-                x: {
-                    ticks: { color: 'rgba(255,255,255,0.5)', maxRotation: 45 },
-                    grid: { color: 'rgba(255,255,255,0.1)' }
-                },
-                y: {
-                    ticks: { color: 'rgba(255,255,255,0.5)' },
-                    grid: { color: 'rgba(255,255,255,0.1)' }
                 }
             }
         }
     });
     
-    // 2. 星期效應圖
+    // 2. 星期效應圖 - 專業條形圖
     const dowMeans = predictor.getDOWMeans();
-    // 重新排列: Mon, Tue, Wed, Thu, Fri, Sat, Sun
     const reorderedDOW = [dowMeans[1], dowMeans[2], dowMeans[3], dowMeans[4], dowMeans[5], dowMeans[6], dowMeans[0]];
+    const avgDOW = reorderedDOW.reduce((a, b) => a + b, 0) / reorderedDOW.length;
     
     const dowCtx = document.getElementById('dow-chart').getContext('2d');
     dowChart = new Chart(dowCtx, {
         type: 'bar',
         data: {
-            labels: ['Mon\n星期一', 'Tue\n星期二', 'Wed\n星期三', 'Thu\n星期四', 'Fri\n星期五', 'Sat\n星期六', 'Sun\n星期日'],
+            labels: ['週一', '週二', '週三', '週四', '週五', '週六', '週日'],
             datasets: [{
-                label: '平均病人數',
+                label: '平均人數',
                 data: reorderedDOW,
-                backgroundColor: [
-                    '#e74c3c', // Monday - red (surge)
-                    '#3498db',
-                    '#3498db',
-                    '#3498db',
-                    '#3498db',
-                    '#95a5a6', // Saturday
-                    '#95a5a6'  // Sunday
-                ],
-                borderRadius: 8
+                backgroundColor: reorderedDOW.map((val, i) => {
+                    if (i === 0) return chartColors.danger; // Monday surge
+                    if (i >= 5) return chartColors.muted;   // Weekend
+                    return chartColors.primary;
+                }),
+                borderRadius: 8,
+                borderSkipped: false,
+                barThickness: 32
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            ...professionalOptions,
             plugins: {
-                legend: { display: false }
+                ...professionalOptions.plugins,
+                legend: { display: false },
+                annotation: {
+                    annotations: {
+                        line1: {
+                            type: 'line',
+                            yMin: avgDOW,
+                            yMax: avgDOW,
+                            borderColor: chartColors.danger,
+                            borderWidth: 2,
+                            borderDash: [6, 4]
+                        }
+                    }
+                }
             },
             scales: {
-                x: {
-                    ticks: { color: 'rgba(255,255,255,0.7)' },
-                    grid: { display: false }
-                },
+                ...professionalOptions.scales,
                 y: {
+                    ...professionalOptions.scales.y,
                     beginAtZero: false,
-                    min: 200,
-                    ticks: { color: 'rgba(255,255,255,0.5)' },
-                    grid: { color: 'rgba(255,255,255,0.1)' }
+                    min: Math.floor(Math.min(...reorderedDOW) * 0.95),
+                    max: Math.ceil(Math.max(...reorderedDOW) * 1.02)
                 }
             }
         }
     });
     
-    // 3. 月份分佈圖
+    // 3. 月份分佈圖 - 專業條形圖
     const monthMeans = predictor.getMonthMeans();
     const monthCtx = document.getElementById('month-chart').getContext('2d');
     monthChart = new Chart(monthCtx, {
         type: 'bar',
         data: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            labels: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
             datasets: [{
-                label: '平均病人數',
+                label: '平均人數',
                 data: monthMeans,
                 backgroundColor: monthMeans.map((_, i) => 
-                    [0, 1, 2, 6, 7].includes(i) ? '#e74c3c' : '#3498db' // 流感季節標記
+                    [0, 1, 2, 6, 7, 9].includes(i) ? chartColors.danger : chartColors.primary
                 ),
-                borderRadius: 8
+                borderRadius: 6,
+                borderSkipped: false,
+                barThickness: 24
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            ...professionalOptions,
             plugins: {
+                ...professionalOptions.plugins,
                 legend: { display: false }
             },
             scales: {
-                x: {
-                    ticks: { color: 'rgba(255,255,255,0.7)' },
-                    grid: { display: false }
-                },
+                ...professionalOptions.scales,
                 y: {
+                    ...professionalOptions.scales.y,
                     beginAtZero: false,
-                    min: 230,
-                    ticks: { color: 'rgba(255,255,255,0.5)' },
-                    grid: { color: 'rgba(255,255,255,0.1)' }
+                    min: Math.floor(Math.min(...monthMeans.filter(v => v > 0)) * 0.92),
+                    max: Math.ceil(Math.max(...monthMeans) * 1.03)
                 }
             }
         }
     });
     
-    // 4. 歷史趨勢圖
+    // 4. 歷史趨勢圖 - 專業區域圖
     const historyCtx = document.getElementById('history-chart').getContext('2d');
+    
+    // 創建漸變
+    const historyGradient = historyCtx.createLinearGradient(0, 0, 0, 360);
+    historyGradient.addColorStop(0, 'rgba(79, 70, 229, 0.2)');
+    historyGradient.addColorStop(1, 'rgba(79, 70, 229, 0)');
+    
     historyChart = new Chart(historyCtx, {
         type: 'line',
         data: {
-            labels: predictor.data.map(d => d.date),
+            labels: predictor.data.map(d => {
+                const date = new Date(d.date);
+                return `${date.getMonth()+1}/${date.getDate()}`;
+            }),
             datasets: [
                 {
                     label: '實際人數',
                     data: predictor.data.map(d => d.attendance),
-                    borderColor: '#3498db',
-                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                    borderWidth: 1.5,
+                    borderColor: chartColors.primary,
+                    backgroundColor: historyGradient,
+                    borderWidth: 2,
                     fill: true,
-                    tension: 0.2,
-                    pointRadius: 0
+                    tension: 0.3,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    pointBackgroundColor: chartColors.primary,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
                 },
                 {
                     label: '平均值',
                     data: predictor.data.map(() => predictor.globalMean),
-                    borderColor: '#e74c3c',
+                    borderColor: chartColors.danger,
                     borderWidth: 2,
-                    borderDash: [10, 5],
+                    borderDash: [8, 4],
                     fill: false,
                     pointRadius: 0
                 },
                 {
-                    label: '+1 標準差',
+                    label: '+1σ',
                     data: predictor.data.map(() => predictor.globalMean + predictor.stdDev),
-                    borderColor: 'rgba(231, 76, 60, 0.3)',
-                    borderWidth: 1,
-                    borderDash: [5, 5],
+                    borderColor: 'rgba(220, 38, 38, 0.3)',
+                    borderWidth: 1.5,
+                    borderDash: [4, 4],
                     fill: false,
                     pointRadius: 0
                 },
                 {
-                    label: '-1 標準差',
+                    label: '-1σ',
                     data: predictor.data.map(() => predictor.globalMean - predictor.stdDev),
-                    borderColor: 'rgba(231, 76, 60, 0.3)',
-                    borderWidth: 1,
-                    borderDash: [5, 5],
+                    borderColor: 'rgba(220, 38, 38, 0.3)',
+                    borderWidth: 1.5,
+                    borderDash: [4, 4],
                     fill: false,
                     pointRadius: 0
                 }
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    labels: { color: 'rgba(255,255,255,0.7)' }
-                }
-            },
+            ...professionalOptions,
             scales: {
                 x: {
+                    ...professionalOptions.scales.x,
                     ticks: { 
-                        color: 'rgba(255,255,255,0.5)',
-                        maxTicksLimit: 12
-                    },
-                    grid: { color: 'rgba(255,255,255,0.1)' }
+                        ...professionalOptions.scales.x.ticks,
+                        maxTicksLimit: 12,
+                        maxRotation: 0
+                    }
                 },
                 y: {
-                    ticks: { color: 'rgba(255,255,255,0.5)' },
-                    grid: { color: 'rgba(255,255,255,0.1)' }
+                    ...professionalOptions.scales.y,
+                    min: 140,
+                    max: 340
                 }
             }
         }
