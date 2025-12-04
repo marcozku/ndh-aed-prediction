@@ -1,0 +1,23 @@
+{
+  "name": "ndh-aed-prediction",
+  "version": "1.0.0",
+  "description": "NDH AED 病人數量預測系統 - North District Hospital A&E Attendance Prediction",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "ndh",
+    "hospital",
+    "prediction",
+    "healthcare",
+    "hong-kong"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
