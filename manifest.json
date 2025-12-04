@@ -1,6 +1,6 @@
 {
   "name": "北區醫院預測",
-  "short_name": "北區預測",
+  "short_name": "北區醫院預測",
   "description": "北區醫院急症室人流預測系統",
   "start_url": "/",
   "display": "standalone",
