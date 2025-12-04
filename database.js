@@ -1,30 +1,49 @@
 const { Pool } = require('pg');
 
 // Railway PostgreSQL connection
-const dbUrl = process.env.DATABASE_URL;
-
 let pool = null;
 
-if (dbUrl) {
+function initPool() {
+    const dbUrl = process.env.DATABASE_URL;
+    
+    if (!dbUrl) {
+        console.log('⚠️ DATABASE_URL not set');
+        return null;
+    }
+    
     console.log('📡 DATABASE_URL detected, attempting connection...');
+    
     // Check if URL contains unresolved variables
     if (dbUrl.includes('${{')) {
         console.error('❌ DATABASE_URL contains unresolved variables. Please check Railway variable references.');
-    } else {
+        return null;
+    }
+    
+    try {
+        // Parse the URL manually to avoid issues
+        const url = new URL(dbUrl);
         const poolConfig = {
-            connectionString: dbUrl
+            user: url.username,
+            password: url.password,
+            host: url.hostname,
+            port: parseInt(url.port) || 5432,
+            database: url.pathname.slice(1) // Remove leading /
         };
 
         // Only enable SSL for external connections (not Railway internal)
-        if (!dbUrl.includes('.railway.internal')) {
+        if (!url.hostname.includes('.railway.internal')) {
             poolConfig.ssl = { rejectUnauthorized: false };
         }
-
-        pool = new Pool(poolConfig);
+        
+        console.log(`📍 Connecting to ${poolConfig.host}:${poolConfig.port}/${poolConfig.database}`);
+        return new Pool(poolConfig);
+    } catch (err) {
+        console.error('❌ Failed to parse DATABASE_URL:', err.message);
+        return null;
     }
-} else {
-    console.log('⚠️ DATABASE_URL not set');
 }
+
+pool = initPool();
 
 // Initialize database tables
 async function initDatabase() {
