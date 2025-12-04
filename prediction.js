@@ -1153,6 +1153,54 @@ function getWeatherIcon(iconCode) {
     return iconMap[iconCode] || '🌡️';
 }
 
+// ============================================
+// 數據庫狀態檢查
+// ============================================
+let dbStatus = null;
+
+async function checkDatabaseStatus() {
+    const dbStatusEl = document.getElementById('db-status');
+    if (!dbStatusEl) return;
+    
+    try {
+        const response = await fetch('/api/db-status');
+        const data = await response.json();
+        dbStatus = data;
+        
+        if (data.connected) {
+            dbStatusEl.className = 'db-status connected';
+            dbStatusEl.innerHTML = `
+                <span class="db-status-icon">🗄️</span>
+                <span class="db-status-text">數據庫已連接</span>
+                <span class="db-status-details">
+                    實際: ${data.actual_data_count || 0} 筆 | 
+                    預測: ${data.predictions_count || 0} 筆 |
+                    v${data.model_version || '1.0.0'}
+                </span>
+            `;
+        } else {
+            dbStatusEl.className = 'db-status disconnected';
+            dbStatusEl.innerHTML = `
+                <span class="db-status-icon">⚠️</span>
+                <span class="db-status-text">數據庫未連接</span>
+                <span class="db-status-details">${data.message || data.error || '請設定環境變數'}</span>
+            `;
+        }
+        
+        console.log('🗄️ 數據庫狀態:', data);
+        return data;
+    } catch (error) {
+        dbStatusEl.className = 'db-status disconnected';
+        dbStatusEl.innerHTML = `
+            <span class="db-status-icon">❌</span>
+            <span class="db-status-text">無法檢查數據庫</span>
+            <span class="db-status-details">${error.message}</span>
+        `;
+        console.error('❌ 數據庫檢查失敗:', error);
+        return null;
+    }
+}
+
 // 更新天氣顯示
 function updateWeatherDisplay() {
     const weatherEl = document.getElementById('weather-display');
@@ -1205,6 +1253,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 初始化圖表
     initCharts(predictor);
     
+    // 檢查數據庫狀態
+    await checkDatabaseStatus();
+    
     // 獲取並顯示天氣
     await fetchCurrentWeather();
     await fetchWeatherForecast();
@@ -1224,6 +1275,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateWeatherDisplay();
         console.log('🌤️ 天氣已自動更新');
     }, 60000); // 60 秒
+    
+    // 每5分鐘檢查數據庫狀態
+    setInterval(async () => {
+        await checkDatabaseStatus();
+        console.log('🗄️ 數據庫狀態已更新');
+    }, 300000); // 5 分鐘
     
     console.log('✅ NDH AED 預測系統就緒');
 });

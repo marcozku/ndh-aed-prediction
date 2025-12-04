@@ -138,6 +138,52 @@ body {
     color: rgba(255, 255, 255, 0.7);
 }
 
+/* 數據庫狀態顯示 */
+.db-status {
+    margin-top: 12px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+}
+
+.db-status.connected {
+    background: rgba(46, 204, 113, 0.15);
+    border: 1px solid rgba(46, 204, 113, 0.3);
+    color: #2ecc71;
+}
+
+.db-status.disconnected {
+    background: rgba(231, 76, 60, 0.15);
+    border: 1px solid rgba(231, 76, 60, 0.3);
+    color: #e74c3c;
+}
+
+.db-status.loading {
+    background: rgba(241, 196, 15, 0.15);
+    border: 1px solid rgba(241, 196, 15, 0.3);
+    color: #f1c40f;
+}
+
+.db-status-loading {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.db-status-icon {
+    font-size: 1rem;
+}
+
+.db-status-text {
+    font-weight: 500;
+}
+
+.db-status-details {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.8rem;
+}
+
 /* 今日預測區 */
 .today-prediction {
     display: grid;
