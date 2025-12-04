@@ -6,38 +6,38 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
 
 :root {
-    /* Color System - Sophisticated Dark Theme */
-    --bg-primary: #0a0a0f;
-    --bg-secondary: #12121a;
-    --bg-card: rgba(255, 255, 255, 0.03);
-    --bg-card-hover: rgba(255, 255, 255, 0.06);
-    --bg-elevated: rgba(255, 255, 255, 0.05);
+    /* Color System - Clean Bright Theme */
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --bg-card: rgba(255, 255, 255, 0.9);
+    --bg-card-hover: rgba(255, 255, 255, 1);
+    --bg-elevated: #ffffff;
     
     /* Accent Colors - Vibrant & Modern */
-    --accent-primary: #6366f1;
-    --accent-secondary: #8b5cf6;
-    --accent-success: #10b981;
-    --accent-warning: #f59e0b;
-    --accent-danger: #ef4444;
-    --accent-info: #3b82f6;
+    --accent-primary: #4f46e5;
+    --accent-secondary: #7c3aed;
+    --accent-success: #059669;
+    --accent-warning: #d97706;
+    --accent-danger: #dc2626;
+    --accent-info: #2563eb;
     
     /* Gradient Accents */
-    --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
-    --gradient-success: linear-gradient(135deg, #10b981 0%, #34d399 100%);
-    --gradient-warm: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
-    --gradient-cool: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+    --gradient-primary: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #9333ea 100%);
+    --gradient-success: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    --gradient-warm: linear-gradient(135deg, #d97706 0%, #ea580c 100%);
+    --gradient-cool: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
     
     /* Text Colors */
-    --text-primary: rgba(255, 255, 255, 0.95);
-    --text-secondary: rgba(255, 255, 255, 0.6);
-    --text-tertiary: rgba(255, 255, 255, 0.4);
-    --text-accent: #a5b4fc;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --text-tertiary: #94a3b8;
+    --text-accent: #4f46e5;
     
     /* Border & Effects */
-    --border-subtle: rgba(255, 255, 255, 0.06);
-    --border-medium: rgba(255, 255, 255, 0.1);
-    --glow-primary: 0 0 60px rgba(99, 102, 241, 0.15);
-    --glow-success: 0 0 40px rgba(16, 185, 129, 0.15);
+    --border-subtle: rgba(0, 0, 0, 0.06);
+    --border-medium: rgba(0, 0, 0, 0.1);
+    --glow-primary: 0 4px 24px rgba(79, 70, 229, 0.15);
+    --glow-success: 0 4px 24px rgba(5, 150, 105, 0.15);
     
     /* Spacing System */
     --space-xs: 4px;
@@ -82,7 +82,7 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* Ambient Background Effect */
+/* Ambient Background Effect - Bright Theme */
 body::before {
     content: '';
     position: fixed;
@@ -91,8 +91,9 @@ body::before {
     right: 0;
     bottom: 0;
     background: 
-        radial-gradient(ellipse 80% 50% at 20% -20%, rgba(99, 102, 241, 0.15), transparent),
-        radial-gradient(ellipse 60% 40% at 80% 100%, rgba(139, 92, 246, 0.1), transparent);
+        radial-gradient(ellipse 80% 50% at 20% -20%, rgba(79, 70, 229, 0.08), transparent),
+        radial-gradient(ellipse 60% 40% at 80% 100%, rgba(124, 58, 237, 0.05), transparent),
+        radial-gradient(ellipse 50% 50% at 50% 50%, rgba(255, 255, 255, 0.8), transparent);
     pointer-events: none;
     z-index: 0;
 }
@@ -115,10 +116,10 @@ body::before {
     text-align: center;
     margin-bottom: var(--space-3xl);
     padding: var(--space-3xl) var(--space-xl);
-    background: var(--bg-card);
+    background: var(--bg-secondary);
     border-radius: var(--radius-xl);
     border: 1px solid var(--border-subtle);
-    backdrop-filter: blur(20px);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 10px 40px rgba(0, 0, 0, 0.03);
     position: relative;
     overflow: hidden;
 }
@@ -130,7 +131,7 @@ body::before {
     left: 50%;
     transform: translateX(-50%);
     width: 200px;
-    height: 2px;
+    height: 3px;
     background: var(--gradient-primary);
     border-radius: var(--radius-full);
 }
@@ -140,7 +141,7 @@ body::before {
     font-weight: 700;
     letter-spacing: -0.02em;
     margin-bottom: var(--space-sm);
-    background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.8) 100%);
+    background: var(--gradient-primary);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -160,11 +161,11 @@ body::before {
     align-items: center;
     gap: var(--space-sm);
     padding: var(--space-sm) var(--space-lg);
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-subtle);
+    background: linear-gradient(135deg, rgba(5, 150, 105, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+    border: 1px solid rgba(5, 150, 105, 0.2);
     border-radius: var(--radius-full);
     font-size: 0.9rem;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--accent-success);
 }
 
@@ -174,15 +175,14 @@ body::before {
 .weather-display {
     margin-top: var(--space-lg);
     padding: var(--space-md) var(--space-xl);
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(99, 102, 241, 0.05) 100%);
-    border: 1px solid rgba(59, 130, 246, 0.15);
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(79, 70, 229, 0.04) 100%);
+    border: 1px solid rgba(37, 99, 235, 0.15);
     border-radius: var(--radius-lg);
     display: inline-flex;
     align-items: center;
     gap: var(--space-lg);
     flex-wrap: wrap;
     justify-content: center;
-    backdrop-filter: blur(10px);
 }
 
 .weather-loading {
@@ -229,17 +229,17 @@ body::before {
 }
 
 .weather-impact.positive {
-    background: rgba(239, 68, 68, 0.15);
-    color: #fca5a5;
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
 }
 
 .weather-impact.negative {
-    background: rgba(16, 185, 129, 0.15);
-    color: #6ee7b7;
+    background: rgba(5, 150, 105, 0.1);
+    color: #059669;
 }
 
 .weather-impact.neutral {
-    background: var(--bg-elevated);
+    background: rgba(100, 116, 139, 0.1);
     color: var(--text-secondary);
 }
 
@@ -259,21 +259,21 @@ body::before {
 }
 
 .db-status.connected {
-    background: rgba(16, 185, 129, 0.1);
-    border: 1px solid rgba(16, 185, 129, 0.2);
-    color: #6ee7b7;
+    background: rgba(5, 150, 105, 0.1);
+    border: 1px solid rgba(5, 150, 105, 0.2);
+    color: #059669;
 }
 
 .db-status.disconnected {
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    color: #fca5a5;
+    background: rgba(220, 38, 38, 0.1);
+    border: 1px solid rgba(220, 38, 38, 0.2);
+    color: #dc2626;
 }
 
 .db-status.loading {
-    background: rgba(245, 158, 11, 0.1);
-    border: 1px solid rgba(245, 158, 11, 0.2);
-    color: #fcd34d;
+    background: rgba(217, 119, 6, 0.1);
+    border: 1px solid rgba(217, 119, 6, 0.2);
+    color: #d97706;
 }
 
 /* ============================================
@@ -290,11 +290,11 @@ body::before {
    Card Design System
    ============================================ */
 .prediction-card {
-    background: var(--bg-card);
+    background: var(--bg-secondary);
     border-radius: var(--radius-xl);
     padding: var(--space-xl);
     border: 1px solid var(--border-subtle);
-    backdrop-filter: blur(20px);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 20px rgba(0, 0, 0, 0.03);
     transition: var(--transition-base);
     position: relative;
     overflow: hidden;
@@ -306,15 +306,20 @@ body::before {
     top: 0;
     left: 0;
     right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    height: 3px;
+    background: var(--gradient-primary);
+    opacity: 0;
+    transition: var(--transition-base);
 }
 
 .prediction-card:hover {
-    background: var(--bg-card-hover);
     border-color: var(--border-medium);
     transform: translateY(-2px);
-    box-shadow: var(--glow-primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 8px 32px rgba(79, 70, 229, 0.08);
+}
+
+.prediction-card:hover::before {
+    opacity: 1;
 }
 
 .card-header {
@@ -358,7 +363,7 @@ body::before {
     transform: translate(-50%, -50%);
     width: 200px;
     height: 200px;
-    background: radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(5, 150, 105, 0.08) 0%, transparent 70%);
     border-radius: 50%;
     pointer-events: none;
 }
@@ -394,10 +399,11 @@ body::before {
    Confidence Intervals - Clean Design
    ============================================ */
 .confidence-interval {
-    background: var(--bg-elevated);
+    background: var(--bg-primary);
     border-radius: var(--radius-lg);
     padding: var(--space-md);
     margin-bottom: var(--space-lg);
+    border: 1px solid var(--border-subtle);
 }
 
 .ci-row {
@@ -434,17 +440,18 @@ body::before {
 }
 
 .factor-item {
-    background: var(--bg-elevated);
+    background: var(--bg-primary);
     border-radius: var(--radius-md);
     padding: var(--space-md);
     text-align: center;
     transition: var(--transition-fast);
-    border: 1px solid transparent;
+    border: 1px solid var(--border-subtle);
 }
 
 .factor-item:hover {
-    border-color: var(--border-subtle);
-    background: var(--bg-card-hover);
+    border-color: var(--border-medium);
+    background: var(--bg-secondary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .factor-name {
@@ -478,11 +485,12 @@ body::before {
 .stat-item {
     text-align: center;
     padding: var(--space-lg);
-    background: var(--bg-elevated);
+    background: var(--bg-primary);
     border-radius: var(--radius-lg);
     transition: var(--transition-fast);
     position: relative;
     overflow: hidden;
+    border: 1px solid var(--border-subtle);
 }
 
 .stat-item::before {
@@ -495,6 +503,10 @@ body::before {
     background: var(--gradient-cool);
     opacity: 0;
     transition: var(--transition-fast);
+}
+
+.stat-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .stat-item:hover::before {
@@ -541,12 +553,12 @@ body::before {
 }
 
 .forecast-day-card {
-    background: var(--bg-card);
+    background: var(--bg-secondary);
     border-radius: var(--radius-lg);
     padding: var(--space-lg) var(--space-md);
     text-align: center;
     border: 1px solid var(--border-subtle);
-    backdrop-filter: blur(10px);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     transition: var(--transition-base);
     position: relative;
     overflow: hidden;
@@ -567,7 +579,7 @@ body::before {
 .forecast-day-card:hover {
     transform: translateY(-4px);
     border-color: var(--border-medium);
-    box-shadow: var(--glow-success);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .forecast-day-card:hover::after {
@@ -575,17 +587,17 @@ body::before {
 }
 
 .forecast-day-card.today {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%);
-    border-color: rgba(99, 102, 241, 0.3);
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.04) 100%);
+    border-color: rgba(79, 70, 229, 0.25);
 }
 
 .forecast-day-card.weekend {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--bg-primary);
 }
 
 .forecast-day-card.holiday {
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(249, 115, 22, 0.05) 100%);
-    border-color: rgba(239, 68, 68, 0.2);
+    background: linear-gradient(135deg, rgba(220, 38, 38, 0.06) 0%, rgba(234, 88, 12, 0.03) 100%);
+    border-color: rgba(220, 38, 38, 0.15);
 }
 
 .forecast-date {
@@ -629,18 +641,18 @@ body::before {
 }
 
 .forecast-badge.weekend-badge {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(100, 116, 139, 0.1);
     color: var(--text-tertiary);
 }
 
 .forecast-badge.holiday-badge {
-    background: rgba(239, 68, 68, 0.15);
-    color: #fca5a5;
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
 }
 
 .forecast-badge.flu-badge {
-    background: rgba(245, 158, 11, 0.15);
-    color: #fcd34d;
+    background: rgba(217, 119, 6, 0.1);
+    color: #d97706;
 }
 
 /* ============================================
@@ -654,16 +666,17 @@ body::before {
 }
 
 .chart-card {
-    background: var(--bg-card);
+    background: var(--bg-secondary);
     border-radius: var(--radius-xl);
     padding: var(--space-xl);
     border: 1px solid var(--border-subtle);
-    backdrop-filter: blur(20px);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 20px rgba(0, 0, 0, 0.03);
     transition: var(--transition-base);
 }
 
 .chart-card:hover {
     border-color: var(--border-medium);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
 }
 
 .chart-card.full-width {
@@ -691,12 +704,12 @@ body::before {
    Algorithm Section - Documentation Style
    ============================================ */
 .algorithm-section {
-    background: var(--bg-card);
+    background: var(--bg-secondary);
     border-radius: var(--radius-xl);
     padding: var(--space-2xl);
     margin-bottom: var(--space-3xl);
     border: 1px solid var(--border-subtle);
-    backdrop-filter: blur(20px);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 20px rgba(0, 0, 0, 0.03);
 }
 
 .algorithm-section h2 {
@@ -715,10 +728,10 @@ body::before {
 
 .algorithm-formula {
     grid-column: 1 / -1;
-    background: var(--bg-primary);
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.04) 0%, rgba(124, 58, 237, 0.02) 100%);
     border-radius: var(--radius-lg);
     padding: var(--space-lg);
-    border: 1px solid var(--border-subtle);
+    border: 1px solid rgba(79, 70, 229, 0.1);
 }
 
 .algorithm-formula h4 {
@@ -774,7 +787,7 @@ body::before {
 }
 
 .factors-table tr:hover td {
-    background: var(--bg-elevated);
+    background: var(--bg-primary);
 }
 
 .factors-table td.positive {
