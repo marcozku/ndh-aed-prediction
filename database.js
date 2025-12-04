@@ -14,6 +14,14 @@ function initPool() {
     // Or try DATABASE_URL
     const dbUrl = process.env.DATABASE_URL;
     
+    // Debug: show which variables are set
+    console.log('🔍 環境變數檢查:');
+    console.log(`   PGHOST: ${pgHost ? '✅ 已設定' : '❌ 未設定'}`);
+    console.log(`   PGUSER: ${pgUser ? '✅ 已設定' : '❌ 未設定'}`);
+    console.log(`   PGPASSWORD: ${pgPassword ? '✅ 已設定' : '❌ 未設定'}`);
+    console.log(`   PGDATABASE: ${pgDatabase ? '✅ 已設定' : '❌ 未設定'}`);
+    console.log(`   DATABASE_URL: ${dbUrl ? (dbUrl.includes('${{') ? '⚠️ 包含未解析變數' : '✅ 已設定') : '❌ 未設定'}`);
+    
     if (pgHost && pgUser && pgPassword && pgDatabase) {
         console.log('📡 Using individual PG environment variables...');
         const poolConfig = {
