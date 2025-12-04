@@ -267,6 +267,11 @@ const server = http.createServer(async (req, res) => {
     const ext = path.extname(fullPath).toLowerCase();
     const contentType = mimeTypes[ext] || 'application/octet-stream';
     
+    // v1.1: Allow iframe embedding from roster app
+    const frameHeaders = {
+        'Content-Security-Policy': "frame-ancestors 'self' https://ndhaedroster.up.railway.app https://*.up.railway.app http://localhost:* http://127.0.0.1:*"
+    };
+    
     fs.readFile(fullPath, (err, content) => {
         if (err) {
             if (err.code === 'ENOENT') {
@@ -275,7 +280,7 @@ const server = http.createServer(async (req, res) => {
                         res.writeHead(500);
                         res.end('Server Error');
                     } else {
-                        res.writeHead(200, { 'Content-Type': 'text/html' });
+                        res.writeHead(200, { 'Content-Type': 'text/html', ...frameHeaders });
                         res.end(content, 'utf-8');
                     }
                 });
@@ -284,7 +289,7 @@ const server = http.createServer(async (req, res) => {
                 res.end('Server Error');
             }
         } else {
-            res.writeHead(200, { 'Content-Type': contentType });
+            res.writeHead(200, { 'Content-Type': contentType, ...frameHeaders });
             res.end(content, 'utf-8');
         }
     });
