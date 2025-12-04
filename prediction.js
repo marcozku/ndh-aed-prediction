@@ -959,9 +959,242 @@ function updateUI(predictor) {
 }
 
 // ============================================
+// 天氣 API - 香港天文台
+// 北區醫院位置: 上水 (Sheung Shui)
+// ============================================
+const WEATHER_CONFIG = {
+    // HKO API endpoints
+    currentWeatherAPI: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc',
+    forecastAPI: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=tc',
+    warningAPI: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=tc',
+    
+    // 北區醫院 - 使用上水站數據
+    stationName: '上水',
+    nearbyStations: ['上水', '打鼓嶺', '流浮山', '大埔'],
+    
+    // 天氣對 AED 人數的影響因子 (基於研究)
+    // 參考: PMC8776398, PMC11653554
+    weatherImpactFactors: {
+        // 溫度影響
+        temperature: {
+            veryHot: { threshold: 33, factor: 1.08, desc: '酷熱' },      // >33°C 增加 8%
+            hot: { threshold: 30, factor: 1.04, desc: '炎熱' },          // >30°C 增加 4%
+            comfortable: { threshold: 15, factor: 1.00, desc: '舒適' },  // 15-30°C 正常
+            cold: { threshold: 10, factor: 1.06, desc: '寒冷' },         // <15°C 增加 6%
+            veryCold: { threshold: 5, factor: 1.12, desc: '嚴寒' }       // <10°C 增加 12%
+        },
+        // 濕度影響
+        humidity: {
+            veryHigh: { threshold: 95, factor: 1.03, desc: '極潮濕' },
+            high: { threshold: 85, factor: 1.01, desc: '潮濕' },
+            normal: { threshold: 60, factor: 1.00, desc: '正常' },
+            low: { threshold: 40, factor: 0.99, desc: '乾燥' }
+        },
+        // 降雨影響
+        rainfall: {
+            heavy: { threshold: 30, factor: 0.92, desc: '大雨' },      // 減少 8%
+            moderate: { threshold: 10, factor: 0.96, desc: '中雨' },   // 減少 4%
+            light: { threshold: 0.1, factor: 0.98, desc: '小雨' },     // 減少 2%
+            none: { threshold: 0, factor: 1.00, desc: '無雨' }
+        },
+        // 天氣警告影響
+        warnings: {
+            typhoon_8: { factor: 0.40, desc: '八號風球' },    // 大幅減少
+            typhoon_3: { factor: 0.85, desc: '三號風球' },
+            rainstorm_red: { factor: 0.75, desc: '紅雨' },
+            rainstorm_amber: { factor: 0.90, desc: '黃雨' },
+            cold_weather: { factor: 1.08, desc: '寒冷天氣' },
+            very_hot: { factor: 1.06, desc: '酷熱天氣' }
+        }
+    }
+};
+
+// 全局天氣數據
+let currentWeatherData = null;
+let weatherForecastData = null;
+
+// 獲取當前天氣
+async function fetchCurrentWeather() {
+    try {
+        const response = await fetch(WEATHER_CONFIG.currentWeatherAPI);
+        if (!response.ok) throw new Error('Weather API error');
+        const data = await response.json();
+        
+        // 找北區 (上水) 的溫度數據
+        let temperature = null;
+        if (data.temperature && data.temperature.data) {
+            const northDistrict = data.temperature.data.find(
+                s => WEATHER_CONFIG.nearbyStations.some(name => s.place.includes(name))
+            );
+            if (northDistrict) {
+                temperature = northDistrict.value;
+            } else {
+                // 使用平均溫度
+                temperature = data.temperature.data.reduce((sum, s) => sum + s.value, 0) / data.temperature.data.length;
+            }
+        }
+        
+        // 找濕度數據
+        let humidity = null;
+        if (data.humidity && data.humidity.data && data.humidity.data.length > 0) {
+            humidity = data.humidity.data[0].value;
+        }
+        
+        // 降雨數據
+        let rainfall = 0;
+        if (data.rainfall && data.rainfall.data) {
+            const northRain = data.rainfall.data.find(
+                s => WEATHER_CONFIG.nearbyStations.some(name => s.place.includes(name))
+            );
+            if (northRain) {
+                rainfall = northRain.max || 0;
+            }
+        }
+        
+        // 圖標和描述
+        let icon = data.icon?.[0] || 50;
+        
+        currentWeatherData = {
+            temperature: temperature ? Math.round(temperature * 10) / 10 : null,
+            humidity: humidity,
+            rainfall: rainfall,
+            icon: icon,
+            uvIndex: data.uvindex?.data?.[0]?.value || null,
+            updateTime: data.updateTime || new Date().toISOString()
+        };
+        
+        console.log('🌤️ 天氣數據已更新:', currentWeatherData);
+        return currentWeatherData;
+    } catch (error) {
+        console.error('❌ 獲取天氣失敗:', error);
+        return null;
+    }
+}
+
+// 獲取天氣預報
+async function fetchWeatherForecast() {
+    try {
+        const response = await fetch(WEATHER_CONFIG.forecastAPI);
+        if (!response.ok) throw new Error('Forecast API error');
+        const data = await response.json();
+        
+        weatherForecastData = data.weatherForecast || [];
+        console.log('📅 天氣預報已更新:', weatherForecastData.length, '天');
+        return weatherForecastData;
+    } catch (error) {
+        console.error('❌ 獲取天氣預報失敗:', error);
+        return [];
+    }
+}
+
+// 計算天氣影響因子
+function calculateWeatherImpact(weather) {
+    if (!weather) return { factor: 1.0, impacts: [] };
+    
+    let totalFactor = 1.0;
+    const impacts = [];
+    const factors = WEATHER_CONFIG.weatherImpactFactors;
+    
+    // 溫度影響
+    if (weather.temperature !== null) {
+        const temp = weather.temperature;
+        if (temp >= factors.temperature.veryHot.threshold) {
+            totalFactor *= factors.temperature.veryHot.factor;
+            impacts.push({ type: 'temp', desc: factors.temperature.veryHot.desc, factor: factors.temperature.veryHot.factor, icon: '🥵' });
+        } else if (temp >= factors.temperature.hot.threshold) {
+            totalFactor *= factors.temperature.hot.factor;
+            impacts.push({ type: 'temp', desc: factors.temperature.hot.desc, factor: factors.temperature.hot.factor, icon: '☀️' });
+        } else if (temp < factors.temperature.veryCold.threshold) {
+            totalFactor *= factors.temperature.veryCold.factor;
+            impacts.push({ type: 'temp', desc: factors.temperature.veryCold.desc, factor: factors.temperature.veryCold.factor, icon: '🥶' });
+        } else if (temp < factors.temperature.cold.threshold) {
+            totalFactor *= factors.temperature.cold.factor;
+            impacts.push({ type: 'temp', desc: factors.temperature.cold.desc, factor: factors.temperature.cold.factor, icon: '❄️' });
+        }
+    }
+    
+    // 濕度影響
+    if (weather.humidity !== null) {
+        const hum = weather.humidity;
+        if (hum >= factors.humidity.veryHigh.threshold) {
+            totalFactor *= factors.humidity.veryHigh.factor;
+            impacts.push({ type: 'humidity', desc: factors.humidity.veryHigh.desc, factor: factors.humidity.veryHigh.factor, icon: '💧' });
+        }
+    }
+    
+    // 降雨影響
+    if (weather.rainfall !== null) {
+        const rain = weather.rainfall;
+        if (rain >= factors.rainfall.heavy.threshold) {
+            totalFactor *= factors.rainfall.heavy.factor;
+            impacts.push({ type: 'rain', desc: factors.rainfall.heavy.desc, factor: factors.rainfall.heavy.factor, icon: '🌧️' });
+        } else if (rain >= factors.rainfall.moderate.threshold) {
+            totalFactor *= factors.rainfall.moderate.factor;
+            impacts.push({ type: 'rain', desc: factors.rainfall.moderate.desc, factor: factors.rainfall.moderate.factor, icon: '🌦️' });
+        } else if (rain >= factors.rainfall.light.threshold) {
+            totalFactor *= factors.rainfall.light.factor;
+            impacts.push({ type: 'rain', desc: factors.rainfall.light.desc, factor: factors.rainfall.light.factor, icon: '🌂' });
+        }
+    }
+    
+    return { factor: totalFactor, impacts };
+}
+
+// 天氣圖標對照
+function getWeatherIcon(iconCode) {
+    const iconMap = {
+        50: '☀️', 51: '🌤️', 52: '⛅', 53: '🌥️', 54: '☁️',
+        60: '🌧️', 61: '🌧️', 62: '🌧️', 63: '🌧️', 64: '⛈️',
+        65: '⛈️', 70: '🌙', 71: '🌙', 72: '🌙', 73: '🌙',
+        74: '🌙', 75: '🌙', 76: '🌙', 77: '🌙', 80: '🌪️',
+        81: '🌪️', 82: '🌪️', 83: '🌊', 84: '🌊', 85: '🥶',
+        90: '🥵', 91: '🥵', 92: '🥶', 93: '🥶'
+    };
+    return iconMap[iconCode] || '🌡️';
+}
+
+// 更新天氣顯示
+function updateWeatherDisplay() {
+    const weatherEl = document.getElementById('weather-display');
+    if (!weatherEl) return;
+    
+    if (!currentWeatherData) {
+        weatherEl.innerHTML = '<span class="weather-loading">⏳ 載入天氣資料...</span>';
+        return;
+    }
+    
+    const weather = currentWeatherData;
+    const impact = calculateWeatherImpact(weather);
+    const icon = getWeatherIcon(weather.icon);
+    
+    // 構建影響顯示
+    let impactHtml = '';
+    if (impact.impacts.length > 0) {
+        const mainImpact = impact.impacts[0];
+        const impactClass = mainImpact.factor > 1 ? 'positive' : mainImpact.factor < 1 ? 'negative' : 'neutral';
+        const impactText = mainImpact.factor > 1 
+            ? `+${Math.round((mainImpact.factor - 1) * 100)}%` 
+            : `${Math.round((mainImpact.factor - 1) * 100)}%`;
+        impactHtml = `<span class="weather-impact ${impactClass}">${mainImpact.icon} ${mainImpact.desc} ${impactText}</span>`;
+    }
+    
+    weatherEl.innerHTML = `
+        <span class="weather-icon">${icon}</span>
+        <span class="weather-temp">${weather.temperature !== null ? weather.temperature + '°C' : '--'}</span>
+        <div class="weather-details">
+            <span class="weather-detail-item">💧 ${weather.humidity !== null ? weather.humidity + '%' : '--'}</span>
+            <span class="weather-detail-item">🌧️ ${weather.rainfall}mm</span>
+            ${weather.uvIndex ? `<span class="weather-detail-item">☀️ UV ${weather.uvIndex}</span>` : ''}
+        </div>
+        ${impactHtml}
+        <span class="weather-desc">📍 北區上水</span>
+    `;
+}
+
+// ============================================
 // 初始化
 // ============================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     console.log('🏥 NDH AED 預測系統初始化...');
     
     const predictor = new NDHAttendancePredictor();
@@ -972,6 +1205,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // 初始化圖表
     initCharts(predictor);
     
+    // 獲取並顯示天氣
+    await fetchCurrentWeather();
+    await fetchWeatherForecast();
+    updateWeatherDisplay();
+    
     // 每秒更新時間 (使用真實 HKT)
     setInterval(() => {
         const hk = getHKTime();
@@ -979,6 +1217,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const datetimeEl = document.getElementById('current-datetime');
         datetimeEl.textContent = `🕐 ${hk.year}年${hk.month}月${hk.day}日 ${weekdays[hk.dayOfWeek]} ${hk.timeStr} HKT`;
     }, 1000);
+    
+    // 每分鐘更新天氣
+    setInterval(async () => {
+        await fetchCurrentWeather();
+        updateWeatherDisplay();
+        console.log('🌤️ 天氣已自動更新');
+    }, 60000); // 60 秒
     
     console.log('✅ NDH AED 預測系統就緒');
 });

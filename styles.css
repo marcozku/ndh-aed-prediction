@@ -61,6 +61,83 @@ body {
     white-space: nowrap;
 }
 
+/* 天氣顯示 */
+.weather-display {
+    margin-top: 15px;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, rgba(74, 144, 194, 0.2) 0%, rgba(0, 121, 107, 0.2) 100%);
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 15px;
+    border: 1px solid rgba(74, 144, 194, 0.3);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.weather-loading {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9rem;
+}
+
+.weather-icon {
+    font-size: 2rem;
+}
+
+.weather-temp {
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #fff;
+}
+
+.weather-temp-high {
+    color: #ff6b6b;
+}
+
+.weather-temp-low {
+    color: #74b9ff;
+}
+
+.weather-desc {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.95rem;
+}
+
+.weather-details {
+    display: flex;
+    gap: 15px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.85rem;
+}
+
+.weather-detail-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.weather-impact {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.weather-impact.positive {
+    background: rgba(231, 76, 60, 0.2);
+    color: #ff6b6b;
+}
+
+.weather-impact.negative {
+    background: rgba(46, 204, 113, 0.2);
+    color: #2ecc71;
+}
+
+.weather-impact.neutral {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+}
+
 /* 今日預測區 */
 .today-prediction {
     display: grid;
