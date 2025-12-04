@@ -269,7 +269,7 @@ const server = http.createServer(async (req, res) => {
     
     // v1.1: Allow iframe embedding from roster app
     const frameHeaders = {
-        'Content-Security-Policy': "frame-ancestors 'self' https://ndhaedroster.up.railway.app https://*.up.railway.app http://localhost:* http://127.0.0.1:*"
+        'Content-Security-Policy': "frame-ancestors 'self' https://ndhaedduty.up.railway.app https://ndhaedroster.up.railway.app https://*.up.railway.app http://localhost:* http://127.0.0.1:*"
     };
     
     fs.readFile(fullPath, (err, content) => {
@@ -304,4 +304,5 @@ server.listen(PORT, () => {
         console.log(`⚠️ 數據庫未配置 (設置 DATABASE_URL 環境變數以啟用)`);
     }
 });
+
 
