@@ -693,11 +693,11 @@ body::before {
 
 .chart-container {
     position: relative;
-    height: 280px;
+    height: 300px;
 }
 
 .chart-container.large {
-    height: 360px;
+    height: 380px;
 }
 
 /* ============================================
@@ -944,11 +944,11 @@ body::before {
     }
     
     .chart-container {
-        height: 220px;
+        height: 280px;
     }
     
     .chart-container.large {
-        height: 280px;
+        height: 320px;
     }
     
     .algorithm-section {

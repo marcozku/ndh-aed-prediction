@@ -627,7 +627,7 @@ const chartColors = {
     border: 'rgba(0, 0, 0, 0.1)'
 };
 
-// 專業圖表選項
+// 專業圖表選項 - 手機友好
 const professionalOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -635,39 +635,53 @@ const professionalOptions = {
         intersect: false,
         mode: 'index'
     },
+    layout: {
+        padding: {
+            top: 10,
+            bottom: 10,
+            left: 5,
+            right: 15
+        }
+    },
     plugins: {
         legend: {
             display: true,
             position: 'top',
-            align: 'end',
+            align: 'center',
             labels: {
                 usePointStyle: true,
                 pointStyle: 'circle',
-                padding: 20,
-                color: chartColors.textSecondary,
-                font: { size: 12, weight: 500 }
+                padding: 15,
+                color: chartColors.text,
+                font: { size: 11, weight: 600 },
+                boxWidth: 8,
+                boxHeight: 8
             }
         },
         tooltip: {
-            backgroundColor: 'rgba(255, 255, 255, 0.98)',
-            titleColor: chartColors.text,
-            bodyColor: chartColors.textSecondary,
-            borderColor: chartColors.border,
-            borderWidth: 1,
-            cornerRadius: 12,
-            padding: 14,
-            boxPadding: 6,
+            backgroundColor: '#1e293b',
+            titleColor: '#fff',
+            bodyColor: 'rgba(255,255,255,0.85)',
+            borderColor: 'transparent',
+            borderWidth: 0,
+            cornerRadius: 10,
+            padding: 12,
+            boxPadding: 4,
             usePointStyle: true,
-            titleFont: { size: 13, weight: 600 },
-            bodyFont: { size: 12 }
+            titleFont: { size: 13, weight: 700 },
+            bodyFont: { size: 12, weight: 500 },
+            displayColors: true
         }
     },
     scales: {
         x: {
             ticks: { 
-                color: chartColors.textSecondary,
-                font: { size: 11 },
-                padding: 8
+                color: chartColors.text,
+                font: { size: 11, weight: 600 },
+                padding: 8,
+                maxRotation: 0,
+                autoSkip: true,
+                autoSkipPadding: 10
             },
             grid: { 
                 display: false
@@ -679,12 +693,16 @@ const professionalOptions = {
         y: {
             ticks: { 
                 color: chartColors.textSecondary,
-                font: { size: 11 },
-                padding: 12
+                font: { size: 11, weight: 500 },
+                padding: 10,
+                callback: function(value) {
+                    return value;
+                }
             },
             grid: { 
-                color: chartColors.grid,
-                drawBorder: false
+                color: 'rgba(0, 0, 0, 0.04)',
+                drawBorder: false,
+                lineWidth: 1
             },
             border: {
                 display: false
@@ -714,50 +732,50 @@ function initCharts(predictor) {
         data: {
             labels: predictions.map(p => {
                 const d = new Date(p.date);
-                return `${d.getMonth()+1}/${d.getDate()}`;
+                return `${d.getDate()}`;
             }),
             datasets: [
                 {
                     label: '預測值',
                     data: predictions.map(p => p.predicted),
-                    borderColor: chartColors.success,
+                    borderColor: '#059669',
                     backgroundColor: forecastGradient,
                     borderWidth: 2.5,
                     fill: true,
-                    tension: 0.4,
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
+                    tension: 0.35,
+                    pointRadius: 5,
+                    pointHoverRadius: 8,
                     pointBackgroundColor: predictions.map(p => 
-                        p.isHoliday ? chartColors.danger : p.isWeekend ? chartColors.muted : chartColors.success
+                        p.isHoliday ? '#ef4444' : p.isWeekend ? '#64748b' : '#059669'
                     ),
                     pointBorderColor: '#fff',
                     pointBorderWidth: 2
                 },
                 {
-                    label: '95% 信賴區間',
+                    label: '95% CI',
                     data: predictions.map(p => p.ci95.upper),
-                    borderColor: 'rgba(5, 150, 105, 0.25)',
-                    borderWidth: 1,
+                    borderColor: 'rgba(5, 150, 105, 0.2)',
+                    borderWidth: 1.5,
                     borderDash: [4, 4],
                     fill: false,
                     pointRadius: 0,
-                    tension: 0.4
+                    tension: 0.35
                 },
                 {
                     label: '',
                     data: predictions.map(p => p.ci95.lower),
-                    borderColor: 'rgba(5, 150, 105, 0.25)',
-                    borderWidth: 1,
+                    borderColor: 'rgba(5, 150, 105, 0.2)',
+                    borderWidth: 1.5,
                     borderDash: [4, 4],
                     fill: '-1',
-                    backgroundColor: 'rgba(5, 150, 105, 0.04)',
+                    backgroundColor: 'rgba(5, 150, 105, 0.05)',
                     pointRadius: 0,
-                    tension: 0.4
+                    tension: 0.35
                 },
                 {
-                    label: '歷史平均',
+                    label: '平均線',
                     data: predictions.map(() => predictor.globalMean),
-                    borderColor: chartColors.danger,
+                    borderColor: '#ef4444',
                     borderWidth: 2,
                     borderDash: [8, 4],
                     fill: false,
@@ -769,9 +787,28 @@ function initCharts(predictor) {
             ...professionalOptions,
             plugins: {
                 ...professionalOptions.plugins,
+                legend: {
+                    ...professionalOptions.plugins.legend,
+                    labels: {
+                        ...professionalOptions.plugins.legend.labels,
+                        filter: function(item) {
+                            return item.text !== '';
+                        }
+                    }
+                },
                 tooltip: {
                     ...professionalOptions.plugins.tooltip,
                     callbacks: {
+                        title: function(items) {
+                            const p = predictions[items[0].dataIndex];
+                            return p.date;
+                        },
+                        label: function(item) {
+                            if (item.datasetIndex === 0) {
+                                return `預測: ${item.raw} 人`;
+                            }
+                            return null;
+                        },
                         afterLabel: function(context) {
                             if (context.datasetIndex !== 0) return '';
                             const p = predictions[context.dataIndex];
@@ -781,6 +818,24 @@ function initCharts(predictor) {
                             if (p.isFluSeason) info.push('🤧 流感季節');
                             return info.length ? info.join(' · ') : '';
                         }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ...professionalOptions.scales.x,
+                    ticks: {
+                        ...professionalOptions.scales.x.ticks,
+                        maxTicksLimit: 15
+                    }
+                },
+                y: {
+                    ...professionalOptions.scales.y,
+                    min: Math.floor(Math.min(...predictions.map(p => p.ci95.lower)) - 20),
+                    max: Math.ceil(Math.max(...predictions.map(p => p.ci95.upper)) + 20),
+                    ticks: {
+                        ...professionalOptions.scales.y.ticks,
+                        stepSize: 20
                     }
                 }
             }
@@ -793,21 +848,35 @@ function initCharts(predictor) {
     const avgDOW = reorderedDOW.reduce((a, b) => a + b, 0) / reorderedDOW.length;
     
     const dowCtx = document.getElementById('dow-chart').getContext('2d');
+    
+    // 創建漸變
+    const dowGradients = reorderedDOW.map((val, i) => {
+        const gradient = dowCtx.createLinearGradient(0, 0, 0, 250);
+        if (i === 0) {
+            gradient.addColorStop(0, '#ef4444');
+            gradient.addColorStop(1, '#fca5a5');
+        } else if (i >= 5) {
+            gradient.addColorStop(0, '#64748b');
+            gradient.addColorStop(1, '#94a3b8');
+        } else {
+            gradient.addColorStop(0, '#4f46e5');
+            gradient.addColorStop(1, '#818cf8');
+        }
+        return gradient;
+    });
+    
     dowChart = new Chart(dowCtx, {
         type: 'bar',
         data: {
-            labels: ['週一', '週二', '週三', '週四', '週五', '週六', '週日'],
+            labels: ['一', '二', '三', '四', '五', '六', '日'],
             datasets: [{
                 label: '平均人數',
                 data: reorderedDOW,
-                backgroundColor: reorderedDOW.map((val, i) => {
-                    if (i === 0) return chartColors.danger; // Monday surge
-                    if (i >= 5) return chartColors.muted;   // Weekend
-                    return chartColors.primary;
-                }),
-                borderRadius: 8,
+                backgroundColor: dowGradients,
+                borderRadius: 10,
                 borderSkipped: false,
-                barThickness: 32
+                barPercentage: 0.7,
+                categoryPercentage: 0.8
             }]
         },
         options: {
@@ -815,26 +884,36 @@ function initCharts(predictor) {
             plugins: {
                 ...professionalOptions.plugins,
                 legend: { display: false },
-                annotation: {
-                    annotations: {
-                        line1: {
-                            type: 'line',
-                            yMin: avgDOW,
-                            yMax: avgDOW,
-                            borderColor: chartColors.danger,
-                            borderWidth: 2,
-                            borderDash: [6, 4]
+                tooltip: {
+                    ...professionalOptions.plugins.tooltip,
+                    callbacks: {
+                        title: function(items) {
+                            const days = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
+                            return days[items[0].dataIndex];
+                        },
+                        label: function(item) {
+                            return `平均: ${Math.round(item.raw)} 人`;
                         }
                     }
                 }
             },
             scales: {
-                ...professionalOptions.scales,
+                x: {
+                    ...professionalOptions.scales.x,
+                    ticks: {
+                        ...professionalOptions.scales.x.ticks,
+                        font: { size: 13, weight: 700 }
+                    }
+                },
                 y: {
                     ...professionalOptions.scales.y,
                     beginAtZero: false,
-                    min: Math.floor(Math.min(...reorderedDOW) * 0.95),
-                    max: Math.ceil(Math.max(...reorderedDOW) * 1.02)
+                    min: Math.floor(Math.min(...reorderedDOW) - 15),
+                    max: Math.ceil(Math.max(...reorderedDOW) + 10),
+                    ticks: {
+                        ...professionalOptions.scales.y.ticks,
+                        stepSize: 15
+                    }
                 }
             }
         }
@@ -843,34 +922,72 @@ function initCharts(predictor) {
     // 3. 月份分佈圖 - 專業條形圖
     const monthMeans = predictor.getMonthMeans();
     const monthCtx = document.getElementById('month-chart').getContext('2d');
+    
+    // 月份漸變
+    const monthGradients = monthMeans.map((_, i) => {
+        const gradient = monthCtx.createLinearGradient(0, 0, 0, 250);
+        if ([0, 1, 2, 6, 7, 9].includes(i)) {
+            gradient.addColorStop(0, '#ef4444');
+            gradient.addColorStop(1, '#fca5a5');
+        } else {
+            gradient.addColorStop(0, '#4f46e5');
+            gradient.addColorStop(1, '#818cf8');
+        }
+        return gradient;
+    });
+    
     monthChart = new Chart(monthCtx, {
         type: 'bar',
         data: {
-            labels: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+            labels: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
             datasets: [{
                 label: '平均人數',
                 data: monthMeans,
-                backgroundColor: monthMeans.map((_, i) => 
-                    [0, 1, 2, 6, 7, 9].includes(i) ? chartColors.danger : chartColors.primary
-                ),
-                borderRadius: 6,
+                backgroundColor: monthGradients,
+                borderRadius: 8,
                 borderSkipped: false,
-                barThickness: 24
+                barPercentage: 0.75,
+                categoryPercentage: 0.85
             }]
         },
         options: {
             ...professionalOptions,
             plugins: {
                 ...professionalOptions.plugins,
-                legend: { display: false }
+                legend: { display: false },
+                tooltip: {
+                    ...professionalOptions.plugins.tooltip,
+                    callbacks: {
+                        title: function(items) {
+                            return `${items[0].dataIndex + 1}月`;
+                        },
+                        label: function(item) {
+                            const isFlu = [0, 1, 2, 6, 7, 9].includes(item.dataIndex);
+                            return [
+                                `平均: ${Math.round(item.raw)} 人`,
+                                isFlu ? '🤧 流感高峰期' : ''
+                            ].filter(Boolean);
+                        }
+                    }
+                }
             },
             scales: {
-                ...professionalOptions.scales,
+                x: {
+                    ...professionalOptions.scales.x,
+                    ticks: {
+                        ...professionalOptions.scales.x.ticks,
+                        font: { size: 11, weight: 600 }
+                    }
+                },
                 y: {
                     ...professionalOptions.scales.y,
                     beginAtZero: false,
-                    min: Math.floor(Math.min(...monthMeans.filter(v => v > 0)) * 0.92),
-                    max: Math.ceil(Math.max(...monthMeans) * 1.03)
+                    min: Math.floor(Math.min(...monthMeans.filter(v => v > 0)) - 10),
+                    max: Math.ceil(Math.max(...monthMeans) + 10),
+                    ticks: {
+                        ...professionalOptions.scales.y.ticks,
+                        stepSize: 10
+                    }
                 }
             }
         }
@@ -880,76 +997,120 @@ function initCharts(predictor) {
     const historyCtx = document.getElementById('history-chart').getContext('2d');
     
     // 創建漸變
-    const historyGradient = historyCtx.createLinearGradient(0, 0, 0, 360);
-    historyGradient.addColorStop(0, 'rgba(79, 70, 229, 0.2)');
+    const historyGradient = historyCtx.createLinearGradient(0, 0, 0, 320);
+    historyGradient.addColorStop(0, 'rgba(79, 70, 229, 0.25)');
+    historyGradient.addColorStop(0.5, 'rgba(79, 70, 229, 0.08)');
     historyGradient.addColorStop(1, 'rgba(79, 70, 229, 0)');
+    
+    // 簡化日期標籤 - 只顯示月份
+    const monthLabels = predictor.data.map((d, i) => {
+        const date = new Date(d.date);
+        const day = date.getDate();
+        // 只在每月1號或15號顯示
+        if (day === 1) {
+            return `${date.getMonth()+1}月`;
+        }
+        return '';
+    });
     
     historyChart = new Chart(historyCtx, {
         type: 'line',
         data: {
-            labels: predictor.data.map(d => {
-                const date = new Date(d.date);
-                return `${date.getMonth()+1}/${date.getDate()}`;
-            }),
+            labels: monthLabels,
             datasets: [
                 {
                     label: '實際人數',
                     data: predictor.data.map(d => d.attendance),
-                    borderColor: chartColors.primary,
+                    borderColor: '#4f46e5',
                     backgroundColor: historyGradient,
                     borderWidth: 2,
                     fill: true,
-                    tension: 0.3,
+                    tension: 0.35,
                     pointRadius: 0,
-                    pointHoverRadius: 5,
-                    pointBackgroundColor: chartColors.primary,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#4f46e5',
                     pointBorderColor: '#fff',
                     pointBorderWidth: 2
                 },
                 {
-                    label: '平均值',
+                    label: '平均 (256)',
                     data: predictor.data.map(() => predictor.globalMean),
-                    borderColor: chartColors.danger,
-                    borderWidth: 2,
+                    borderColor: '#ef4444',
+                    borderWidth: 2.5,
                     borderDash: [8, 4],
                     fill: false,
                     pointRadius: 0
                 },
                 {
-                    label: '+1σ',
+                    label: '±1σ 範圍',
                     data: predictor.data.map(() => predictor.globalMean + predictor.stdDev),
-                    borderColor: 'rgba(220, 38, 38, 0.3)',
+                    borderColor: 'rgba(239, 68, 68, 0.25)',
                     borderWidth: 1.5,
                     borderDash: [4, 4],
                     fill: false,
                     pointRadius: 0
                 },
                 {
-                    label: '-1σ',
+                    label: '',
                     data: predictor.data.map(() => predictor.globalMean - predictor.stdDev),
-                    borderColor: 'rgba(220, 38, 38, 0.3)',
+                    borderColor: 'rgba(239, 68, 68, 0.25)',
                     borderWidth: 1.5,
                     borderDash: [4, 4],
-                    fill: false,
+                    fill: '-1',
+                    backgroundColor: 'rgba(239, 68, 68, 0.03)',
                     pointRadius: 0
                 }
             ]
         },
         options: {
             ...professionalOptions,
+            plugins: {
+                ...professionalOptions.plugins,
+                legend: {
+                    ...professionalOptions.plugins.legend,
+                    labels: {
+                        ...professionalOptions.plugins.legend.labels,
+                        filter: function(item) {
+                            return item.text !== '';
+                        }
+                    }
+                },
+                tooltip: {
+                    ...professionalOptions.plugins.tooltip,
+                    callbacks: {
+                        title: function(items) {
+                            const idx = items[0].dataIndex;
+                            return predictor.data[idx].date;
+                        },
+                        label: function(item) {
+                            if (item.datasetIndex === 0) {
+                                return `實際: ${item.raw} 人`;
+                            }
+                            return null;
+                        }
+                    }
+                }
+            },
             scales: {
                 x: {
                     ...professionalOptions.scales.x,
                     ticks: { 
                         ...professionalOptions.scales.x.ticks,
+                        autoSkip: true,
                         maxTicksLimit: 12,
-                        maxRotation: 0
+                        callback: function(value, index) {
+                            return monthLabels[index] || null;
+                        }
                     }
                 },
                 y: {
                     ...professionalOptions.scales.y,
                     min: 140,
-                    max: 340
+                    max: 340,
+                    ticks: {
+                        ...professionalOptions.scales.y.ticks,
+                        stepSize: 40
+                    }
                 }
             }
         }
