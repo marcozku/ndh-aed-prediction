@@ -77,7 +77,15 @@ async function initDatabase() {
         console.log('⚠️ Database pool not initialized, skipping table creation');
         return;
     }
-    const client = await pool.connect();
+    
+    let client;
+    try {
+        client = await pool.connect();
+    } catch (err) {
+        console.error('❌ 數據庫連接失敗:', err.message);
+        pool = null; // Reset pool so status shows disconnected
+        return;
+    }
     try {
         // Table for actual/real patient data (uploaded by user)
         await client.query(`
@@ -141,10 +149,10 @@ async function initDatabase() {
 
         console.log('📊 Database tables initialized successfully');
     } catch (error) {
-        console.error('Database initialization error:', error);
-        throw error;
+        console.error('❌ Database initialization error:', error.message);
+        pool = null; // Reset pool so status shows disconnected
     } finally {
-        client.release();
+        if (client) client.release();
     }
 }
 
