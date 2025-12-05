@@ -2079,7 +2079,6 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         }
         // 否則顯示空狀態
         // 確保隱藏 factors-loading 元素
-        const factorsLoadingEl = document.getElementById('factors-loading');
         if (factorsLoadingEl) {
             factorsLoadingEl.style.display = 'none';
         }
