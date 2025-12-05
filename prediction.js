@@ -2006,8 +2006,33 @@ async function updateAIFactors(force = false) {
             updateFactorsLoadingProgress(100);
             return result;
         } else if (data.success && data.summary) {
-            // 即使沒有 factors，如果有 summary，也返回
+            // 即使沒有 factors，如果有 summary，也保存到數據庫
             console.log('⚠️ AI 分析返回了總結但沒有因素:', data);
+            
+            // 保存到數據庫（即使只有 summary）
+            try {
+                const saveResponse = await fetch('/api/ai-factors-cache', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        updateTime: now,
+                        factorsCache: aiFactors,
+                        analysisData: {
+                            factors: [],
+                            summary: data.summary || '無分析數據',
+                            timestamp: data.timestamp || new Date().toISOString()
+                        }
+                    })
+                });
+                
+                if (saveResponse.ok) {
+                    console.log('💾 AI 總結已保存到數據庫');
+                }
+            } catch (e) {
+                console.warn('⚠️ 無法保存總結到數據庫:', e);
+            }
+            
+            lastAIUpdateTime = now;
             updateFactorsLoadingProgress(100);
             return {
                 factors: [],
@@ -2340,14 +2365,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateSectionProgress('realtime-factors', 15);
     updateFactorsLoadingProgress(15);
     
-    // 立即更新實時因素顯示（使用緩存數據）
-    if (aiAnalysisData && (aiAnalysisData.factors && aiAnalysisData.factors.length > 0 || aiAnalysisData.summary)) {
+    // 如果沒有緩存數據，立即生成一次 AI 數據並保存到數據庫
+    if (!aiAnalysisData || !aiAnalysisData.cached || 
+        (!aiAnalysisData.factors || aiAnalysisData.factors.length === 0) && !aiAnalysisData.summary) {
+        console.log('🔄 沒有 AI 緩存數據，立即生成一次...');
+        updateFactorsLoadingProgress(20);
+        // 強制生成一次 AI 數據（force = true）
+        aiAnalysisData = await updateAIFactors(true);
+        updateSectionProgress('realtime-factors', 30);
+        updateFactorsLoadingProgress(30);
+        
+        // 如果生成成功，更新顯示
+        if (aiAnalysisData && (aiAnalysisData.factors && aiAnalysisData.factors.length > 0 || aiAnalysisData.summary)) {
+            updateRealtimeFactors(aiAnalysisData);
+            console.log('✅ 已生成並保存 AI 因素到數據庫');
+        } else {
+            // 如果生成失敗，顯示空狀態
+            updateRealtimeFactors({ factors: [], summary: 'AI 分析生成中...' });
+        }
+    } else {
+        // 有緩存數據，立即顯示
         updateRealtimeFactors(aiAnalysisData);
         console.log('✅ 已從數據庫載入緩存的 AI 因素並顯示');
-    } else {
-        // 如果沒有緩存數據，顯示空狀態
-        updateRealtimeFactors({ factors: [], summary: '' });
-        updateFactorsLoadingProgress(15);
     }
     
     // 更新 UI（使用緩存的 AI 因素，快速顯示）
@@ -2359,27 +2398,51 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateSectionProgress('today-prediction', 100);
     
     // 在背景異步檢查並更新 AI 因素（如果需要，不阻塞 UI）
+    // 如果已經在初始化時生成了數據，這裡只檢查是否需要更新（基於時間間隔）
     setTimeout(async () => {
-        updateSectionProgress('realtime-factors', 20);
-        updateFactorsLoadingProgress(20);
-        const freshAIAnalysisData = await updateAIFactors();
-        if (freshAIAnalysisData && !freshAIAnalysisData.cached) {
-            // 如果有新的數據，更新顯示
-            updateRealtimeFactors(freshAIAnalysisData);
-            updateUI(predictor);
-            // 重新初始化圖表以反映新的 AI 因素
-            if (forecastChart) forecastChart.destroy();
-            if (dowChart) dowChart.destroy();
-            if (monthChart) monthChart.destroy();
-            if (historyChart) historyChart.destroy();
-            initCharts(predictor);
-            console.log('✅ AI 因素已更新，UI 已刷新');
+        // 檢查是否已經有數據（剛生成的或緩存的）
+        const hasData = aiAnalysisData && 
+            ((aiAnalysisData.factors && aiAnalysisData.factors.length > 0) || aiAnalysisData.summary);
+        
+        if (hasData) {
+            // 已經有數據，只檢查是否需要更新（基於時間間隔）
+            updateSectionProgress('realtime-factors', 50);
+            updateFactorsLoadingProgress(50);
+            const freshAIAnalysisData = await updateAIFactors(false); // 不強制，基於時間間隔
+            if (freshAIAnalysisData && !freshAIAnalysisData.cached) {
+                // 如果有新的數據（超過時間間隔），更新顯示
+                updateRealtimeFactors(freshAIAnalysisData);
+                updateUI(predictor);
+                // 重新初始化圖表以反映新的 AI 因素
+                if (forecastChart) forecastChart.destroy();
+                if (dowChart) dowChart.destroy();
+                if (monthChart) monthChart.destroy();
+                if (historyChart) historyChart.destroy();
+                initCharts(predictor);
+                console.log('✅ AI 因素已更新，UI 已刷新');
+            } else {
+                console.log('ℹ️ AI 因素無需更新，使用緩存數據');
+            }
         } else {
-            console.log('ℹ️ AI 因素無需更新，使用緩存數據');
-            updateFactorsLoadingProgress(100);
+            // 如果初始化時生成失敗，這裡再試一次
+            console.log('🔄 初始化時生成失敗，再次嘗試生成 AI 數據...');
+            updateSectionProgress('realtime-factors', 50);
+            updateFactorsLoadingProgress(50);
+            const freshAIAnalysisData = await updateAIFactors(true); // 強制生成
+            if (freshAIAnalysisData && (freshAIAnalysisData.factors && freshAIAnalysisData.factors.length > 0 || freshAIAnalysisData.summary)) {
+                updateRealtimeFactors(freshAIAnalysisData);
+                updateUI(predictor);
+                if (forecastChart) forecastChart.destroy();
+                if (dowChart) dowChart.destroy();
+                if (monthChart) monthChart.destroy();
+                if (historyChart) historyChart.destroy();
+                initCharts(predictor);
+                console.log('✅ AI 因素已生成並保存到數據庫');
+            }
         }
         updateSectionProgress('realtime-factors', 100);
-    }, 100); // 100ms 後在背景執行，不阻塞初始載入
+        updateFactorsLoadingProgress(100);
+    }, 1000); // 1秒後在背景執行，確保初始化完成
     
     // 每秒更新時間 (使用真實 HKT)
     setInterval(() => {
