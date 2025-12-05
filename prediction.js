@@ -2105,9 +2105,16 @@ function updateRealtimeFactors(aiAnalysisData = null) {
     console.log('📊 AI 分析數據:', aiAnalysisData);
     
     // 如果沒有 AI 分析數據，顯示載入狀態或空狀態
-    if (!aiAnalysisData || 
-        (aiAnalysisData.factors && Array.isArray(aiAnalysisData.factors) && aiAnalysisData.factors.length === 0) ||
-        (!aiAnalysisData.factors && !aiAnalysisData.summary)) {
+    // 檢查是否有有效的數據（factors 或有意義的 summary）
+    const hasValidData = aiAnalysisData && 
+        ((aiAnalysisData.factors && Array.isArray(aiAnalysisData.factors) && aiAnalysisData.factors.length > 0) ||
+         (aiAnalysisData.summary && 
+          aiAnalysisData.summary !== '無分析數據' && 
+          aiAnalysisData.summary !== '無法獲取 AI 分析' && 
+          aiAnalysisData.summary !== '' &&
+          aiAnalysisData.summary.trim().length > 0));
+    
+    if (!hasValidData) {
         updateSectionProgress('realtime-factors', 100);
         updateFactorsLoadingProgress(100);
         if (loadingEl) loadingEl.style.display = 'none';
@@ -2150,7 +2157,14 @@ function updateRealtimeFactors(aiAnalysisData = null) {
     const summary = aiAnalysisData.summary || '';
     
     // 如果沒有因素但有總結，至少顯示總結
-    if (factors.length === 0 && summary && summary !== '無法獲取 AI 分析' && summary !== '無分析數據') {
+    // 檢查 summary 是否有意義（不是錯誤或空消息）
+    const hasValidSummary = summary && 
+        summary !== '無法獲取 AI 分析' && 
+        summary !== '無分析數據' && 
+        summary !== '' &&
+        summary.trim().length > 0;
+    
+    if (factors.length === 0 && hasValidSummary) {
         updateSectionProgress('realtime-factors', 100);
         updateFactorsLoadingProgress(100);
         if (loadingEl) loadingEl.style.display = 'none';
@@ -2398,18 +2412,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateFactorsLoadingProgress(30);
         
         // 如果生成成功，更新顯示
-        if (aiAnalysisData && ((aiAnalysisData.factors && Array.isArray(aiAnalysisData.factors) && aiAnalysisData.factors.length > 0) || 
-            (aiAnalysisData.summary && aiAnalysisData.summary !== '無分析數據' && aiAnalysisData.summary !== '無法獲取 AI 分析'))) {
+        // 檢查是否有有效的數據（factors 或有意義的 summary）
+        const hasValidGeneratedData = aiAnalysisData && 
+            ((aiAnalysisData.factors && Array.isArray(aiAnalysisData.factors) && aiAnalysisData.factors.length > 0) || 
+             (aiAnalysisData.summary && 
+              aiAnalysisData.summary !== '無分析數據' && 
+              aiAnalysisData.summary !== '無法獲取 AI 分析' && 
+              aiAnalysisData.summary !== '' &&
+              aiAnalysisData.summary.trim().length > 0));
+        
+        if (hasValidGeneratedData) {
             updateRealtimeFactors(aiAnalysisData);
             console.log('✅ 已生成並保存 AI 因素到數據庫');
         } else {
             // 如果生成失敗，顯示錯誤狀態
+            console.warn('⚠️ AI 數據生成失敗，返回的數據:', aiAnalysisData);
             updateRealtimeFactors({ 
                 factors: [], 
                 summary: 'AI 分析生成失敗，請稍後重試',
                 error: '生成失敗'
             });
-            console.warn('⚠️ AI 數據生成失敗');
         }
     } else {
         // 有有效的緩存數據，立即顯示
