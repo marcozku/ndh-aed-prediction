@@ -1866,10 +1866,20 @@ async function loadAIFactorsFromCache() {
                 lastAIUpdateTime = parseInt(storedUpdateTime) || 0;
                 
                 // 如果有分析數據，返回完整格式
-                if (storedAnalysisData.factors && Array.isArray(storedAnalysisData.factors)) {
+                if (storedAnalysisData.factors && Array.isArray(storedAnalysisData.factors) && storedAnalysisData.factors.length > 0) {
                     return {
                         factors: storedAnalysisData.factors,
                         summary: storedAnalysisData.summary || '使用緩存數據',
+                        timestamp: storedAnalysisData.timestamp || cacheData.data.updated_at,
+                        cached: true
+                    };
+                }
+                
+                // 如果有 summary 但沒有 factors，也返回（至少有意義的 summary）
+                if (storedAnalysisData.summary && storedAnalysisData.summary !== '無分析數據' && storedAnalysisData.summary !== '無法獲取 AI 分析') {
+                    return {
+                        factors: storedAnalysisData.factors || [],
+                        summary: storedAnalysisData.summary,
                         timestamp: storedAnalysisData.timestamp || cacheData.data.updated_at,
                         cached: true
                     };
@@ -1892,6 +1902,12 @@ async function loadAIFactorsFromCache() {
                         timestamp: cacheData.data.updated_at,
                         cached: true
                     };
+                }
+                
+                // 如果緩存存在但為空，標記為需要生成
+                if (storedUpdateTime > 0) {
+                    console.log('⚠️ 緩存數據存在但為空，需要重新生成');
+                    return { factors: [], summary: '', cached: false, needsGeneration: true };
                 }
             }
         }
