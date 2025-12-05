@@ -844,11 +844,33 @@ body::before {
    ============================================ */
 .forecast-section {
     margin-bottom: var(--space-3xl);
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+}
+
+.forecast-section::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 40px;
+    background: linear-gradient(to left, var(--bg-primary), transparent);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--transition-base);
+}
+
+@media (max-width: 900px) {
+    .forecast-section::after {
+        opacity: 1;
+    }
 }
 
 .forecast-section h2 {
     color: var(--text-primary);
-    font-size: 1.25rem;
+    font-size: clamp(1.1rem, 2.5vw, 1.25rem);
     font-weight: 600;
     margin-bottom: var(--space-lg);
     letter-spacing: -0.01em;
@@ -858,6 +880,7 @@ body::before {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: var(--space-md);
+    width: 100%;
 }
 
 .forecast-day-card {
@@ -870,6 +893,13 @@ body::before {
     transition: var(--transition-base);
     position: relative;
     overflow: hidden;
+    min-width: 0;
+    word-wrap: break-word;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
 }
 
 .forecast-day-card::after {
@@ -910,42 +940,79 @@ body::before {
 
 .forecast-date {
     color: var(--text-tertiary);
-    font-size: 0.75rem;
+    font-size: clamp(0.65rem, 1.5vw, 0.75rem);
     font-weight: 500;
     margin-bottom: var(--space-xs);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .forecast-day {
     color: var(--text-primary);
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: clamp(0.8rem, 2vw, 0.9rem);
     margin-bottom: var(--space-md);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .forecast-value {
-    font-size: 1.75rem;
+    font-size: clamp(1.25rem, 4vw, 1.75rem);
     font-weight: 800;
     background: var(--gradient-success);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
     margin-bottom: var(--space-xs);
+    line-height: 1.2;
 }
 
 .forecast-ci {
     color: var(--text-tertiary);
-    font-size: 0.65rem;
+    font-size: clamp(0.55rem, 1.2vw, 0.65rem);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .forecast-badge {
     margin-top: var(--space-sm);
     padding: 2px var(--space-sm);
     border-radius: var(--radius-full);
-    font-size: 0.6rem;
+    font-size: clamp(0.5rem, 1.2vw, 0.6rem);
     font-weight: 600;
     display: inline-block;
     letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: calc(100% - var(--space-xs));
+    box-sizing: border-box;
+}
+
+.forecast-day-card .forecast-badge {
+    display: block;
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: var(--space-xs);
+}
+
+.forecast-day-card .forecast-badge:last-child {
+    margin-bottom: 0;
+}
+
+/* Badge 容器，用於多個 badge */
+.forecast-badges-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    align-items: center;
+    margin-top: var(--space-sm);
+    width: 100%;
 }
 
 .forecast-badge.weekend-badge {
@@ -1151,12 +1218,29 @@ body::before {
 /* ============================================
    Responsive Design - Mobile First
    ============================================ */
+@media (min-width: 1400px) {
+    .forecast-cards {
+        gap: var(--space-lg);
+    }
+    
+    .forecast-day-card {
+        padding: var(--space-xl) var(--space-lg);
+    }
+}
+
 @media (max-width: 1200px) {
     .prediction-container {
         padding: var(--space-lg);
     }
     
     .forecast-cards {
+        gap: var(--space-sm);
+    }
+}
+
+@media (max-width: 1024px) {
+    .forecast-cards {
+        grid-template-columns: repeat(4, 1fr);
         gap: var(--space-sm);
     }
 }
@@ -1179,17 +1263,52 @@ body::before {
         overflow-x: auto;
         gap: var(--space-sm);
         padding-bottom: var(--space-md);
+        padding-right: var(--space-sm);
         -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-medium) transparent;
+        scroll-behavior: smooth;
     }
     
     .forecast-cards::-webkit-scrollbar {
-        display: none;
+        height: 6px;
+        display: block;
+    }
+    
+    .forecast-cards::-webkit-scrollbar-track {
+        background: var(--bg-primary);
+        border-radius: var(--radius-full);
+    }
+    
+    .forecast-cards::-webkit-scrollbar-thumb {
+        background: var(--border-medium);
+        border-radius: var(--radius-full);
+    }
+    
+    .forecast-cards::-webkit-scrollbar-thumb:hover {
+        background: var(--text-tertiary);
     }
     
     .forecast-day-card {
         flex: 0 0 auto;
-        width: 100px;
+        min-width: 110px;
+        max-width: 110px;
+        padding: var(--space-md) var(--space-sm);
+    }
+    
+    /* 改善觸摸滾動體驗 */
+    .forecast-cards {
+        scroll-padding-left: var(--space-md);
+        scroll-padding-right: var(--space-md);
+    }
+    
+    /* 添加滾動提示 */
+    .forecast-section h2::after {
+        content: ' ← 滑動查看更多';
+        font-size: 0.7rem;
+        font-weight: 400;
+        color: var(--text-tertiary);
+        margin-left: var(--space-sm);
     }
 }
 
@@ -1238,13 +1357,41 @@ body::before {
         gap: var(--space-sm);
     }
     
+    .forecast-section {
+        margin-bottom: var(--space-2xl);
+    }
+    
+    .forecast-cards {
+        gap: var(--space-xs);
+        padding-bottom: var(--space-sm);
+        padding-right: var(--space-xs);
+    }
+    
     .forecast-day-card {
-        width: 85px;
-        padding: var(--space-md) var(--space-sm);
+        min-width: 95px;
+        max-width: 95px;
+        padding: var(--space-sm) var(--space-xs);
     }
     
     .forecast-value {
-        font-size: 1.5rem;
+        font-size: 1.4rem;
+    }
+    
+    .forecast-date {
+        font-size: 0.6rem;
+    }
+    
+    .forecast-day {
+        font-size: 0.75rem;
+    }
+    
+    .forecast-ci {
+        font-size: 0.5rem;
+    }
+    
+    .forecast-badge {
+        font-size: 0.5rem;
+        padding: 1px var(--space-xs);
     }
     
     .stat-value {
@@ -1374,17 +1521,61 @@ body::before {
     }
 }
 
+@media (max-width: 480px) {
+    .forecast-day-card {
+        min-width: 85px;
+        max-width: 85px;
+        padding: var(--space-xs);
+    }
+    
+    .forecast-value {
+        font-size: 1.2rem;
+    }
+    
+    .forecast-date {
+        font-size: 0.55rem;
+    }
+    
+    .forecast-day {
+        font-size: 0.7rem;
+        margin-bottom: var(--space-sm);
+    }
+    
+    .forecast-ci {
+        font-size: 0.45rem;
+    }
+}
+
 @media (max-width: 380px) {
     .big-number {
         font-size: 2.75rem;
     }
     
     .forecast-day-card {
-        width: 75px;
+        min-width: 75px;
+        max-width: 75px;
+        padding: var(--space-xs);
     }
     
     .forecast-value {
-        font-size: 1.25rem;
+        font-size: 1.1rem;
+    }
+    
+    .forecast-date {
+        font-size: 0.5rem;
+    }
+    
+    .forecast-day {
+        font-size: 0.65rem;
+    }
+    
+    .forecast-ci {
+        font-size: 0.4rem;
+    }
+    
+    .forecast-badge {
+        font-size: 0.45rem;
+        padding: 1px 3px;
     }
 }
 
