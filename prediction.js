@@ -2381,26 +2381,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateSectionProgress('realtime-factors', 15);
     updateFactorsLoadingProgress(15);
     
-    // 如果沒有緩存數據，立即生成一次 AI 數據並保存到數據庫
-    if (!aiAnalysisData || !aiAnalysisData.cached || 
-        (!aiAnalysisData.factors || aiAnalysisData.factors.length === 0) && !aiAnalysisData.summary) {
-        console.log('🔄 沒有 AI 緩存數據，立即生成一次...');
+    // 檢查是否需要生成 AI 數據
+    const hasValidData = aiAnalysisData && 
+        aiAnalysisData.cached && 
+        ((aiAnalysisData.factors && Array.isArray(aiAnalysisData.factors) && aiAnalysisData.factors.length > 0) || 
+         (aiAnalysisData.summary && aiAnalysisData.summary !== '無分析數據' && aiAnalysisData.summary !== '無法獲取 AI 分析' && aiAnalysisData.summary !== ''));
+    
+    // 如果沒有有效的緩存數據，立即生成一次 AI 數據並保存到數據庫
+    if (!hasValidData || aiAnalysisData?.needsGeneration) {
+        console.log('🔄 沒有有效的 AI 緩存數據，立即生成一次...');
         updateFactorsLoadingProgress(20);
+        updateRealtimeFactors({ factors: [], summary: '正在生成 AI 分析數據...' });
         // 強制生成一次 AI 數據（force = true）
         aiAnalysisData = await updateAIFactors(true);
         updateSectionProgress('realtime-factors', 30);
         updateFactorsLoadingProgress(30);
         
         // 如果生成成功，更新顯示
-        if (aiAnalysisData && (aiAnalysisData.factors && aiAnalysisData.factors.length > 0 || aiAnalysisData.summary)) {
+        if (aiAnalysisData && ((aiAnalysisData.factors && Array.isArray(aiAnalysisData.factors) && aiAnalysisData.factors.length > 0) || 
+            (aiAnalysisData.summary && aiAnalysisData.summary !== '無分析數據' && aiAnalysisData.summary !== '無法獲取 AI 分析'))) {
             updateRealtimeFactors(aiAnalysisData);
             console.log('✅ 已生成並保存 AI 因素到數據庫');
         } else {
-            // 如果生成失敗，顯示空狀態
-            updateRealtimeFactors({ factors: [], summary: 'AI 分析生成中...' });
+            // 如果生成失敗，顯示錯誤狀態
+            updateRealtimeFactors({ 
+                factors: [], 
+                summary: 'AI 分析生成失敗，請稍後重試',
+                error: '生成失敗'
+            });
+            console.warn('⚠️ AI 數據生成失敗');
         }
     } else {
-        // 有緩存數據，立即顯示
+        // 有有效的緩存數據，立即顯示
         updateRealtimeFactors(aiAnalysisData);
         console.log('✅ 已從數據庫載入緩存的 AI 因素並顯示');
     }
