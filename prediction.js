@@ -570,7 +570,19 @@ class NDHAttendancePredictor {
                 console.error(`❌ 無效日期: ${startDate} + ${i} 天`);
                 continue;
             }
-            const dateStr = date.toISOString().split('T')[0];
+            
+            // 安全地生成日期字符串
+            let dateStr;
+            try {
+                dateStr = date.toISOString().split('T')[0];
+            } catch (error) {
+                console.error(`❌ 日期轉換失敗: ${startDate} + ${i} 天`, error);
+                // 使用備用方法生成日期字符串
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                dateStr = `${year}-${month}-${day}`;
+            }
             
             // 獲取該日期的天氣數據
             let dayWeather = null;
@@ -579,10 +591,24 @@ class NDHAttendancePredictor {
                     try {
                         const dateValue = w.forecastDate || w.date;
                         if (!dateValue) return false;
+                        
+                        // 如果已經是字符串格式 YYYY-MM-DD，直接比較
+                        if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateValue)) {
+                            return dateValue.split('T')[0] === dateStr;
+                        }
+                        
                         const wDate = new Date(dateValue);
                         // 檢查日期是否有效
                         if (isNaN(wDate.getTime())) return false;
-                        return wDate.toISOString().split('T')[0] === dateStr;
+                        
+                        // 安全地調用 toISOString
+                        try {
+                            const wDateStr = wDate.toISOString().split('T')[0];
+                            return wDateStr === dateStr;
+                        } catch (isoError) {
+                            console.warn('⚠️ 日期轉換失敗:', dateValue, isoError);
+                            return false;
+                        }
                     } catch (error) {
                         console.warn('⚠️ 天氣預報日期解析失敗:', w, error);
                         return false;
