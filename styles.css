@@ -277,6 +277,68 @@ body::before {
 }
 
 /* ============================================
+   AI Status - Similar to DB Status
+   ============================================ */
+.ai-status {
+    margin-top: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-full);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: var(--transition-base);
+}
+
+.ai-status.connected {
+    background: rgba(79, 70, 229, 0.1);
+    border: 1px solid rgba(79, 70, 229, 0.2);
+    color: #4f46e5;
+}
+
+.ai-status.disconnected {
+    background: rgba(220, 38, 38, 0.1);
+    border: 1px solid rgba(220, 38, 38, 0.2);
+    color: #dc2626;
+}
+
+.ai-status.loading {
+    background: rgba(217, 119, 6, 0.1);
+    border: 1px solid rgba(217, 119, 6, 0.2);
+    color: #d97706;
+}
+
+.ai-status-icon {
+    font-size: 1rem;
+}
+
+.ai-status-text {
+    font-weight: 600;
+}
+
+.ai-status-details {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+/* ============================================
+   區塊載入進度（用於所有區塊）
+   ============================================ */
+.section-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    padding: var(--space-2xl);
+    background: var(--bg-card);
+    border-radius: 16px;
+    border: 1px solid var(--border-subtle);
+    margin-bottom: var(--space-lg);
+}
+
+/* ============================================
    Today's Prediction Section
    ============================================ */
 .today-prediction {

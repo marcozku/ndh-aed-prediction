@@ -326,6 +326,39 @@ const apiHandlers = {
                 error: err.message 
             }, 500);
         }
+    },
+
+    // 獲取 AI 狀態（連接狀態和當前模型）
+    'GET /api/ai-status': async (req, res) => {
+        if (!aiService) {
+            return sendJson(res, { 
+                success: false, 
+                connected: false,
+                error: 'AI 服務未配置' 
+            }, 503);
+        }
+        
+        try {
+            const stats = aiService.getUsageStats();
+            const currentModel = aiService.getCurrentModel ? aiService.getCurrentModel() : (aiService.getAvailableModel ? aiService.getAvailableModel('basic') : '未知');
+            const modelTier = aiService.getModelTier ? aiService.getModelTier(currentModel) : 'unknown';
+            
+            sendJson(res, { 
+                success: true,
+                connected: true,
+                currentModel: currentModel || '無可用模型',
+                modelTier: modelTier,
+                apiHost: stats.apiHost,
+                usage: stats,
+                timestamp: new Date().toISOString()
+            });
+        } catch (err) {
+            sendJson(res, { 
+                success: false,
+                connected: false,
+                error: err.message 
+            }, 500);
+        }
     }
 };
 

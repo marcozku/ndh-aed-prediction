@@ -387,11 +387,32 @@ function getUsageStats() {
     };
 }
 
+/**
+ * 獲取當前使用的模型（不記錄使用）
+ */
+function getCurrentModel() {
+    return getAvailableModel('basic');
+}
+
+/**
+ * 獲取模型層級（導出供外部使用）
+ */
+function getModelTier(model) {
+    for (const [tier, config] of Object.entries(MODEL_CONFIG)) {
+        if (config.models.includes(model)) {
+            return tier;
+        }
+    }
+    return 'basic';
+}
+
 module.exports = {
     callAI,
     searchRelevantNewsAndEvents,
     analyzeDateRangeFactors,
     getUsageStats,
     getAvailableModel,
+    getCurrentModel,
+    getModelTier,
     MODEL_CONFIG
 };

@@ -1352,6 +1352,29 @@ function getHKTime() {
 }
 
 // ============================================
+// 更新區塊載入進度
+function updateSectionProgress(sectionId, percent) {
+    const loadingEl = document.getElementById(`${sectionId}-loading`);
+    const percentEl = document.getElementById(`${sectionId}-percent`);
+    const progressFill = document.getElementById(`${sectionId}-progress`);
+    // 嘗試多種可能的內容元素 ID
+    const contentEl = document.getElementById(`${sectionId}-card`) || 
+                      document.getElementById(sectionId) ||
+                      document.getElementById(sectionId.replace('-loading', '')) ||
+                      document.getElementById(sectionId.replace('-card', ''));
+    
+    if (percentEl) {
+        percentEl.textContent = `${Math.round(percent)}%`;
+    }
+    if (progressFill) {
+        progressFill.style.width = `${percent}%`;
+    }
+    if (percent >= 100 && contentEl) {
+        if (loadingEl) loadingEl.style.display = 'none';
+        contentEl.style.display = 'block';
+    }
+}
+
 // UI 更新
 // ============================================
 function updateUI(predictor) {
@@ -1359,13 +1382,18 @@ function updateUI(predictor) {
     const hk = getHKTime();
     const today = hk.dateStr;
     
+    // 更新載入進度
+    updateSectionProgress('today-prediction', 10);
+    
     // 更新當前時間
     const datetimeEl = document.getElementById('current-datetime');
     const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
     datetimeEl.textContent = `🕐 ${hk.year}年${hk.month}月${hk.day}日 ${weekdays[hk.dayOfWeek]} ${hk.timeStr} HKT`;
+    updateSectionProgress('today-prediction', 30);
     
     // 今日預測（包含天氣和 AI 因素）
     const todayPred = predictor.predict(today, currentWeatherData, aiFactors[today]);
+    updateSectionProgress('today-prediction', 60);
     
     const todayDateFormatted = formatDateDDMM(todayPred.date, true); // 今日預測顯示完整日期
     document.getElementById('today-date').textContent = `${todayDateFormatted} ${todayPred.dayName}`;
@@ -1407,17 +1435,24 @@ function updateUI(predictor) {
         ` : ''}
     `;
     
+    updateSectionProgress('today-prediction', 80);
+    
     // 統計摘要
+    updateSectionProgress('stats', 10);
     const stats = predictor.getStatistics();
     document.getElementById('stat-mean').textContent = Math.round(stats.globalMean);
     document.getElementById('stat-max').textContent = stats.max.value;
     document.getElementById('stat-min').textContent = stats.min.value;
     document.getElementById('stat-std').textContent = stats.stdDev.toFixed(1);
+    updateSectionProgress('stats', 100);
     
     // 未來7天預測（包含天氣和 AI 因素）
+    updateSectionProgress('forecast-cards', 10);
     const forecasts = predictor.predictRange(today, 7, weatherForecastData, aiFactors);
+    updateSectionProgress('forecast-cards', 50);
     const forecastCardsEl = document.getElementById('forecast-cards');
-    forecastCardsEl.innerHTML = forecasts.map((p, i) => {
+    if (forecastCardsEl) {
+        forecastCardsEl.innerHTML = forecasts.map((p, i) => {
         let cardClass = 'forecast-day-card';
         if (i === 0) cardClass += ' today';
         else if (p.isWeekend) cardClass += ' weekend';
@@ -1437,7 +1472,10 @@ function updateUI(predictor) {
                 ${badges}
             </div>
         `;
-    }).join('');
+        }).join('');
+    }
+    updateSectionProgress('forecast-cards', 100);
+    updateSectionProgress('today-prediction', 100);
 }
 
 // ============================================
@@ -1644,6 +1682,65 @@ function getWeatherIcon(iconCode) {
 // ============================================
 let dbStatus = null;
 
+// ============================================
+// AI 狀態檢查
+// ============================================
+let aiStatus = null;
+
+async function checkAIStatus() {
+    const aiStatusEl = document.getElementById('ai-status');
+    if (!aiStatusEl) return;
+    
+    try {
+        const response = await fetch('/api/ai-status');
+        if (!response.ok) throw new Error('AI 狀態 API 錯誤');
+        const data = await response.json();
+        aiStatus = data;
+        
+        if (data.connected) {
+            const modelName = data.currentModel || '未知';
+            const tier = data.modelTier || 'unknown';
+            const tierNames = {
+                'premium': '高級',
+                'standard': '中級',
+                'basic': '基礎',
+                'unknown': '未知'
+            };
+            const tierName = tierNames[tier] || '未知';
+            const usage = data.usage || {};
+            const basicRemaining = usage.basic?.remaining || 0;
+            
+            aiStatusEl.className = 'ai-status connected';
+            aiStatusEl.innerHTML = `
+                <span class="ai-status-icon">🤖</span>
+                <span class="ai-status-text">AI 已連接</span>
+                <span class="ai-status-details">
+                    ${tierName}模型: ${modelName} | 剩餘: ${basicRemaining} 次
+                </span>
+            `;
+        } else {
+            aiStatusEl.className = 'ai-status disconnected';
+            aiStatusEl.innerHTML = `
+                <span class="ai-status-icon">⚠️</span>
+                <span class="ai-status-text">AI 未連接</span>
+                <span class="ai-status-details">${data.error || '請檢查服務器配置'}</span>
+            `;
+        }
+        
+        console.log('🤖 AI 狀態:', data);
+        return data;
+    } catch (error) {
+        aiStatusEl.className = 'ai-status disconnected';
+        aiStatusEl.innerHTML = `
+            <span class="ai-status-icon">❌</span>
+            <span class="ai-status-text">無法檢查 AI 狀態</span>
+            <span class="ai-status-details">${error.message}</span>
+        `;
+        console.error('❌ AI 狀態檢查失敗:', error);
+        return null;
+    }
+}
+
 async function checkDatabaseStatus() {
     const dbStatusEl = document.getElementById('db-status');
     if (!dbStatusEl) return;
@@ -1726,9 +1823,17 @@ function updateWeatherDisplay() {
 }
 
 // ============================================
-// AI 因素更新
+// AI 因素更新（基於時間，避免過度消耗）
 // ============================================
-async function updateAIFactors() {
+async function updateAIFactors(force = false) {
+    // 檢查是否需要更新（基於時間，而不是每次刷新）
+    const now = Date.now();
+    if (!force && lastAIUpdateTime && (now - lastAIUpdateTime) < AI_UPDATE_INTERVAL) {
+        const timeSinceUpdate = Math.floor((now - lastAIUpdateTime) / 1000 / 60);
+        console.log(`⏭️ 跳過 AI 更新（距離上次更新僅 ${timeSinceUpdate} 分鐘，需等待 ${AI_UPDATE_INTERVAL / 1000 / 60} 分鐘）`);
+        return { factors: [], summary: '使用緩存數據', cached: true };
+    }
+    
     try {
         console.log('🤖 開始 AI 因素分析...');
         const response = await fetch('/api/ai-analyze');
@@ -1759,16 +1864,18 @@ async function updateAIFactors() {
             });
             
             lastAIAnalysisTime = new Date();
+            lastAIUpdateTime = now; // 記錄更新時間
             console.log('✅ AI 因素已更新:', Object.keys(aiFactors).length, '個日期');
             
             // 返回完整的分析數據供顯示使用
             return {
                 factors: data.factors,
                 summary: data.summary || '',
-                timestamp: data.timestamp || new Date().toISOString()
+                timestamp: data.timestamp || new Date().toISOString(),
+                cached: false
             };
         }
-        return { factors: [], summary: '無分析數據' };
+        return { factors: [], summary: '無分析數據', cached: false };
     } catch (error) {
         console.error('❌ AI 因素更新失敗:', error);
         return { 
@@ -1782,18 +1889,26 @@ async function updateAIFactors() {
 // 更新實時因素顯示
 function updateRealtimeFactors(aiAnalysisData = null) {
     const factorsEl = document.getElementById('realtime-factors');
+    const loadingEl = document.getElementById('realtime-factors-loading');
     if (!factorsEl) return;
+    
+    updateSectionProgress('realtime-factors', 20);
     
     // 如果沒有 AI 分析數據，顯示載入狀態
     if (!aiAnalysisData || !aiAnalysisData.factors || aiAnalysisData.factors.length === 0) {
+        updateSectionProgress('realtime-factors', 100);
+        if (loadingEl) loadingEl.style.display = 'none';
+        factorsEl.style.display = 'block';
         factorsEl.innerHTML = `
             <div class="factors-empty">
                 <span>📊 暫無實時影響因素</span>
-                <p>系統會自動分析可能影響預測的新聞和事件</p>
+                <p>系統會自動分析可能影響預測的新聞和事件${aiAnalysisData?.cached ? '（使用緩存數據）' : ''}</p>
             </div>
         `;
         return;
     }
+    
+    updateSectionProgress('realtime-factors', 40);
     
     const factors = aiAnalysisData.factors;
     const summary = aiAnalysisData.summary || '';
@@ -1902,6 +2017,10 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         </div>
         ${summaryHtml}
     `;
+    
+    updateSectionProgress('realtime-factors', 100);
+    if (loadingEl) loadingEl.style.display = 'none';
+    factorsEl.style.display = 'block';
 }
 
 // 更新預測（當天氣或 AI 因素更新時）
@@ -1939,15 +2058,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     const predictor = new NDHAttendancePredictor();
     
     // 檢查數據庫狀態
+    updateSectionProgress('today-prediction', 5);
     await checkDatabaseStatus();
     
+    // 檢查 AI 狀態
+    updateSectionProgress('today-prediction', 8);
+    await checkAIStatus();
+    
     // 獲取並顯示天氣
+    updateSectionProgress('today-prediction', 10);
     await fetchCurrentWeather();
     await fetchWeatherForecast();
     updateWeatherDisplay();
+    updateSectionProgress('today-prediction', 15);
     
-    // 獲取 AI 因素
+    // 獲取 AI 因素（基於時間，不會每次刷新都調用）
+    updateSectionProgress('realtime-factors', 5);
     const aiAnalysisData = await updateAIFactors();
+    updateSectionProgress('realtime-factors', 15);
     
     // 更新實時因素顯示
     updateRealtimeFactors(aiAnalysisData);
@@ -1981,10 +2109,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }, 60000); // 60 秒
     
-    // 每30分鐘更新 AI 因素
+    // 每30分鐘更新 AI 因素（基於時間，避免過度消耗）
     setInterval(async () => {
-        await updateAIFactors();
+        const aiAnalysisData = await updateAIFactors(true); // 強制更新
         await refreshPredictions(predictor);
+        updateRealtimeFactors(aiAnalysisData);
+        await checkAIStatus(); // 更新 AI 狀態
         console.log('🤖 AI 因素已更新');
     }, 1800000); // 30 分鐘
     
@@ -1993,6 +2123,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         await checkDatabaseStatus();
         console.log('🗄️ 數據庫狀態已更新');
     }, 300000); // 5 分鐘
+    
+    // 每10分鐘檢查 AI 狀態
+    setInterval(async () => {
+        await checkAIStatus();
+        console.log('🤖 AI 狀態已更新');
+    }, 600000); // 10 分鐘
     
     console.log('✅ NDH AED 預測系統就緒');
 });
