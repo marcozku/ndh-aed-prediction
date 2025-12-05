@@ -2003,10 +2003,10 @@ async function updateAIFactors(force = false) {
                 timestamp: data.timestamp || new Date().toISOString(),
                 cached: false
             };
-<<<<<<< HEAD
         } else if (data.success && data.summary) {
             // 即使沒有 factors，如果有 summary，也返回
             console.log('⚠️ AI 分析返回了總結但沒有因素:', data);
+            updateFactorsLoadingProgress(100);
             return {
                 factors: [],
                 summary: data.summary || '無分析數據',
