@@ -1,6 +1,6 @@
 {
   "name": "ndh-aed-prediction",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "NDH AED 病人數量預測系統 - North District Hospital A&E Attendance Prediction",
   "main": "server.js",
   "scripts": {
@@ -26,4 +26,5 @@
     "pg": "^8.16.3"
   }
 }
+
 

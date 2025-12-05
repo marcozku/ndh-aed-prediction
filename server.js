@@ -4,7 +4,15 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '1.0.0';
+const MODEL_VERSION = '1.1.0';
+
+// AI 服務（僅在服務器端使用）
+let aiService = null;
+try {
+    aiService = require('./ai-service');
+} catch (err) {
+    console.warn('⚠️ AI 服務模組載入失敗（客戶端環境）:', err.message);
+}
 
 // Database connection (only if DATABASE_URL is set)
 let db = null;
@@ -229,6 +237,94 @@ const apiHandlers = {
             });
         } catch (err) {
             sendJson(res, { error: err.message }, 500);
+        }
+    },
+
+    // AI 分析 - 搜索可能影響病人數量的因素
+    'GET /api/ai-analyze': async (req, res) => {
+        if (!aiService) {
+            return sendJson(res, { 
+                success: false, 
+                error: 'AI 服務未配置（僅在服務器環境可用）' 
+            }, 503);
+        }
+        
+        try {
+            const analysis = await aiService.searchRelevantNewsAndEvents();
+            sendJson(res, { 
+                success: true, 
+                ...analysis,
+                timestamp: new Date().toISOString()
+            });
+        } catch (err) {
+            console.error('AI 分析錯誤:', err);
+            sendJson(res, { 
+                success: false, 
+                error: err.message 
+            }, 500);
+        }
+    },
+
+    // AI 分析特定日期範圍
+    'POST /api/ai-analyze-range': async (req, res) => {
+        if (!aiService) {
+            return sendJson(res, { 
+                success: false, 
+                error: 'AI 服務未配置' 
+            }, 503);
+        }
+        
+        try {
+            const data = await parseBody(req);
+            const { startDate, endDate, weatherData } = data;
+            
+            if (!startDate || !endDate) {
+                return sendJson(res, { 
+                    success: false, 
+                    error: '需要提供 startDate 和 endDate' 
+                }, 400);
+            }
+            
+            const analysis = await aiService.analyzeDateRangeFactors(
+                startDate, 
+                endDate, 
+                weatherData
+            );
+            
+            sendJson(res, { 
+                success: true, 
+                ...analysis,
+                timestamp: new Date().toISOString()
+            });
+        } catch (err) {
+            console.error('AI 分析錯誤:', err);
+            sendJson(res, { 
+                success: false, 
+                error: err.message 
+            }, 500);
+        }
+    },
+
+    // 獲取 AI 使用統計
+    'GET /api/ai-usage': async (req, res) => {
+        if (!aiService) {
+            return sendJson(res, { 
+                success: false, 
+                error: 'AI 服務未配置' 
+            }, 503);
+        }
+        
+        try {
+            const stats = aiService.getUsageStats();
+            sendJson(res, { 
+                success: true, 
+                data: stats 
+            });
+        } catch (err) {
+            sendJson(res, { 
+                success: false, 
+                error: err.message 
+            }, 500);
         }
     }
 };

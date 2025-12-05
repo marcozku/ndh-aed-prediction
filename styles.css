@@ -532,6 +532,252 @@ body::before {
 }
 
 /* ============================================
+   實時影響因素區塊
+   ============================================ */
+.realtime-factors-section {
+    margin: var(--space-2xl) 0;
+}
+
+.realtime-factors-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--space-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.realtime-factors-section h2::before {
+    content: '📊';
+    font-size: 1.5rem;
+}
+
+.factors-container {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: var(--space-lg);
+    box-shadow: var(--glow-primary);
+    border: 1px solid var(--border-subtle);
+}
+
+.factors-loading,
+.factors-empty {
+    text-align: center;
+    padding: var(--space-2xl);
+    color: var(--text-secondary);
+}
+
+.factors-empty p {
+    margin-top: var(--space-sm);
+    font-size: 0.9rem;
+    color: var(--text-tertiary);
+}
+
+.factors-header-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-lg);
+    padding-bottom: var(--space-md);
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 0.875rem;
+}
+
+.factors-count {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.factors-update-time {
+    color: var(--text-secondary);
+}
+
+.factors-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
+}
+
+.factor-card {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: var(--space-md);
+    border: 2px solid var(--border-subtle);
+    transition: all 0.2s ease;
+}
+
+.factor-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.factor-card.factor-positive {
+    border-left: 4px solid var(--accent-danger);
+    background: linear-gradient(to right, rgba(220, 38, 38, 0.03), var(--bg-secondary));
+}
+
+.factor-card.factor-negative {
+    border-left: 4px solid var(--accent-success);
+    background: linear-gradient(to right, rgba(5, 150, 105, 0.03), var(--bg-secondary));
+}
+
+.factor-card.factor-neutral {
+    border-left: 4px solid var(--text-tertiary);
+}
+
+.factor-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+}
+
+.factor-icon {
+    font-size: 1.5rem;
+}
+
+.factor-title-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.factor-type {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.factor-confidence {
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+    width: fit-content;
+}
+
+.confidence-high {
+    background: rgba(5, 150, 105, 0.1);
+    color: var(--accent-success);
+}
+
+.confidence-medium {
+    background: rgba(217, 119, 6, 0.1);
+    color: var(--accent-warning);
+}
+
+.confidence-low {
+    background: rgba(148, 163, 184, 0.1);
+    color: var(--text-tertiary);
+}
+
+.factor-impact {
+    font-weight: 700;
+    font-size: 1.1rem;
+    padding: 4px 10px;
+    border-radius: 6px;
+}
+
+.impact-positive {
+    color: var(--accent-danger);
+    background: rgba(220, 38, 38, 0.1);
+}
+
+.impact-negative {
+    color: var(--accent-success);
+    background: rgba(5, 150, 105, 0.1);
+}
+
+.impact-neutral {
+    color: var(--text-secondary);
+    background: rgba(148, 163, 184, 0.1);
+}
+
+.factor-description {
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: var(--space-sm);
+}
+
+.factor-reasoning {
+    margin-top: var(--space-sm);
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--border-subtle);
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.reasoning-label {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.reasoning-text {
+    color: var(--text-secondary);
+}
+
+.factor-affected-days {
+    margin-top: var(--space-sm);
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.affected-days-label {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.affected-days-list {
+    color: var(--text-secondary);
+    margin-left: var(--space-xs);
+}
+
+.factor-impact-value {
+    margin-top: var(--space-sm);
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: 0.875rem;
+}
+
+.impact-label {
+    color: var(--text-secondary);
+}
+
+.impact-value {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.factors-summary {
+    margin-top: var(--space-lg);
+    padding: var(--space-md);
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.05), rgba(124, 58, 237, 0.05));
+    border-radius: 12px;
+    border: 1px solid var(--border-subtle);
+}
+
+.factors-summary h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--space-sm);
+}
+
+.factors-summary p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    font-size: 0.9rem;
+}
+
+/* ============================================
    7-Day Forecast Section
    ============================================ */
 .forecast-section {
@@ -967,6 +1213,20 @@ body::before {
     .factors-table table {
         min-width: 450px;
     }
+    
+    .factors-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .factors-header-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-xs);
+    }
+    
+    .realtime-factors-section h2 {
+        font-size: 1.25rem;
+    }
 }
 
 @media (max-width: 380px) {
@@ -1058,3 +1318,4 @@ body::before {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-tertiary);
 }
+

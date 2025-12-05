@@ -94,6 +94,16 @@
             </div>
         </section>
 
+        <!-- 實時影響因素 -->
+        <section class="realtime-factors-section">
+            <h2>實時影響因素</h2>
+            <div class="factors-container" id="realtime-factors">
+                <div class="factors-loading">
+                    <span>⏳ 載入 AI 分析中...</span>
+                </div>
+            </div>
+        </section>
+
         <!-- 未來7天預測 -->
         <section class="forecast-section">
             <h2>未來 7 天預測</h2>
@@ -143,7 +153,7 @@
             <div class="algorithm-content">
                 <div class="algorithm-formula">
                     <h4>預測公式</h4>
-                    <code>預測值 = 全局平均 × 月份因子 × 星期因子 × 假期因子 × 流感季節因子 × 天氣因子</code>
+                    <code>預測值 = 全局平均 × 月份因子 × 星期因子 × 假期因子 × 流感季節因子 × 天氣因子 × AI因子</code>
                 </div>
                 
                 <div class="factors-table">
@@ -206,10 +216,11 @@
         <!-- 頁腳 -->
         <footer class="prediction-footer">
             <p>數據來源：NDH AED 2024-12-03 至 2025-12-03 歷史數據 (366天)</p>
-            <p>預測模型版本 1.0 · 香港時間 HKT</p>
+            <p>預測模型版本 1.1.0 · 香港時間 HKT</p>
         </footer>
     </div>
 
     <script src="prediction.js?v=4"></script>
 </body>
 </html>
+

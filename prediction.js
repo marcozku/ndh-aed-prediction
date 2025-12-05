@@ -472,7 +472,7 @@ class NDHAttendancePredictor {
         }
     }
     
-    predict(dateStr) {
+    predict(dateStr, weatherData = null, aiFactor = null) {
         const date = new Date(dateStr);
         const dow = date.getDay();
         const month = date.getMonth() + 1;
@@ -499,6 +499,30 @@ class NDHAttendancePredictor {
             value *= this.fluSeasonFactor;
         }
         
+        // 天氣效應
+        let weatherFactor = 1.0;
+        let weatherImpacts = [];
+        if (weatherData) {
+            const weatherImpact = calculateWeatherImpact(weatherData);
+            weatherFactor = weatherImpact.factor;
+            weatherImpacts = weatherImpact.impacts;
+        }
+        value *= weatherFactor;
+        
+        // AI 分析因素效應
+        let aiFactorValue = 1.0;
+        let aiFactorDesc = null;
+        if (aiFactor) {
+            aiFactorValue = aiFactor.impactFactor || 1.0;
+            aiFactorDesc = aiFactor.description || null;
+            value *= aiFactorValue;
+        } else if (aiFactors[dateStr]) {
+            // 使用全局 AI 因素緩存
+            aiFactorValue = aiFactors[dateStr].impactFactor || 1.0;
+            aiFactorDesc = aiFactors[dateStr].description || null;
+            value *= aiFactorValue;
+        }
+        
         // 信賴區間
         const ci80 = {
             lower: Math.max(0, Math.round(value - 1.28 * this.stdDev)),
@@ -520,6 +544,10 @@ class NDHAttendancePredictor {
             globalMean: Math.round(this.globalMean),
             monthFactor: this.monthFactors[month] || 1.0,
             dowFactor: this.dowFactors[dow] || 1.0,
+            weatherFactor: weatherFactor,
+            weatherImpacts: weatherImpacts,
+            aiFactor: aiFactorValue,
+            aiFactorDesc: aiFactorDesc,
             isWeekend,
             isHoliday,
             holidayName: isHoliday ? holidayInfo.name : null,
@@ -530,7 +558,7 @@ class NDHAttendancePredictor {
         };
     }
     
-    predictRange(startDate, days) {
+    predictRange(startDate, days, weatherForecast = null, aiFactorsMap = null) {
         const predictions = [];
         const start = new Date(startDate);
         
@@ -538,7 +566,23 @@ class NDHAttendancePredictor {
             const date = new Date(start);
             date.setDate(start.getDate() + i);
             const dateStr = date.toISOString().split('T')[0];
-            predictions.push(this.predict(dateStr));
+            
+            // 獲取該日期的天氣數據
+            let dayWeather = null;
+            if (weatherForecast && Array.isArray(weatherForecast)) {
+                dayWeather = weatherForecast.find(w => {
+                    const wDate = new Date(w.forecastDate || w.date);
+                    return wDate.toISOString().split('T')[0] === dateStr;
+                });
+            }
+            
+            // 獲取該日期的 AI 因素
+            let dayAIFactor = null;
+            if (aiFactorsMap && aiFactorsMap[dateStr]) {
+                dayAIFactor = aiFactorsMap[dateStr];
+            }
+            
+            predictions.push(this.predict(dateStr, dayWeather, dayAIFactor));
         }
         
         return predictions;
@@ -716,8 +760,8 @@ function initCharts(predictor) {
     const hk = getHKTime();
     const today = hk.dateStr;
     
-    // 未來30天預測
-    const predictions = predictor.predictRange(today, 30);
+    // 未來30天預測（包含天氣和 AI 因素）
+    const predictions = predictor.predictRange(today, 30, weatherForecastData, aiFactors);
     
     // 1. 預測趨勢圖 - 專業線圖
     const forecastCtx = document.getElementById('forecast-chart').getContext('2d');
@@ -1163,8 +1207,8 @@ function updateUI(predictor) {
     const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
     datetimeEl.textContent = `🕐 ${hk.year}年${hk.month}月${hk.day}日 ${weekdays[hk.dayOfWeek]} ${hk.timeStr} HKT`;
     
-    // 今日預測
-    const todayPred = predictor.predict(today);
+    // 今日預測（包含天氣和 AI 因素）
+    const todayPred = predictor.predict(today, currentWeatherData, aiFactors[today]);
     
     document.getElementById('today-date').textContent = `${todayPred.date} ${todayPred.dayName}`;
     document.getElementById('today-predicted').textContent = todayPred.predicted;
@@ -1190,6 +1234,19 @@ function updateUI(predictor) {
             <span class="factor-name">${todayPred.isHoliday ? '假期: ' + todayPred.holidayName : '非假期'}</span>
             <span class="factor-value ${todayPred.holidayFactor < 1 ? 'negative' : ''}">×${todayPred.holidayFactor.toFixed(2)}</span>
         </div>
+        ${todayPred.weatherFactor !== 1.0 ? `
+        <div class="factor-item">
+            <span class="factor-name">天氣影響</span>
+            <span class="factor-value ${todayPred.weatherFactor > 1 ? 'positive' : 'negative'}">×${todayPred.weatherFactor.toFixed(3)}</span>
+        </div>
+        ` : ''}
+        ${todayPred.aiFactor && todayPred.aiFactor !== 1.0 ? `
+        <div class="factor-item">
+            <span class="factor-name">AI 分析因素</span>
+            <span class="factor-value ${todayPred.aiFactor > 1 ? 'positive' : 'negative'}">×${todayPred.aiFactor.toFixed(3)}</span>
+            ${todayPred.aiFactorDesc ? `<span class="factor-desc">${todayPred.aiFactorDesc}</span>` : ''}
+        </div>
+        ` : ''}
     `;
     
     // 統計摘要
@@ -1199,8 +1256,8 @@ function updateUI(predictor) {
     document.getElementById('stat-min').textContent = stats.min.value;
     document.getElementById('stat-std').textContent = stats.stdDev.toFixed(1);
     
-    // 未來7天預測
-    const forecasts = predictor.predictRange(today, 7);
+    // 未來7天預測（包含天氣和 AI 因素）
+    const forecasts = predictor.predictRange(today, 7, weatherForecastData, aiFactors);
     const forecastCardsEl = document.getElementById('forecast-cards');
     forecastCardsEl.innerHTML = forecasts.map((p, i) => {
         let cardClass = 'forecast-day-card';
@@ -1279,6 +1336,10 @@ const WEATHER_CONFIG = {
 // 全局天氣數據
 let currentWeatherData = null;
 let weatherForecastData = null;
+
+// 全局 AI 分析因素
+let aiFactors = {};
+let lastAIAnalysisTime = null;
 
 // 獲取當前天氣
 async function fetchCurrentWeather() {
@@ -1507,18 +1568,219 @@ function updateWeatherDisplay() {
 }
 
 // ============================================
+// AI 因素更新
+// ============================================
+async function updateAIFactors() {
+    try {
+        console.log('🤖 開始 AI 因素分析...');
+        const response = await fetch('/api/ai-analyze');
+        if (!response.ok) throw new Error('AI 分析 API 錯誤');
+        const data = await response.json();
+        
+        if (data.success && data.factors) {
+            // 更新全局 AI 因素緩存
+            aiFactors = {};
+            data.factors.forEach(factor => {
+                if (factor.affectedDays && Array.isArray(factor.affectedDays)) {
+                    factor.affectedDays.forEach(date => {
+                        aiFactors[date] = {
+                            impactFactor: factor.impactFactor || 1.0,
+                            description: factor.description || '',
+                            type: factor.type || '未知',
+                            confidence: factor.confidence || '中'
+                        };
+                    });
+                } else if (factor.date) {
+                    aiFactors[factor.date] = {
+                        impactFactor: factor.impactFactor || 1.0,
+                        description: factor.description || '',
+                        type: factor.type || '未知',
+                        confidence: factor.confidence || '中'
+                    };
+                }
+            });
+            
+            lastAIAnalysisTime = new Date();
+            console.log('✅ AI 因素已更新:', Object.keys(aiFactors).length, '個日期');
+            
+            // 返回完整的分析數據供顯示使用
+            return {
+                factors: data.factors,
+                summary: data.summary || '',
+                timestamp: data.timestamp || new Date().toISOString()
+            };
+        }
+        return { factors: [], summary: '無分析數據' };
+    } catch (error) {
+        console.error('❌ AI 因素更新失敗:', error);
+        return { 
+            factors: [], 
+            summary: '無法獲取 AI 分析',
+            error: error.message 
+        };
+    }
+}
+
+// 更新實時因素顯示
+function updateRealtimeFactors(aiAnalysisData = null) {
+    const factorsEl = document.getElementById('realtime-factors');
+    if (!factorsEl) return;
+    
+    // 如果沒有 AI 分析數據，顯示載入狀態
+    if (!aiAnalysisData || !aiAnalysisData.factors || aiAnalysisData.factors.length === 0) {
+        factorsEl.innerHTML = `
+            <div class="factors-empty">
+                <span>📊 暫無實時影響因素</span>
+                <p>系統會自動分析可能影響預測的新聞和事件</p>
+            </div>
+        `;
+        return;
+    }
+    
+    const factors = aiAnalysisData.factors;
+    const summary = aiAnalysisData.summary || '';
+    
+    // 按影響因子排序（影響大的在前）
+    const sortedFactors = [...factors].sort((a, b) => {
+        const aFactor = Math.abs((a.impactFactor || 1.0) - 1.0);
+        const bFactor = Math.abs((b.impactFactor || 1.0) - 1.0);
+        return bFactor - aFactor;
+    });
+    
+    let factorsHtml = '';
+    
+    sortedFactors.forEach((factor, index) => {
+        const impactFactor = factor.impactFactor || 1.0;
+        const isPositive = impactFactor > 1.0;
+        const isNegative = impactFactor < 1.0;
+        const impactPercent = Math.abs((impactFactor - 1.0) * 100).toFixed(1);
+        
+        // 根據類型選擇圖標
+        let icon = '📊';
+        if (factor.type === '天氣') icon = '🌤️';
+        else if (factor.type === '公共衛生') icon = '🏥';
+        else if (factor.type === '社會事件') icon = '📰';
+        else if (factor.type === '季節性') icon = '📅';
+        
+        // 根據信心度選擇顏色
+        let confidenceClass = 'confidence-medium';
+        if (factor.confidence === '高') confidenceClass = 'confidence-high';
+        else if (factor.confidence === '低') confidenceClass = 'confidence-low';
+        
+        // 受影響的日期
+        let affectedDaysHtml = '';
+        if (factor.affectedDays && Array.isArray(factor.affectedDays) && factor.affectedDays.length > 0) {
+            const daysList = factor.affectedDays.slice(0, 5).map(date => {
+                const d = new Date(date);
+                return `${d.getMonth() + 1}/${d.getDate()}`;
+            }).join(', ');
+            affectedDaysHtml = `
+                <div class="factor-affected-days">
+                    <span class="affected-days-label">受影響日期：</span>
+                    <span class="affected-days-list">${daysList}${factor.affectedDays.length > 5 ? '...' : ''}</span>
+                </div>
+            `;
+        } else if (factor.date) {
+            const d = new Date(factor.date);
+            affectedDaysHtml = `
+                <div class="factor-affected-days">
+                    <span class="affected-days-label">日期：</span>
+                    <span class="affected-days-list">${d.getMonth() + 1}/${d.getDate()}</span>
+                </div>
+            `;
+        }
+        
+        factorsHtml += `
+            <div class="factor-card ${isPositive ? 'factor-positive' : isNegative ? 'factor-negative' : 'factor-neutral'}">
+                <div class="factor-header">
+                    <span class="factor-icon">${icon}</span>
+                    <div class="factor-title-group">
+                        <span class="factor-type">${factor.type || '未知'}</span>
+                        <span class="factor-confidence ${confidenceClass}">${factor.confidence || '中'}信心度</span>
+                    </div>
+                    <div class="factor-impact ${isPositive ? 'impact-positive' : isNegative ? 'impact-negative' : 'impact-neutral'}">
+                        ${isPositive ? '+' : ''}${impactPercent}%
+                    </div>
+                </div>
+                <div class="factor-description">
+                    ${factor.description || '無描述'}
+                </div>
+                ${factor.reasoning ? `
+                <div class="factor-reasoning">
+                    <span class="reasoning-label">分析：</span>
+                    <span class="reasoning-text">${factor.reasoning}</span>
+                </div>
+                ` : ''}
+                ${affectedDaysHtml}
+                <div class="factor-impact-value">
+                    <span class="impact-label">影響因子：</span>
+                    <span class="impact-value">×${impactFactor.toFixed(3)}</span>
+                </div>
+            </div>
+        `;
+    });
+    
+    // 如果有總結，添加總結區塊
+    let summaryHtml = '';
+    if (summary && summary !== '無法獲取 AI 分析') {
+        summaryHtml = `
+            <div class="factors-summary">
+                <h3>📋 分析總結</h3>
+                <p>${summary}</p>
+            </div>
+        `;
+    }
+    
+    // 添加最後更新時間
+    const lastUpdate = lastAIAnalysisTime 
+        ? new Date(lastAIAnalysisTime).toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' })
+        : '未知';
+    
+    factorsEl.innerHTML = `
+        <div class="factors-header-info">
+            <span class="factors-count">共 ${sortedFactors.length} 個影響因素</span>
+            <span class="factors-update-time">最後更新：${lastUpdate} HKT</span>
+        </div>
+        <div class="factors-grid">
+            ${factorsHtml}
+        </div>
+        ${summaryHtml}
+    `;
+}
+
+// 更新預測（當天氣或 AI 因素更新時）
+async function refreshPredictions(predictor) {
+    console.log('🔄 刷新預測數據...');
+    
+    // 獲取最新的天氣預報
+    await fetchWeatherForecast();
+    
+    // 獲取最新的 AI 因素
+    const aiAnalysisData = await updateAIFactors();
+    
+    // 更新實時因素顯示
+    updateRealtimeFactors(aiAnalysisData);
+    
+    // 重新更新 UI
+    updateUI(predictor);
+    
+    // 重新初始化圖表
+    if (forecastChart) forecastChart.destroy();
+    if (dowChart) dowChart.destroy();
+    if (monthChart) monthChart.destroy();
+    if (historyChart) historyChart.destroy();
+    initCharts(predictor);
+    
+    console.log('✅ 預測數據已刷新');
+}
+
+// ============================================
 // 初始化
 // ============================================
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🏥 NDH AED 預測系統初始化...');
     
     const predictor = new NDHAttendancePredictor();
-    
-    // 更新 UI
-    updateUI(predictor);
-    
-    // 初始化圖表
-    initCharts(predictor);
     
     // 檢查數據庫狀態
     await checkDatabaseStatus();
@@ -1528,6 +1790,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     await fetchWeatherForecast();
     updateWeatherDisplay();
     
+    // 獲取 AI 因素
+    const aiAnalysisData = await updateAIFactors();
+    
+    // 更新實時因素顯示
+    updateRealtimeFactors(aiAnalysisData);
+    
+    // 更新 UI
+    updateUI(predictor);
+    
+    // 初始化圖表
+    initCharts(predictor);
+    
     // 每秒更新時間 (使用真實 HKT)
     setInterval(() => {
         const hk = getHKTime();
@@ -1536,12 +1810,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         datetimeEl.textContent = `🕐 ${hk.year}年${hk.month}月${hk.day}日 ${weekdays[hk.dayOfWeek]} ${hk.timeStr} HKT`;
     }, 1000);
     
-    // 每分鐘更新天氣
+    // 每分鐘更新天氣並觸發預測更新
     setInterval(async () => {
+        const oldWeather = JSON.stringify(currentWeatherData);
         await fetchCurrentWeather();
         updateWeatherDisplay();
-        console.log('🌤️ 天氣已自動更新');
+        
+        // 如果天氣數據有變化，刷新預測
+        if (JSON.stringify(currentWeatherData) !== oldWeather) {
+            console.log('🌤️ 天氣數據已更新，觸發預測刷新');
+            await refreshPredictions(predictor);
+        } else {
+            console.log('🌤️ 天氣已檢查（無變化）');
+        }
     }, 60000); // 60 秒
+    
+    // 每30分鐘更新 AI 因素
+    setInterval(async () => {
+        await updateAIFactors();
+        await refreshPredictions(predictor);
+        console.log('🤖 AI 因素已更新');
+    }, 1800000); // 30 分鐘
     
     // 每5分鐘檢查數據庫狀態
     setInterval(async () => {
