@@ -339,13 +339,30 @@ body::before {
 }
 
 /* ============================================
+   Section Styles - Unified Design
+   ============================================ */
+section {
+    margin-bottom: var(--space-3xl);
+}
+
+section h2 {
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: var(--space-xl);
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+/* ============================================
    Today's Prediction Section
    ============================================ */
 .today-prediction {
     display: grid;
     grid-template-columns: 1.2fr 1fr;
     gap: var(--space-xl);
-    margin-bottom: var(--space-3xl);
 }
 
 /* ============================================
@@ -596,20 +613,6 @@ body::before {
 /* ============================================
    實時影響因素區塊
    ============================================ */
-.realtime-factors-section {
-    margin: var(--space-2xl) 0;
-}
-
-.realtime-factors-section h2 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: var(--space-lg);
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-}
-
 .realtime-factors-section h2::before {
     content: '📊';
     font-size: 1.5rem;
@@ -842,16 +845,9 @@ body::before {
 /* ============================================
    7-Day Forecast Section
    ============================================ */
-.forecast-section {
-    margin-bottom: var(--space-3xl);
-}
-
-.forecast-section h2 {
-    color: var(--text-primary);
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: var(--space-lg);
-    letter-spacing: -0.01em;
+.forecast-section h2::before {
+    content: '📅';
+    font-size: 1.5rem;
 }
 
 .forecast-cards {
@@ -973,7 +969,15 @@ body::before {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-xl);
-    margin-bottom: var(--space-3xl);
+}
+
+.charts-section h2 {
+    grid-column: 1 / -1;
+}
+
+.charts-section h2::before {
+    content: '📈';
+    font-size: 1.5rem;
 }
 
 .chart-card {
@@ -1018,17 +1022,13 @@ body::before {
     background: var(--bg-secondary);
     border-radius: var(--radius-xl);
     padding: var(--space-2xl);
-    margin-bottom: var(--space-3xl);
     border: 1px solid var(--border-subtle);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 20px rgba(0, 0, 0, 0.03);
 }
 
-.algorithm-section h2 {
-    color: var(--text-primary);
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: var(--space-xl);
-    letter-spacing: -0.01em;
+.algorithm-section h2::before {
+    content: '🔬';
+    font-size: 1.5rem;
 }
 
 .algorithm-content {
@@ -1220,6 +1220,14 @@ body::before {
         font-size: 1.25rem;
     }
     
+    section {
+        margin-bottom: var(--space-2xl);
+    }
+    
+    section h2 {
+        font-size: 1.25rem;
+    }
+    
     .prediction-card {
         padding: var(--space-lg);
     }
@@ -1386,9 +1394,6 @@ body::before {
         gap: var(--space-xs);
     }
     
-    .realtime-factors-section h2 {
-        font-size: 1.25rem;
-    }
 }
 
 @media (max-width: 380px) {
