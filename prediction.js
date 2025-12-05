@@ -1401,6 +1401,45 @@ function updateSectionProgress(sectionId, percent) {
     }
 }
 
+// 保存每日預測到數據庫
+// ============================================
+async function saveDailyPrediction(prediction, weatherData, aiFactor) {
+    try {
+        const response = await fetch('/api/daily-predictions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                target_date: prediction.date,
+                predicted_count: prediction.predicted,
+                ci80: {
+                    low: prediction.ci80.lower,
+                    high: prediction.ci80.upper
+                },
+                ci95: {
+                    low: prediction.ci95.lower,
+                    high: prediction.ci95.upper
+                },
+                weather_data: weatherData,
+                ai_factors: aiFactor
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        if (result.success) {
+            console.log(`✅ 已保存 ${prediction.date} 的每日預測`);
+        }
+    } catch (error) {
+        console.error('保存每日預測時出錯:', error);
+        throw error;
+    }
+}
+
 // UI 更新
 // ============================================
 function updateUI(predictor) {
@@ -1420,6 +1459,11 @@ function updateUI(predictor) {
     // 今日預測（包含天氣和 AI 因素）
     const todayPred = predictor.predict(today, currentWeatherData, aiFactors[today]);
     updateSectionProgress('today-prediction', 60);
+    
+    // 保存每日預測到數據庫（每次更新都保存）
+    saveDailyPrediction(todayPred, currentWeatherData, aiFactors[today]).catch(err => {
+        console.error('❌ 保存每日預測失敗:', err);
+    });
     
     const todayDateFormatted = formatDateDDMM(todayPred.date, true); // 今日預測顯示完整日期
     document.getElementById('today-date').textContent = `${todayDateFormatted} ${todayPred.dayName}`;

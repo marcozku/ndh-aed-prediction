@@ -159,6 +159,48 @@ async function initDatabase() {
             )
         `);
 
+        // Table for storing each prediction update throughout the day
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS daily_predictions (
+                id SERIAL PRIMARY KEY,
+                target_date DATE NOT NULL,
+                predicted_count INTEGER NOT NULL,
+                ci80_low INTEGER,
+                ci80_high INTEGER,
+                ci95_low INTEGER,
+                ci95_high INTEGER,
+                model_version VARCHAR(50) DEFAULT '1.0.0',
+                weather_data JSONB,
+                ai_factors JSONB,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        // Create indexes for daily_predictions
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_daily_predictions_target_date ON daily_predictions(target_date)
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_daily_predictions_created_at ON daily_predictions(created_at)
+        `);
+
+        // Table for final daily averaged predictions (calculated at end of day)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS final_daily_predictions (
+                id SERIAL PRIMARY KEY,
+                target_date DATE NOT NULL,
+                predicted_count INTEGER NOT NULL,
+                ci80_low INTEGER,
+                ci80_high INTEGER,
+                ci95_low INTEGER,
+                ci95_high INTEGER,
+                prediction_count INTEGER NOT NULL,
+                model_version VARCHAR(50) DEFAULT '1.0.0',
+                calculated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(target_date)
+            )
+        `);
+
         // Initialize with default record if empty
         const checkResult = await client.query('SELECT COUNT(*) FROM ai_factors_cache');
         if (parseInt(checkResult.rows[0].count) === 0) {
@@ -298,11 +340,19 @@ async function calculateAccuracy(targetDate) {
         
         const actualCount = actualResult.rows[0].patient_count;
         
-        // Get the most recent prediction for that date
-        const predictionResult = await client.query(
-            'SELECT * FROM predictions WHERE target_date = $1 ORDER BY created_at DESC LIMIT 1',
+        // Try to get final daily prediction first (preferred)
+        let predictionResult = await client.query(
+            'SELECT * FROM final_daily_predictions WHERE target_date = $1',
             [targetDate]
         );
+        
+        // Fallback to most recent prediction if no final prediction exists
+        if (predictionResult.rows.length === 0) {
+            predictionResult = await client.query(
+                'SELECT * FROM predictions WHERE target_date = $1 ORDER BY created_at DESC LIMIT 1',
+                [targetDate]
+            );
+        }
         
         if (predictionResult.rows.length === 0) {
             return null; // No prediction found
@@ -423,6 +473,130 @@ async function updateAIFactorsCache(updateTime, factorsCache, analysisData = nul
     return result.rows[0];
 }
 
+// Insert daily prediction (each update throughout the day)
+async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, modelVersion = '1.0.0', weatherData = null, aiFactors = null) {
+    const query = `
+        INSERT INTO daily_predictions (target_date, predicted_count, ci80_low, ci80_high, ci95_low, ci95_high, model_version, weather_data, ai_factors)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING *
+    `;
+    const result = await pool.query(query, [
+        targetDate,
+        predictedCount,
+        ci80?.low,
+        ci80?.high,
+        ci95?.low,
+        ci95?.high,
+        modelVersion,
+        weatherData ? JSON.stringify(weatherData) : null,
+        aiFactors ? JSON.stringify(aiFactors) : null
+    ]);
+    return result.rows[0];
+}
+
+// Calculate and save final daily prediction (average of all predictions for that day)
+async function calculateFinalDailyPrediction(targetDate) {
+    const client = await pool.connect();
+    try {
+        // Get all predictions for the target date
+        const predictionsResult = await client.query(`
+            SELECT 
+                predicted_count,
+                ci80_low,
+                ci80_high,
+                ci95_low,
+                ci95_high,
+                model_version
+            FROM daily_predictions
+            WHERE target_date = $1
+            ORDER BY created_at
+        `, [targetDate]);
+
+        if (predictionsResult.rows.length === 0) {
+            console.log(`⚠️ 沒有找到 ${targetDate} 的預測數據`);
+            return null;
+        }
+
+        const predictions = predictionsResult.rows;
+        const count = predictions.length;
+
+        // Calculate averages
+        const avgPredicted = Math.round(
+            predictions.reduce((sum, p) => sum + p.predicted_count, 0) / count
+        );
+        const avgCi80Low = Math.round(
+            predictions.reduce((sum, p) => sum + (p.ci80_low || 0), 0) / count
+        );
+        const avgCi80High = Math.round(
+            predictions.reduce((sum, p) => sum + (p.ci80_high || 0), 0) / count
+        );
+        const avgCi95Low = Math.round(
+            predictions.reduce((sum, p) => sum + (p.ci95_low || 0), 0) / count
+        );
+        const avgCi95High = Math.round(
+            predictions.reduce((sum, p) => sum + (p.ci95_high || 0), 0) / count
+        );
+
+        // Get most recent model version
+        const latestModelVersion = predictions[predictions.length - 1].model_version;
+
+        // Insert or update final prediction
+        const query = `
+            INSERT INTO final_daily_predictions (
+                target_date, predicted_count, ci80_low, ci80_high, ci95_low, ci95_high,
+                prediction_count, model_version
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT (target_date) DO UPDATE SET
+                predicted_count = EXCLUDED.predicted_count,
+                ci80_low = EXCLUDED.ci80_low,
+                ci80_high = EXCLUDED.ci80_high,
+                ci95_low = EXCLUDED.ci95_low,
+                ci95_high = EXCLUDED.ci95_high,
+                prediction_count = EXCLUDED.prediction_count,
+                model_version = EXCLUDED.model_version,
+                calculated_at = CURRENT_TIMESTAMP
+            RETURNING *
+        `;
+        const result = await client.query(query, [
+            targetDate,
+            avgPredicted,
+            avgCi80Low,
+            avgCi80High,
+            avgCi95Low,
+            avgCi95High,
+            count,
+            latestModelVersion
+        ]);
+
+        console.log(`✅ 已計算並保存 ${targetDate} 的最終預測（基於 ${count} 次預測的平均值）`);
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+// Get final daily predictions
+async function getFinalDailyPredictions(startDate = null, endDate = null) {
+    let query = 'SELECT * FROM final_daily_predictions';
+    const params = [];
+    
+    if (startDate && endDate) {
+        query += ' WHERE target_date BETWEEN $1 AND $2';
+        params.push(startDate, endDate);
+    } else if (startDate) {
+        query += ' WHERE target_date >= $1';
+        params.push(startDate);
+    } else if (endDate) {
+        query += ' WHERE target_date <= $1';
+        params.push(endDate);
+    }
+    
+    query += ' ORDER BY target_date DESC';
+    const result = await pool.query(query, params);
+    return result.rows;
+}
+
 module.exports = {
     get pool() { return pool; },
     initDatabase,
@@ -435,6 +609,9 @@ module.exports = {
     getAccuracyStats,
     getComparisonData,
     getAIFactorsCache,
-    updateAIFactorsCache
+    updateAIFactorsCache,
+    insertDailyPrediction,
+    calculateFinalDailyPrediction,
+    getFinalDailyPredictions
 };
 

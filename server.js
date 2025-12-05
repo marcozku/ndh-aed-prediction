@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '1.1.3';
+const MODEL_VERSION = '1.1.4';
 
 // AI 服務（僅在服務器端使用）
 let aiService = null;
@@ -108,6 +108,38 @@ const apiHandlers = {
             data.ci95,
             MODEL_VERSION
         );
+        sendJson(res, { success: true, data: result });
+    },
+
+    // Store daily prediction (each update throughout the day)
+    'POST /api/daily-predictions': async (req, res) => {
+        if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
+        
+        const data = await parseBody(req);
+        const result = await db.insertDailyPrediction(
+            data.target_date,
+            data.predicted_count,
+            data.ci80,
+            data.ci95,
+            MODEL_VERSION,
+            data.weather_data || null,
+            data.ai_factors || null
+        );
+        sendJson(res, { success: true, data: result });
+    },
+
+    // Calculate final daily prediction (average of all predictions for a day)
+    'POST /api/calculate-final-prediction': async (req, res) => {
+        if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
+        
+        const data = await parseBody(req);
+        const targetDate = data.target_date || new Date().toISOString().split('T')[0];
+        const result = await db.calculateFinalDailyPrediction(targetDate);
+        
+        if (!result) {
+            return sendJson(res, { success: false, error: 'No predictions found for the date' }, 404);
+        }
+        
         sendJson(res, { success: true, data: result });
     },
 
@@ -487,11 +519,98 @@ const server = http.createServer(async (req, res) => {
     });
 });
 
+// 獲取香港時間
+function getHKTime() {
+    const now = new Date();
+    const hkFormatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Hong_Kong',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    });
+    
+    const parts = hkFormatter.formatToParts(now);
+    const getPart = (type) => parts.find(p => p.type === type)?.value || '00';
+    
+    return {
+        year: parseInt(getPart('year')),
+        month: parseInt(getPart('month')),
+        day: parseInt(getPart('day')),
+        hour: parseInt(getPart('hour')),
+        minute: parseInt(getPart('minute')),
+        second: parseInt(getPart('second')),
+        dateStr: `${getPart('year')}-${getPart('month')}-${getPart('day')}`
+    };
+}
+
+// 計算昨天的最終預測（在每天開始時執行）
+async function calculateYesterdayFinalPrediction() {
+    if (!db || !db.pool) {
+        console.log('⚠️ 數據庫未配置，跳過計算最終預測');
+        return;
+    }
+    
+    try {
+        const hk = getHKTime();
+        // 計算昨天的日期
+        const yesterday = new Date(`${hk.dateStr}T00:00:00+08:00`);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        
+        console.log(`🔄 開始計算 ${yesterdayStr} 的最終預測...`);
+        const result = await db.calculateFinalDailyPrediction(yesterdayStr);
+        
+        if (result) {
+            console.log(`✅ 成功計算 ${yesterdayStr} 的最終預測（基於 ${result.prediction_count} 次預測的平均值）`);
+        } else {
+            console.log(`⚠️ ${yesterdayStr} 沒有預測數據可計算`);
+        }
+    } catch (error) {
+        console.error('❌ 計算最終預測時出錯:', error);
+    }
+}
+
+// 設置定時任務：每天00:00 HKT計算前一天的最終預測
+function scheduleDailyFinalPrediction() {
+    let lastCalculatedDate = null;
+    
+    const checkAndRun = () => {
+        const hk = getHKTime();
+        // 在新的一天開始時（00:00）執行
+        if (hk.hour === 0 && hk.minute === 0 && hk.second < 10) {
+            // 計算昨天的日期
+            const yesterday = new Date(`${hk.dateStr}T00:00:00+08:00`);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = yesterday.toISOString().split('T')[0];
+            
+            // 避免重複計算
+            if (lastCalculatedDate !== yesterdayStr) {
+                lastCalculatedDate = yesterdayStr;
+                // 延遲幾秒執行，確保所有預測都已保存
+                setTimeout(() => {
+                    calculateYesterdayFinalPrediction();
+                }, 5000); // 5秒後執行
+            }
+        }
+    };
+    
+    // 每秒檢查一次（在00:00:00-00:00:10之間）
+    setInterval(checkAndRun, 1000);
+    
+    console.log('⏰ 已設置每日最終預測計算任務（每天00:00 HKT執行）');
+}
+
 server.listen(PORT, () => {
     console.log(`🏥 NDH AED 預測系統運行於 http://localhost:${PORT}`);
     console.log(`📊 預測模型版本 ${MODEL_VERSION}`);
     if (process.env.DATABASE_URL) {
         console.log(`🗄️ PostgreSQL 數據庫已連接`);
+        // 啟動定時任務
+        scheduleDailyFinalPrediction();
     } else {
         console.log(`⚠️ 數據庫未配置 (設置 DATABASE_URL 環境變數以啟用)`);
     }
