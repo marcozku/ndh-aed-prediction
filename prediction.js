@@ -1564,8 +1564,6 @@ let aiFactors = {};
 let lastAIAnalysisTime = null;
 let lastAIUpdateTime = null;
 const AI_UPDATE_INTERVAL = 30 * 60 * 1000; // 30分鐘
-const AI_UPDATE_STORAGE_KEY = 'ndh_ai_last_update_time';
-const AI_FACTORS_STORAGE_KEY = 'ndh_ai_factors_cache';
 
 // 獲取當前天氣
 async function fetchCurrentWeather() {
@@ -1857,31 +1855,30 @@ async function updateAIFactors(force = false) {
     // 檢查是否需要更新（基於時間，而不是每次刷新）
     const now = Date.now();
     
-    // 從 localStorage 讀取上次更新時間（跨頁面刷新持久化）
-    let storedUpdateTime = null;
-    try {
-        const stored = localStorage.getItem(AI_UPDATE_STORAGE_KEY);
-        if (stored) {
-            storedUpdateTime = parseInt(stored, 10);
-            // 如果內存中的時間不存在或更舊，使用存儲的時間
-            if (!lastAIUpdateTime || storedUpdateTime > lastAIUpdateTime) {
-                lastAIUpdateTime = storedUpdateTime;
-            }
-        }
-    } catch (e) {
-        console.warn('⚠️ 無法讀取 localStorage:', e);
-    }
-    
-    // 從 localStorage 讀取緩存的 AI 因素
-    if (!force && !aiFactors || Object.keys(aiFactors).length === 0) {
+    // 從數據庫讀取上次更新時間和緩存的因素
+    if (!force) {
         try {
-            const cachedFactors = localStorage.getItem(AI_FACTORS_STORAGE_KEY);
-            if (cachedFactors) {
-                aiFactors = JSON.parse(cachedFactors);
-                console.log('📦 從緩存載入 AI 因素:', Object.keys(aiFactors).length, '個日期');
+            const cacheResponse = await fetch('/api/ai-factors-cache');
+            if (cacheResponse.ok) {
+                const cacheData = await cacheResponse.json();
+                if (cacheData.success && cacheData.data) {
+                    const storedUpdateTime = cacheData.data.last_update_time || 0;
+                    const storedFactors = cacheData.data.factors_cache || {};
+                    
+                    // 如果內存中的時間不存在或更舊，使用數據庫的時間
+                    if (!lastAIUpdateTime || storedUpdateTime > lastAIUpdateTime) {
+                        lastAIUpdateTime = storedUpdateTime;
+                    }
+                    
+                    // 如果內存中沒有因素或為空，使用數據庫的緩存
+                    if (!aiFactors || Object.keys(aiFactors).length === 0) {
+                        aiFactors = storedFactors;
+                        console.log('📦 從數據庫載入 AI 因素:', Object.keys(aiFactors).length, '個日期');
+                    }
+                }
             }
         } catch (e) {
-            console.warn('⚠️ 無法讀取緩存的 AI 因素:', e);
+            console.warn('⚠️ 無法從數據庫讀取 AI 緩存:', e);
         }
     }
     
@@ -1925,13 +1922,29 @@ async function updateAIFactors(force = false) {
             lastAIAnalysisTime = new Date();
             lastAIUpdateTime = now; // 記錄更新時間
             
-            // 保存更新時間到 localStorage（跨頁面刷新持久化）
+            // 保存更新時間和因素到數據庫（跨設備和頁面刷新持久化）
             try {
-                localStorage.setItem(AI_UPDATE_STORAGE_KEY, now.toString());
-                localStorage.setItem(AI_FACTORS_STORAGE_KEY, JSON.stringify(aiFactors));
-                console.log('💾 AI 更新時間和因素已保存到 localStorage');
+                const saveResponse = await fetch('/api/ai-factors-cache', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        updateTime: now,
+                        factorsCache: aiFactors,
+                        analysisData: {
+                            factors: data.factors,
+                            summary: data.summary || '',
+                            timestamp: data.timestamp || new Date().toISOString()
+                        }
+                    })
+                });
+                
+                if (saveResponse.ok) {
+                    console.log('💾 AI 更新時間和因素已保存到數據庫');
+                } else {
+                    console.warn('⚠️ 保存 AI 緩存到數據庫失敗:', await saveResponse.text());
+                }
             } catch (e) {
-                console.warn('⚠️ 無法保存到 localStorage:', e);
+                console.warn('⚠️ 無法保存到數據庫:', e);
             }
             
             console.log('✅ AI 因素已更新:', Object.keys(aiFactors).length, '個日期');
