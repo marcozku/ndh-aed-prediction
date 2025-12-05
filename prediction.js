@@ -1935,9 +1935,12 @@ async function updateAIFactors(force = false) {
     
     try {
         console.log('🤖 開始 AI 因素分析...');
+        updateFactorsLoadingProgress(10);
         const response = await fetch('/api/ai-analyze');
+        updateFactorsLoadingProgress(30);
         if (!response.ok) throw new Error('AI 分析 API 錯誤');
         const data = await response.json();
+        updateFactorsLoadingProgress(60);
         
         if (data.success && data.factors) {
             // 更新全局 AI 因素緩存
@@ -1991,23 +1994,47 @@ async function updateAIFactors(force = false) {
             }
             
             console.log('✅ AI 因素已更新:', Object.keys(aiFactors).length, '個日期');
+            updateFactorsLoadingProgress(90);
             
             // 返回完整的分析數據供顯示使用
-            return {
+            const result = {
                 factors: data.factors,
                 summary: data.summary || '',
                 timestamp: data.timestamp || new Date().toISOString(),
                 cached: false
             };
+            updateFactorsLoadingProgress(100);
+            return result;
         }
+        updateFactorsLoadingProgress(100);
         return { factors: [], summary: '無分析數據', cached: false };
     } catch (error) {
         console.error('❌ AI 因素更新失敗:', error);
+        updateFactorsLoadingProgress(100);
         return { 
             factors: [], 
             summary: '無法獲取 AI 分析',
             error: error.message 
         };
+    }
+}
+
+// 更新 factors-loading 進度
+function updateFactorsLoadingProgress(percent) {
+    const percentEl = document.getElementById('factors-loading-percent');
+    const progressFill = document.getElementById('factors-loading-progress');
+    const loadingEl = document.getElementById('factors-loading');
+    
+    if (percentEl) {
+        percentEl.textContent = `${Math.round(percent)}%`;
+    }
+    if (progressFill) {
+        progressFill.style.width = `${percent}%`;
+    }
+    if (percent >= 100 && loadingEl) {
+        loadingEl.style.display = 'none';
+    } else if (loadingEl && percent < 100) {
+        loadingEl.style.display = 'block';
     }
 }
 
@@ -2019,11 +2046,19 @@ function updateRealtimeFactors(aiAnalysisData = null) {
     
     updateSectionProgress('realtime-factors', 20);
     
-    // 如果沒有 AI 分析數據，顯示載入狀態
+    // 如果沒有 AI 分析數據，顯示載入狀態或空狀態
     if (!aiAnalysisData || !aiAnalysisData.factors || aiAnalysisData.factors.length === 0) {
         updateSectionProgress('realtime-factors', 100);
+        updateFactorsLoadingProgress(100);
         if (loadingEl) loadingEl.style.display = 'none';
         factorsEl.style.display = 'block';
+        // 檢查是否正在載入（factors-loading 是否可見）
+        const factorsLoadingEl = document.getElementById('factors-loading');
+        if (factorsLoadingEl && factorsLoadingEl.style.display !== 'none') {
+            // 如果正在載入，保持顯示載入狀態
+            return;
+        }
+        // 否則顯示空狀態
         factorsEl.innerHTML = `
             <div class="factors-empty">
                 <span>📊 暫無實時影響因素</span>
@@ -2034,6 +2069,7 @@ function updateRealtimeFactors(aiAnalysisData = null) {
     }
     
     updateSectionProgress('realtime-factors', 40);
+    updateFactorsLoadingProgress(40);
     
     const factors = aiAnalysisData.factors;
     const summary = aiAnalysisData.summary || '';
@@ -2158,6 +2194,7 @@ function updateRealtimeFactors(aiAnalysisData = null) {
     `;
     
     updateSectionProgress('realtime-factors', 100);
+    updateFactorsLoadingProgress(100);
     if (loadingEl) loadingEl.style.display = 'none';
     factorsEl.style.display = 'block';
 }
@@ -2213,13 +2250,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // 立即從數據庫載入緩存的 AI 因素（快速顯示，不等待 API）
     updateSectionProgress('realtime-factors', 5);
+    const factorsEl = document.getElementById('realtime-factors');
+    if (factorsEl) {
+        factorsEl.style.display = 'block';
+    }
+    updateFactorsLoadingProgress(5);
     let aiAnalysisData = await loadAIFactorsFromCache();
     updateSectionProgress('realtime-factors', 15);
+    updateFactorsLoadingProgress(15);
     
     // 立即更新實時因素顯示（使用緩存數據）
     if (aiAnalysisData && aiAnalysisData.factors && aiAnalysisData.factors.length > 0) {
         updateRealtimeFactors(aiAnalysisData);
         console.log('✅ 已從數據庫載入緩存的 AI 因素並顯示');
+    } else {
+        // 如果沒有緩存數據，保持顯示載入狀態
+        updateFactorsLoadingProgress(15);
     }
     
     // 更新 UI（使用緩存的 AI 因素，快速顯示）
@@ -2233,6 +2279,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 在背景異步檢查並更新 AI 因素（如果需要，不阻塞 UI）
     setTimeout(async () => {
         updateSectionProgress('realtime-factors', 20);
+        updateFactorsLoadingProgress(20);
         const freshAIAnalysisData = await updateAIFactors();
         if (freshAIAnalysisData && !freshAIAnalysisData.cached) {
             // 如果有新的數據，更新顯示
@@ -2247,6 +2294,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.log('✅ AI 因素已更新，UI 已刷新');
         } else {
             console.log('ℹ️ AI 因素無需更新，使用緩存數據');
+            updateFactorsLoadingProgress(100);
         }
         updateSectionProgress('realtime-factors', 100);
     }, 100); // 100ms 後在背景執行，不阻塞初始載入

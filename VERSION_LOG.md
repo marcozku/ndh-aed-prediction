@@ -1,5 +1,25 @@
 # 版本更新日誌
 
+## v1.1.3 - 2025-12-06 (香港時間 HKT)
+
+### 🐛 Bug 修復
+
+1. **AI 分析載入進度顯示**
+   - 修復「載入 AI 分析中...」無法顯示百分比進度的問題
+   - 添加 `factors-loading` 的進度條和百分比顯示
+   - 實現 `updateFactorsLoadingProgress()` 函數來更新 AI 分析載入進度
+   - 在 `updateAIFactors()` 函數中添加進度更新邏輯（10% → 30% → 60% → 90% → 100%）
+   - 更新 CSS 樣式，使 `factors-loading` 與其他載入元素樣式一致
+
+### 📊 技術細節
+
+- 新增 `updateFactorsLoadingProgress()` 函數用於更新 AI 分析載入進度
+- 在 AI 分析的各個階段（API 請求、數據處理、保存緩存）添加進度更新
+- 改進 `factors-loading` 的 HTML 結構，包含 spinner、百分比文字和進度條
+- 統一載入狀態的視覺樣式
+
+---
+
 ## v1.1.2 - 2025-12-06 (香港時間 HKT)
 
 ### 🎨 UI/UX 改進

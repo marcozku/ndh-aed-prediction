@@ -626,7 +626,15 @@ section h2 {
     border: 1px solid var(--border-subtle);
 }
 
-.factors-loading,
+.factors-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-2xl);
+    color: var(--text-secondary);
+}
+
 .factors-empty {
     text-align: center;
     padding: var(--space-2xl);
