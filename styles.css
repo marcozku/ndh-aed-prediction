@@ -856,8 +856,11 @@ body::before {
 
 .forecast-cards {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: var(--space-md);
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .forecast-day-card {
@@ -1175,21 +1178,18 @@ body::before {
     }
     
     .forecast-cards {
-        display: flex;
-        overflow-x: auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
         gap: var(--space-sm);
         padding-bottom: var(--space-md);
+        overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-    }
-    
-    .forecast-cards::-webkit-scrollbar {
-        display: none;
+        scrollbar-width: thin;
     }
     
     .forecast-day-card {
-        flex: 0 0 auto;
-        width: 100px;
+        min-width: 90px;
+        max-width: 100%;
     }
 }
 
@@ -1238,13 +1238,30 @@ body::before {
         gap: var(--space-sm);
     }
     
+    .forecast-cards {
+        grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
+        gap: var(--space-xs);
+    }
+    
     .forecast-day-card {
-        width: 85px;
+        min-width: 75px;
         padding: var(--space-md) var(--space-sm);
     }
     
     .forecast-value {
         font-size: 1.5rem;
+    }
+    
+    .forecast-date {
+        font-size: 0.7rem;
+    }
+    
+    .forecast-day {
+        font-size: 0.85rem;
+    }
+    
+    .forecast-ci {
+        font-size: 0.6rem;
     }
     
     .stat-value {
@@ -1379,12 +1396,26 @@ body::before {
         font-size: 2.75rem;
     }
     
+    .forecast-cards {
+        grid-template-columns: repeat(auto-fit, minmax(65px, 1fr));
+        gap: var(--space-xs);
+    }
+    
     .forecast-day-card {
-        width: 75px;
+        min-width: 65px;
+        padding: var(--space-sm);
     }
     
     .forecast-value {
         font-size: 1.25rem;
+    }
+    
+    .forecast-date {
+        font-size: 0.65rem;
+    }
+    
+    .forecast-day {
+        font-size: 0.75rem;
     }
 }
 

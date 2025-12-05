@@ -1564,6 +1564,8 @@ let aiFactors = {};
 let lastAIAnalysisTime = null;
 let lastAIUpdateTime = null;
 const AI_UPDATE_INTERVAL = 30 * 60 * 1000; // 30分鐘
+const AI_UPDATE_STORAGE_KEY = 'ndh_ai_last_update_time';
+const AI_FACTORS_STORAGE_KEY = 'ndh_ai_factors_cache';
 
 // 獲取當前天氣
 async function fetchCurrentWeather() {
@@ -1854,9 +1856,40 @@ function updateWeatherDisplay() {
 async function updateAIFactors(force = false) {
     // 檢查是否需要更新（基於時間，而不是每次刷新）
     const now = Date.now();
+    
+    // 從 localStorage 讀取上次更新時間（跨頁面刷新持久化）
+    let storedUpdateTime = null;
+    try {
+        const stored = localStorage.getItem(AI_UPDATE_STORAGE_KEY);
+        if (stored) {
+            storedUpdateTime = parseInt(stored, 10);
+            // 如果內存中的時間不存在或更舊，使用存儲的時間
+            if (!lastAIUpdateTime || storedUpdateTime > lastAIUpdateTime) {
+                lastAIUpdateTime = storedUpdateTime;
+            }
+        }
+    } catch (e) {
+        console.warn('⚠️ 無法讀取 localStorage:', e);
+    }
+    
+    // 從 localStorage 讀取緩存的 AI 因素
+    if (!force && !aiFactors || Object.keys(aiFactors).length === 0) {
+        try {
+            const cachedFactors = localStorage.getItem(AI_FACTORS_STORAGE_KEY);
+            if (cachedFactors) {
+                aiFactors = JSON.parse(cachedFactors);
+                console.log('📦 從緩存載入 AI 因素:', Object.keys(aiFactors).length, '個日期');
+            }
+        } catch (e) {
+            console.warn('⚠️ 無法讀取緩存的 AI 因素:', e);
+        }
+    }
+    
+    // 檢查是否需要更新（基於時間）
     if (!force && lastAIUpdateTime && (now - lastAIUpdateTime) < AI_UPDATE_INTERVAL) {
         const timeSinceUpdate = Math.floor((now - lastAIUpdateTime) / 1000 / 60);
-        console.log(`⏭️ 跳過 AI 更新（距離上次更新僅 ${timeSinceUpdate} 分鐘，需等待 ${AI_UPDATE_INTERVAL / 1000 / 60} 分鐘）`);
+        const minutesRemaining = Math.ceil((AI_UPDATE_INTERVAL - (now - lastAIUpdateTime)) / 1000 / 60);
+        console.log(`⏭️ 跳過 AI 更新（距離上次更新僅 ${timeSinceUpdate} 分鐘，需等待 ${minutesRemaining} 分鐘）`);
         return { factors: [], summary: '使用緩存數據', cached: true };
     }
     
@@ -1891,6 +1924,16 @@ async function updateAIFactors(force = false) {
             
             lastAIAnalysisTime = new Date();
             lastAIUpdateTime = now; // 記錄更新時間
+            
+            // 保存更新時間到 localStorage（跨頁面刷新持久化）
+            try {
+                localStorage.setItem(AI_UPDATE_STORAGE_KEY, now.toString());
+                localStorage.setItem(AI_FACTORS_STORAGE_KEY, JSON.stringify(aiFactors));
+                console.log('💾 AI 更新時間和因素已保存到 localStorage');
+            } catch (e) {
+                console.warn('⚠️ 無法保存到 localStorage:', e);
+            }
+            
             console.log('✅ AI 因素已更新:', Object.keys(aiFactors).length, '個日期');
             
             // 返回完整的分析數據供顯示使用
