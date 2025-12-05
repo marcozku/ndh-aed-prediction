@@ -340,7 +340,7 @@ const apiHandlers = {
         
         try {
             const stats = aiService.getUsageStats();
-            const currentModel = aiService.getCurrentModel ? aiService.getCurrentModel() : (aiService.getAvailableModel ? aiService.getAvailableModel('basic') : '未知');
+            const currentModel = aiService.getCurrentModel ? aiService.getCurrentModel() : (aiService.getAvailableModel ? aiService.getAvailableModel('premium') : '未知');
             const modelTier = aiService.getModelTier ? aiService.getModelTier(currentModel) : 'unknown';
             
             sendJson(res, { 

@@ -69,11 +69,16 @@ function checkAndResetCounters() {
     });
 }
 
-// 獲取可用模型
-function getAvailableModel(tier = 'basic') {
+// 獲取可用模型（優先使用高級模型）
+function getAvailableModel(tier = 'premium') {
     checkAndResetCounters();
     const config = MODEL_CONFIG[tier];
-    if (!config) return MODEL_CONFIG.basic.defaultModel;
+    if (!config) {
+        // 如果層級不存在，嘗試下一層級
+        if (tier === 'premium') return getAvailableModel('standard');
+        if (tier === 'standard') return getAvailableModel('basic');
+        return MODEL_CONFIG.basic.defaultModel;
+    }
     
     if (usageCounters[tier].count >= config.dailyLimit) {
         // 如果當前層級已用完，嘗試下一層級
@@ -110,9 +115,9 @@ function getModelTier(model) {
 async function callAI(prompt, model = null, temperature = 0.7) {
     return new Promise((resolve, reject) => {
         try {
-            // 如果沒有指定模型，選擇可用模型
+            // 如果沒有指定模型，優先選擇高級模型
             if (!model) {
-                model = getAvailableModel('basic');
+                model = getAvailableModel('premium'); // 從高級模型開始
                 if (!model) {
                     return reject(new Error('所有 AI 模型今日使用次數已達上限'));
                 }
@@ -388,10 +393,10 @@ function getUsageStats() {
 }
 
 /**
- * 獲取當前使用的模型（不記錄使用）
+ * 獲取當前使用的模型（不記錄使用，優先高級模型）
  */
 function getCurrentModel() {
-    return getAvailableModel('basic');
+    return getAvailableModel('premium'); // 優先使用高級模型
 }
 
 /**
