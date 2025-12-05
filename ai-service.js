@@ -91,6 +91,65 @@ function getAvailableModel(tier = 'premium') {
     return config.defaultModel;
 }
 
+// 獲取所有可用模型列表（按優先級排序，從高級到低級）
+function getAllAvailableModels(excludeModels = []) {
+    checkAndResetCounters();
+    const models = [];
+    
+    // 高級模型（優先級 1）
+    const premiumConfig = MODEL_CONFIG.premium;
+    if (usageCounters.premium.count < premiumConfig.dailyLimit) {
+        premiumConfig.models.forEach(model => {
+            if (!excludeModels.includes(model)) {
+                models.push({ model, tier: 'premium', priority: 1 });
+            }
+        });
+    }
+    
+    // 中級模型（優先級 2）
+    const standardConfig = MODEL_CONFIG.standard;
+    if (usageCounters.standard.count < standardConfig.dailyLimit) {
+        standardConfig.models.forEach(model => {
+            if (!excludeModels.includes(model)) {
+                models.push({ model, tier: 'standard', priority: 2 });
+            }
+        });
+    }
+    
+    // 基礎模型（優先級 3）
+    const basicConfig = MODEL_CONFIG.basic;
+    if (usageCounters.basic.count < basicConfig.dailyLimit) {
+        basicConfig.models.forEach(model => {
+            if (!excludeModels.includes(model)) {
+                models.push({ model, tier: 'basic', priority: 3 });
+            }
+        });
+    }
+    
+    // 按優先級排序（優先級數字越小越優先）
+    models.sort((a, b) => {
+        if (a.priority !== b.priority) {
+            return a.priority - b.priority;
+        }
+        // 如果優先級相同，保持原始順序
+        return 0;
+    });
+    
+    return models;
+}
+
+// 檢查錯誤是否是因為模型使用次數限制
+function isRateLimitError(errorMessage) {
+    if (!errorMessage) return false;
+    const lowerMsg = errorMessage.toLowerCase();
+    return lowerMsg.includes('limit') || 
+           lowerMsg.includes('每日') || 
+           lowerMsg.includes('per day') ||
+           lowerMsg.includes('00:00') ||
+           lowerMsg.includes('免費') ||
+           lowerMsg.includes('free');
+}
+
 // 記錄使用
 function recordUsage(tier) {
     checkAndResetCounters();
@@ -110,21 +169,15 @@ function getModelTier(model) {
 }
 
 /**
- * 調用 AI API (Node.js 環境)
+ * 調用單個 AI 模型
  */
-async function callAI(prompt, model = null, temperature = 0.7) {
+async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord = false) {
     return new Promise((resolve, reject) => {
         try {
-            // 如果沒有指定模型，優先選擇高級模型
-            if (!model) {
-                model = getAvailableModel('premium'); // 從高級模型開始
-                if (!model) {
-                    return reject(new Error('所有 AI 模型今日使用次數已達上限'));
-                }
-            }
-            
             const tier = getModelTier(model);
-            recordUsage(tier);
+            if (!skipUsageRecord) {
+                recordUsage(tier);
+            }
             
             // 使用當前選定的 API 主機
             const apiUrl = `https://${currentAPIHost}/v1/chat/completions`;
@@ -166,7 +219,7 @@ async function callAI(prompt, model = null, temperature = 0.7) {
                 
                 res.on('end', () => {
                     if (res.statusCode !== 200) {
-                        console.error(`❌ AI API HTTP 錯誤: ${res.statusCode}`);
+                        console.error(`❌ AI API HTTP 錯誤 (${model}): ${res.statusCode}`);
                         console.error('響應內容:', data.substring(0, 500));
                         
                         // 如果主機失敗且還有備用主機，嘗試切換
@@ -174,7 +227,7 @@ async function callAI(prompt, model = null, temperature = 0.7) {
                             console.warn(`⚠️ 主 API 主機 ${currentAPIHost} 返回錯誤，切換到備用主機...`);
                             currentAPIHost = API_HOSTS.fallback;
                             // 遞歸重試（但只重試一次）
-                            return callAI(prompt, model, temperature).then(resolve).catch(reject);
+                            return callSingleModel(prompt, model, temperature, skipUsageRecord).then(resolve).catch(reject);
                         }
                         
                         // 嘗試解析錯誤訊息
@@ -197,13 +250,13 @@ async function callAI(prompt, model = null, temperature = 0.7) {
                         // 檢查是否有錯誤訊息
                         if (jsonData.error) {
                             const errorMsg = jsonData.error.message || jsonData.error.code || '未知錯誤';
-                            console.error(`❌ AI API 返回錯誤: ${errorMsg}`, jsonData.error);
+                            console.error(`❌ AI API 返回錯誤 (${model}): ${errorMsg}`, jsonData.error);
                             return reject(new Error(`AI API 錯誤: ${errorMsg}`));
                         }
                         
                         // 檢查是否有響應內容
                         if (!jsonData.choices || !jsonData.choices[0] || !jsonData.choices[0].message) {
-                            console.error('❌ AI API 響應格式異常:', jsonData);
+                            console.error(`❌ AI API 響應格式異常 (${model}):`, jsonData);
                             return reject(new Error('AI API 響應格式異常'));
                         }
                         
@@ -219,7 +272,7 @@ async function callAI(prompt, model = null, temperature = 0.7) {
                         }
                         resolve(jsonData.choices[0].message.content);
                     } catch (parseError) {
-                        console.error('❌ 解析 AI 響應失敗:', parseError);
+                        console.error(`❌ 解析 AI 響應失敗 (${model}):`, parseError);
                         console.error('原始響應:', data.substring(0, 500));
                         reject(new Error(`解析 AI 響應失敗: ${parseError.message}`));
                     }
@@ -227,13 +280,13 @@ async function callAI(prompt, model = null, temperature = 0.7) {
             });
             
             req.on('error', (error) => {
-                console.error(`❌ AI API 請求失敗 (${currentAPIHost}):`, error.message);
+                console.error(`❌ AI API 請求失敗 (${currentAPIHost}, ${model}):`, error.message);
                 // 如果是主主機失敗，嘗試切換到備用主機
                 if (currentAPIHost === API_HOSTS.primary) {
                     console.warn(`⚠️ 主 API 主機 ${currentAPIHost} 連接失敗，切換到備用主機...`);
                     currentAPIHost = API_HOSTS.fallback;
                     // 遞歸重試（但只重試一次）
-                    return callAI(prompt, model, temperature).then(resolve).catch(reject);
+                    return callSingleModel(prompt, model, temperature, skipUsageRecord).then(resolve).catch(reject);
                 }
                 reject(error);
             });
@@ -241,10 +294,91 @@ async function callAI(prompt, model = null, temperature = 0.7) {
             req.write(postData);
             req.end();
         } catch (error) {
-            console.error('❌ AI API 調用失敗:', error);
+            console.error(`❌ AI API 調用失敗 (${model}):`, error);
             reject(error);
         }
     });
+}
+
+/**
+ * 調用 AI API (Node.js 環境)
+ * 自動從高級模型到低級模型依次嘗試，直到成功
+ */
+async function callAI(prompt, model = null, temperature = 0.7) {
+    const triedModels = [];
+    
+    // 如果指定了模型，先嘗試指定的模型
+    if (model) {
+        triedModels.push(model);
+        try {
+            console.log(`🤖 嘗試使用指定模型: ${model}`);
+            const result = await callSingleModel(prompt, model, temperature);
+            console.log(`✅ 模型 ${model} 調用成功`);
+            return result;
+        } catch (error) {
+            console.warn(`⚠️ 指定模型 ${model} 失敗: ${error.message}`);
+            // 無論什麼錯誤，都繼續嘗試其他模型（包括使用限制錯誤）
+            if (isRateLimitError(error.message)) {
+                console.log(`⏭️ 指定模型 ${model} 達到使用限制，嘗試其他模型...`);
+            } else {
+                console.log(`⏭️ 指定模型 ${model} 失敗，嘗試其他模型...`);
+            }
+        }
+    }
+    
+    // 獲取所有可用模型（排除已嘗試的）
+    let availableModels = getAllAvailableModels(triedModels);
+    
+    if (availableModels.length === 0) {
+        throw new Error('所有 AI 模型今日使用次數已達上限或無可用模型');
+    }
+    
+    // 依次嘗試每個模型
+    let lastError = null;
+    for (const { model: modelName, tier } of availableModels) {
+        // 檢查是否已經嘗試過
+        if (triedModels.includes(modelName)) {
+            continue;
+        }
+        
+        triedModels.push(modelName);
+        try {
+            console.log(`🤖 嘗試使用模型: ${modelName} (${tier})`);
+            const result = await callSingleModel(prompt, modelName, temperature);
+            console.log(`✅ 模型 ${modelName} 調用成功`);
+            return result;
+        } catch (error) {
+            lastError = error;
+            console.warn(`⚠️ 模型 ${modelName} 失敗: ${error.message}`);
+            
+            // 檢查是否為使用次數限制錯誤
+            if (isRateLimitError(error.message)) {
+                console.log(`⏭️ 模型 ${modelName} 達到使用限制，嘗試下一個模型...`);
+                // 繼續嘗試下一個模型
+                continue;
+            }
+            
+            // 如果是其他錯誤（如網絡錯誤、API 錯誤等），也嘗試下一個模型
+            console.log(`⏭️ 模型 ${modelName} 失敗 (${error.message})，嘗試下一個模型...`);
+            
+            // 重新獲取可用模型列表（可能因為錯誤而變化）
+            availableModels = getAllAvailableModels(triedModels);
+            
+            // 如果還有其他模型可嘗試，繼續
+            if (availableModels.length > 0) {
+                continue;
+            }
+            
+            // 如果沒有更多模型可嘗試，跳出循環
+            break;
+        }
+    }
+    
+    // 如果所有模型都嘗試過了但都失敗
+    if (lastError) {
+        throw new Error(`所有 AI 模型都嘗試失敗。最後錯誤: ${lastError.message}`);
+    }
+    throw new Error('所有 AI 模型都嘗試失敗');
 }
 
 /**
