@@ -1735,15 +1735,13 @@ async function checkAIStatus() {
                 'unknown': '未知'
             };
             const tierName = tierNames[tier] || '未知';
-            const usage = data.usage || {};
-            const basicRemaining = usage.basic?.remaining || 0;
             
             aiStatusEl.className = 'ai-status connected';
             aiStatusEl.innerHTML = `
                 <span class="ai-status-icon">🤖</span>
                 <span class="ai-status-text">AI 已連接</span>
                 <span class="ai-status-details">
-                    ${tierName}模型: ${modelName} | 剩餘: ${basicRemaining} 次
+                    ${tierName}模型: ${modelName}
                 </span>
             `;
         } else {
