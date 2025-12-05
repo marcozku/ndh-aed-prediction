@@ -2396,10 +2396,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateFactorsLoadingProgress(15);
     
     // 檢查是否需要生成 AI 數據
+    // 檢查緩存數據是否真正有效（factors 或有意義的 summary）
     const hasValidData = aiAnalysisData && 
         aiAnalysisData.cached && 
         ((aiAnalysisData.factors && Array.isArray(aiAnalysisData.factors) && aiAnalysisData.factors.length > 0) || 
-         (aiAnalysisData.summary && aiAnalysisData.summary !== '無分析數據' && aiAnalysisData.summary !== '無法獲取 AI 分析' && aiAnalysisData.summary !== ''));
+         (aiAnalysisData.summary && 
+          aiAnalysisData.summary !== '無分析數據' && 
+          aiAnalysisData.summary !== '無法獲取 AI 分析' && 
+          aiAnalysisData.summary !== '' &&
+          aiAnalysisData.summary.trim().length > 0));
     
     // 如果沒有有效的緩存數據，立即生成一次 AI 數據並保存到數據庫
     if (!hasValidData || aiAnalysisData?.needsGeneration) {
