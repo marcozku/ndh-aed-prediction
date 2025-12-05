@@ -1952,11 +1952,62 @@ async function updateAIFactors(force = false) {
     try {
         console.log('🤖 開始 AI 因素分析...');
         updateFactorsLoadingProgress(10);
-        const response = await fetch('/api/ai-analyze');
-        updateFactorsLoadingProgress(30);
+        
+        // 添加超時和重試機制
+        let response;
+        let lastError = null;
+        const maxRetries = 3;
+        const timeout = 60000; // 60秒超時
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                if (attempt > 1) {
+                    console.log(`🔄 重試 AI 分析 (第 ${attempt} 次嘗試)...`);
+                    updateFactorsLoadingProgress(15);
+                    // 等待後再重試
+                    await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+                }
+                
+                // 創建帶超時的 fetch
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), timeout);
+                
+                try {
+                    response = await fetch('/api/ai-analyze', {
+                        signal: controller.signal,
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    clearTimeout(timeoutId);
+                } catch (fetchError) {
+                    clearTimeout(timeoutId);
+                    if (fetchError.name === 'AbortError') {
+                        throw new Error('請求超時（60秒）');
+                    }
+                    throw fetchError;
+                }
+                
+                updateFactorsLoadingProgress(30);
+                break; // 成功，跳出重試循環
+            } catch (error) {
+                lastError = error;
+                console.warn(`⚠️ AI 分析請求失敗 (第 ${attempt} 次嘗試):`, error.message);
+                
+                if (attempt === maxRetries) {
+                    // 最後一次嘗試失敗
+                    throw error;
+                }
+                // 繼續重試
+            }
+        }
+        
+        if (!response) {
+            throw lastError || new Error('無法連接到服務器');
+        }
         
         if (!response.ok) {
-            const errorText = await response.text();
+            const errorText = await response.text().catch(() => '無法讀取錯誤訊息');
             let errorData;
             try {
                 errorData = JSON.parse(errorText);
@@ -2099,11 +2150,27 @@ async function updateAIFactors(force = false) {
             stack: error.stack,
             name: error.name
         });
+        
+        // 根據錯誤類型提供更友好的錯誤訊息
+        let errorMessage = error.message || '未知錯誤';
+        let errorSummary = '無法獲取 AI 分析';
+        
+        if (error.message.includes('Load failed') || error.message.includes('Failed to fetch')) {
+            errorMessage = '網絡連接失敗，請檢查網絡連接';
+            errorSummary = '網絡連接失敗，請稍後重試';
+        } else if (error.message.includes('timeout') || error.message.includes('超時')) {
+            errorMessage = '請求超時，服務器響應時間過長';
+            errorSummary = '請求超時，請稍後重試';
+        } else if (error.message.includes('AbortError')) {
+            errorMessage = '請求被取消或超時';
+            errorSummary = '請求超時，請稍後重試';
+        }
+        
         updateFactorsLoadingProgress(100);
         return { 
             factors: [], 
-            summary: `無法獲取 AI 分析: ${error.message}`,
-            error: error.message 
+            summary: `${errorSummary}: ${errorMessage}`,
+            error: errorMessage 
         };
     }
 }
