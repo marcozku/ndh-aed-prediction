@@ -2015,12 +2015,7 @@ async function updateAIFactors(force = false) {
             };
         }
         console.log('⚠️ AI 分析返回空數據:', data);
-=======
-            updateFactorsLoadingProgress(100);
-            return result;
-        }
         updateFactorsLoadingProgress(100);
->>>>>>> ad2f06d339f3311e46b8fbf098d30fbfb0045dbe
         return { factors: [], summary: '無分析數據', cached: false };
     } catch (error) {
         console.error('❌ AI 因素更新失敗:', error);
@@ -2063,18 +2058,13 @@ function updateRealtimeFactors(aiAnalysisData = null) {
     
     updateSectionProgress('realtime-factors', 20);
     
-<<<<<<< HEAD
     // 檢查 AI 分析數據
     console.log('📊 AI 分析數據:', aiAnalysisData);
     
-    // 如果沒有 AI 分析數據，顯示空狀態
+    // 如果沒有 AI 分析數據，顯示載入狀態或空狀態
     if (!aiAnalysisData || 
         (aiAnalysisData.factors && Array.isArray(aiAnalysisData.factors) && aiAnalysisData.factors.length === 0) ||
         (!aiAnalysisData.factors && !aiAnalysisData.summary)) {
-=======
-    // 如果沒有 AI 分析數據，顯示載入狀態或空狀態
-    if (!aiAnalysisData || !aiAnalysisData.factors || aiAnalysisData.factors.length === 0) {
->>>>>>> ad2f06d339f3311e46b8fbf098d30fbfb0045dbe
         updateSectionProgress('realtime-factors', 100);
         updateFactorsLoadingProgress(100);
         if (loadingEl) loadingEl.style.display = 'none';
