@@ -2078,6 +2078,11 @@ function updateRealtimeFactors(aiAnalysisData = null) {
             return;
         }
         // 否則顯示空狀態
+        // 確保隱藏 factors-loading 元素
+        const factorsLoadingEl = document.getElementById('factors-loading');
+        if (factorsLoadingEl) {
+            factorsLoadingEl.style.display = 'none';
+        }
         factorsEl.innerHTML = `
             <div class="factors-empty">
                 <span>📊 暫無實時影響因素</span>
@@ -2107,7 +2112,13 @@ function updateRealtimeFactors(aiAnalysisData = null) {
     // 如果沒有因素但有總結，至少顯示總結
     if (factors.length === 0 && summary && summary !== '無法獲取 AI 分析' && summary !== '無分析數據') {
         updateSectionProgress('realtime-factors', 100);
+        updateFactorsLoadingProgress(100);
         if (loadingEl) loadingEl.style.display = 'none';
+        // 確保隱藏 factors-loading 元素
+        const factorsLoadingEl = document.getElementById('factors-loading');
+        if (factorsLoadingEl) {
+            factorsLoadingEl.style.display = 'none';
+        }
         factorsEl.style.display = 'block';
         factorsEl.innerHTML = `
             <div class="factors-summary">
@@ -2121,7 +2132,13 @@ function updateRealtimeFactors(aiAnalysisData = null) {
     // 如果完全沒有數據，顯示空狀態
     if (factors.length === 0) {
         updateSectionProgress('realtime-factors', 100);
+        updateFactorsLoadingProgress(100);
         if (loadingEl) loadingEl.style.display = 'none';
+        // 確保隱藏 factors-loading 元素
+        const factorsLoadingEl = document.getElementById('factors-loading');
+        if (factorsLoadingEl) {
+            factorsLoadingEl.style.display = 'none';
+        }
         factorsEl.style.display = 'block';
         factorsEl.innerHTML = `
             <div class="factors-empty">
@@ -2254,6 +2271,13 @@ function updateRealtimeFactors(aiAnalysisData = null) {
     updateSectionProgress('realtime-factors', 100);
     updateFactorsLoadingProgress(100);
     if (loadingEl) loadingEl.style.display = 'none';
+    
+    // 確保隱藏 factors-loading 元素
+    const factorsLoadingEl = document.getElementById('factors-loading');
+    if (factorsLoadingEl) {
+        factorsLoadingEl.style.display = 'none';
+    }
+    
     factorsEl.style.display = 'block';
 }
 
@@ -2318,11 +2342,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateFactorsLoadingProgress(15);
     
     // 立即更新實時因素顯示（使用緩存數據）
-    if (aiAnalysisData && aiAnalysisData.factors && aiAnalysisData.factors.length > 0) {
+    if (aiAnalysisData && (aiAnalysisData.factors && aiAnalysisData.factors.length > 0 || aiAnalysisData.summary)) {
         updateRealtimeFactors(aiAnalysisData);
         console.log('✅ 已從數據庫載入緩存的 AI 因素並顯示');
     } else {
-        // 如果沒有緩存數據，保持顯示載入狀態
+        // 如果沒有緩存數據，顯示空狀態
+        updateRealtimeFactors({ factors: [], summary: '' });
         updateFactorsLoadingProgress(15);
     }
     
