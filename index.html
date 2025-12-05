@@ -117,32 +117,60 @@
             <!-- 未來30天預測圖 -->
             <div class="chart-card full-width">
                 <h3>未來 30 天預測趨勢</h3>
-                <div class="chart-container">
-                    <canvas id="forecast-chart"></canvas>
+                <div class="chart-container" id="forecast-chart-container">
+                    <div class="chart-loading" id="forecast-chart-loading">
+                        <div class="loading-spinner"></div>
+                        <div class="loading-text">載入中... <span class="loading-percent" id="forecast-loading-percent">0%</span></div>
+                        <div class="loading-progress-bar">
+                            <div class="loading-progress-fill" id="forecast-progress-fill"></div>
+                        </div>
+                    </div>
+                    <canvas id="forecast-chart" style="display: none;"></canvas>
                 </div>
             </div>
 
             <!-- 星期效應圖 -->
             <div class="chart-card">
                 <h3>星期效應分析</h3>
-                <div class="chart-container">
-                    <canvas id="dow-chart"></canvas>
+                <div class="chart-container" id="dow-chart-container">
+                    <div class="chart-loading" id="dow-chart-loading">
+                        <div class="loading-spinner"></div>
+                        <div class="loading-text">載入中... <span class="loading-percent" id="dow-loading-percent">0%</span></div>
+                        <div class="loading-progress-bar">
+                            <div class="loading-progress-fill" id="dow-progress-fill"></div>
+                        </div>
+                    </div>
+                    <canvas id="dow-chart" style="display: none;"></canvas>
                 </div>
             </div>
 
             <!-- 月份分佈圖 -->
             <div class="chart-card">
                 <h3>月份分佈統計</h3>
-                <div class="chart-container">
-                    <canvas id="month-chart"></canvas>
+                <div class="chart-container" id="month-chart-container">
+                    <div class="chart-loading" id="month-chart-loading">
+                        <div class="loading-spinner"></div>
+                        <div class="loading-text">載入中... <span class="loading-percent" id="month-loading-percent">0%</span></div>
+                        <div class="loading-progress-bar">
+                            <div class="loading-progress-fill" id="month-progress-fill"></div>
+                        </div>
+                    </div>
+                    <canvas id="month-chart" style="display: none;"></canvas>
                 </div>
             </div>
 
             <!-- 歷史趨勢圖 -->
             <div class="chart-card full-width">
                 <h3>歷史趨勢 (365 天)</h3>
-                <div class="chart-container large">
-                    <canvas id="history-chart"></canvas>
+                <div class="chart-container large" id="history-chart-container">
+                    <div class="chart-loading" id="history-chart-loading">
+                        <div class="loading-spinner"></div>
+                        <div class="loading-text">載入中... <span class="loading-percent" id="history-loading-percent">0%</span></div>
+                        <div class="loading-progress-bar">
+                            <div class="loading-progress-fill" id="history-progress-fill"></div>
+                        </div>
+                    </div>
+                    <canvas id="history-chart" style="display: none;"></canvas>
                 </div>
             </div>
         </section>

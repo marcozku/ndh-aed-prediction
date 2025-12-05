@@ -565,14 +565,28 @@ class NDHAttendancePredictor {
         for (let i = 0; i < days; i++) {
             const date = new Date(start);
             date.setDate(start.getDate() + i);
+            // 驗證日期是否有效
+            if (isNaN(date.getTime())) {
+                console.error(`❌ 無效日期: ${startDate} + ${i} 天`);
+                continue;
+            }
             const dateStr = date.toISOString().split('T')[0];
             
             // 獲取該日期的天氣數據
             let dayWeather = null;
             if (weatherForecast && Array.isArray(weatherForecast)) {
                 dayWeather = weatherForecast.find(w => {
-                    const wDate = new Date(w.forecastDate || w.date);
-                    return wDate.toISOString().split('T')[0] === dateStr;
+                    try {
+                        const dateValue = w.forecastDate || w.date;
+                        if (!dateValue) return false;
+                        const wDate = new Date(dateValue);
+                        // 檢查日期是否有效
+                        if (isNaN(wDate.getTime())) return false;
+                        return wDate.toISOString().split('T')[0] === dateStr;
+                    } catch (error) {
+                        console.warn('⚠️ 天氣預報日期解析失敗:', w, error);
+                        return false;
+                    }
                 });
             }
             
@@ -755,28 +769,69 @@ const professionalOptions = {
     }
 };
 
+// 更新載入進度
+function updateLoadingProgress(chartId, percent) {
+    const loadingEl = document.getElementById(`${chartId}-chart-loading`);
+    const percentEl = document.getElementById(`${chartId}-loading-percent`);
+    const progressFill = document.getElementById(`${chartId}-progress-fill`);
+    
+    if (percentEl) {
+        percentEl.textContent = `${Math.round(percent)}%`;
+    }
+    if (progressFill) {
+        progressFill.style.width = `${percent}%`;
+    }
+}
+
+// 完成圖表載入
+function completeChartLoading(chartId) {
+    const loadingEl = document.getElementById(`${chartId}-chart-loading`);
+    const canvasEl = document.getElementById(`${chartId}-chart`);
+    
+    if (loadingEl) {
+        loadingEl.style.display = 'none';
+    }
+    if (canvasEl) {
+        canvasEl.style.display = 'block';
+    }
+}
+
 function initCharts(predictor) {
     // 獲取今天日期 (香港時間 HKT UTC+8)
     const hk = getHKTime();
     const today = hk.dateStr;
     
+    // 更新總體進度
+    let totalProgress = 0;
+    const totalCharts = 4;
+    
     // 未來30天預測（包含天氣和 AI 因素）
+    updateLoadingProgress('forecast', 10);
     const predictions = predictor.predictRange(today, 30, weatherForecastData, aiFactors);
+    updateLoadingProgress('forecast', 30);
     
     // 1. 預測趨勢圖 - 專業線圖
-    const forecastCtx = document.getElementById('forecast-chart').getContext('2d');
+    try {
+        const forecastCanvas = document.getElementById('forecast-chart');
+        if (!forecastCanvas) {
+            console.error('❌ 找不到 forecast-chart canvas');
+            updateLoadingProgress('forecast', 0);
+            return;
+        }
+        const forecastCtx = forecastCanvas.getContext('2d');
+        updateLoadingProgress('forecast', 50);
     
-    // 創建漸變填充
-    const forecastGradient = forecastCtx.createLinearGradient(0, 0, 0, 280);
-    forecastGradient.addColorStop(0, 'rgba(5, 150, 105, 0.15)');
-    forecastGradient.addColorStop(1, 'rgba(5, 150, 105, 0)');
+        // 創建漸變填充
+        const forecastGradient = forecastCtx.createLinearGradient(0, 0, 0, 280);
+        forecastGradient.addColorStop(0, 'rgba(5, 150, 105, 0.15)');
+        forecastGradient.addColorStop(1, 'rgba(5, 150, 105, 0)');
+        updateLoadingProgress('forecast', 70);
     
-    forecastChart = new Chart(forecastCtx, {
+        forecastChart = new Chart(forecastCtx, {
         type: 'line',
         data: {
             labels: predictions.map(p => {
-                const d = new Date(p.date);
-                return `${d.getDate()}`;
+                return formatDateDDMM(p.date);
             }),
             datasets: [
                 {
@@ -845,7 +900,7 @@ function initCharts(predictor) {
                     callbacks: {
                         title: function(items) {
                             const p = predictions[items[0].dataIndex];
-                            return p.date;
+                            return formatDateDDMM(p.date, true); // 工具提示顯示完整日期
                         },
                         label: function(item) {
                             if (item.datasetIndex === 0) {
@@ -886,30 +941,51 @@ function initCharts(predictor) {
         }
     });
     
+    updateLoadingProgress('forecast', 90);
+    updateLoadingProgress('forecast', 100);
+    completeChartLoading('forecast');
+    totalProgress += 25;
+    console.log('✅ 預測趨勢圖已載入');
+    } catch (error) {
+        console.error('❌ 預測趨勢圖載入失敗:', error);
+        updateLoadingProgress('forecast', 0);
+    }
+    
     // 2. 星期效應圖 - 專業條形圖
-    const dowMeans = predictor.getDOWMeans();
-    const reorderedDOW = [dowMeans[1], dowMeans[2], dowMeans[3], dowMeans[4], dowMeans[5], dowMeans[6], dowMeans[0]];
-    const avgDOW = reorderedDOW.reduce((a, b) => a + b, 0) / reorderedDOW.length;
-    
-    const dowCtx = document.getElementById('dow-chart').getContext('2d');
-    
-    // 創建漸變
-    const dowGradients = reorderedDOW.map((val, i) => {
-        const gradient = dowCtx.createLinearGradient(0, 0, 0, 250);
-        if (i === 0) {
-            gradient.addColorStop(0, '#ef4444');
-            gradient.addColorStop(1, '#fca5a5');
-        } else if (i >= 5) {
-            gradient.addColorStop(0, '#64748b');
-            gradient.addColorStop(1, '#94a3b8');
-        } else {
-            gradient.addColorStop(0, '#4f46e5');
-            gradient.addColorStop(1, '#818cf8');
+    try {
+        updateLoadingProgress('dow', 10);
+        const dowMeans = predictor.getDOWMeans();
+        updateLoadingProgress('dow', 30);
+        const reorderedDOW = [dowMeans[1], dowMeans[2], dowMeans[3], dowMeans[4], dowMeans[5], dowMeans[6], dowMeans[0]];
+        const avgDOW = reorderedDOW.reduce((a, b) => a + b, 0) / reorderedDOW.length;
+        
+        const dowCanvas = document.getElementById('dow-chart');
+        if (!dowCanvas) {
+            console.error('❌ 找不到 dow-chart canvas');
+            updateLoadingProgress('dow', 0);
+            return;
         }
-        return gradient;
-    });
-    
-    dowChart = new Chart(dowCtx, {
+        const dowCtx = dowCanvas.getContext('2d');
+        updateLoadingProgress('dow', 50);
+        
+        // 創建漸變
+        const dowGradients = reorderedDOW.map((val, i) => {
+            const gradient = dowCtx.createLinearGradient(0, 0, 0, 250);
+            if (i === 0) {
+                gradient.addColorStop(0, '#ef4444');
+                gradient.addColorStop(1, '#fca5a5');
+            } else if (i >= 5) {
+                gradient.addColorStop(0, '#64748b');
+                gradient.addColorStop(1, '#94a3b8');
+            } else {
+                gradient.addColorStop(0, '#4f46e5');
+                gradient.addColorStop(1, '#818cf8');
+            }
+            return gradient;
+        });
+        updateLoadingProgress('dow', 70);
+        
+        dowChart = new Chart(dowCtx, {
         type: 'bar',
         data: {
             labels: ['一', '二', '三', '四', '五', '六', '日'],
@@ -963,24 +1039,46 @@ function initCharts(predictor) {
         }
     });
     
+        updateLoadingProgress('dow', 90);
+        updateLoadingProgress('dow', 100);
+        completeChartLoading('dow');
+        totalProgress += 25;
+        console.log('✅ 星期效應圖已載入');
+    } catch (error) {
+        console.error('❌ 星期效應圖載入失敗:', error);
+        updateLoadingProgress('dow', 0);
+    }
+    
     // 3. 月份分佈圖 - 專業條形圖
-    const monthMeans = predictor.getMonthMeans();
-    const monthCtx = document.getElementById('month-chart').getContext('2d');
-    
-    // 月份漸變
-    const monthGradients = monthMeans.map((_, i) => {
-        const gradient = monthCtx.createLinearGradient(0, 0, 0, 250);
-        if ([0, 1, 2, 6, 7, 9].includes(i)) {
-            gradient.addColorStop(0, '#ef4444');
-            gradient.addColorStop(1, '#fca5a5');
-        } else {
-            gradient.addColorStop(0, '#4f46e5');
-            gradient.addColorStop(1, '#818cf8');
+    try {
+        updateLoadingProgress('month', 10);
+        const monthMeans = predictor.getMonthMeans();
+        updateLoadingProgress('month', 30);
+        
+        const monthCanvas = document.getElementById('month-chart');
+        if (!monthCanvas) {
+            console.error('❌ 找不到 month-chart canvas');
+            updateLoadingProgress('month', 0);
+            return;
         }
-        return gradient;
-    });
+        const monthCtx = monthCanvas.getContext('2d');
+        updateLoadingProgress('month', 50);
     
-    monthChart = new Chart(monthCtx, {
+        // 月份漸變
+        const monthGradients = monthMeans.map((_, i) => {
+            const gradient = monthCtx.createLinearGradient(0, 0, 0, 250);
+            if ([0, 1, 2, 6, 7, 9].includes(i)) {
+                gradient.addColorStop(0, '#ef4444');
+                gradient.addColorStop(1, '#fca5a5');
+            } else {
+                gradient.addColorStop(0, '#4f46e5');
+                gradient.addColorStop(1, '#818cf8');
+            }
+            return gradient;
+        });
+        updateLoadingProgress('month', 70);
+        
+        monthChart = new Chart(monthCtx, {
         type: 'bar',
         data: {
             labels: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
@@ -1037,27 +1135,48 @@ function initCharts(predictor) {
         }
     });
     
+        updateLoadingProgress('month', 90);
+        updateLoadingProgress('month', 100);
+        completeChartLoading('month');
+        totalProgress += 25;
+        console.log('✅ 月份分佈圖已載入');
+    } catch (error) {
+        console.error('❌ 月份分佈圖載入失敗:', error);
+        updateLoadingProgress('month', 0);
+    }
+    
     // 4. 歷史趨勢圖 - 專業區域圖
-    const historyCtx = document.getElementById('history-chart').getContext('2d');
-    
-    // 創建漸變
-    const historyGradient = historyCtx.createLinearGradient(0, 0, 0, 320);
-    historyGradient.addColorStop(0, 'rgba(79, 70, 229, 0.25)');
-    historyGradient.addColorStop(0.5, 'rgba(79, 70, 229, 0.08)');
-    historyGradient.addColorStop(1, 'rgba(79, 70, 229, 0)');
-    
-    // 簡化日期標籤 - 只顯示月份
-    const monthLabels = predictor.data.map((d, i) => {
-        const date = new Date(d.date);
-        const day = date.getDate();
-        // 只在每月1號或15號顯示
-        if (day === 1) {
-            return `${date.getMonth()+1}月`;
+    try {
+        updateLoadingProgress('history', 10);
+        const historyCanvas = document.getElementById('history-chart');
+        if (!historyCanvas) {
+            console.error('❌ 找不到 history-chart canvas');
+            updateLoadingProgress('history', 0);
+            return;
         }
-        return '';
-    });
-    
-    historyChart = new Chart(historyCtx, {
+        const historyCtx = historyCanvas.getContext('2d');
+        updateLoadingProgress('history', 30);
+        
+        // 創建漸變
+        const historyGradient = historyCtx.createLinearGradient(0, 0, 0, 320);
+        historyGradient.addColorStop(0, 'rgba(79, 70, 229, 0.25)');
+        historyGradient.addColorStop(0.5, 'rgba(79, 70, 229, 0.08)');
+        historyGradient.addColorStop(1, 'rgba(79, 70, 229, 0)');
+        updateLoadingProgress('history', 50);
+        
+        // 簡化日期標籤 - 只顯示月份
+        const monthLabels = predictor.data.map((d, i) => {
+            const date = new Date(d.date);
+            const day = date.getDate();
+            // 只在每月1號或15號顯示
+            if (day === 1) {
+                return `${date.getMonth()+1}月`;
+            }
+            return '';
+        });
+        updateLoadingProgress('history', 70);
+        
+        historyChart = new Chart(historyCtx, {
         type: 'line',
         data: {
             labels: monthLabels,
@@ -1124,7 +1243,7 @@ function initCharts(predictor) {
                     callbacks: {
                         title: function(items) {
                             const idx = items[0].dataIndex;
-                            return predictor.data[idx].date;
+                            return formatDateDDMM(predictor.data[idx].date, true); // 工具提示顯示完整日期
                         },
                         label: function(item) {
                             if (item.datasetIndex === 0) {
@@ -1159,6 +1278,44 @@ function initCharts(predictor) {
             }
         }
     });
+    
+    updateLoadingProgress('history', 90);
+    updateLoadingProgress('history', 100);
+    completeChartLoading('history');
+    totalProgress += 25;
+    console.log('✅ 歷史趨勢圖已載入');
+    console.log('✅ 所有圖表載入完成');
+    } catch (error) {
+        console.error('❌ 歷史趨勢圖載入失敗:', error);
+        updateLoadingProgress('history', 0);
+    }
+}
+
+// ============================================
+// 日期格式化工具函數
+// ============================================
+function formatDateDDMM(dateStr, includeYear = false) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    if (includeYear) {
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+    }
+    return `${day}/${month}`;
+}
+
+function formatDateDDMMFromDate(date, includeYear = false) {
+    if (!date || isNaN(date.getTime())) return '';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    if (includeYear) {
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+    }
+    return `${day}/${month}`;
 }
 
 // ============================================
@@ -1210,7 +1367,8 @@ function updateUI(predictor) {
     // 今日預測（包含天氣和 AI 因素）
     const todayPred = predictor.predict(today, currentWeatherData, aiFactors[today]);
     
-    document.getElementById('today-date').textContent = `${todayPred.date} ${todayPred.dayName}`;
+    const todayDateFormatted = formatDateDDMM(todayPred.date, true); // 今日預測顯示完整日期
+    document.getElementById('today-date').textContent = `${todayDateFormatted} ${todayPred.dayName}`;
     document.getElementById('today-predicted').textContent = todayPred.predicted;
     document.getElementById('today-ci80').textContent = `${todayPred.ci80.lower} - ${todayPred.ci80.upper} 人`;
     document.getElementById('today-ci95').textContent = `${todayPred.ci95.lower} - ${todayPred.ci95.upper} 人`;
@@ -1272,7 +1430,7 @@ function updateUI(predictor) {
         
         return `
             <div class="${cardClass}">
-                <div class="forecast-date">${p.date.slice(5)}</div>
+                <div class="forecast-date">${formatDateDDMM(p.date)}</div>
                 <div class="forecast-day">${p.dayName}</div>
                 <div class="forecast-value">${p.predicted}</div>
                 <div class="forecast-ci">${p.ci80.lower}-${p.ci80.upper}</div>
@@ -1671,8 +1829,7 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         let affectedDaysHtml = '';
         if (factor.affectedDays && Array.isArray(factor.affectedDays) && factor.affectedDays.length > 0) {
             const daysList = factor.affectedDays.slice(0, 5).map(date => {
-                const d = new Date(date);
-                return `${d.getMonth() + 1}/${d.getDate()}`;
+                return formatDateDDMM(date, true); // 受影響日期顯示完整日期
             }).join(', ');
             affectedDaysHtml = `
                 <div class="factor-affected-days">
@@ -1681,11 +1838,10 @@ function updateRealtimeFactors(aiAnalysisData = null) {
                 </div>
             `;
         } else if (factor.date) {
-            const d = new Date(factor.date);
             affectedDaysHtml = `
                 <div class="factor-affected-days">
                     <span class="affected-days-label">日期：</span>
-                    <span class="affected-days-list">${d.getMonth() + 1}/${d.getDate()}</span>
+                    <span class="affected-days-list">${formatDateDDMM(factor.date, true)}</span>
                 </div>
             `;
         }
