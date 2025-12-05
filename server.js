@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '1.1.3';
+const MODEL_VERSION = '1.1.4';
 
 // AI 服務（僅在服務器端使用）
 let aiService = null;
@@ -251,16 +251,32 @@ const apiHandlers = {
         
         try {
             const analysis = await aiService.searchRelevantNewsAndEvents();
+            
+            // 檢查分析結果是否有錯誤
+            if (analysis.error) {
+                console.error('⚠️ AI 分析返回錯誤:', analysis.error);
+                return sendJson(res, { 
+                    success: false, 
+                    error: analysis.error,
+                    factors: analysis.factors || [],
+                    summary: analysis.summary || 'AI 分析失敗'
+                }, 500);
+            }
+            
             sendJson(res, { 
                 success: true, 
                 ...analysis,
                 timestamp: new Date().toISOString()
             });
         } catch (err) {
-            console.error('AI 分析錯誤:', err);
+            console.error('❌ AI 分析錯誤:', err);
+            console.error('錯誤堆疊:', err.stack);
             sendJson(res, { 
                 success: false, 
-                error: err.message 
+                error: err.message,
+                errorType: err.name,
+                factors: [],
+                summary: '無法獲取 AI 分析'
             }, 500);
         }
     },

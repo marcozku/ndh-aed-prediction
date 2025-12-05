@@ -166,6 +166,9 @@ async function callAI(prompt, model = null, temperature = 0.7) {
                 
                 res.on('end', () => {
                     if (res.statusCode !== 200) {
+                        console.error(`❌ AI API HTTP 錯誤: ${res.statusCode}`);
+                        console.error('響應內容:', data.substring(0, 500));
+                        
                         // 如果主機失敗且還有備用主機，嘗試切換
                         if (res.statusCode >= 500 && currentAPIHost === API_HOSTS.primary) {
                             console.warn(`⚠️ 主 API 主機 ${currentAPIHost} 返回錯誤，切換到備用主機...`);
@@ -173,11 +176,37 @@ async function callAI(prompt, model = null, temperature = 0.7) {
                             // 遞歸重試（但只重試一次）
                             return callAI(prompt, model, temperature).then(resolve).catch(reject);
                         }
-                        return reject(new Error(`AI API 錯誤: ${res.statusCode} - ${data}`));
+                        
+                        // 嘗試解析錯誤訊息
+                        let errorMsg = `HTTP ${res.statusCode}`;
+                        try {
+                            const errorData = JSON.parse(data);
+                            if (errorData.error) {
+                                errorMsg = errorData.error.message || errorData.error.code || errorMsg;
+                            }
+                        } catch (e) {
+                            // 忽略解析錯誤
+                        }
+                        
+                        return reject(new Error(`AI API 錯誤: ${errorMsg}`));
                     }
                     
                     try {
                         const jsonData = JSON.parse(data);
+                        
+                        // 檢查是否有錯誤訊息
+                        if (jsonData.error) {
+                            const errorMsg = jsonData.error.message || jsonData.error.code || '未知錯誤';
+                            console.error(`❌ AI API 返回錯誤: ${errorMsg}`, jsonData.error);
+                            return reject(new Error(`AI API 錯誤: ${errorMsg}`));
+                        }
+                        
+                        // 檢查是否有響應內容
+                        if (!jsonData.choices || !jsonData.choices[0] || !jsonData.choices[0].message) {
+                            console.error('❌ AI API 響應格式異常:', jsonData);
+                            return reject(new Error('AI API 響應格式異常'));
+                        }
+                        
                         // 成功後，如果使用的是備用主機，嘗試切換回主主機（下次使用）
                         if (currentAPIHost === API_HOSTS.fallback) {
                             console.log(`✅ 備用主機 ${currentAPIHost} 工作正常，下次將嘗試主主機`);
@@ -190,6 +219,8 @@ async function callAI(prompt, model = null, temperature = 0.7) {
                         }
                         resolve(jsonData.choices[0].message.content);
                     } catch (parseError) {
+                        console.error('❌ 解析 AI 響應失敗:', parseError);
+                        console.error('原始響應:', data.substring(0, 500));
                         reject(new Error(`解析 AI 響應失敗: ${parseError.message}`));
                     }
                 });
@@ -289,10 +320,16 @@ async function searchRelevantNewsAndEvents() {
         return result;
     } catch (error) {
         console.error('❌ 搜索新聞和事件失敗:', error);
+        console.error('錯誤詳情:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
         return {
             factors: [],
-            summary: '無法獲取 AI 分析',
-            error: error.message
+            summary: `無法獲取 AI 分析: ${error.message}`,
+            error: error.message,
+            errorType: error.name
         };
     }
 }

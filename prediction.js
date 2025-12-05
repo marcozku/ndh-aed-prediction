@@ -1954,9 +1954,28 @@ async function updateAIFactors(force = false) {
         updateFactorsLoadingProgress(10);
         const response = await fetch('/api/ai-analyze');
         updateFactorsLoadingProgress(30);
-        if (!response.ok) throw new Error('AI 分析 API 錯誤');
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            let errorData;
+            try {
+                errorData = JSON.parse(errorText);
+            } catch (e) {
+                errorData = { error: errorText || `HTTP ${response.status}` };
+            }
+            console.error('❌ AI 分析 API 錯誤:', response.status, errorData);
+            throw new Error(errorData.error || `AI 分析 API 錯誤 (HTTP ${response.status})`);
+        }
+        
         const data = await response.json();
         updateFactorsLoadingProgress(60);
+        
+        console.log('📊 AI 分析響應:', {
+            success: data.success,
+            factorsCount: data.factors?.length || 0,
+            hasSummary: !!data.summary,
+            error: data.error
+        });
         
         if (data.success && data.factors && Array.isArray(data.factors) && data.factors.length > 0) {
             // 更新全局 AI 因素緩存
@@ -2057,15 +2076,33 @@ async function updateAIFactors(force = false) {
                 cached: false
             };
         }
+        
+        // 檢查是否有錯誤訊息
+        if (data.error) {
+            console.error('❌ AI 分析返回錯誤:', data.error);
+            updateFactorsLoadingProgress(100);
+            return { 
+                factors: [], 
+                summary: `AI 分析失敗: ${data.error}`,
+                error: data.error,
+                cached: false 
+            };
+        }
+        
         console.log('⚠️ AI 分析返回空數據:', data);
         updateFactorsLoadingProgress(100);
         return { factors: [], summary: '無分析數據', cached: false };
     } catch (error) {
         console.error('❌ AI 因素更新失敗:', error);
+        console.error('錯誤詳情:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
         updateFactorsLoadingProgress(100);
         return { 
             factors: [], 
-            summary: '無法獲取 AI 分析',
+            summary: `無法獲取 AI 分析: ${error.message}`,
             error: error.message 
         };
     }
@@ -2125,18 +2162,30 @@ function updateRealtimeFactors(aiAnalysisData = null) {
             // 如果正在載入，保持顯示載入狀態
             return;
         }
-        // 否則顯示空狀態
+        // 否則顯示空狀態或錯誤狀態
         // 確保隱藏 factors-loading 元素
         if (factorsLoadingEl) {
             factorsLoadingEl.style.display = 'none';
         }
-        factorsEl.innerHTML = `
-            <div class="factors-empty">
-                <span>📊 暫無實時影響因素</span>
-                <p>系統會自動分析可能影響預測的新聞和事件${aiAnalysisData?.cached ? '（使用緩存數據）' : ''}</p>
-                ${aiAnalysisData?.error ? `<p style="color: var(--accent-danger); font-size: 0.85rem;">⚠️ ${aiAnalysisData.error}</p>` : ''}
-            </div>
-        `;
+        
+        // 如果有錯誤訊息，顯示錯誤狀態
+        if (aiAnalysisData?.error) {
+            factorsEl.innerHTML = `
+                <div class="factors-error">
+                    <span class="error-icon">⚠️</span>
+                    <span class="error-title">AI 分析生成失敗</span>
+                    <p class="error-message">${aiAnalysisData.error}</p>
+                    <p class="error-hint">系統將在稍後自動重試，或請刷新頁面</p>
+                </div>
+            `;
+        } else {
+            factorsEl.innerHTML = `
+                <div class="factors-empty">
+                    <span>📊 暫無實時影響因素</span>
+                    <p>系統會自動分析可能影響預測的新聞和事件${aiAnalysisData?.cached ? '（使用緩存數據）' : ''}</p>
+                </div>
+            `;
+        }
         return;
     }
     
