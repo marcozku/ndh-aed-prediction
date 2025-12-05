@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '1.1.4';
+const MODEL_VERSION = '1.1.7';
 
 // AI 服務（僅在服務器端使用）
 let aiService = null;
@@ -281,18 +281,62 @@ const apiHandlers = {
             }, 503);
         }
         
+        // 設置超時（90秒）
+        const timeout = 90000;
+        const timeoutId = setTimeout(() => {
+            if (!res.headersSent) {
+                console.error('⏱️ AI 分析請求超時');
+                sendJson(res, { 
+                    success: false, 
+                    error: '請求超時（90秒），請稍後重試',
+                    errorType: 'TimeoutError',
+                    factors: [],
+                    summary: 'AI 分析請求超時'
+                }, 504);
+            }
+        }, timeout);
+        
         try {
             const analysis = await aiService.searchRelevantNewsAndEvents();
+            clearTimeout(timeoutId);
+            
+            // 檢查是否已經發送響應（超時情況）
+            if (res.headersSent) {
+                return;
+            }
+            
+            // 檢查分析結果是否有錯誤
+            if (analysis.error) {
+                console.error('⚠️ AI 分析返回錯誤:', analysis.error);
+                return sendJson(res, { 
+                    success: false, 
+                    error: analysis.error,
+                    factors: analysis.factors || [],
+                    summary: analysis.summary || 'AI 分析失敗'
+                }, 500);
+            }
+            
             sendJson(res, { 
                 success: true, 
                 ...analysis,
                 timestamp: new Date().toISOString()
             });
         } catch (err) {
-            console.error('AI 分析錯誤:', err);
+            clearTimeout(timeoutId);
+            
+            // 檢查是否已經發送響應（超時情況）
+            if (res.headersSent) {
+                return;
+            }
+            
+            console.error('❌ AI 分析錯誤:', err);
+            console.error('錯誤堆疊:', err.stack);
             sendJson(res, { 
                 success: false, 
-                error: err.message 
+                error: err.message || '未知錯誤',
+                errorType: err.name || 'Error',
+                factors: [],
+                summary: '無法獲取 AI 分析'
             }, 500);
         }
     },

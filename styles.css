@@ -647,6 +647,41 @@ section h2 {
     color: var(--text-tertiary);
 }
 
+.factors-error {
+    text-align: center;
+    padding: var(--space-2xl);
+    background: linear-gradient(135deg, rgba(220, 38, 38, 0.05), rgba(234, 88, 12, 0.03));
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(220, 38, 38, 0.15);
+}
+
+.factors-error .error-icon {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: var(--space-md);
+}
+
+.factors-error .error-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--accent-danger);
+    display: block;
+    margin-bottom: var(--space-sm);
+}
+
+.factors-error .error-message {
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    margin-bottom: var(--space-sm);
+    line-height: 1.6;
+}
+
+.factors-error .error-hint {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-top: var(--space-md);
+}
+
 .factors-header-info {
     display: flex;
     justify-content: space-between;

@@ -1996,11 +1996,81 @@ async function updateAIFactors(force = false) {
     try {
         console.log('🤖 開始 AI 因素分析...');
         updateFactorsLoadingProgress(10);
-        const response = await fetch('/api/ai-analyze');
-        updateFactorsLoadingProgress(30);
-        if (!response.ok) throw new Error('AI 分析 API 錯誤');
+        
+        // 添加超時和重試機制
+        let response;
+        let lastError = null;
+        const maxRetries = 3;
+        const timeout = 60000; // 60秒超時
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                if (attempt > 1) {
+                    console.log(`🔄 重試 AI 分析 (第 ${attempt} 次嘗試)...`);
+                    updateFactorsLoadingProgress(15);
+                    // 等待後再重試
+                    await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+                }
+                
+                // 創建帶超時的 fetch
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), timeout);
+                
+                try {
+                    response = await fetch('/api/ai-analyze', {
+                        signal: controller.signal,
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    clearTimeout(timeoutId);
+                } catch (fetchError) {
+                    clearTimeout(timeoutId);
+                    if (fetchError.name === 'AbortError') {
+                        throw new Error('請求超時（60秒）');
+                    }
+                    throw fetchError;
+                }
+                
+                updateFactorsLoadingProgress(30);
+                break; // 成功，跳出重試循環
+            } catch (error) {
+                lastError = error;
+                console.warn(`⚠️ AI 分析請求失敗 (第 ${attempt} 次嘗試):`, error.message);
+                
+                if (attempt === maxRetries) {
+                    // 最後一次嘗試失敗
+                    throw error;
+                }
+                // 繼續重試
+            }
+        }
+        
+        if (!response) {
+            throw lastError || new Error('無法連接到服務器');
+        }
+        
+        if (!response.ok) {
+            const errorText = await response.text().catch(() => '無法讀取錯誤訊息');
+            let errorData;
+            try {
+                errorData = JSON.parse(errorText);
+            } catch (e) {
+                errorData = { error: errorText || `HTTP ${response.status}` };
+            }
+            console.error('❌ AI 分析 API 錯誤:', response.status, errorData);
+            throw new Error(errorData.error || `AI 分析 API 錯誤 (HTTP ${response.status})`);
+        }
+        
         const data = await response.json();
         updateFactorsLoadingProgress(60);
+        
+        console.log('📊 AI 分析響應:', {
+            success: data.success,
+            factorsCount: data.factors?.length || 0,
+            hasSummary: !!data.summary,
+            error: data.error
+        });
         
         if (data.success && data.factors && Array.isArray(data.factors) && data.factors.length > 0) {
             // 更新全局 AI 因素緩存
@@ -2101,16 +2171,50 @@ async function updateAIFactors(force = false) {
                 cached: false
             };
         }
+        
+        // 檢查是否有錯誤訊息
+        if (data.error) {
+            console.error('❌ AI 分析返回錯誤:', data.error);
+            updateFactorsLoadingProgress(100);
+            return { 
+                factors: [], 
+                summary: `AI 分析失敗: ${data.error}`,
+                error: data.error,
+                cached: false 
+            };
+        }
+        
         console.log('⚠️ AI 分析返回空數據:', data);
         updateFactorsLoadingProgress(100);
         return { factors: [], summary: '無分析數據', cached: false };
     } catch (error) {
         console.error('❌ AI 因素更新失敗:', error);
+        console.error('錯誤詳情:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
+        
+        // 根據錯誤類型提供更友好的錯誤訊息
+        let errorMessage = error.message || '未知錯誤';
+        let errorSummary = '無法獲取 AI 分析';
+        
+        if (error.message.includes('Load failed') || error.message.includes('Failed to fetch')) {
+            errorMessage = '網絡連接失敗，請檢查網絡連接';
+            errorSummary = '網絡連接失敗，請稍後重試';
+        } else if (error.message.includes('timeout') || error.message.includes('超時')) {
+            errorMessage = '請求超時，服務器響應時間過長';
+            errorSummary = '請求超時，請稍後重試';
+        } else if (error.message.includes('AbortError')) {
+            errorMessage = '請求被取消或超時';
+            errorSummary = '請求超時，請稍後重試';
+        }
+        
         updateFactorsLoadingProgress(100);
         return { 
             factors: [], 
-            summary: '無法獲取 AI 分析',
-            error: error.message 
+            summary: `${errorSummary}: ${errorMessage}`,
+            error: errorMessage 
         };
     }
 }
@@ -2169,18 +2273,30 @@ function updateRealtimeFactors(aiAnalysisData = null) {
             // 如果正在載入，保持顯示載入狀態
             return;
         }
-        // 否則顯示空狀態
+        // 否則顯示空狀態或錯誤狀態
         // 確保隱藏 factors-loading 元素
         if (factorsLoadingEl) {
             factorsLoadingEl.style.display = 'none';
         }
-        factorsEl.innerHTML = `
-            <div class="factors-empty">
-                <span>📊 暫無實時影響因素</span>
-                <p>系統會自動分析可能影響預測的新聞和事件${aiAnalysisData?.cached ? '（使用緩存數據）' : ''}</p>
-                ${aiAnalysisData?.error ? `<p style="color: var(--accent-danger); font-size: 0.85rem;">⚠️ ${aiAnalysisData.error}</p>` : ''}
-            </div>
-        `;
+        
+        // 如果有錯誤訊息，顯示錯誤狀態
+        if (aiAnalysisData?.error) {
+            factorsEl.innerHTML = `
+                <div class="factors-error">
+                    <span class="error-icon">⚠️</span>
+                    <span class="error-title">AI 分析生成失敗</span>
+                    <p class="error-message">${aiAnalysisData.error}</p>
+                    <p class="error-hint">系統將在稍後自動重試，或請刷新頁面</p>
+                </div>
+            `;
+        } else {
+            factorsEl.innerHTML = `
+                <div class="factors-empty">
+                    <span>📊 暫無實時影響因素</span>
+                    <p>系統會自動分析可能影響預測的新聞和事件${aiAnalysisData?.cached ? '（使用緩存數據）' : ''}</p>
+                </div>
+            `;
+        }
         return;
     }
     
