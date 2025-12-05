@@ -1866,7 +1866,7 @@ async function updateAIFactors(force = false) {
         if (!response.ok) throw new Error('AI 分析 API 錯誤');
         const data = await response.json();
         
-        if (data.success && data.factors) {
+        if (data.success && data.factors && Array.isArray(data.factors) && data.factors.length > 0) {
             // 更新全局 AI 因素緩存
             aiFactors = {};
             data.factors.forEach(factor => {
@@ -1900,7 +1900,17 @@ async function updateAIFactors(force = false) {
                 timestamp: data.timestamp || new Date().toISOString(),
                 cached: false
             };
+        } else if (data.success && data.summary) {
+            // 即使沒有 factors，如果有 summary，也返回
+            console.log('⚠️ AI 分析返回了總結但沒有因素:', data);
+            return {
+                factors: [],
+                summary: data.summary || '無分析數據',
+                timestamp: data.timestamp || new Date().toISOString(),
+                cached: false
+            };
         }
+        console.log('⚠️ AI 分析返回空數據:', data);
         return { factors: [], summary: '無分析數據', cached: false };
     } catch (error) {
         console.error('❌ AI 因素更新失敗:', error);
@@ -1916,12 +1926,20 @@ async function updateAIFactors(force = false) {
 function updateRealtimeFactors(aiAnalysisData = null) {
     const factorsEl = document.getElementById('realtime-factors');
     const loadingEl = document.getElementById('realtime-factors-loading');
-    if (!factorsEl) return;
+    if (!factorsEl) {
+        console.warn('⚠️ 找不到 realtime-factors 元素');
+        return;
+    }
     
     updateSectionProgress('realtime-factors', 20);
     
-    // 如果沒有 AI 分析數據，顯示載入狀態
-    if (!aiAnalysisData || !aiAnalysisData.factors || aiAnalysisData.factors.length === 0) {
+    // 檢查 AI 分析數據
+    console.log('📊 AI 分析數據:', aiAnalysisData);
+    
+    // 如果沒有 AI 分析數據，顯示空狀態
+    if (!aiAnalysisData || 
+        (aiAnalysisData.factors && Array.isArray(aiAnalysisData.factors) && aiAnalysisData.factors.length === 0) ||
+        (!aiAnalysisData.factors && !aiAnalysisData.summary)) {
         updateSectionProgress('realtime-factors', 100);
         if (loadingEl) loadingEl.style.display = 'none';
         factorsEl.style.display = 'block';
@@ -1929,6 +1947,7 @@ function updateRealtimeFactors(aiAnalysisData = null) {
             <div class="factors-empty">
                 <span>📊 暫無實時影響因素</span>
                 <p>系統會自動分析可能影響預測的新聞和事件${aiAnalysisData?.cached ? '（使用緩存數據）' : ''}</p>
+                ${aiAnalysisData?.error ? `<p style="color: var(--accent-danger); font-size: 0.85rem;">⚠️ ${aiAnalysisData.error}</p>` : ''}
             </div>
         `;
         return;
@@ -1936,8 +1955,46 @@ function updateRealtimeFactors(aiAnalysisData = null) {
     
     updateSectionProgress('realtime-factors', 40);
     
-    const factors = aiAnalysisData.factors;
+    // 確保 factors 是數組
+    let factors = [];
+    if (aiAnalysisData.factors) {
+        if (Array.isArray(aiAnalysisData.factors)) {
+            factors = aiAnalysisData.factors;
+        } else {
+            console.warn('⚠️ AI 因素不是數組格式:', aiAnalysisData.factors);
+            factors = [];
+        }
+    }
+    
     const summary = aiAnalysisData.summary || '';
+    
+    // 如果沒有因素但有總結，至少顯示總結
+    if (factors.length === 0 && summary && summary !== '無法獲取 AI 分析' && summary !== '無分析數據') {
+        updateSectionProgress('realtime-factors', 100);
+        if (loadingEl) loadingEl.style.display = 'none';
+        factorsEl.style.display = 'block';
+        factorsEl.innerHTML = `
+            <div class="factors-summary">
+                <h3>📋 AI 分析總結</h3>
+                <p>${summary}</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // 如果完全沒有數據，顯示空狀態
+    if (factors.length === 0) {
+        updateSectionProgress('realtime-factors', 100);
+        if (loadingEl) loadingEl.style.display = 'none';
+        factorsEl.style.display = 'block';
+        factorsEl.innerHTML = `
+            <div class="factors-empty">
+                <span>📊 暫無實時影響因素</span>
+                <p>系統會自動分析可能影響預測的新聞和事件</p>
+            </div>
+        `;
+        return;
+    }
     
     // 按影響因子排序（影響大的在前）
     const sortedFactors = [...factors].sort((a, b) => {
