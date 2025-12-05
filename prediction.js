@@ -1849,15 +1849,88 @@ function updateWeatherDisplay() {
 }
 
 // ============================================
+// 從數據庫載入緩存的 AI 因素（快速載入）
+// ============================================
+async function loadAIFactorsFromCache() {
+    try {
+        const cacheResponse = await fetch('/api/ai-factors-cache');
+        if (cacheResponse.ok) {
+            const cacheData = await cacheResponse.json();
+            if (cacheData.success && cacheData.data) {
+                const storedFactors = cacheData.data.factors_cache || {};
+                const storedAnalysisData = cacheData.data.analysis_data || {};
+                const storedUpdateTime = cacheData.data.last_update_time || 0;
+                
+                // 更新全局變數
+                aiFactors = storedFactors;
+                lastAIUpdateTime = parseInt(storedUpdateTime) || 0;
+                
+                // 如果有分析數據，返回完整格式
+                if (storedAnalysisData.factors && Array.isArray(storedAnalysisData.factors)) {
+                    return {
+                        factors: storedAnalysisData.factors,
+                        summary: storedAnalysisData.summary || '使用緩存數據',
+                        timestamp: storedAnalysisData.timestamp || cacheData.data.updated_at,
+                        cached: true
+                    };
+                }
+                
+                // 如果沒有分析數據，但有意義的因素緩存，構建基本結構
+                if (Object.keys(storedFactors).length > 0) {
+                    const factors = Object.keys(storedFactors).map(date => ({
+                        date: date,
+                        type: storedFactors[date].type || '未知',
+                        description: storedFactors[date].description || '',
+                        impactFactor: storedFactors[date].impactFactor || 1.0,
+                        confidence: storedFactors[date].confidence || '中',
+                        affectedDays: [date]
+                    }));
+                    
+                    return {
+                        factors: factors,
+                        summary: '使用緩存數據',
+                        timestamp: cacheData.data.updated_at,
+                        cached: true
+                    };
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('⚠️ 無法從數據庫載入 AI 緩存:', e);
+    }
+    
+    return { factors: [], summary: '無緩存數據', cached: false };
+}
+
+// ============================================
 // AI 因素更新（基於時間，避免過度消耗）
 // ============================================
 async function updateAIFactors(force = false) {
     // 檢查是否需要更新（基於時間，而不是每次刷新）
     const now = Date.now();
+    
+    // 如果內存中沒有因素，先從數據庫載入
+    if (!aiFactors || Object.keys(aiFactors).length === 0) {
+        const cacheData = await loadAIFactorsFromCache();
+        if (cacheData.cached && cacheData.factors && cacheData.factors.length > 0) {
+            // 已經載入緩存，檢查是否需要更新
+            if (!force && lastAIUpdateTime && (now - lastAIUpdateTime) < AI_UPDATE_INTERVAL) {
+                const timeSinceUpdate = Math.floor((now - lastAIUpdateTime) / 1000 / 60);
+                const minutesRemaining = Math.ceil((AI_UPDATE_INTERVAL - (now - lastAIUpdateTime)) / 1000 / 60);
+                console.log(`⏭️ 跳過 AI 更新（距離上次更新僅 ${timeSinceUpdate} 分鐘，需等待 ${minutesRemaining} 分鐘）`);
+                return cacheData;
+            }
+        }
+    }
+    
+    // 檢查是否需要更新（基於時間）
     if (!force && lastAIUpdateTime && (now - lastAIUpdateTime) < AI_UPDATE_INTERVAL) {
         const timeSinceUpdate = Math.floor((now - lastAIUpdateTime) / 1000 / 60);
-        console.log(`⏭️ 跳過 AI 更新（距離上次更新僅 ${timeSinceUpdate} 分鐘，需等待 ${AI_UPDATE_INTERVAL / 1000 / 60} 分鐘）`);
-        return { factors: [], summary: '使用緩存數據', cached: true };
+        const minutesRemaining = Math.ceil((AI_UPDATE_INTERVAL - (now - lastAIUpdateTime)) / 1000 / 60);
+        console.log(`⏭️ 跳過 AI 更新（距離上次更新僅 ${timeSinceUpdate} 分鐘，需等待 ${minutesRemaining} 分鐘）`);
+        // 返回當前緩存的數據
+        const cacheData = await loadAIFactorsFromCache();
+        return cacheData.cached ? cacheData : { factors: [], summary: '使用緩存數據', cached: true };
     }
     
     try {
@@ -1891,6 +1964,32 @@ async function updateAIFactors(force = false) {
             
             lastAIAnalysisTime = new Date();
             lastAIUpdateTime = now; // 記錄更新時間
+            
+            // 保存更新時間和因素到數據庫（跨設備和頁面刷新持久化）
+            try {
+                const saveResponse = await fetch('/api/ai-factors-cache', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        updateTime: now,
+                        factorsCache: aiFactors,
+                        analysisData: {
+                            factors: data.factors,
+                            summary: data.summary || '',
+                            timestamp: data.timestamp || new Date().toISOString()
+                        }
+                    })
+                });
+                
+                if (saveResponse.ok) {
+                    console.log('💾 AI 更新時間和因素已保存到數據庫');
+                } else {
+                    console.warn('⚠️ 保存 AI 緩存到數據庫失敗:', await saveResponse.text());
+                }
+            } catch (e) {
+                console.warn('⚠️ 無法保存到數據庫:', e);
+            }
+            
             console.log('✅ AI 因素已更新:', Object.keys(aiFactors).length, '個日期');
             
             // 返回完整的分析數據供顯示使用
@@ -2028,10 +2127,24 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         `;
     }
     
-    // 添加最後更新時間
-    const lastUpdate = lastAIAnalysisTime 
-        ? new Date(lastAIAnalysisTime).toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' })
-        : '未知';
+    // 添加最後更新時間（從緩存數據的時間戳或分析時間）
+    let lastUpdate = '未知';
+    if (aiAnalysisData && aiAnalysisData.timestamp) {
+        try {
+            lastUpdate = new Date(aiAnalysisData.timestamp).toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' });
+        } catch (e) {
+            lastUpdate = lastAIAnalysisTime 
+                ? new Date(lastAIAnalysisTime).toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' })
+                : '未知';
+        }
+    } else if (lastAIAnalysisTime) {
+        lastUpdate = new Date(lastAIAnalysisTime).toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' });
+    }
+    
+    // 如果使用緩存，標註
+    if (aiAnalysisData && aiAnalysisData.cached) {
+        lastUpdate += ' (緩存)';
+    }
     
     factorsEl.innerHTML = `
         <div class="factors-header-info">
@@ -2098,19 +2211,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateWeatherDisplay();
     updateSectionProgress('today-prediction', 15);
     
-    // 獲取 AI 因素（基於時間，不會每次刷新都調用）
+    // 立即從數據庫載入緩存的 AI 因素（快速顯示，不等待 API）
     updateSectionProgress('realtime-factors', 5);
-    const aiAnalysisData = await updateAIFactors();
+    let aiAnalysisData = await loadAIFactorsFromCache();
     updateSectionProgress('realtime-factors', 15);
     
-    // 更新實時因素顯示
-    updateRealtimeFactors(aiAnalysisData);
+    // 立即更新實時因素顯示（使用緩存數據）
+    if (aiAnalysisData && aiAnalysisData.factors && aiAnalysisData.factors.length > 0) {
+        updateRealtimeFactors(aiAnalysisData);
+        console.log('✅ 已從數據庫載入緩存的 AI 因素並顯示');
+    }
     
-    // 更新 UI
+    // 更新 UI（使用緩存的 AI 因素，快速顯示）
     updateUI(predictor);
+    updateSectionProgress('today-prediction', 50);
     
-    // 初始化圖表
+    // 初始化圖表（使用緩存的 AI 因素）
     initCharts(predictor);
+    updateSectionProgress('today-prediction', 100);
+    
+    // 在背景異步檢查並更新 AI 因素（如果需要，不阻塞 UI）
+    setTimeout(async () => {
+        updateSectionProgress('realtime-factors', 20);
+        const freshAIAnalysisData = await updateAIFactors();
+        if (freshAIAnalysisData && !freshAIAnalysisData.cached) {
+            // 如果有新的數據，更新顯示
+            updateRealtimeFactors(freshAIAnalysisData);
+            updateUI(predictor);
+            // 重新初始化圖表以反映新的 AI 因素
+            if (forecastChart) forecastChart.destroy();
+            if (dowChart) dowChart.destroy();
+            if (monthChart) monthChart.destroy();
+            if (historyChart) historyChart.destroy();
+            initCharts(predictor);
+            console.log('✅ AI 因素已更新，UI 已刷新');
+        } else {
+            console.log('ℹ️ AI 因素無需更新，使用緩存數據');
+        }
+        updateSectionProgress('realtime-factors', 100);
+    }, 100); // 100ms 後在背景執行，不阻塞初始載入
     
     // 每秒更新時間 (使用真實 HKT)
     setInterval(() => {
