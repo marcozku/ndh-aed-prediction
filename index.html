@@ -115,8 +115,12 @@
                 </div>
             </div>
             <div class="factors-container" id="realtime-factors" style="display: none;">
-                <div class="factors-loading">
-                    <span>⏳ 載入 AI 分析中...</span>
+                <div class="factors-loading" id="factors-loading">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">⏳ 載入 AI 分析中... <span class="loading-percent" id="factors-loading-percent">0%</span></div>
+                    <div class="loading-progress-bar">
+                        <div class="loading-progress-fill" id="factors-loading-progress"></div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -268,7 +272,7 @@
         <!-- 頁腳 -->
         <footer class="prediction-footer">
             <p>數據來源：NDH AED 2024-12-03 至 2025-12-03 歷史數據 (366天)</p>
-            <p>預測模型版本 1.1.0 · 香港時間 HKT</p>
+            <p>預測模型版本 1.1.3 · 香港時間 HKT</p>
         </footer>
     </div>
 

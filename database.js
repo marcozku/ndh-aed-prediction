@@ -147,6 +147,27 @@ async function initDatabase() {
             )
         `);
 
+        // Table for AI factors cache and update tracking
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS ai_factors_cache (
+                id SERIAL PRIMARY KEY,
+                last_update_time BIGINT NOT NULL,
+                factors_cache JSONB NOT NULL,
+                analysis_data JSONB,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(id)
+            )
+        `);
+
+        // Initialize with default record if empty
+        const checkResult = await client.query('SELECT COUNT(*) FROM ai_factors_cache');
+        if (parseInt(checkResult.rows[0].count) === 0) {
+            await client.query(`
+                INSERT INTO ai_factors_cache (id, last_update_time, factors_cache, analysis_data)
+                VALUES (1, 0, '{}'::jsonb, '{}'::jsonb)
+            `);
+        }
+
         console.log('📊 Database tables initialized successfully');
     } catch (error) {
         console.error('❌ Database initialization error:', error.message);
@@ -359,6 +380,49 @@ async function getComparisonData(limit = 30) {
     return result.rows;
 }
 
+// Get AI factors cache
+async function getAIFactorsCache() {
+    const query = `
+        SELECT last_update_time, factors_cache, analysis_data, updated_at
+        FROM ai_factors_cache
+        WHERE id = 1
+    `;
+    const result = await pool.query(query);
+    if (result.rows.length === 0) {
+        return {
+            last_update_time: 0,
+            factors_cache: {},
+            analysis_data: {},
+            updated_at: null
+        };
+    }
+    return {
+        last_update_time: parseInt(result.rows[0].last_update_time) || 0,
+        factors_cache: result.rows[0].factors_cache || {},
+        analysis_data: result.rows[0].analysis_data || {},
+        updated_at: result.rows[0].updated_at
+    };
+}
+
+// Update AI factors cache
+async function updateAIFactorsCache(updateTime, factorsCache, analysisData = null) {
+    const query = `
+        UPDATE ai_factors_cache
+        SET last_update_time = $1,
+            factors_cache = $2,
+            analysis_data = COALESCE($3, analysis_data),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = 1
+        RETURNING *
+    `;
+    const result = await pool.query(query, [
+        updateTime.toString(),
+        JSON.stringify(factorsCache),
+        analysisData ? JSON.stringify(analysisData) : null
+    ]);
+    return result.rows[0];
+}
+
 module.exports = {
     get pool() { return pool; },
     initDatabase,
@@ -369,6 +433,8 @@ module.exports = {
     getPredictions,
     calculateAccuracy,
     getAccuracyStats,
-    getComparisonData
+    getComparisonData,
+    getAIFactorsCache,
+    updateAIFactorsCache
 };
 

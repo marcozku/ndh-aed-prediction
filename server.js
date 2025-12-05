@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '1.1.0';
+const MODEL_VERSION = '1.1.2';
 
 // AI 服務（僅在服務器端使用）
 let aiService = null;
@@ -356,6 +356,69 @@ const apiHandlers = {
             sendJson(res, { 
                 success: false,
                 connected: false,
+                error: err.message 
+            }, 500);
+        }
+    },
+
+    // 獲取 AI 因素緩存（從數據庫）
+    'GET /api/ai-factors-cache': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { 
+                success: false, 
+                error: '數據庫未配置' 
+            }, 503);
+        }
+        
+        try {
+            const cache = await db.getAIFactorsCache();
+            sendJson(res, { 
+                success: true, 
+                data: cache 
+            });
+        } catch (err) {
+            console.error('獲取 AI 因素緩存失敗:', err);
+            sendJson(res, { 
+                success: false, 
+                error: err.message 
+            }, 500);
+        }
+    },
+
+    // 更新 AI 因素緩存（保存到數據庫）
+    'POST /api/ai-factors-cache': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { 
+                success: false, 
+                error: '數據庫未配置' 
+            }, 503);
+        }
+        
+        try {
+            const data = await parseBody(req);
+            const { updateTime, factorsCache, analysisData } = data;
+            
+            if (!updateTime || !factorsCache) {
+                return sendJson(res, { 
+                    success: false, 
+                    error: '需要提供 updateTime 和 factorsCache' 
+                }, 400);
+            }
+            
+            const result = await db.updateAIFactorsCache(
+                parseInt(updateTime),
+                factorsCache,
+                analysisData
+            );
+            
+            sendJson(res, { 
+                success: true, 
+                data: result 
+            });
+        } catch (err) {
+            console.error('更新 AI 因素緩存失敗:', err);
+            sendJson(res, { 
+                success: false, 
                 error: err.message 
             }, 500);
         }
