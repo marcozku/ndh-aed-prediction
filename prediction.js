@@ -1562,6 +1562,8 @@ let weatherForecastData = null;
 // 全局 AI 分析因素
 let aiFactors = {};
 let lastAIAnalysisTime = null;
+let lastAIUpdateTime = null;
+const AI_UPDATE_INTERVAL = 30 * 60 * 1000; // 30分鐘
 
 // 獲取當前天氣
 async function fetchCurrentWeather() {
