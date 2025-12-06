@@ -2550,6 +2550,22 @@ async function refreshPredictions(predictor) {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🏥 NDH AED 預測系統初始化...');
     
+    // 獲取版本信息
+    try {
+        const versionResponse = await fetch('/api/version');
+        if (versionResponse.ok) {
+            const versionData = await versionResponse.json();
+            if (versionData.success) {
+                const modelVersionEl = document.getElementById('model-version');
+                const appVersionEl = document.getElementById('app-version');
+                if (modelVersionEl) modelVersionEl.textContent = versionData.modelVersion || '--';
+                if (appVersionEl) appVersionEl.textContent = versionData.appVersion || '--';
+            }
+        }
+    } catch (error) {
+        console.warn('⚠️ 無法獲取版本信息:', error);
+    }
+    
     const predictor = new NDHAttendancePredictor();
     
     // 檢查數據庫狀態

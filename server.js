@@ -5,6 +5,7 @@ const url = require('url');
 
 const PORT = process.env.PORT || 3001;
 const MODEL_VERSION = '1.1.7';
+const APP_VERSION = require('./package.json').version;
 
 // AI 服務（僅在服務器端使用）
 let aiService = null;
@@ -435,6 +436,15 @@ const apiHandlers = {
                 error: err.message 
             }, 500);
         }
+    },
+
+    // 獲取版本信息
+    'GET /api/version': async (req, res) => {
+        sendJson(res, {
+            success: true,
+            modelVersion: MODEL_VERSION,
+            appVersion: APP_VERSION
+        });
     },
 
     // 獲取 AI 因素緩存（從數據庫）
