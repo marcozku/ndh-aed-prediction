@@ -2378,17 +2378,40 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         const isNegative = impactFactor < 1.0;
         const impactPercent = Math.abs((impactFactor - 1.0) * 100).toFixed(1);
         
+        // 將簡體中文類型轉換為繁體中文
+        const typeMapping = {
+            '天气': '天氣',
+            '天气相关事件': '天氣',
+            '公共衛生': '公共衛生',
+            '公共卫生': '公共衛生',
+            '公共卫生事件': '公共衛生',
+            '社會事件': '社會事件',
+            '社会事件': '社會事件',
+            '季節性': '季節性',
+            '季节性': '季節性',
+            '季节性因素': '季節性'
+        };
+        const factorType = typeMapping[factor.type] || factor.type || '未知';
+        
         // 根據類型選擇圖標
         let icon = '📊';
-        if (factor.type === '天氣') icon = '🌤️';
-        else if (factor.type === '公共衛生') icon = '🏥';
-        else if (factor.type === '社會事件') icon = '📰';
-        else if (factor.type === '季節性') icon = '📅';
+        if (factorType === '天氣' || factor.type === '天氣' || factor.type === '天气' || factor.type === '天气相关事件') icon = '🌤️';
+        else if (factorType === '公共衛生' || factor.type === '公共衛生' || factor.type === '公共卫生' || factor.type === '公共卫生事件') icon = '🏥';
+        else if (factorType === '社會事件' || factor.type === '社會事件' || factor.type === '社会事件') icon = '📰';
+        else if (factorType === '季節性' || factor.type === '季節性' || factor.type === '季节性' || factor.type === '季节性因素') icon = '📅';
+        
+        // 將簡體中文信心度轉換為繁體中文
+        const confidenceMapping = {
+            '高': '高',
+            '中': '中',
+            '低': '低'
+        };
+        const factorConfidence = confidenceMapping[factor.confidence] || factor.confidence || '中';
         
         // 根據信心度選擇顏色
         let confidenceClass = 'confidence-medium';
-        if (factor.confidence === '高') confidenceClass = 'confidence-high';
-        else if (factor.confidence === '低') confidenceClass = 'confidence-low';
+        if (factorConfidence === '高') confidenceClass = 'confidence-high';
+        else if (factorConfidence === '低') confidenceClass = 'confidence-low';
         
         // 受影響的日期
         let affectedDaysHtml = '';
@@ -2416,8 +2439,8 @@ function updateRealtimeFactors(aiAnalysisData = null) {
                 <div class="factor-header">
                     <span class="factor-icon">${icon}</span>
                     <div class="factor-title-group">
-                        <span class="factor-type">${factor.type || '未知'}</span>
-                        <span class="factor-confidence ${confidenceClass}">${factor.confidence || '中'}信心度</span>
+                        <span class="factor-type">${factorType}</span>
+                        <span class="factor-confidence ${confidenceClass}">${factorConfidence}信心度</span>
                     </div>
                     <div class="factor-impact ${isPositive ? 'impact-positive' : isNegative ? 'impact-negative' : 'impact-neutral'}">
                         ${isPositive ? '+' : ''}${impactPercent}%

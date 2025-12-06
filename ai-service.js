@@ -187,7 +187,7 @@ async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord
                 messages: [
                     {
                         role: 'system',
-                        content: '你是一個專業的醫療數據分析助手，專門分析可能影響香港北區醫院急症室病人數量的各種因素。'
+                        content: '你是一個專業的醫療數據分析助手，專門分析可能影響香港北區醫院急症室病人數量的各種因素。所有回應必須使用繁體中文（Traditional Chinese）。'
                     },
                     {
                         role: 'user',
@@ -412,20 +412,22 @@ async function searchRelevantNewsAndEvents() {
 
 請基於當前日期（${today}，香港時間 ${hkTime}）和一般知識，分析是否有任何已知或可能發生的因素會影響未來幾天北區醫院的病人數量。
 
+**重要：所有返回的文字必須使用繁體中文（Traditional Chinese），包括因素類型、描述、總結等。**
+
 請以 JSON 格式返回分析結果：
 {
   "factors": [
     {
       "type": "天氣/公共衛生/社會事件/季節性",
-      "description": "因素描述",
+      "description": "因素描述（必須使用繁體中文）",
       "impact": "增加/減少/無影響",
       "impactFactor": 1.05,  // 影響因子（1.0 = 無影響，>1.0 = 增加，<1.0 = 減少）
       "confidence": "高/中/低",
       "affectedDays": ["2025-01-XX", "2025-01-YY"],  // 受影響的日期
-      "reasoning": "分析理由"
+      "reasoning": "分析理由（必須使用繁體中文）"
     }
   ],
-  "summary": "總結說明"
+  "summary": "總結說明（必須使用繁體中文）"
 }`;
 
     try {
@@ -487,19 +489,21 @@ ${weatherData ? `當前天氣狀況：
 4. 季節性模式
 5. 其他可能導致急症室病人數量異常的因素
 
+**重要：所有返回的文字必須使用繁體中文（Traditional Chinese），包括因素類型、描述、分析理由、整體影響評估等。**
+
 請以 JSON 格式返回：
 {
   "factors": [
     {
       "date": "YYYY-MM-DD",
       "type": "天氣/公共衛生/社會事件/季節性",
-      "description": "因素描述",
+      "description": "因素描述（必須使用繁體中文）",
       "impactFactor": 1.05,
       "confidence": "高/中/低",
-      "reasoning": "分析理由"
+      "reasoning": "分析理由（必須使用繁體中文）"
     }
   ],
-  "overallImpact": "整體影響評估"
+  "overallImpact": "整體影響評估（必須使用繁體中文）"
 }`;
 
     try {
@@ -592,4 +596,5 @@ module.exports = {
     getModelTier,
     MODEL_CONFIG
 };
+
 
