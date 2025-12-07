@@ -1275,10 +1275,13 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         updateLoadingProgress('history', 20);
         // 從數據庫獲取數據（根據時間範圍和分頁偏移量）
         const { startDate, endDate } = getDateRangeWithOffset(range, pageOffset);
+        console.log(`📅 查詢歷史數據：範圍=${range}, pageOffset=${pageOffset}, ${startDate} 至 ${endDate}`);
         let historicalData = await fetchHistoricalData(startDate, endDate);
         
         if (historicalData.length === 0) {
-            console.warn('⚠️ 沒有歷史數據');
+            console.warn(`⚠️ 沒有歷史數據 (範圍=${range}, pageOffset=${pageOffset}, ${startDate} 至 ${endDate})`);
+            // 即使沒有數據，也要更新按鈕狀態，禁用"上一頁"按鈕
+            updateHistoryNavigationButtons(range, pageOffset, []);
             updateLoadingProgress('history', 0);
             return;
         }
@@ -2722,10 +2725,31 @@ function getDateRangeWithOffset(range, pageOffset = 0) {
     const rangeLength = end.getTime() - start.getTime();
     
     // 根據分頁偏移量調整日期範圍
-    if (pageOffset !== 0) {
+    // pageOffset = 0: 當前時間範圍（從今天往前推）
+    // pageOffset > 0: 更早的歷史數據（往前推）
+    if (pageOffset > 0) {
+        // 向前移動：將整個範圍向前移動 pageOffset 個範圍長度
         const offsetMs = rangeLength * pageOffset;
-        start = new Date(start.getTime() + offsetMs);
-        end = new Date(end.getTime() + offsetMs);
+        const newStart = new Date(start.getTime() - offsetMs);
+        const newEnd = new Date(end.getTime() - offsetMs);
+        
+        // 確保日期不會太早（數據庫可能沒有那麼早的數據）
+        // 假設數據庫最早有2014年的數據
+        const minDate = new Date('2014-01-01');
+        if (newEnd < minDate) {
+            // 如果計算的結束日期早於最小日期，返回空範圍
+            console.warn(`⚠️ 計算的日期範圍過早：${newStart.toISOString().split('T')[0]} 至 ${newEnd.toISOString().split('T')[0]}`);
+            return { startDate: null, endDate: null };
+        }
+        
+        // 如果開始日期早於最小日期，調整為最小日期
+        if (newStart < minDate) {
+            start = new Date(minDate);
+            end = new Date(newEnd);
+        } else {
+            start = newStart;
+            end = newEnd;
+        }
     }
     
     return {
@@ -2783,10 +2807,15 @@ function updateHistoryNavigationButtons(range, pageOffset, historicalData) {
     // pageOffset > 0: 更早的歷史數據（往前推）
     // pageOffset < 0: 更晚的數據（未來，通常不存在）
     
-    // 上一頁：總是允許查看更早的數據（除非數據庫沒有更早的數據，這需要通過實際查詢來判斷）
+    // 如果沒有數據，禁用"上一頁"按鈕（表示已經到達數據庫的邊界）
+    const hasData = historicalData && historicalData.length > 0;
+    
+    // 上一頁：只有在有數據時才允許查看更早的數據
+    // 如果當前查詢沒有數據，說明已經到達數據庫邊界，禁用"上一頁"
+    prevBtn.disabled = !hasData;
+    
     // 下一頁：只有在歷史數據中（pageOffset > 0）才能返回
-    prevBtn.disabled = false; // 暫時總是啟用，如果查詢結果為空則禁用
-    nextBtn.disabled = pageOffset <= 0; // 只有在歷史數據中才能返回
+    nextBtn.disabled = pageOffset <= 0;
     
     // 移除舊的事件監聽器（避免重複添加）
     const newPrevBtn = prevBtn.cloneNode(true);
@@ -2799,17 +2828,23 @@ function updateHistoryNavigationButtons(range, pageOffset, historicalData) {
     
     // 設置按鈕事件
     newPrevBtn.onclick = async () => {
+        if (newPrevBtn.disabled) {
+            console.warn('⚠️ 上一頁按鈕已禁用，無法查看更早的數據');
+            return;
+        }
         console.log(`⬅️ 上一頁：從 pageOffset=${historyPageOffset} 到 ${historyPageOffset + 1}`);
         historyPageOffset += 1;
         await initHistoryChart(range, historyPageOffset);
     };
     
     newNextBtn.onclick = async () => {
-        if (historyPageOffset > 0) {
-            console.log(`➡️ 下一頁：從 pageOffset=${historyPageOffset} 到 ${historyPageOffset - 1}`);
-            historyPageOffset -= 1;
-            await initHistoryChart(range, historyPageOffset);
+        if (newNextBtn.disabled || historyPageOffset <= 0) {
+            console.warn('⚠️ 下一頁按鈕已禁用，無法返回');
+            return;
         }
+        console.log(`➡️ 下一頁：從 pageOffset=${historyPageOffset} 到 ${historyPageOffset - 1}`);
+        historyPageOffset -= 1;
+        await initHistoryChart(range, historyPageOffset);
     };
     
     console.log(`📊 歷史導航按鈕已更新：範圍=${range}, pageOffset=${pageOffset}, 上一頁=${!newPrevBtn.disabled}, 下一頁=${!newNextBtn.disabled}`);
