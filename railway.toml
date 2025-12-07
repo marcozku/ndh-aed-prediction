@@ -1,0 +1,3 @@
+[build]
+builder = "METAL"
+buildCommand = "npm install"
