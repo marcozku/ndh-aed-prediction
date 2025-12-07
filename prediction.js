@@ -1400,9 +1400,10 @@ async function initHistoryChart(range = currentHistoryRange) {
         }
         
         // 計算圖表所需的最小寬度（根據數據點數量）
-        const dataPointWidth = window.innerWidth <= 600 ? 40 : window.innerWidth <= 900 ? 50 : 60;
+        const containerWidth = historyContainer ? historyContainer.offsetWidth || window.innerWidth : window.innerWidth;
+        const dataPointWidth = containerWidth <= 600 ? 50 : containerWidth <= 900 ? 60 : 70;
         const minChartWidth = Math.max(
-            window.innerWidth * 1.2, // 至少比屏幕寬20%
+            containerWidth * 1.5, // 至少比容器寬50%以確保可以滾動
             historicalData.length * dataPointWidth
         );
         
@@ -1415,12 +1416,24 @@ async function initHistoryChart(range = currentHistoryRange) {
             historyContainer.style.overflowX = 'auto';
             historyContainer.style.overflowY = 'hidden';
             historyContainer.style.webkitOverflowScrolling = 'touch';
+            historyContainer.style.position = 'relative';
+            // 確保滾動條可見
+            historyContainer.style.scrollbarWidth = 'thin';
         }
         if (historyCanvas) {
-            // Canvas設置最小寬度以支持滾動
+            // Canvas設置固定寬度以支持滾動（必須大於容器寬度）
             historyCanvas.style.minWidth = `${minChartWidth}px`;
             historyCanvas.style.width = `${minChartWidth}px`;
             historyCanvas.style.maxWidth = 'none';
+            historyCanvas.style.display = 'block';
+        }
+        
+        // 設置canvas的實際寬度和高度（必須在創建圖表前設置）
+        if (historyCanvas) {
+            historyCanvas.width = minChartWidth;
+            historyCanvas.height = 380; // 固定高度
+            historyCanvas.style.width = `${minChartWidth}px`;
+            historyCanvas.style.height = '380px';
         }
         
         historyChart = new Chart(historyCtx, {
@@ -1508,14 +1521,17 @@ async function initHistoryChart(range = currentHistoryRange) {
                         ...professionalOptions.scales.x,
                         ticks: { 
                         ...professionalOptions.scales.x.ticks,
-                        autoSkip: true, // 根據時間範圍動態決定是否自動跳過
-                        maxTicksLimit: getMaxTicksForRange(range, historicalData.length), // 根據範圍動態設置最大標籤數
+                        autoSkip: true, // 啟用自動跳過以減少標籤密度
+                        maxTicksLimit: Math.min(
+                            getMaxTicksForRange(range, historicalData.length),
+                            Math.floor(containerWidth / 60) // 根據容器寬度動態限制標籤數
+                        ),
                         font: {
-                            size: window.innerWidth <= 600 ? 9 : 11
+                            size: containerWidth <= 600 ? 8 : 10
                         },
-                        padding: window.innerWidth <= 600 ? 4 : 8,
+                        padding: containerWidth <= 600 ? 2 : 6,
                         minRotation: 0,
-                        maxRotation: range === '全部' || range === '10年' || range === '5年' || range === '2年' ? 45 : 0, // 長時間範圍時允許旋轉
+                        maxRotation: 0, // 不旋轉，保持水平以支持滾動
                         callback: function(value, index) {
                             // 確保返回正確的標籤
                             if (index >= 0 && index < labels.length) {
@@ -1551,69 +1567,82 @@ async function initHistoryChart(range = currentHistoryRange) {
         completeChartLoading('history');
         // 確保圖表正確適應並支持滾動
         setTimeout(() => {
-            if (historyChart && historyCanvas) {
-                // 重新計算並設置canvas寬度
-                const dataPointWidth = window.innerWidth <= 600 ? 40 : window.innerWidth <= 900 ? 50 : 60;
-                const minChartWidth = Math.max(
-                    window.innerWidth * 1.2,
+            if (historyChart && historyCanvas && historyContainer) {
+                // 重新計算容器寬度
+                const currentContainerWidth = historyContainer.offsetWidth || window.innerWidth;
+                const dataPointWidth = currentContainerWidth <= 600 ? 50 : currentContainerWidth <= 900 ? 60 : 70;
+                const calculatedWidth = Math.max(
+                    currentContainerWidth * 1.5,
                     historicalData.length * dataPointWidth
                 );
                 
-                // 強制設置canvas寬度
-                historyCanvas.style.minWidth = `${minChartWidth}px`;
-                historyCanvas.style.width = `${minChartWidth}px`;
+                // 強制設置canvas寬度和高度
+                historyCanvas.width = calculatedWidth;
+                historyCanvas.height = 380;
+                historyCanvas.style.width = `${calculatedWidth}px`;
+                historyCanvas.style.height = '380px';
+                historyCanvas.style.minWidth = `${calculatedWidth}px`;
                 historyCanvas.style.maxWidth = 'none';
-                historyCanvas.width = minChartWidth;
                 
+                // 更新圖表選項
                 historyChart.options.layout.padding = getResponsivePadding();
                 if (historyChart.options.scales && historyChart.options.scales.x && historyChart.options.scales.x.ticks) {
-                    // 保持autoSkip: false以支持滾動查看所有數據
-                    historyChart.options.scales.x.ticks.autoSkip = false;
-                    historyChart.options.scales.x.ticks.maxTicksLimit = undefined;
+                    historyChart.options.scales.x.ticks.autoSkip = true;
+                    historyChart.options.scales.x.ticks.maxTicksLimit = Math.min(
+                        getMaxTicksForRange(range, historicalData.length),
+                        Math.floor(currentContainerWidth / 60)
+                    );
+                    historyChart.options.scales.x.ticks.maxRotation = 0;
                 }
                 
-                // 強制重新計算圖表尺寸（使用固定寬度）
-                historyChart.resize(minChartWidth, parseInt(historyContainer.style.height) || 380);
+                // 使用固定尺寸重新渲染圖表（禁用響應式）
+                historyChart.resize(calculatedWidth, 380);
                 historyChart.update('none');
                 
                 // 確保容器可以滾動
-                const historyContainer = document.getElementById('history-chart-container');
-                if (historyContainer) {
-                    historyContainer.style.overflowX = 'auto';
-                    historyContainer.style.overflowY = 'hidden';
-                    historyContainer.style.webkitOverflowScrolling = 'touch';
-                    historyContainer.style.cursor = 'grab';
-                    
-                    // 添加拖動滾動支持（移動端）
-                    let isDragging = false;
-                    let startX = 0;
-                    let scrollLeft = 0;
-                    
-                    historyContainer.addEventListener('mousedown', (e) => {
-                        isDragging = true;
-                        startX = e.pageX - historyContainer.offsetLeft;
-                        scrollLeft = historyContainer.scrollLeft;
-                        historyContainer.style.cursor = 'grabbing';
-                    });
-                    
-                    historyContainer.addEventListener('mouseleave', () => {
-                        isDragging = false;
-                        historyContainer.style.cursor = 'grab';
-                    });
-                    
-                    historyContainer.addEventListener('mouseup', () => {
-                        isDragging = false;
-                        historyContainer.style.cursor = 'grab';
-                    });
-                    
-                    historyContainer.addEventListener('mousemove', (e) => {
-                        if (!isDragging) return;
-                        e.preventDefault();
-                        const x = e.pageX - historyContainer.offsetLeft;
-                        const walk = (x - startX) * 2;
-                        historyContainer.scrollLeft = scrollLeft - walk;
-                    });
-                }
+                historyContainer.style.overflowX = 'auto';
+                historyContainer.style.overflowY = 'hidden';
+                historyContainer.style.webkitOverflowScrolling = 'touch';
+                historyContainer.style.cursor = 'grab';
+                
+                // 移除舊的事件監聽器（如果存在）
+                const newContainer = historyContainer.cloneNode(true);
+                historyContainer.parentNode.replaceChild(newContainer, historyContainer);
+                const updatedContainer = document.getElementById('history-chart-container');
+                
+                // 添加拖動滾動支持
+                let isDragging = false;
+                let startX = 0;
+                let scrollLeft = 0;
+                
+                updatedContainer.addEventListener('mousedown', (e) => {
+                    isDragging = true;
+                    startX = e.pageX - updatedContainer.offsetLeft;
+                    scrollLeft = updatedContainer.scrollLeft;
+                    updatedContainer.style.cursor = 'grabbing';
+                    e.preventDefault();
+                });
+                
+                updatedContainer.addEventListener('mouseleave', () => {
+                    isDragging = false;
+                    updatedContainer.style.cursor = 'grab';
+                });
+                
+                updatedContainer.addEventListener('mouseup', () => {
+                    isDragging = false;
+                    updatedContainer.style.cursor = 'grab';
+                });
+                
+                updatedContainer.addEventListener('mousemove', (e) => {
+                    if (!isDragging) return;
+                    e.preventDefault();
+                    const x = e.pageX - updatedContainer.offsetLeft;
+                    const walk = (x - startX) * 2;
+                    updatedContainer.scrollLeft = scrollLeft - walk;
+                });
+                
+                // 確保滾動條可見
+                console.log(`✅ 歷史趨勢圖已設置滾動：容器寬度=${currentContainerWidth}px，圖表寬度=${calculatedWidth}px`);
             }
         }, 300);
         console.log(`✅ 歷史趨勢圖已載入 (${historicalData.length} 筆數據, 範圍: ${range})`);

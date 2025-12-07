@@ -187,11 +187,11 @@ async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord
                 messages: [
                     {
                         role: 'system',
-                        content: '你是一個專業的醫療數據分析助手，專門分析可能影響香港北區醫院急症室病人數量的各種因素。'
+                        content: '你是一個專業的醫療數據分析助手，專門分析可能影響香港北區醫院急症室病人數量的各種因素。\n\n重要：你必須只使用繁體中文（Traditional Chinese）進行回應，絕對不能使用簡體中文（Simplified Chinese）。所有文字、描述、分析都必須使用繁體中文。'
                     },
                     {
                         role: 'user',
-                        content: prompt
+                        content: prompt + '\n\n請注意：請務必只使用繁體中文回應，不要使用簡體中文。'
                     }
                 ],
                 temperature: temperature,
@@ -412,7 +412,9 @@ async function searchRelevantNewsAndEvents() {
 
 請基於當前日期（${today}，香港時間 ${hkTime}）和一般知識，分析是否有任何已知或可能發生的因素會影響未來幾天北區醫院的病人數量。
 
-請以 JSON 格式返回分析結果：
+**重要要求：請務必只使用繁體中文（Traditional Chinese）進行回應，絕對不能使用簡體中文（Simplified Chinese）。所有文字、描述、分析都必須使用繁體中文。**
+
+請以 JSON 格式返回分析結果（所有文字必須是繁體中文）：
 {
   "factors": [
     {
@@ -487,7 +489,9 @@ ${weatherData ? `當前天氣狀況：
 4. 季節性模式
 5. 其他可能導致急症室病人數量異常的因素
 
-請以 JSON 格式返回：
+**重要要求：請務必只使用繁體中文（Traditional Chinese）進行回應，絕對不能使用簡體中文（Simplified Chinese）。所有文字、描述、分析都必須使用繁體中文。**
+
+請以 JSON 格式返回（所有文字必須是繁體中文）：
 {
   "factors": [
     {
