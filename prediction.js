@@ -867,7 +867,7 @@ function setupHistoryTimeRangeButtons() {
             historyPageOffset = 0; // 重置分頁偏移量
             
             // 重新載入歷史趨勢圖
-            console.log(`🔄 切換歷史趨勢範圍: ${range}`);
+            console.log(`🔄 切換歷史趨勢範圍: ${range}, 重置分頁偏移量為 0`);
             await initHistoryChart(range, 0);
         });
     });
@@ -1571,6 +1571,10 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         updateLoadingProgress('history', 100);
         completeChartLoading('history');
         
+        // 更新導航按鈕和日期範圍顯示
+        updateHistoryDateRange(historicalData, range);
+        updateHistoryNavigationButtons(range, pageOffset, historicalData);
+        
         // 確保圖表正確顯示（使用響應式模式，適應容器寬度）
         setTimeout(() => {
             if (historyChart && historyCanvas && historyContainer) {
@@ -1596,7 +1600,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 historyCanvas.style.visibility = 'visible';
             }
         }, 100);
-        console.log(`✅ 歷史趨勢圖已載入 (${historicalData.length} 筆數據, 範圍: ${range})`);
+        console.log(`✅ 歷史趨勢圖已載入 (${historicalData.length} 筆數據, 範圍: ${range}, 分頁偏移: ${pageOffset})`);
     } catch (error) {
         console.error('❌ 歷史趨勢圖載入失敗:', error);
         updateLoadingProgress('history', 0);
@@ -2690,7 +2694,10 @@ function updateHistoryNavigationButtons(range, pageOffset, historicalData) {
     const prevBtn = document.getElementById('history-prev-btn');
     const nextBtn = document.getElementById('history-next-btn');
     
-    if (!navEl || !prevBtn || !nextBtn) return;
+    if (!navEl || !prevBtn || !nextBtn) {
+        console.warn('⚠️ 找不到歷史導航按鈕元素');
+        return;
+    }
     
     // 顯示導航（除了"全部"範圍）
     if (range === '全部') {
@@ -2698,13 +2705,17 @@ function updateHistoryNavigationButtons(range, pageOffset, historicalData) {
         return;
     }
     
-    navEl.style.display = 'block';
+    // 顯示導航容器
+    navEl.style.display = 'flex';
     
     // 檢查是否有更多數據可以查看
     // pageOffset = 0: 當前時間範圍（從今天往前推）
-    // pageOffset > 0: 更早的歷史數據
+    // pageOffset > 0: 更早的歷史數據（往前推）
     // pageOffset < 0: 更晚的數據（未來，通常不存在）
-    prevBtn.disabled = false; // 總是允許查看更早的數據
+    
+    // 上一頁：總是允許查看更早的數據（除非數據庫沒有更早的數據，這需要通過實際查詢來判斷）
+    // 下一頁：只有在歷史數據中（pageOffset > 0）才能返回
+    prevBtn.disabled = false; // 暫時總是啟用，如果查詢結果為空則禁用
     nextBtn.disabled = pageOffset <= 0; // 只有在歷史數據中才能返回
     
     // 移除舊的事件監聽器（避免重複添加）
@@ -2713,18 +2724,25 @@ function updateHistoryNavigationButtons(range, pageOffset, historicalData) {
     prevBtn.parentNode.replaceChild(newPrevBtn, prevBtn);
     nextBtn.parentNode.replaceChild(newNextBtn, nextBtn);
     
+    // 更新全局變量
+    historyPageOffset = pageOffset;
+    
     // 設置按鈕事件
     newPrevBtn.onclick = async () => {
+        console.log(`⬅️ 上一頁：從 pageOffset=${historyPageOffset} 到 ${historyPageOffset + 1}`);
         historyPageOffset += 1;
         await initHistoryChart(range, historyPageOffset);
     };
     
     newNextBtn.onclick = async () => {
         if (historyPageOffset > 0) {
+            console.log(`➡️ 下一頁：從 pageOffset=${historyPageOffset} 到 ${historyPageOffset - 1}`);
             historyPageOffset -= 1;
             await initHistoryChart(range, historyPageOffset);
         }
     };
+    
+    console.log(`📊 歷史導航按鈕已更新：範圍=${range}, pageOffset=${pageOffset}, 上一頁=${!newPrevBtn.disabled}, 下一頁=${!newNextBtn.disabled}`);
 }
 
 // 更新天氣顯示
