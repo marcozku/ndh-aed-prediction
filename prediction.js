@@ -1407,6 +1407,11 @@ async function initComparisonChart() {
         
         if (comparisonData.length === 0) {
             console.warn('⚠️ 沒有比較數據');
+            // 顯示錯誤訊息而不是直接返回
+            const loadingEl = document.getElementById('comparison-chart-loading');
+            if (loadingEl) {
+                loadingEl.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">暫無比較數據</div>';
+            }
             updateLoadingProgress('comparison', 0);
             return;
         }

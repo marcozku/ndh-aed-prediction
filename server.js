@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '1.3.2';
+const MODEL_VERSION = '1.3.3';
 
 // AI 服務（僅在服務器端使用）
 let aiService = null;
@@ -18,7 +18,24 @@ try {
 let db = null;
 if (process.env.DATABASE_URL) {
     db = require('./database');
-    db.initDatabase().catch(err => {
+    db.initDatabase().then(async () => {
+        // 數據庫初始化完成後，自動導入 CSV 數據
+        const defaultCsvPath = '/Users/yoyoau/Library/Containers/net.whatsapp.WhatsApp/Data/tmp/documents/86448351-FEDA-406E-B465-B7D0B0753234/NDH_AED_Attendance_Minimal.csv';
+        if (fs.existsSync(defaultCsvPath)) {
+            console.log('📊 檢測到 CSV 文件，開始自動導入...');
+            try {
+                const { importCSVData } = require('./import-csv-data');
+                const result = await importCSVData(defaultCsvPath, db);
+                if (result.success) {
+                    console.log(`✅ 自動導入完成！成功導入 ${result.count} 筆數據`);
+                } else {
+                    console.error(`❌ 自動導入失敗: ${result.error}`);
+                }
+            } catch (err) {
+                console.error('❌ 自動導入 CSV 時出錯:', err.message);
+            }
+        }
+    }).catch(err => {
         console.error('Failed to initialize database:', err.message);
     });
 }
@@ -207,6 +224,73 @@ const apiHandlers = {
                 count: results.length 
             });
         } catch (err) {
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+
+    // Import CSV data
+    'POST /api/import-csv': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        try {
+            const { importCSVData, parseCSV } = require('./import-csv-data');
+            const parsedUrl = url.parse(req.url, true);
+            const csvPath = parsedUrl.query.path || req.body?.path;
+            
+            if (!csvPath) {
+                return sendJson(res, { error: '請提供 CSV 文件路徑' }, 400);
+            }
+            
+            // 傳遞數據庫模塊以使用現有連接
+            const result = await importCSVData(csvPath, db);
+            if (result.success) {
+                sendJson(res, {
+                    success: true,
+                    message: `成功導入 ${result.count} 筆數據`,
+                    count: result.count,
+                    errors: result.errors || 0
+                });
+            } else {
+                sendJson(res, { error: result.error || '導入失敗' }, 500);
+            }
+        } catch (err) {
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+
+    // Auto import CSV data from default path
+    'POST /api/auto-import-csv': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        try {
+            const { importCSVData } = require('./import-csv-data');
+            // 默認 CSV 文件路徑
+            const defaultCsvPath = '/Users/yoyoau/Library/Containers/net.whatsapp.WhatsApp/Data/tmp/documents/86448351-FEDA-406E-B465-B7D0B0753234/NDH_AED_Attendance_Minimal.csv';
+            
+            if (!fs.existsSync(defaultCsvPath)) {
+                return sendJson(res, { error: `CSV 文件不存在: ${defaultCsvPath}` }, 404);
+            }
+            
+            console.log(`📊 開始自動導入 CSV 數據: ${defaultCsvPath}`);
+            // 傳遞數據庫模塊以使用現有連接
+            const result = await importCSVData(defaultCsvPath, db);
+            
+            if (result.success) {
+                console.log(`✅ 成功導入 ${result.count} 筆數據`);
+                sendJson(res, {
+                    success: true,
+                    message: `成功導入 ${result.count} 筆數據`,
+                    count: result.count,
+                    errors: result.errors || 0
+                });
+            } else {
+                console.error(`❌ 導入失敗: ${result.error}`);
+                sendJson(res, { error: result.error || '導入失敗' }, 500);
+            }
+        } catch (err) {
+            console.error('❌ 自動導入 CSV 失敗:', err);
             sendJson(res, { error: err.message }, 500);
         }
     },

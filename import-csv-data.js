@@ -1,0 +1,169 @@
+/**
+ * CSV 數據導入腳本
+ * 從 CSV 文件導入歷史數據到 PostgreSQL 數據庫
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+// 使用共享的數據庫連接（如果可用）
+let pool = null;
+
+// 初始化數據庫連接
+function initPool() {
+    if (pool) return pool;
+    
+    const { Pool } = require('pg');
+    // 從環境變量或默認值讀取數據庫配置
+    pool = new Pool({
+        host: process.env.DB_HOST || process.env.PGHOST || 'localhost',
+        port: process.env.DB_PORT || process.env.PGPORT || 5432,
+        database: process.env.DB_NAME || process.env.PGDATABASE || 'ndh_aed',
+        user: process.env.DB_USER || process.env.PGUSER || 'postgres',
+        password: process.env.DB_PASSWORD || process.env.PGPASSWORD || '',
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.DB_SSL === 'true' || process.env.DATABASE_URL?.includes('sslmode=require') 
+            ? { rejectUnauthorized: false } 
+            : false
+    });
+    return pool;
+}
+
+// 讀取並解析 CSV 文件
+function parseCSV(filePath) {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const lines = content.trim().split('\n');
+    const data = [];
+    
+    // 跳過標題行
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        const [date, attendance] = line.split(',');
+        if (date && attendance) {
+            data.push({
+                date: date.trim(),
+                patient_count: parseInt(attendance.trim(), 10),
+                source: 'csv_import',
+                notes: `從 CSV 文件導入的歷史數據 (${new Date().toISOString()})`
+            });
+        }
+    }
+    
+    return data;
+}
+
+// 批量導入數據
+async function importCSVData(csvFilePath, dbModule = null) {
+    console.log('📊 開始導入 CSV 數據...');
+    console.log(`📁 文件路徑: ${csvFilePath}`);
+    
+    try {
+        // 讀取並解析 CSV
+        const data = parseCSV(csvFilePath);
+        console.log(`📈 解析到 ${data.length} 筆數據`);
+        
+        if (data.length === 0) {
+            console.warn('⚠️ CSV 文件中沒有有效數據');
+            return { success: false, count: 0, error: '沒有有效數據' };
+        }
+        
+        // 如果提供了數據庫模塊，使用它的連接池
+        let client;
+        
+        if (dbModule && dbModule.pool) {
+            // 使用現有的數據庫連接
+            client = await dbModule.pool.connect();
+        } else {
+            // 初始化並連接數據庫
+            const dbPool = initPool();
+            client = await dbPool.connect();
+        }
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        try {
+            await client.query('BEGIN');
+            
+            for (const record of data) {
+                try {
+                    const query = `
+                        INSERT INTO actual_data (date, patient_count, source, notes)
+                        VALUES ($1, $2, $3, $4)
+                        ON CONFLICT (date) DO UPDATE SET
+                            patient_count = EXCLUDED.patient_count,
+                            source = EXCLUDED.source,
+                            notes = EXCLUDED.notes,
+                            updated_at = CURRENT_TIMESTAMP
+                        RETURNING *
+                    `;
+                    const result = await client.query(query, [
+                        record.date,
+                        record.patient_count,
+                        record.source,
+                        record.notes
+                    ]);
+                    successCount++;
+                } catch (err) {
+                    console.error(`❌ 導入失敗 ${record.date}:`, err.message);
+                    errorCount++;
+                }
+            }
+            
+            await client.query('COMMIT');
+            console.log(`✅ 成功導入 ${successCount} 筆數據`);
+            if (errorCount > 0) {
+                console.warn(`⚠️ ${errorCount} 筆數據導入失敗`);
+            }
+            
+            return { success: true, count: successCount, errors: errorCount };
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+            // 不關閉 pool，因為可能被其他地方使用
+        }
+    } catch (error) {
+        console.error('❌ 導入 CSV 數據失敗:', error);
+        return { success: false, count: 0, error: error.message };
+    }
+}
+
+// 主函數
+async function main() {
+    const csvFilePath = process.argv[2];
+    
+    if (!csvFilePath) {
+        console.error('❌ 請提供 CSV 文件路徑');
+        console.log('使用方法: node import-csv-data.js <csv-file-path>');
+        process.exit(1);
+    }
+    
+    if (!fs.existsSync(csvFilePath)) {
+        console.error(`❌ 文件不存在: ${csvFilePath}`);
+        process.exit(1);
+    }
+    
+    const result = await importCSVData(csvFilePath);
+    
+    if (result.success) {
+        console.log(`\n✅ 導入完成！成功導入 ${result.count} 筆數據`);
+        process.exit(0);
+    } else {
+        console.error(`\n❌ 導入失敗: ${result.error}`);
+        process.exit(1);
+    }
+}
+
+// 如果直接運行此腳本
+if (require.main === module) {
+    main().catch(err => {
+        console.error('❌ 執行失敗:', err);
+        process.exit(1);
+    });
+}
+
+module.exports = { importCSVData, parseCSV };

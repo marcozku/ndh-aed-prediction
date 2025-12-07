@@ -1354,7 +1354,8 @@ section h2 {
         font-size: 1.25rem;
     }
     
-    .prediction-card {
+    .prediction-card,
+    .chart-card {
         padding: var(--space-lg);
     }
     
