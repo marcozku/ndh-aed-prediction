@@ -1434,17 +1434,40 @@ async function initHistoryChart(range = currentHistoryRange) {
         updateLoadingProgress('history', 90);
         updateLoadingProgress('history', 100);
         completeChartLoading('history');
-        // 確保圖表正確適應
+        // 確保圖表正確適應並支持滾動
         setTimeout(() => {
-            if (historyChart) {
+            if (historyChart && historyCanvas) {
+                // 重新計算並設置canvas寬度
+                const dataPointWidth = window.innerWidth <= 600 ? 40 : window.innerWidth <= 900 ? 50 : 60;
+                const minChartWidth = Math.max(
+                    window.innerWidth * 1.2,
+                    historicalData.length * dataPointWidth
+                );
+                
+                historyCanvas.style.minWidth = `${minChartWidth}px`;
+                historyCanvas.style.width = `${minChartWidth}px`;
+                
                 historyChart.options.layout.padding = getResponsivePadding();
                 if (historyChart.options.scales && historyChart.options.scales.x && historyChart.options.scales.x.ticks) {
-                    historyChart.options.scales.x.ticks.maxTicksLimit = getResponsiveMaxTicksLimit();
+                    // 保持autoSkip: false以支持滾動查看所有數據
+                    historyChart.options.scales.x.ticks.autoSkip = false;
+                    historyChart.options.scales.x.ticks.maxTicksLimit = undefined;
                 }
-                historyChart.resize();
+                
+                // 強制重新計算圖表尺寸
+                historyChart.resize(minChartWidth, historyChart.height);
                 historyChart.update('none');
+                
+                // 確保容器可以滾動
+                const historyContainer = document.getElementById('history-chart-container');
+                if (historyContainer) {
+                    historyContainer.style.overflowX = 'auto';
+                    historyContainer.style.overflowY = 'hidden';
+                    // 添加觸摸滾動支持
+                    historyContainer.style.webkitOverflowScrolling = 'touch';
+                }
             }
-        }, 50);
+        }, 200);
         console.log(`✅ 歷史趨勢圖已載入 (${historicalData.length} 筆數據, 範圍: ${range})`);
     } catch (error) {
         console.error('❌ 歷史趨勢圖載入失敗:', error);

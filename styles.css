@@ -1113,10 +1113,18 @@ section h2 {
 
 /* 歷史趨勢圖容器：允許橫向滾動 */
 #history-chart-container {
+    position: relative;
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
+    width: 100%;
+    max-width: 100%;
+    cursor: grab;
+}
+
+#history-chart-container:active {
+    cursor: grabbing;
 }
 
 #history-chart-container::-webkit-scrollbar {
@@ -1135,6 +1143,13 @@ section h2 {
 
 #history-chart-container::-webkit-scrollbar-thumb:hover {
     background: var(--accent-primary);
+}
+
+/* 歷史趨勢圖的 canvas 需要設置最小寬度以支持滾動 */
+#history-chart {
+    min-width: 100% !important;
+    width: auto !important;
+    max-width: none !important;
 }
 
 .chart-container.large {
@@ -1846,8 +1861,14 @@ section h2 {
     }
     
     #history-chart-container {
-        overflow-x: auto;
-        overflow-y: hidden;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch;
+        cursor: grab;
+    }
+    
+    #history-chart-container:active {
+        cursor: grabbing;
     }
     
     .chart-container canvas {
@@ -1860,6 +1881,8 @@ section h2 {
     
     #history-chart {
         min-width: auto !important;
+        width: auto !important;
+        max-width: none !important;
     }
     
     .time-range-selector {
