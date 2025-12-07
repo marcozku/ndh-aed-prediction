@@ -1424,10 +1424,14 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         }
         
         // 將數據轉換為 {x: date, y: value} 格式以支持 time scale
-        const dataPoints = historicalData.map((d, i) => ({
-            x: d.date,
-            y: d.attendance
-        }));
+        // 確保日期是字符串格式（YYYY-MM-DD）
+        const dataPoints = historicalData.map((d, i) => {
+            const dateStr = typeof d.date === 'string' ? d.date : new Date(d.date).toISOString().split('T')[0];
+            return {
+                x: dateStr,
+                y: d.attendance
+            };
+        });
         
         historyChart = new Chart(historyCtx, {
             type: 'line',
@@ -1461,7 +1465,13 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                     },
                     {
                         label: '±1σ 範圍',
-                        data: historicalData.map(() => mean + stdDev),
+                        data: historicalData.map((d, i) => {
+                            const dateStr = typeof d.date === 'string' ? d.date : new Date(d.date).toISOString().split('T')[0];
+                            return {
+                                x: dateStr,
+                                y: mean + stdDev
+                            };
+                        }),
                         borderColor: 'rgba(239, 68, 68, 0.25)',
                         borderWidth: 1.5,
                         borderDash: [4, 4],
@@ -1470,10 +1480,13 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                     },
                     {
                         label: '',
-                        data: historicalData.map((d, i) => ({
-                            x: d.date,
-                            y: mean - stdDev
-                        })),
+                        data: historicalData.map((d, i) => {
+                            const dateStr = typeof d.date === 'string' ? d.date : new Date(d.date).toISOString().split('T')[0];
+                            return {
+                                x: dateStr,
+                                y: mean - stdDev
+                            };
+                        }),
                         borderColor: 'rgba(239, 68, 68, 0.25)',
                         borderWidth: 1.5,
                         borderDash: [4, 4],
@@ -1502,15 +1515,38 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         ...professionalOptions.plugins.tooltip,
                         callbacks: {
                             title: function(items) {
-                                const item = items[0];
-                                const date = item.parsed.x ? new Date(item.parsed.x) : new Date(historicalData[item.dataIndex].date);
-                                return formatDateDDMM(date.toISOString().split('T')[0], true);
+                                if (!items || items.length === 0) return '';
+                                try {
+                                    const item = items[0];
+                                    let date;
+                                    if (item.parsed && item.parsed.x) {
+                                        date = new Date(item.parsed.x);
+                                    } else if (item.dataIndex !== undefined && historicalData[item.dataIndex]) {
+                                        date = new Date(historicalData[item.dataIndex].date);
+                                    } else {
+                                        return '';
+                                    }
+                                    if (isNaN(date.getTime())) return '';
+                                    const dateStr = date.toISOString().split('T')[0];
+                                    return formatDateDDMM(dateStr, true) || '';
+                                } catch (e) {
+                                    console.warn('工具提示日期格式化錯誤:', e);
+                                    return '';
+                                }
                             },
                             label: function(item) {
-                                if (item.datasetIndex === 0) {
-                                    return `實際: ${item.raw} 人`;
+                                if (!item) return null;
+                                try {
+                                    if (item.datasetIndex === 0) {
+                                        const value = item.raw;
+                                        if (value === null || value === undefined) return null;
+                                        return `實際: ${value} 人`;
+                                    }
+                                    return null;
+                                } catch (e) {
+                                    console.warn('工具提示標籤格式化錯誤:', e);
+                                    return null;
                                 }
-                                return null;
                             }
                         }
                     }
@@ -1521,7 +1557,8 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         time: {
                             unit: getTimeUnit(range), // 根據範圍動態設置時間單位
                             displayFormats: getTimeDisplayFormats(range),
-                            tooltipFormat: 'yyyy-MM-dd'
+                            tooltipFormat: 'yyyy-MM-dd',
+                            parser: 'yyyy-MM-dd' // 明確指定日期解析格式
                         },
                         ticks: {
                             autoSkip: true,
@@ -1531,17 +1568,30 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                             },
                             padding: containerWidth <= 600 ? 2 : 6,
                             minRotation: 0,
-                            maxRotation: 0,
-                            source: 'data', // 使用數據中的實際日期
-                            callback: function(value, index) {
-                                // 格式化日期標籤
-                                const date = new Date(value);
-                                return formatTimeLabel(date, range);
+                            maxRotation: containerWidth <= 600 ? 45 : 0, // 小屏幕允許旋轉
+                            // 移除 source 和 callback，讓 Chart.js 自動處理時間標籤
+                            callback: function(value, index, ticks) {
+                                // 確保返回字符串，避免 [object Object]
+                                if (value === undefined || value === null) return '';
+                                try {
+                                    const date = new Date(value);
+                                    if (isNaN(date.getTime())) return '';
+                                    const formatted = formatTimeLabel(date, range);
+                                    return formatted || '';
+                                } catch (e) {
+                                    console.warn('日期格式化錯誤:', e, value);
+                                    return '';
+                                }
                             }
                         },
                         grid: {
                             ...professionalOptions.scales.x.grid,
                             display: true
+                        },
+                        adapters: {
+                            date: {
+                                locale: 'zh-HK' // 使用香港地區設置
+                            }
                         }
                     },
                     y: {
@@ -1906,51 +1956,61 @@ function getTimeDisplayFormats(range) {
 
 // 格式化時間標籤
 function formatTimeLabel(date, range) {
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
+    // 確保輸入是有效的日期對象
+    if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+        return '';
+    }
     
-    switch (range) {
-        case '1D':
-            return `${day}/${month}`;
-        case '1週':
-            return `${day}/${month}`;
-        case '1月':
-            return `${day}/${month}`;
-        case '3月':
-            return `${day}/${month}`;
-        case '6月':
-            if (date.getDate() === 1) {
-                return `${month}月`;
-            }
-            return `${day}/${month}`;
-        case '1年':
-            if (date.getDate() === 1) {
-                return `${month}月`;
-            }
-            return `${day}/${month}`;
-        case '2年':
-            if (date.getDate() === 1 && [0, 3, 6, 9].includes(date.getMonth())) {
-                return `${year}年${month}月`;
-            }
-            return `${day}/${month}`;
-        case '5年':
-            if (date.getDate() === 1 && [0, 6].includes(date.getMonth())) {
-                return `${year}年${month}月`;
-            }
-            return `${day}/${month}`;
-        case '10年':
-            if (date.getMonth() === 0 && date.getDate() === 1) {
+    try {
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        
+        switch (range) {
+            case '1D':
+                return `${day}/${month}`;
+            case '1週':
+                return `${day}/${month}`;
+            case '1月':
+                return `${day}/${month}`;
+            case '3月':
+                return `${day}/${month}`;
+            case '6月':
+                if (date.getDate() === 1) {
+                    return `${month}月`;
+                }
+                return `${day}/${month}`;
+            case '1年':
+                if (date.getDate() === 1) {
+                    return `${month}月`;
+                }
+                return `${day}/${month}`;
+            case '2年':
+                if (date.getDate() === 1 && [0, 3, 6, 9].includes(date.getMonth())) {
+                    return `${year}年${month}月`;
+                }
+                return `${day}/${month}`;
+            case '5年':
+                if (date.getDate() === 1 && [0, 6].includes(date.getMonth())) {
+                    return `${year}年${month}月`;
+                }
+                return `${day}/${month}`;
+            case '10年':
+                if (date.getMonth() === 0 && date.getDate() === 1) {
+                    return `${year}年`;
+                }
                 return `${year}年`;
-            }
-            return `${year}年`;
-        case '全部':
-            if (date.getMonth() === 0 && date.getDate() === 1) {
+            case '全部':
+                if (date.getMonth() === 0 && date.getDate() === 1) {
+                    return `${year}年`;
+                }
                 return `${year}年`;
-            }
-            return `${year}年`;
-        default:
-            return `${day}/${month}`;
+            default:
+                return `${day}/${month}`;
+        }
+    } catch (e) {
+        console.warn('formatTimeLabel 錯誤:', e, date);
+        return '';
     }
 }
 
