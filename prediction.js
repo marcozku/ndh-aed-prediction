@@ -1884,6 +1884,14 @@ function getMaxTicksForRange(range, dataLength) {
     }
 }
 
+// HTML 轉義函數，防止 XSS 並確保文本正確顯示
+function escapeHtml(text) {
+    if (!text || typeof text !== 'string') return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function formatDateDDMM(dateStr, includeYear = false) {
     if (!dateStr) return '';
     const date = new Date(dateStr);
@@ -3128,7 +3136,7 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         factorsEl.innerHTML = `
             <div class="factors-summary">
                 <h3>📋 AI 分析總結</h3>
-                <p>${summary}</p>
+                <p>${escapeHtml(summary)}</p>
             </div>
         `;
         return;
@@ -3207,20 +3215,20 @@ function updateRealtimeFactors(aiAnalysisData = null) {
                 <div class="factor-header">
                     <span class="factor-icon">${icon}</span>
                     <div class="factor-title-group">
-                        <span class="factor-type">${factor.type || '未知'}</span>
-                        <span class="factor-confidence ${confidenceClass}">${factor.confidence || '中'}信心度</span>
+                        <span class="factor-type">${escapeHtml(factor.type || '未知')}</span>
+                        <span class="factor-confidence ${confidenceClass}">${escapeHtml(factor.confidence || '中')}信心度</span>
                     </div>
                     <div class="factor-impact ${isPositive ? 'impact-positive' : isNegative ? 'impact-negative' : 'impact-neutral'}">
                         ${isPositive ? '+' : ''}${impactPercent}%
                     </div>
                 </div>
                 <div class="factor-description">
-                    ${factor.description || '無描述'}
+                    ${escapeHtml(factor.description || '無描述')}
                 </div>
                 ${factor.reasoning ? `
                 <div class="factor-reasoning">
                     <span class="reasoning-label">分析：</span>
-                    <span class="reasoning-text">${factor.reasoning}</span>
+                    <span class="reasoning-text">${escapeHtml(factor.reasoning)}</span>
                 </div>
                 ` : ''}
                 ${affectedDaysHtml}
