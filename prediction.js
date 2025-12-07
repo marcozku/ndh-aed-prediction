@@ -2624,10 +2624,11 @@ function updateHistoryNavigationButtons(range, pageOffset, historicalData) {
     navEl.style.display = 'block';
     
     // 檢查是否有更多數據可以查看
-    // 簡單檢查：如果當前頁面有數據，允許查看上一頁
-    // 如果pageOffset > 0，說明可以查看下一頁（更早的數據）
+    // pageOffset = 0: 當前時間範圍（從今天往前推）
+    // pageOffset > 0: 更早的歷史數據
+    // pageOffset < 0: 更晚的數據（未來，通常不存在）
     prevBtn.disabled = false; // 總是允許查看更早的數據
-    nextBtn.disabled = pageOffset <= 0 ? false : true; // 如果已經在歷史數據中，禁用下一頁
+    nextBtn.disabled = historyPageOffset <= 0; // 只有在歷史數據中才能返回
     
     // 設置按鈕事件
     prevBtn.onclick = async () => {
