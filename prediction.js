@@ -1411,8 +1411,8 @@ async function initHistoryChart(range = currentHistoryRange) {
                         ...professionalOptions.scales.x,
                         ticks: { 
                             ...professionalOptions.scales.x.ticks,
-                            autoSkip: true,
-                            maxTicksLimit: getResponsiveMaxTicksLimit(),
+                            autoSkip: false, // 關閉自動跳過，顯示所有標籤以支持滾動
+                            maxTicksLimit: undefined, // 不限制標籤數量
                             callback: function(value, index) {
                                 return labels[index] || null;
                             }
