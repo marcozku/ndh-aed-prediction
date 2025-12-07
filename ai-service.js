@@ -5,6 +5,62 @@
 
 const https = require('https');
 const http = require('http');
+let OpenCC = null;
+
+// 嘗試載入 OpenCC（如果已安裝）
+try {
+    OpenCC = require('opencc');
+} catch (e) {
+    console.warn('⚠️ OpenCC 未安裝，將無法自動轉換簡體中文到繁體中文');
+}
+
+// 簡體中文轉繁體中文轉換器
+let s2tConverter = null;
+if (OpenCC) {
+    try {
+        s2tConverter = new OpenCC('s2t.json'); // 簡體到繁體
+    } catch (e) {
+        console.warn('⚠️ 無法初始化 OpenCC 轉換器:', e.message);
+    }
+}
+
+// 轉換簡體中文到繁體中文的輔助函數
+async function convertToTraditional(text) {
+    if (!text || typeof text !== 'string') return text;
+    if (!s2tConverter) return text; // 如果沒有轉換器，直接返回
+    
+    try {
+        return await s2tConverter.convertPromise(text);
+    } catch (e) {
+        console.warn('⚠️ 轉換簡體中文失敗:', e.message);
+        return text; // 轉換失敗時返回原文
+    }
+}
+
+// 遞歸轉換對象中的所有字符串
+async function convertObjectToTraditional(obj) {
+    if (!obj) return obj;
+    
+    if (typeof obj === 'string') {
+        return await convertToTraditional(obj);
+    } else if (Array.isArray(obj)) {
+        const converted = [];
+        for (const item of obj) {
+            converted.push(await convertObjectToTraditional(item));
+        }
+        return converted;
+    } else if (typeof obj === 'object') {
+        const converted = {};
+        for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                converted[key] = await convertObjectToTraditional(obj[key]);
+            }
+        }
+        return converted;
+    }
+    
+    return obj;
+}
 
 const API_KEY = 'sk-hYb2t30UZbEPjt3QXVwBU4wXLvUzxBVL4DiLgbDWhKYIiFQW';
 
@@ -433,11 +489,14 @@ async function searchRelevantNewsAndEvents() {
     try {
         const response = await callAI(prompt, null, 0.5);
         
+        // 先轉換響應中的簡體中文到繁體中文
+        const convertedResponse = await convertToTraditional(response);
+        
         // 嘗試解析 JSON
         let result;
         try {
             // 提取 JSON 部分（如果響應包含其他文本）
-            const jsonMatch = response.match(/\{[\s\S]*\}/);
+            const jsonMatch = convertedResponse.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 result = JSON.parse(jsonMatch[0]);
             } else {
@@ -448,10 +507,13 @@ async function searchRelevantNewsAndEvents() {
             console.warn('⚠️ AI 響應無法解析為 JSON，使用文本響應');
             result = {
                 factors: [],
-                summary: response,
-                rawResponse: response
+                summary: convertedResponse,
+                rawResponse: convertedResponse
             };
         }
+        
+        // 轉換結果中的所有字符串為繁體中文
+        result = await convertObjectToTraditional(result);
         
         return result;
     } catch (error) {
@@ -509,9 +571,12 @@ ${weatherData ? `當前天氣狀況：
     try {
         const response = await callAI(prompt, null, 0.5);
         
+        // 先轉換響應中的簡體中文到繁體中文
+        const convertedResponse = await convertToTraditional(response);
+        
         let result;
         try {
-            const jsonMatch = response.match(/\{[\s\S]*\}/);
+            const jsonMatch = convertedResponse.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 result = JSON.parse(jsonMatch[0]);
             } else {
@@ -521,10 +586,13 @@ ${weatherData ? `當前天氣狀況：
             console.warn('⚠️ AI 響應無法解析為 JSON');
             result = {
                 factors: [],
-                overallImpact: response,
-                rawResponse: response
+                overallImpact: convertedResponse,
+                rawResponse: convertedResponse
             };
         }
+        
+        // 轉換結果中的所有字符串為繁體中文
+        result = await convertObjectToTraditional(result);
         
         return result;
     } catch (error) {
