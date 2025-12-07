@@ -190,7 +190,7 @@
             <!-- 歷史趨勢圖 -->
             <div class="chart-card full-width">
                 <h3>歷史趨勢 (365 天)</h3>
-                <div class="chart-container large" id="history-chart-container">
+                <div class="chart-container large scrollable-chart" id="history-chart-container">
                     <div class="chart-loading" id="history-chart-loading">
                         <div class="loading-spinner"></div>
                         <div class="loading-text">載入中... <span class="loading-percent" id="history-loading-percent">0%</span></div>
@@ -198,7 +198,60 @@
                             <div class="loading-progress-fill" id="history-progress-fill"></div>
                         </div>
                     </div>
-                    <canvas id="history-chart" style="display: none;"></canvas>
+                    <div class="chart-scroll-wrapper">
+                        <canvas id="history-chart" style="display: none;"></canvas>
+                    </div>
+                    <div class="chart-scroll-hint">← 左右滾動查看更多歷史數據 →</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 數據比較區塊 -->
+        <section class="comparison-section">
+            <h2>📊 預測準確度分析</h2>
+            <div class="section-loading" id="comparison-loading">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">載入比較數據中... <span class="loading-percent" id="comparison-loading-percent">0%</span></div>
+                <div class="loading-progress-bar">
+                    <div class="loading-progress-fill" id="comparison-loading-progress"></div>
+                </div>
+            </div>
+            <div class="comparison-container" id="comparison-container" style="display: none;">
+                <!-- 統計摘要 -->
+                <div class="comparison-stats" id="comparison-stats">
+                    <!-- 動態生成 -->
+                </div>
+                
+                <!-- 比較圖表 -->
+                <div class="chart-card full-width">
+                    <h3>實際 vs 預測對比</h3>
+                    <div class="chart-container" id="comparison-chart-container">
+                        <canvas id="comparison-chart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- 詳細比較表格 -->
+                <div class="comparison-table-container">
+                    <h3>詳細比較數據</h3>
+                    <div class="table-wrapper">
+                        <table class="comparison-table" id="comparison-table">
+                            <thead>
+                                <tr>
+                                    <th>日期</th>
+                                    <th>實際人數</th>
+                                    <th>預測人數</th>
+                                    <th>誤差</th>
+                                    <th>誤差率</th>
+                                    <th>80% CI</th>
+                                    <th>95% CI</th>
+                                    <th>準確度</th>
+                                </tr>
+                            </thead>
+                            <tbody id="comparison-table-body">
+                                <!-- 動態生成 -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </section>
@@ -271,7 +324,7 @@
 
         <!-- 頁腳 -->
         <footer class="prediction-footer">
-            <p>數據來源：NDH AED 2024-12-03 至 2025-12-03 歷史數據 (366天)</p>
+            <p>數據來源：NDH AED 2015-12-03 至 2024-12-03 歷史數據 (774筆，十年數據)</p>
             <p>預測模型版本 <span id="model-version">--</span> · 應用版本 <span id="app-version">--</span> · 香港時間 HKT</p>
         </footer>
     </div>

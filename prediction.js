@@ -1306,6 +1306,15 @@ function initCharts(predictor) {
     });
     
     updateLoadingProgress('history', 90);
+    
+    // 設置canvas寬度以支持滾動（365天數據需要更寬的canvas）
+    const dataLength = predictor.data.length;
+    const minWidth = 1200; // 最小寬度
+    const calculatedWidth = Math.max(minWidth, dataLength * 3); // 每個數據點3px
+    historyCanvas.width = calculatedWidth;
+    historyCanvas.style.width = `${calculatedWidth}px`;
+    historyChart.resize();
+    
     updateLoadingProgress('history', 100);
     completeChartLoading('history');
     totalProgress += 25;
@@ -2742,6 +2751,299 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('🤖 AI 狀態已更新');
     }, 600000); // 10 分鐘
     
+    // 載入比較數據
+    await loadComparisonData();
+    
     console.log('✅ NDH AED 預測系統就緒');
 });
+
+// ============================================
+// 數據比較功能
+// ============================================
+let comparisonChart = null;
+
+/**
+ * 載入比較數據
+ */
+async function loadComparisonData() {
+    const loadingEl = document.getElementById('comparison-loading');
+    const containerEl = document.getElementById('comparison-container');
+    
+    if (!loadingEl || !containerEl) {
+        console.warn('⚠️ 找不到比較數據容器');
+        return;
+    }
+    
+    try {
+        updateComparisonProgress(10);
+        
+        // 獲取比較數據
+        const response = await fetch('/api/comparison?limit=365');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const result = await response.json();
+        if (!result.success || !result.data) {
+            throw new Error('無比較數據');
+        }
+        
+        updateComparisonProgress(50);
+        
+        // 顯示比較數據
+        displayComparisonData(result.data);
+        
+        updateComparisonProgress(100);
+        loadingEl.style.display = 'none';
+        containerEl.style.display = 'block';
+        
+        console.log('✅ 比較數據已載入');
+    } catch (error) {
+        console.error('❌ 載入比較數據失敗:', error);
+        loadingEl.innerHTML = `
+            <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                <p>❌ 無法載入比較數據</p>
+                <p style="font-size: 0.875rem; margin-top: 0.5rem;">${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+/**
+ * 更新比較數據載入進度
+ */
+function updateComparisonProgress(percent) {
+    const percentEl = document.getElementById('comparison-loading-percent');
+    const progressEl = document.getElementById('comparison-loading-progress');
+    if (percentEl) percentEl.textContent = `${percent}%`;
+    if (progressEl) progressEl.style.width = `${percent}%`;
+}
+
+/**
+ * 顯示比較數據
+ */
+function displayComparisonData(data) {
+    if (!data || data.length === 0) {
+        console.warn('⚠️ 無比較數據可顯示');
+        return;
+    }
+    
+    // 計算統計信息
+    const stats = calculateComparisonStats(data);
+    displayComparisonStats(stats);
+    
+    // 顯示比較圖表
+    displayComparisonChart(data);
+    
+    // 顯示詳細表格
+    displayComparisonTable(data);
+}
+
+/**
+ * 計算比較統計信息
+ */
+function calculateComparisonStats(data) {
+    const validData = data.filter(d => d.actual && d.predicted);
+    if (validData.length === 0) return null;
+    
+    const errors = validData.map(d => {
+        const error = d.predicted - d.actual;
+        const errorPct = d.error_percentage ? parseFloat(d.error_percentage) : (error / d.actual * 100);
+        return { error, errorPct, absError: Math.abs(error), absErrorPct: Math.abs(errorPct) };
+    });
+    
+    const meanError = errors.reduce((sum, e) => sum + e.error, 0) / errors.length;
+    const meanAbsError = errors.reduce((sum, e) => sum + e.absError, 0) / errors.length;
+    const meanErrorPct = errors.reduce((sum, e) => sum + e.errorPct, 0) / errors.length;
+    const meanAbsErrorPct = errors.reduce((sum, e) => sum + e.absErrorPct, 0) / errors.length;
+    
+    const withinCi80 = validData.filter(d => d.ci80_low && d.ci80_high && 
+        d.actual >= d.ci80_low && d.actual <= d.ci80_high).length;
+    const withinCi95 = validData.filter(d => d.ci95_low && d.ci95_high && 
+        d.actual >= d.ci95_low && d.actual <= d.ci95_high).length;
+    
+    return {
+        total: validData.length,
+        meanError: Math.round(meanError * 10) / 10,
+        meanAbsError: Math.round(meanAbsError * 10) / 10,
+        meanErrorPct: Math.round(meanErrorPct * 10) / 10,
+        meanAbsErrorPct: Math.round(meanAbsErrorPct * 10) / 10,
+        ci80Accuracy: Math.round((withinCi80 / validData.length) * 100),
+        ci95Accuracy: Math.round((withinCi95 / validData.length) * 100)
+    };
+}
+
+/**
+ * 顯示比較統計信息
+ */
+function displayComparisonStats(stats) {
+    if (!stats) return;
+    
+    const statsEl = document.getElementById('comparison-stats');
+    if (!statsEl) return;
+    
+    statsEl.innerHTML = `
+        <div class="comparison-stat-card">
+            <span class="comparison-stat-value">${stats.total}</span>
+            <span class="comparison-stat-label">比較數據點</span>
+        </div>
+        <div class="comparison-stat-card">
+            <span class="comparison-stat-value">${stats.meanAbsErrorPct}%</span>
+            <span class="comparison-stat-label">平均絕對誤差率</span>
+        </div>
+        <div class="comparison-stat-card">
+            <span class="comparison-stat-value">${stats.ci80Accuracy}%</span>
+            <span class="comparison-stat-label">80% CI 準確度</span>
+        </div>
+        <div class="comparison-stat-card">
+            <span class="comparison-stat-value">${stats.ci95Accuracy}%</span>
+            <span class="comparison-stat-label">95% CI 準確度</span>
+        </div>
+    `;
+}
+
+/**
+ * 顯示比較圖表
+ */
+function displayComparisonChart(data) {
+    const canvas = document.getElementById('comparison-chart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    
+    // 銷毀舊圖表
+    if (comparisonChart) {
+        comparisonChart.destroy();
+    }
+    
+    const validData = data.filter(d => d.actual && d.predicted).reverse(); // 反轉以顯示從舊到新
+    const labels = validData.map(d => formatDateDDMM(d.date, false));
+    
+    comparisonChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: '實際人數',
+                    data: validData.map(d => d.actual),
+                    borderColor: '#4f46e5',
+                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.3
+                },
+                {
+                    label: '預測人數',
+                    data: validData.map(d => d.predicted),
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    fill: false,
+                    tension: 0.3
+                },
+                {
+                    label: '80% CI 上限',
+                    data: validData.map(d => d.ci80_high || null),
+                    borderColor: 'rgba(16, 185, 129, 0.3)',
+                    borderWidth: 1,
+                    borderDash: [3, 3],
+                    fill: false,
+                    pointRadius: 0
+                },
+                {
+                    label: '80% CI 下限',
+                    data: validData.map(d => d.ci80_low || null),
+                    borderColor: 'rgba(16, 185, 129, 0.3)',
+                    borderWidth: 1,
+                    borderDash: [3, 3],
+                    fill: '-1',
+                    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                    pointRadius: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    ticks: {
+                        maxTicksLimit: 20
+                    }
+                },
+                y: {
+                    display: true,
+                    beginAtZero: false
+                }
+            }
+        }
+    });
+}
+
+/**
+ * 顯示比較表格
+ */
+function displayComparisonTable(data) {
+    const tbody = document.getElementById('comparison-table-body');
+    if (!tbody) return;
+    
+    const validData = data.filter(d => d.actual && d.predicted).reverse(); // 反轉以顯示從舊到新
+    
+    tbody.innerHTML = validData.map(d => {
+        const error = d.predicted - d.actual;
+        const errorPct = d.error_percentage ? parseFloat(d.error_percentage) : (error / d.actual * 100);
+        const absErrorPct = Math.abs(errorPct);
+        
+        // 判斷準確度等級
+        let accuracyClass = 'poor';
+        let accuracyText = '差';
+        if (absErrorPct <= 5) {
+            accuracyClass = 'excellent';
+            accuracyText = '優秀';
+        } else if (absErrorPct <= 10) {
+            accuracyClass = 'good';
+            accuracyText = '良好';
+        } else if (absErrorPct <= 15) {
+            accuracyClass = 'fair';
+            accuracyText = '一般';
+        }
+        
+        // 判斷是否在CI範圍內
+        const inCi80 = d.ci80_low && d.ci80_high && d.actual >= d.ci80_low && d.actual <= d.ci80_high;
+        const inCi95 = d.ci95_low && d.ci95_high && d.actual >= d.ci95_low && d.actual <= d.ci95_high;
+        
+        const errorClass = error > 0 ? 'error-positive' : error < 0 ? 'error-negative' : 'error-zero';
+        const errorSign = error > 0 ? '+' : '';
+        
+        return `
+            <tr>
+                <td>${formatDateDDMM(d.date, true)}</td>
+                <td><strong>${d.actual}</strong></td>
+                <td>${d.predicted}</td>
+                <td class="${errorClass}">${errorSign}${error}</td>
+                <td class="${errorClass}">${errorSign}${errorPct.toFixed(1)}%</td>
+                <td>${d.ci80_low && d.ci80_high ? `${d.ci80_low}-${d.ci80_high}` : '--'}</td>
+                <td>${d.ci95_low && d.ci95_high ? `${d.ci95_low}-${d.ci95_high}` : '--'}</td>
+                <td>
+                    <span class="accuracy-badge ${accuracyClass}">${accuracyText}</span>
+                    ${inCi80 ? ' <span style="color: #10b981;">✓80%</span>' : ''}
+                    ${inCi95 ? ' <span style="color: #3b82f6;">✓95%</span>' : ''}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
 

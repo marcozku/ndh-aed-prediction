@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '1.1.7';
+const MODEL_VERSION = '1.2.0';
 const APP_VERSION = require('./package.json').version;
 
 // AI 服務（僅在服務器端使用）
@@ -19,7 +19,10 @@ try {
 let db = null;
 if (process.env.DATABASE_URL) {
     db = require('./database');
-    db.initDatabase().catch(err => {
+    db.initDatabase().then(async () => {
+        // 數據庫初始化成功後，自動執行歷史數據導入
+        await autoImportHistoricalData();
+    }).catch(err => {
         console.error('Failed to initialize database:', err.message);
     });
 }
@@ -625,6 +628,35 @@ async function calculateYesterdayFinalPrediction() {
         }
     } catch (error) {
         console.error('❌ 計算最終預測時出錯:', error);
+    }
+}
+
+// 自動導入歷史數據
+async function autoImportHistoricalData() {
+    if (!db || !db.pool) {
+        console.log('⚠️ 數據庫未配置，跳過自動導入');
+        return;
+    }
+    
+    try {
+        // 等待數據庫連接就緒
+        await db.pool.query('SELECT 1');
+        
+        // 檢查是否已經有數據
+        const existingData = await db.getActualData();
+        if (existingData && existingData.length > 0) {
+            console.log(`ℹ️ 數據庫中已有 ${existingData.length} 筆歷史數據，跳過自動導入`);
+            return;
+        }
+        
+        console.log('📊 開始自動導入歷史數據...');
+        const { importHistoricalData } = require('./import-historical-data');
+        // 跳過數據庫初始化，因為已經初始化過了
+        await importHistoricalData(true);
+        console.log('✅ 歷史數據自動導入完成');
+    } catch (error) {
+        console.error('❌ 自動導入歷史數據失敗:', error.message);
+        // 不阻止服務器啟動，只記錄錯誤
     }
 }
 
