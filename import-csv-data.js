@@ -40,17 +40,26 @@ function parseCSV(filePath) {
         const line = lines[i].trim();
         if (!line) continue;
         
-        const [date, attendance] = line.split(',');
-        if (date && attendance) {
+        // 處理 CSV（可能包含引號）
+        const parts = line.split(',');
+        if (parts.length < 2) continue;
+        
+        const date = parts[0].trim().replace(/^"|"$/g, '');
+        const attendance = parts[1].trim().replace(/^"|"$/g, '');
+        
+        if (date && attendance && !isNaN(parseInt(attendance, 10))) {
             data.push({
-                date: date.trim(),
-                patient_count: parseInt(attendance.trim(), 10),
+                date: date,
+                patient_count: parseInt(attendance, 10),
                 source: 'csv_import',
                 notes: `從 CSV 文件導入的歷史數據 (${new Date().toISOString()})`
             });
+        } else {
+            console.warn(`⚠️ 跳過無效行 ${i}: ${line}`);
         }
     }
     
+    console.log(`📊 解析 CSV: 總行數 ${lines.length - 1}, 有效數據 ${data.length} 筆`);
     return data;
 }
 
@@ -87,28 +96,41 @@ async function importCSVData(csvFilePath, dbModule = null) {
         try {
             await client.query('BEGIN');
             
-            for (const record of data) {
-                try {
-                    const query = `
-                        INSERT INTO actual_data (date, patient_count, source, notes)
-                        VALUES ($1, $2, $3, $4)
-                        ON CONFLICT (date) DO UPDATE SET
-                            patient_count = EXCLUDED.patient_count,
-                            source = EXCLUDED.source,
-                            notes = EXCLUDED.notes,
-                            updated_at = CURRENT_TIMESTAMP
-                        RETURNING *
-                    `;
-                    const result = await client.query(query, [
-                        record.date,
-                        record.patient_count,
-                        record.source,
-                        record.notes
-                    ]);
-                    successCount++;
-                } catch (err) {
-                    console.error(`❌ 導入失敗 ${record.date}:`, err.message);
-                    errorCount++;
+            // 批量導入以提高性能（每批1000筆）
+            const batchSize = 1000;
+            for (let i = 0; i < data.length; i += batchSize) {
+                const batch = data.slice(i, i + batchSize);
+                const batchNum = Math.floor(i / batchSize) + 1;
+                const totalBatches = Math.ceil(data.length / batchSize);
+                
+                for (const record of batch) {
+                    try {
+                        const query = `
+                            INSERT INTO actual_data (date, patient_count, source, notes)
+                            VALUES ($1, $2, $3, $4)
+                            ON CONFLICT (date) DO UPDATE SET
+                                patient_count = EXCLUDED.patient_count,
+                                source = EXCLUDED.source,
+                                notes = EXCLUDED.notes,
+                                updated_at = CURRENT_TIMESTAMP
+                            RETURNING *
+                        `;
+                        const result = await client.query(query, [
+                            record.date,
+                            record.patient_count,
+                            record.source,
+                            record.notes
+                        ]);
+                        successCount++;
+                    } catch (err) {
+                        console.error(`❌ 導入失敗 ${record.date}:`, err.message);
+                        errorCount++;
+                    }
+                }
+                
+                // 每批完成後顯示進度
+                if (batchNum % 5 === 0 || batchNum === totalBatches) {
+                    console.log(`  📊 進度: ${Math.min(i + batchSize, data.length)}/${data.length} (${Math.round((Math.min(i + batchSize, data.length) / data.length) * 100)}%)`);
                 }
             }
             
