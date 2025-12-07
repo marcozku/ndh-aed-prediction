@@ -1617,16 +1617,19 @@ async function initComparisonTable() {
         // 從數據庫獲取比較數據
         const comparisonData = await fetchComparisonData(100);
         
-        if (comparisonData.length === 0) {
-            console.warn('⚠️ 沒有比較數據');
+        // 過濾出有效的比較數據（必須同時有實際和預測）
+        const validComparisonData = comparisonData.filter(d => d.actual != null && d.predicted != null);
+        
+        if (validComparisonData.length === 0) {
+            console.warn('⚠️ 沒有有效的比較數據（需要同時有實際和預測數據）');
             if (loading) loading.style.display = 'none';
-            tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #64748b;">暫無數據</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #64748b; padding: var(--space-xl);">暫無數據<br><small>需要同時有實際數據和預測數據</small></td></tr>';
             if (table) table.style.display = 'table';
             return;
         }
         
         // 生成表格行
-        tableBody.innerHTML = comparisonData.map(d => {
+        tableBody.innerHTML = validComparisonData.map(d => {
             const error = d.error || (d.predicted && d.actual ? d.predicted - d.actual : null);
             const errorRate = d.error_percentage || (error && d.actual ? ((error / d.actual) * 100).toFixed(2) : null);
             const ci80 = d.ci80_low && d.ci80_high ? `${d.ci80_low}-${d.ci80_high}` : '--';
