@@ -1,5 +1,40 @@
 # 版本更新日誌
 
+## v1.3.10 - 2025-12-08 06:45 HKT
+
+### 🐛 Bug 修復
+
+1. **深度修復 [object Object] 問題**
+   - 改進 Chart.js time scale callback 的對象處理邏輯
+   - 添加對 `value.value` 屬性的支持（Chart.js 可能傳遞這種格式）
+   - 改進錯誤處理，確保所有返回值都是字符串
+   - 添加備用格式化邏輯，即使 formatTimeLabel 失敗也能返回有效字符串
+
+2. **改進 tooltip 日期處理**
+   - 改進 tooltip title callback 的日期提取邏輯
+   - 支持多種日期格式（Date 對象、字符串、數字、對象）
+   - 確保 tooltip 始終顯示正確的日期字符串
+
+3. **改進 formatDateDDMM 函數**
+   - 支持 Date 對象、字符串、數字等多種輸入類型
+   - 添加更完善的錯誤處理
+   - 確保始終返回字符串類型
+
+### 🔧 改進
+
+- 改進所有日期格式化函數的健壯性
+- 添加多層次的錯誤處理和備用邏輯
+- 確保所有返回值都是字符串類型，避免 [object Object]
+
+### 📊 技術細節
+
+- 修改 `initHistoryChart()` 中的 ticks callback，添加對 `value.value` 的處理
+- 修改 tooltip title callback，改進日期提取邏輯
+- 修改 `formatDateDDMM()` 函數，支持多種輸入類型
+- 添加備用格式化邏輯，確保即使主格式化失敗也能返回有效字符串
+
+---
+
 ## v1.3.9 - 2025-12-08 06:40 HKT
 
 ### 🐛 Bug 修復

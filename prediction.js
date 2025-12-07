@@ -1606,18 +1606,59 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                                 try {
                                     const item = items[0];
                                     let date;
-                                    if (item.parsed && item.parsed.x) {
-                                        date = new Date(item.parsed.x);
+                                    
+                                    // 處理不同的日期來源
+                                    if (item.parsed && item.parsed.x !== undefined) {
+                                        const xValue = item.parsed.x;
+                                        // xValue 可能是時間戳（數字）或 Date 對象
+                                        if (typeof xValue === 'number') {
+                                            date = new Date(xValue);
+                                        } else if (xValue instanceof Date) {
+                                            date = xValue;
+                                        } else if (typeof xValue === 'string') {
+                                            date = new Date(xValue);
+                                        } else {
+                                            // 如果是對象，嘗試提取
+                                            const timestamp = xValue?.value || xValue?.getTime?.() || xValue?.valueOf?.();
+                                            if (timestamp) {
+                                                date = new Date(timestamp);
+                                            } else {
+                                                // 回退到數據索引
+                                                if (item.dataIndex !== undefined && historicalData[item.dataIndex]) {
+                                                    date = new Date(historicalData[item.dataIndex].date);
+                                                } else {
+                                                    return '';
+                                                }
+                                            }
+                                        }
                                     } else if (item.dataIndex !== undefined && historicalData[item.dataIndex]) {
-                                        date = new Date(historicalData[item.dataIndex].date);
+                                        const dateValue = historicalData[item.dataIndex].date;
+                                        if (dateValue instanceof Date) {
+                                            date = dateValue;
+                                        } else if (typeof dateValue === 'string') {
+                                            date = new Date(dateValue);
+                                        } else if (typeof dateValue === 'number') {
+                                            date = new Date(dateValue);
+                                        } else {
+                                            return '';
+                                        }
                                     } else {
                                         return '';
                                     }
-                                    if (isNaN(date.getTime())) return '';
+                                    
+                                    // 驗證日期
+                                    if (!date || isNaN(date.getTime())) {
+                                        return '';
+                                    }
+                                    
+                                    // 格式化日期為字符串
                                     const dateStr = date.toISOString().split('T')[0];
-                                    return formatDateDDMM(dateStr, true) || '';
+                                    const formatted = formatDateDDMM(dateStr, true);
+                                    
+                                    // 確保返回字符串
+                                    return (formatted && typeof formatted === 'string') ? formatted : '';
                                 } catch (e) {
-                                    console.warn('工具提示日期格式化錯誤:', e);
+                                    console.warn('工具提示日期格式化錯誤:', e, items);
                                     return '';
                                 }
                             },
@@ -1655,13 +1696,16 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                             padding: containerWidth <= 600 ? 2 : 6,
                             minRotation: 0,
                             maxRotation: containerWidth <= 600 ? 45 : 0, // 小屏幕允許旋轉
-                            // 移除 source 和 callback，讓 Chart.js 自動處理時間標籤
+                            // 使用自定義 callback 來格式化日期標籤，避免 [object Object]
                             callback: function(value, index, ticks) {
                                 // 確保返回字符串，避免 [object Object]
-                                if (value === undefined || value === null) return '';
+                                if (value === undefined || value === null) {
+                                    return '';
+                                }
                                 
                                 try {
                                     let date;
+                                    let timestamp;
                                     
                                     // 處理不同類型的 value
                                     if (value instanceof Date) {
@@ -1669,27 +1713,46 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                                         date = value;
                                     } else if (typeof value === 'number') {
                                         // 如果是數字（時間戳），轉換為 Date
-                                        date = new Date(value);
+                                        timestamp = value;
+                                        date = new Date(timestamp);
                                     } else if (typeof value === 'string') {
                                         // 如果是字符串，轉換為 Date
                                         date = new Date(value);
-                                    } else {
-                                        // 如果是對象，嘗試提取時間戳或日期字符串
-                                        if (value && typeof value === 'object') {
-                                            // 嘗試從對象中提取值
-                                            const timestamp = value.getTime ? value.getTime() : 
-                                                             value.valueOf ? value.valueOf() : 
-                                                             value.x ? value.x : 
-                                                             value.t ? value.t : null;
-                                            if (timestamp !== null) {
-                                                date = new Date(timestamp);
-                                            } else {
-                                                console.warn('無法從對象中提取日期:', value);
+                                    } else if (value && typeof value === 'object') {
+                                        // 如果是對象，嘗試提取時間戳
+                                        // Chart.js time scale 可能傳遞 {value: timestamp} 或其他格式
+                                        if (value.value !== undefined) {
+                                            timestamp = typeof value.value === 'number' ? value.value : 
+                                                       typeof value.value === 'string' ? new Date(value.value).getTime() : null;
+                                        } else if (value.getTime) {
+                                            timestamp = value.getTime();
+                                        } else if (value.valueOf) {
+                                            timestamp = value.valueOf();
+                                        } else if (value.x !== undefined) {
+                                            timestamp = typeof value.x === 'number' ? value.x : null;
+                                        } else if (value.t !== undefined) {
+                                            timestamp = typeof value.t === 'number' ? value.t : null;
+                                        } else {
+                                            // 如果無法提取，嘗試直接轉換
+                                            try {
+                                                timestamp = Number(value);
+                                                if (isNaN(timestamp)) {
+                                                    console.warn('無法從對象中提取日期:', value);
+                                                    return '';
+                                                }
+                                            } catch (e) {
+                                                console.warn('日期對象轉換失敗:', e, value);
                                                 return '';
                                             }
+                                        }
+                                        
+                                        if (timestamp !== null && !isNaN(timestamp)) {
+                                            date = new Date(timestamp);
                                         } else {
                                             return '';
                                         }
+                                    } else {
+                                        return '';
                                     }
                                     
                                     // 驗證日期有效性
@@ -1700,17 +1763,30 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                                     // 格式化日期
                                     const formatted = formatTimeLabel(date, range);
                                     
-                                    // 確保返回字符串
+                                    // 確保返回字符串（雙重檢查）
                                     if (formatted && typeof formatted === 'string') {
                                         return formatted;
                                     } else {
                                         // 如果 formatTimeLabel 返回非字符串，手動格式化
                                         const day = String(date.getDate()).padStart(2, '0');
                                         const month = String(date.getMonth() + 1).padStart(2, '0');
-                                        return `${day}/${month}`;
+                                        const year = date.getFullYear();
+                                        
+                                        // 根據範圍返回適當格式
+                                        if (range === '10年' || range === '全部') {
+                                            return `${year}年`;
+                                        } else if (range === '1年' || range === '2年' || range === '5年') {
+                                            if (date.getDate() === 1) {
+                                                return `${month}月`;
+                                            }
+                                            return `${day}/${month}`;
+                                        } else {
+                                            return `${day}/${month}`;
+                                        }
                                     }
                                 } catch (e) {
                                     console.warn('日期格式化錯誤:', e, value, typeof value);
+                                    // 返回空字符串而不是錯誤
                                     return '';
                                 }
                             }
@@ -2268,16 +2344,41 @@ function convertObjectToTraditional(obj) {
 }
 
 function formatDateDDMM(dateStr, includeYear = false) {
+    // 確保輸入是字符串或可以轉換為字符串
     if (!dateStr) return '';
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return '';
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    if (includeYear) {
-        const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
+    
+    try {
+        // 如果已經是 Date 對象，直接使用
+        let date;
+        if (dateStr instanceof Date) {
+            date = dateStr;
+        } else if (typeof dateStr === 'string') {
+            date = new Date(dateStr);
+        } else if (typeof dateStr === 'number') {
+            date = new Date(dateStr);
+        } else {
+            // 嘗試轉換為字符串再解析
+            date = new Date(String(dateStr));
+        }
+        
+        // 驗證日期有效性
+        if (!date || isNaN(date.getTime())) {
+            return '';
+        }
+        
+        // 格式化為字符串
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        
+        if (includeYear) {
+            const year = String(date.getFullYear());
+            return `${day}/${month}/${year}`;
+        }
+        return `${day}/${month}`;
+    } catch (e) {
+        console.warn('formatDateDDMM 錯誤:', e, dateStr);
+        return '';
     }
-    return `${day}/${month}`;
 }
 
 function formatDateDDMMFromDate(date, includeYear = false) {
