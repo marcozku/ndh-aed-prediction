@@ -1111,51 +1111,58 @@ section h2 {
     padding: 0;
 }
 
-/* 歷史趨勢圖容器：允許橫向滾動 */
+/* 歷史趨勢圖容器：不再需要滾動 */
 #history-chart-container {
     position: relative;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
+    overflow: hidden;
     width: 100%;
     max-width: 100%;
-    cursor: grab;
-    /* 確保滾動條始終可見 */
-    scrollbar-color: var(--border-medium) var(--bg-primary);
 }
 
-#history-chart-container:active {
-    cursor: grabbing;
-}
-
-#history-chart-container::-webkit-scrollbar {
-    height: 10px !important;
-    display: block !important;
-}
-
-#history-chart-container::-webkit-scrollbar-track {
-    background: var(--bg-primary);
-    border-radius: 5px;
-    display: block !important;
-}
-
-#history-chart-container::-webkit-scrollbar-thumb {
-    background: var(--border-medium);
-    border-radius: 5px;
-    display: block !important;
-}
-
-#history-chart-container::-webkit-scrollbar-thumb:hover {
-    background: var(--accent-primary);
-}
-
-/* 歷史趨勢圖的 canvas 需要設置固定寬度以支持滾動 */
+/* 歷史趨勢圖的 canvas */
 #history-chart {
-    min-width: auto !important;
-    width: auto !important;
-    max-width: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
     display: block !important;
+}
+
+/* 歷史趨勢圖導航按鈕 */
+.history-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+}
+
+.nav-btn {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-md);
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: var(--transition-base);
+}
+
+.nav-btn:hover:not(:disabled) {
+    background: var(--accent-primary);
+    color: white;
+    border-color: var(--accent-primary);
+}
+
+.nav-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#history-date-range {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    min-width: 200px;
+    text-align: center;
 }
 
 .chart-container.large {

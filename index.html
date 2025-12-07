@@ -192,7 +192,6 @@
                 <h3>歷史趨勢</h3>
                 <div class="time-range-selector" id="history-time-range">
                     <button class="time-range-btn" data-range="1D">1D</button>
-                    <button class="time-range-btn" data-range="1D">1D</button>
                     <button class="time-range-btn" data-range="1週">1週</button>
                     <button class="time-range-btn active" data-range="1月">1月</button>
                     <button class="time-range-btn" data-range="3月">3月</button>
@@ -203,6 +202,11 @@
                     <button class="time-range-btn" data-range="10年">10年</button>
                     <button class="time-range-btn" data-range="全部">全部</button>
                 </div>
+                <div class="history-navigation" id="history-navigation" style="display: none; text-align: center; margin: 0.5rem 0;">
+                    <button class="nav-btn" id="history-prev-btn" style="margin-right: 1rem;">← 上一頁</button>
+                    <span id="history-date-range" style="color: #64748b; font-size: 0.875rem;"></span>
+                    <button class="nav-btn" id="history-next-btn" style="margin-left: 1rem;">下一頁 →</button>
+                </div>
                 <div class="chart-container large" id="history-chart-container">
                     <div class="chart-loading" id="history-chart-loading">
                         <div class="loading-spinner"></div>
@@ -212,9 +216,6 @@
                         </div>
                     </div>
                     <canvas id="history-chart" style="display: none;"></canvas>
-                </div>
-                <div class="chart-hint" style="text-align: center; color: #64748b; font-size: 0.875rem; margin-top: 0.5rem;">
-                    ←左右滾動查看更多歷史數據 →
                 </div>
             </div>
 

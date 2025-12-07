@@ -689,6 +689,7 @@ class NDHAttendancePredictor {
 // ============================================
 let forecastChart, dowChart, monthChart, historyChart, comparisonChart;
 let currentHistoryRange = '1月'; // 當前選擇的歷史趨勢時間範圍
+let historyPageOffset = 0; // 分頁偏移量（0 = 當前時間範圍，1 = 上一頁，-1 = 下一頁）
 
 // Chart.js 全域設定 - 專業風格
 Chart.defaults.font.family = "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif";
@@ -863,10 +864,11 @@ function setupHistoryTimeRangeButtons() {
             // 獲取選擇的範圍
             const range = btn.getAttribute('data-range');
             currentHistoryRange = range;
+            historyPageOffset = 0; // 重置分頁偏移量
             
             // 重新載入歷史趨勢圖
             console.log(`🔄 切換歷史趨勢範圍: ${range}`);
-            await initHistoryChart(range);
+            await initHistoryChart(range, 0);
         });
     });
 }
@@ -1260,7 +1262,7 @@ function forceChartsResize() {
 }
 
 // 初始化歷史趨勢圖
-async function initHistoryChart(range = currentHistoryRange) {
+async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
     try {
         updateLoadingProgress('history', 10);
         const historyCanvas = document.getElementById('history-chart');
@@ -1271,9 +1273,9 @@ async function initHistoryChart(range = currentHistoryRange) {
         }
         
         updateLoadingProgress('history', 20);
-        // 從數據庫獲取數據
-        const startDate = getDateRangeStart(range);
-        const historicalData = await fetchHistoricalData(startDate, null);
+        // 從數據庫獲取數據（根據時間範圍和分頁偏移量）
+        const { startDate, endDate } = getDateRangeWithOffset(range, pageOffset);
+        const historicalData = await fetchHistoricalData(startDate, endDate);
         
         if (historicalData.length === 0) {
             console.warn('⚠️ 沒有歷史數據');
@@ -1399,41 +1401,17 @@ async function initHistoryChart(range = currentHistoryRange) {
             historyChart.destroy();
         }
         
-        // 設置容器和canvas的最小寬度以支持滾動
+        // 設置容器（使用responsive模式，不再需要滾動）
         const historyContainer = document.getElementById('history-chart-container');
-        
-        // 計算圖表所需的最小寬度（根據數據點數量）
-        const containerWidth = historyContainer ? (historyContainer.offsetWidth || window.innerWidth) : window.innerWidth;
-        const dataPointWidth = containerWidth <= 600 ? 50 : containerWidth <= 900 ? 60 : 70;
-        const minChartWidth = Math.max(
-            containerWidth * 1.5, // 至少比容器寬50%以確保可以滾動
-            historicalData.length * dataPointWidth
-        );
         if (historyContainer) {
-            // 容器保持100%寬度，但允許內部內容溢出
             historyContainer.style.width = '100%';
             historyContainer.style.maxWidth = '100%';
-            historyContainer.style.overflowX = 'auto';
-            historyContainer.style.overflowY = 'hidden';
-            historyContainer.style.webkitOverflowScrolling = 'touch';
-            historyContainer.style.position = 'relative';
-            // 確保滾動條可見
-            historyContainer.style.scrollbarWidth = 'thin';
+            historyContainer.style.overflow = 'hidden'; // 移除滾動
         }
         if (historyCanvas) {
-            // Canvas設置固定寬度以支持滾動（必須大於容器寬度）
-            historyCanvas.style.minWidth = `${minChartWidth}px`;
-            historyCanvas.style.width = `${minChartWidth}px`;
-            historyCanvas.style.maxWidth = 'none';
-            historyCanvas.style.display = 'block';
-        }
-        
-        // 設置canvas的實際寬度和高度（必須在創建圖表前設置）
-        if (historyCanvas) {
-            historyCanvas.width = minChartWidth;
-            historyCanvas.height = 380; // 固定高度
-            historyCanvas.style.width = `${minChartWidth}px`;
+            historyCanvas.style.width = '100%';
             historyCanvas.style.height = '380px';
+            historyCanvas.style.maxWidth = '100%';
         }
         
         historyChart = new Chart(historyCtx, {
@@ -1523,10 +1501,7 @@ async function initHistoryChart(range = currentHistoryRange) {
                         ticks: { 
                         ...professionalOptions.scales.x.ticks,
                         autoSkip: true, // 啟用自動跳過以減少標籤密度
-                        maxTicksLimit: Math.min(
-                            getMaxTicksForRange(range, historicalData.length),
-                            Math.floor((historyContainer ? historyContainer.offsetWidth || window.innerWidth : window.innerWidth) / 60) // 根據容器寬度動態限制標籤數
-                        ),
+                        maxTicksLimit: getMaxTicksForRange(range, historicalData.length),
                         font: {
                             size: containerWidth <= 600 ? 8 : 10
                         },
@@ -2540,47 +2515,132 @@ async function fetchComparisonData(limit = 100) {
     }
 }
 
-// 計算時間範圍的開始日期
-function getDateRangeStart(range) {
+// 計算時間範圍的開始日期（帶分頁偏移）
+function getDateRangeWithOffset(range, pageOffset = 0) {
     const hk = getHKTime();
     const today = new Date(`${hk.dateStr}T00:00:00+08:00`);
-    const start = new Date(today);
+    let start = new Date(today);
+    let end = new Date(today);
     
+    // 根據時間範圍計算基礎日期範圍
     switch (range) {
         case '1D':
             start.setDate(today.getDate() - 1);
+            end.setDate(today.getDate());
             break;
         case '1週':
             start.setDate(today.getDate() - 7);
+            end.setDate(today.getDate());
             break;
         case '1月':
             start.setMonth(today.getMonth() - 1);
+            end.setDate(today.getDate());
             break;
         case '3月':
             start.setMonth(today.getMonth() - 3);
+            end.setDate(today.getDate());
             break;
         case '6月':
             start.setMonth(today.getMonth() - 6);
+            end.setDate(today.getDate());
             break;
         case '1年':
             start.setFullYear(today.getFullYear() - 1);
+            end.setDate(today.getDate());
             break;
         case '2年':
             start.setFullYear(today.getFullYear() - 2);
+            end.setDate(today.getDate());
             break;
         case '5年':
             start.setFullYear(today.getFullYear() - 5);
+            end.setDate(today.getDate());
             break;
         case '10年':
             start.setFullYear(today.getFullYear() - 10);
+            end.setDate(today.getDate());
             break;
         case '全部':
-            return null; // 返回null表示獲取所有數據
+            return { startDate: null, endDate: null }; // 返回null表示獲取所有數據
         default:
             start.setMonth(today.getMonth() - 1);
+            end.setDate(today.getDate());
     }
     
-    return start.toISOString().split('T')[0];
+    // 計算範圍長度
+    const rangeLength = end.getTime() - start.getTime();
+    
+    // 根據分頁偏移量調整日期範圍
+    if (pageOffset !== 0) {
+        const offsetMs = rangeLength * pageOffset;
+        start = new Date(start.getTime() + offsetMs);
+        end = new Date(end.getTime() + offsetMs);
+    }
+    
+    return {
+        startDate: start.toISOString().split('T')[0],
+        endDate: end.toISOString().split('T')[0]
+    };
+}
+
+// 計算時間範圍的開始日期（保留用於兼容性）
+function getDateRangeStart(range) {
+    const { startDate } = getDateRangeWithOffset(range, 0);
+    return startDate;
+}
+
+// 更新歷史趨勢圖的日期範圍顯示
+function updateHistoryDateRange(historicalData, range) {
+    const dateRangeEl = document.getElementById('history-date-range');
+    if (!dateRangeEl || historicalData.length === 0) return;
+    
+    const firstDate = new Date(historicalData[0].date);
+    const lastDate = new Date(historicalData[historicalData.length - 1].date);
+    
+    const formatDate = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+    
+    dateRangeEl.textContent = `${formatDate(firstDate)} 至 ${formatDate(lastDate)}`;
+}
+
+// 更新歷史趨勢圖的分頁按鈕狀態
+function updateHistoryNavigationButtons(range, pageOffset, historicalData) {
+    const navEl = document.getElementById('history-navigation');
+    const prevBtn = document.getElementById('history-prev-btn');
+    const nextBtn = document.getElementById('history-next-btn');
+    
+    if (!navEl || !prevBtn || !nextBtn) return;
+    
+    // 顯示導航（除了"全部"範圍）
+    if (range === '全部') {
+        navEl.style.display = 'none';
+        return;
+    }
+    
+    navEl.style.display = 'block';
+    
+    // 檢查是否有更多數據可以查看
+    // 簡單檢查：如果當前頁面有數據，允許查看上一頁
+    // 如果pageOffset > 0，說明可以查看下一頁（更早的數據）
+    prevBtn.disabled = false; // 總是允許查看更早的數據
+    nextBtn.disabled = pageOffset <= 0 ? false : true; // 如果已經在歷史數據中，禁用下一頁
+    
+    // 設置按鈕事件
+    prevBtn.onclick = async () => {
+        historyPageOffset += 1;
+        await initHistoryChart(range, historyPageOffset);
+    };
+    
+    nextBtn.onclick = async () => {
+        if (historyPageOffset > 0) {
+            historyPageOffset -= 1;
+            await initHistoryChart(range, historyPageOffset);
+        }
+    };
 }
 
 // 更新天氣顯示
