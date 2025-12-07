@@ -1507,12 +1507,30 @@ async function initHistoryChart(range = currentHistoryRange) {
                     x: {
                         ...professionalOptions.scales.x,
                         ticks: { 
-                            ...professionalOptions.scales.x.ticks,
-                            autoSkip: false, // 關閉自動跳過，顯示所有標籤以支持滾動
-                            maxTicksLimit: undefined, // 不限制標籤數量
-                            callback: function(value, index) {
-                                return labels[index] || null;
+                        ...professionalOptions.scales.x.ticks,
+                        autoSkip: true, // 根據時間範圍動態決定是否自動跳過
+                        maxTicksLimit: getMaxTicksForRange(range, historicalData.length), // 根據範圍動態設置最大標籤數
+                        font: {
+                            size: window.innerWidth <= 600 ? 9 : 11
+                        },
+                        padding: window.innerWidth <= 600 ? 4 : 8,
+                        minRotation: 0,
+                        maxRotation: range === '全部' || range === '10年' || range === '5年' || range === '2年' ? 45 : 0, // 長時間範圍時允許旋轉
+                        callback: function(value, index) {
+                            // 確保返回正確的標籤
+                            if (index >= 0 && index < labels.length) {
+                                const label = labels[index];
+                                // 如果標籤為空，返回null（Chart.js會自動跳過）
+                                return label || null;
                             }
+                            return null;
+                        },
+                        afterFit: function(scale) {
+                            // 確保x軸寬度不超過圖表寬度
+                            if (scale.width > scale.chart.width) {
+                                // 允許溢出以支持滾動
+                            }
+                        }
                         }
                     },
                     y: {
