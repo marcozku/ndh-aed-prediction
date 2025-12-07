@@ -1462,14 +1462,35 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         }
         
         // 將數據轉換為 {x: date, y: value} 格式以支持 time scale
-        // 確保日期是字符串格式（YYYY-MM-DD）
+        // Chart.js time scale 需要 Date 對象或時間戳，而不是字符串
         const dataPoints = historicalData.map((d, i) => {
-            const dateStr = typeof d.date === 'string' ? d.date : new Date(d.date).toISOString().split('T')[0];
+            let date;
+            if (typeof d.date === 'string') {
+                // 如果是字符串，轉換為 Date 對象
+                date = new Date(d.date + 'T00:00:00'); // 添加時間部分確保正確解析
+            } else if (d.date instanceof Date) {
+                date = d.date;
+            } else {
+                date = new Date(d.date);
+            }
+            // 確保日期有效
+            if (isNaN(date.getTime())) {
+                console.warn('無效日期:', d.date);
+                return null;
+            }
             return {
-                x: dateStr,
+                x: date.getTime(), // 使用時間戳，Chart.js time scale 支持
                 y: d.attendance
             };
-        });
+        }).filter(d => d !== null); // 過濾掉無效的數據點
+        
+        console.log(`📊 準備繪製圖表: ${dataPoints.length} 個數據點`);
+        if (dataPoints.length > 0) {
+            console.log('📊 第一個數據點:', dataPoints[0]);
+            console.log('📊 最後一個數據點:', dataPoints[dataPoints.length - 1]);
+        } else {
+            console.error('❌ 沒有有效的數據點！');
+        }
         
         historyChart = new Chart(historyCtx, {
             type: 'line',
@@ -1492,12 +1513,20 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                     {
                         label: `平均 (${Math.round(mean)})`,
                         data: historicalData.map((d, i) => {
-                            const dateStr = typeof d.date === 'string' ? d.date : new Date(d.date).toISOString().split('T')[0];
+                            let date;
+                            if (typeof d.date === 'string') {
+                                date = new Date(d.date + 'T00:00:00');
+                            } else if (d.date instanceof Date) {
+                                date = d.date;
+                            } else {
+                                date = new Date(d.date);
+                            }
+                            if (isNaN(date.getTime())) return null;
                             return {
-                                x: dateStr,
+                                x: date.getTime(),
                                 y: mean
                             };
-                        }),
+                        }).filter(d => d !== null),
                         borderColor: '#ef4444',
                         borderWidth: 2.5,
                         borderDash: [8, 4],
@@ -1507,12 +1536,20 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                     {
                         label: '±1σ 範圍',
                         data: historicalData.map((d, i) => {
-                            const dateStr = typeof d.date === 'string' ? d.date : new Date(d.date).toISOString().split('T')[0];
+                            let date;
+                            if (typeof d.date === 'string') {
+                                date = new Date(d.date + 'T00:00:00');
+                            } else if (d.date instanceof Date) {
+                                date = d.date;
+                            } else {
+                                date = new Date(d.date);
+                            }
+                            if (isNaN(date.getTime())) return null;
                             return {
-                                x: dateStr,
+                                x: date.getTime(),
                                 y: mean + stdDev
                             };
-                        }),
+                        }).filter(d => d !== null),
                         borderColor: 'rgba(239, 68, 68, 0.25)',
                         borderWidth: 1.5,
                         borderDash: [4, 4],
@@ -1522,12 +1559,20 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                     {
                         label: '',
                         data: historicalData.map((d, i) => {
-                            const dateStr = typeof d.date === 'string' ? d.date : new Date(d.date).toISOString().split('T')[0];
+                            let date;
+                            if (typeof d.date === 'string') {
+                                date = new Date(d.date + 'T00:00:00');
+                            } else if (d.date instanceof Date) {
+                                date = d.date;
+                            } else {
+                                date = new Date(d.date);
+                            }
+                            if (isNaN(date.getTime())) return null;
                             return {
-                                x: dateStr,
+                                x: date.getTime(),
                                 y: mean - stdDev
                             };
-                        }),
+                        }).filter(d => d !== null),
                         borderColor: 'rgba(239, 68, 68, 0.25)',
                         borderWidth: 1.5,
                         borderDash: [4, 4],
@@ -1598,8 +1643,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         time: {
                             unit: getTimeUnit(range), // 根據範圍動態設置時間單位
                             displayFormats: getTimeDisplayFormats(range),
-                            tooltipFormat: 'yyyy-MM-dd',
-                            parser: 'yyyy-MM-dd' // 明確指定日期解析格式
+                            tooltipFormat: 'yyyy-MM-dd'
                         },
                         ticks: {
                             autoSkip: true,
@@ -1708,11 +1752,19 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 
                 // 讓圖表自動適應容器寬度（響應式）
                 historyChart.resize();
-                historyChart.update('none');
+                // 使用 'active' 模式更新，確保圖表正確渲染
+                historyChart.update('active');
                 
                 // 確保canvas可見
                 historyCanvas.style.display = 'block';
                 historyCanvas.style.visibility = 'visible';
+                
+                // 再次強制更新，確保數據顯示
+                setTimeout(() => {
+                    if (historyChart) {
+                        historyChart.update('active');
+                    }
+                }, 200);
             }
         }, 100);
         console.log(`✅ 歷史趨勢圖已載入 (${historicalData.length} 筆數據, 範圍: ${range}, 分頁偏移: ${pageOffset})`);
