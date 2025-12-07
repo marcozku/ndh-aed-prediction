@@ -1275,12 +1275,20 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         updateLoadingProgress('history', 20);
         // 從數據庫獲取數據（根據時間範圍和分頁偏移量）
         const { startDate, endDate } = getDateRangeWithOffset(range, pageOffset);
-        const historicalData = await fetchHistoricalData(startDate, endDate);
+        let historicalData = await fetchHistoricalData(startDate, endDate);
         
         if (historicalData.length === 0) {
             console.warn('⚠️ 沒有歷史數據');
             updateLoadingProgress('history', 0);
             return;
+        }
+        
+        // 對於長時間範圍，進行數據抽樣以減少混亂
+        // 如果數據點超過1000個，進行抽樣
+        if (historicalData.length > 1000) {
+            const sampleRate = Math.ceil(historicalData.length / 1000);
+            historicalData = historicalData.filter((d, i) => i % sampleRate === 0 || i === 0 || i === historicalData.length - 1);
+            console.log(`📊 數據抽樣：從 ${historicalData.length * sampleRate} 個數據點抽樣到 ${historicalData.length} 個`);
         }
         
         updateLoadingProgress('history', 40);
