@@ -467,7 +467,7 @@ section h2 {
 .big-number {
     font-size: clamp(4rem, 10vw, 6rem);
     font-weight: 800;
-    letter-spacing: -0.04em;
+    letter-spacing: -0.02em;
     background: var(--gradient-success);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -476,6 +476,11 @@ section h2 {
     position: relative;
     display: inline-block;
     animation: numberPulse 3s ease-in-out infinite;
+    padding: 0 var(--space-xs);
+    box-sizing: border-box;
+    overflow: visible;
+    word-break: keep-all;
+    white-space: nowrap;
 }
 
 @keyframes numberPulse {
