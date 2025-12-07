@@ -1381,12 +1381,35 @@ section h2 {
         max-width: 100%;
     }
     
+    .prediction-header {
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .chart-card {
+        width: 100%;
+        max-width: 100%;
+        padding: var(--space-lg);
+    }
+    
     .forecast-cards {
         gap: var(--space-sm);
     }
     
     .charts-section {
+        width: 100%;
+        max-width: 100%;
         grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    }
+    
+    .time-range-selector {
+        overflow-x: auto;
+        padding: var(--space-xs);
+    }
+    
+    .time-range-btn {
+        font-size: 0.8rem;
+        padding: var(--space-xs) var(--space-sm);
     }
 }
 
@@ -1716,6 +1739,26 @@ section h2 {
         padding: var(--space-md);
         width: 100%;
         max-width: 100%;
+        overflow: visible;
+    }
+    
+    .time-range-selector {
+        overflow-x: auto;
+        padding: var(--space-xs);
+        gap: var(--space-xs);
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .time-range-btn {
+        font-size: 0.7rem;
+        padding: 6px var(--space-xs);
+        min-width: auto;
+    }
+    
+    .chart-hint {
+        font-size: 0.65rem;
+        padding: 0 var(--space-xs);
+        line-height: 1.4;
     }
     
     .big-number {
