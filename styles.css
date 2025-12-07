@@ -1058,6 +1058,89 @@ section h2 {
     height: 380px;
 }
 
+/* 時間範圍選擇按鈕 */
+.time-range-selector {
+    display: flex;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-lg);
+    flex-wrap: wrap;
+    padding: var(--space-sm);
+    background: rgba(248, 250, 252, 0.5);
+    border-radius: var(--radius-lg);
+}
+
+.time-range-btn {
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.time-range-btn:hover {
+    background: var(--bg-elevated);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+.time-range-btn.active {
+    background: var(--accent-primary);
+    color: white;
+    border-color: var(--accent-primary);
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
+}
+
+.chart-hint {
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 0.875rem;
+    margin-top: var(--space-sm);
+}
+
+/* 比較表格 */
+.comparison-table-container {
+    overflow-x: auto;
+    margin-top: var(--space-md);
+}
+
+.comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.comparison-table thead {
+    background: var(--bg-primary);
+    border-bottom: 2px solid var(--border-medium);
+}
+
+.comparison-table th {
+    padding: var(--space-md);
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+
+.comparison-table td {
+    padding: var(--space-md);
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+}
+
+.comparison-table tbody tr:hover {
+    background: var(--bg-primary);
+}
+
+.comparison-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
 /* ============================================
    Algorithm Section - Documentation Style
    ============================================ */

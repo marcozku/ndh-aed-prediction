@@ -189,7 +189,19 @@
 
             <!-- 歷史趨勢圖 -->
             <div class="chart-card full-width">
-                <h3>歷史趨勢 (365 天)</h3>
+                <h3>歷史趨勢</h3>
+                <div class="time-range-selector" id="history-time-range">
+                    <button class="time-range-btn" data-range="1D">1D</button>
+                    <button class="time-range-btn" data-range="1週">1週</button>
+                    <button class="time-range-btn active" data-range="1月">1月</button>
+                    <button class="time-range-btn" data-range="3月">3月</button>
+                    <button class="time-range-btn" data-range="6月">6月</button>
+                    <button class="time-range-btn" data-range="1年">1年</button>
+                    <button class="time-range-btn" data-range="2年">2年</button>
+                    <button class="time-range-btn" data-range="5年">5年</button>
+                    <button class="time-range-btn" data-range="10年">10年</button>
+                    <button class="time-range-btn" data-range="全部">全部</button>
+                </div>
                 <div class="chart-container large" id="history-chart-container">
                     <div class="chart-loading" id="history-chart-loading">
                         <div class="loading-spinner"></div>
@@ -199,6 +211,52 @@
                         </div>
                     </div>
                     <canvas id="history-chart" style="display: none;"></canvas>
+                </div>
+                <div class="chart-hint" style="text-align: center; color: #64748b; font-size: 0.875rem; margin-top: 0.5rem;">
+                    ←左右滾動查看更多歷史數據 →
+                </div>
+            </div>
+
+            <!-- 實際 vs 預測對比圖 -->
+            <div class="chart-card full-width">
+                <h3>實際 vs 預測對比</h3>
+                <div class="chart-container" id="comparison-chart-container">
+                    <div class="chart-loading" id="comparison-chart-loading">
+                        <div class="loading-spinner"></div>
+                        <div class="loading-text">載入中... <span class="loading-percent" id="comparison-loading-percent">0%</span></div>
+                        <div class="loading-progress-bar">
+                            <div class="loading-progress-fill" id="comparison-progress-fill"></div>
+                        </div>
+                    </div>
+                    <canvas id="comparison-chart" style="display: none;"></canvas>
+                </div>
+            </div>
+
+            <!-- 詳細比較數據表格 -->
+            <div class="chart-card full-width">
+                <h3>詳細比較數據</h3>
+                <div class="comparison-table-container" id="comparison-table-container">
+                    <div class="chart-loading" id="comparison-table-loading">
+                        <div class="loading-spinner"></div>
+                        <div class="loading-text">載入中...</div>
+                    </div>
+                    <table class="comparison-table" id="comparison-table" style="display: none;">
+                        <thead>
+                            <tr>
+                                <th>日期</th>
+                                <th>實際人數</th>
+                                <th>預測人數</th>
+                                <th>誤差</th>
+                                <th>誤差率</th>
+                                <th>80% CI</th>
+                                <th>95% CI</th>
+                                <th>準確度</th>
+                            </tr>
+                        </thead>
+                        <tbody id="comparison-table-body">
+                            <!-- 動態生成 -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </section>

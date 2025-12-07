@@ -410,19 +410,23 @@ async function getAccuracyStats() {
 }
 
 // Get comparison data for visualization
-async function getComparisonData(limit = 30) {
+async function getComparisonData(limit = 100) {
     const query = `
         SELECT 
             a.date,
             a.patient_count as actual,
-            p.predicted_count as predicted,
-            p.ci80_low,
-            p.ci80_high,
+            COALESCE(fdp.predicted_count, p.predicted_count) as predicted,
+            COALESCE(fdp.ci80_low, p.ci80_low) as ci80_low,
+            COALESCE(fdp.ci80_high, p.ci80_high) as ci80_high,
+            COALESCE(fdp.ci95_low, p.ci95_low) as ci95_low,
+            COALESCE(fdp.ci95_high, p.ci95_high) as ci95_high,
             pa.error,
             pa.error_percentage
         FROM actual_data a
-        LEFT JOIN predictions p ON a.date = p.target_date
+        LEFT JOIN final_daily_predictions fdp ON a.date = fdp.target_date
+        LEFT JOIN predictions p ON a.date = p.target_date AND fdp.target_date IS NULL
         LEFT JOIN prediction_accuracy pa ON a.date = pa.target_date
+        WHERE COALESCE(fdp.predicted_count, p.predicted_count) IS NOT NULL
         ORDER BY a.date DESC
         LIMIT $1
     `;

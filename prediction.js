@@ -687,7 +687,8 @@ class NDHAttendancePredictor {
 // ============================================
 // 圖表渲染 - Professional World-Class Design
 // ============================================
-let forecastChart, dowChart, monthChart, historyChart;
+let forecastChart, dowChart, monthChart, historyChart, comparisonChart;
+let currentHistoryRange = '1月'; // 當前選擇的歷史趨勢時間範圍
 
 // Chart.js 全域設定 - 專業風格
 Chart.defaults.font.family = "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif";
@@ -822,7 +823,31 @@ function completeChartLoading(chartId) {
     }
 }
 
-function initCharts(predictor) {
+// 設置歷史趨勢時間範圍選擇按鈕
+function setupHistoryTimeRangeButtons() {
+    const timeRangeContainer = document.getElementById('history-time-range');
+    if (!timeRangeContainer) return;
+    
+    const buttons = timeRangeContainer.querySelectorAll('.time-range-btn');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', async () => {
+            // 移除所有active類
+            buttons.forEach(b => b.classList.remove('active'));
+            // 添加active類到當前按鈕
+            btn.classList.add('active');
+            
+            // 獲取選擇的範圍
+            const range = btn.getAttribute('data-range');
+            currentHistoryRange = range;
+            
+            // 重新載入歷史趨勢圖
+            console.log(`🔄 切換歷史趨勢範圍: ${range}`);
+            await initHistoryChart(range);
+        });
+    });
+}
+
+async function initCharts(predictor) {
     // 獲取今天日期 (香港時間 HKT UTC+8)
     const hk = getHKTime();
     const today = hk.dateStr;
@@ -1171,7 +1196,20 @@ function initCharts(predictor) {
         updateLoadingProgress('month', 0);
     }
     
-    // 4. 歷史趨勢圖 - 專業區域圖
+    // 4. 歷史趨勢圖 - 從數據庫獲取數據
+    await initHistoryChart();
+    
+    // 5. 實際vs預測對比圖
+    await initComparisonChart();
+    
+    // 6. 詳細比較表格
+    await initComparisonTable();
+    
+    console.log('✅ 所有圖表載入完成');
+}
+
+// 初始化歷史趨勢圖
+async function initHistoryChart(range = currentHistoryRange) {
     try {
         updateLoadingProgress('history', 10);
         const historyCanvas = document.getElementById('history-chart');
@@ -1180,140 +1218,364 @@ function initCharts(predictor) {
             updateLoadingProgress('history', 0);
             return;
         }
+        
+        updateLoadingProgress('history', 20);
+        // 從數據庫獲取數據
+        const startDate = getDateRangeStart(range);
+        const historicalData = await fetchHistoricalData(startDate, null);
+        
+        if (historicalData.length === 0) {
+            console.warn('⚠️ 沒有歷史數據');
+            updateLoadingProgress('history', 0);
+            return;
+        }
+        
+        updateLoadingProgress('history', 40);
         const historyCtx = historyCanvas.getContext('2d');
-        updateLoadingProgress('history', 30);
         
         // 創建漸變
         const historyGradient = historyCtx.createLinearGradient(0, 0, 0, 320);
         historyGradient.addColorStop(0, 'rgba(79, 70, 229, 0.25)');
         historyGradient.addColorStop(0.5, 'rgba(79, 70, 229, 0.08)');
         historyGradient.addColorStop(1, 'rgba(79, 70, 229, 0)');
+        
         updateLoadingProgress('history', 50);
         
-        // 簡化日期標籤 - 只顯示月份
-        const monthLabels = predictor.data.map((d, i) => {
+        // 計算統計數據
+        const values = historicalData.map(d => d.attendance);
+        const mean = values.reduce((a, b) => a + b, 0) / values.length;
+        const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+        const stdDev = Math.sqrt(variance);
+        
+        // 日期標籤
+        const labels = historicalData.map((d, i) => {
             const date = new Date(d.date);
-            const day = date.getDate();
-            // 只在每月1號或15號顯示
-            if (day === 1) {
-                return `${date.getMonth()+1}月`;
+            // 根據數據量決定顯示頻率
+            const totalDays = historicalData.length;
+            if (totalDays <= 30) {
+                // 少於30天，每天顯示
+                return formatDateDDMM(d.date, false);
+            } else if (totalDays <= 90) {
+                // 30-90天，每週顯示
+                if (date.getDay() === 0 || i === 0 || i === historicalData.length - 1) {
+                    return formatDateDDMM(d.date, false);
+                }
+                return '';
+            } else {
+                // 超過90天，每月1號顯示
+                if (date.getDate() === 1 || i === 0 || i === historicalData.length - 1) {
+                    return `${date.getMonth() + 1}月`;
+                }
+                return '';
             }
-            return '';
         });
+        
         updateLoadingProgress('history', 70);
         
+        // 如果已有圖表，先銷毀
+        if (historyChart) {
+            historyChart.destroy();
+        }
+        
         historyChart = new Chart(historyCtx, {
-        type: 'line',
-        data: {
-            labels: monthLabels,
-            datasets: [
-                {
-                    label: '實際人數',
-                    data: predictor.data.map(d => d.attendance),
-                    borderColor: '#4f46e5',
-                    backgroundColor: historyGradient,
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.35,
-                    pointRadius: 0,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: '#4f46e5',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2
-                },
-                {
-                    label: '平均 (256)',
-                    data: predictor.data.map(() => predictor.globalMean),
-                    borderColor: '#ef4444',
-                    borderWidth: 2.5,
-                    borderDash: [8, 4],
-                    fill: false,
-                    pointRadius: 0
-                },
-                {
-                    label: '±1σ 範圍',
-                    data: predictor.data.map(() => predictor.globalMean + predictor.stdDev),
-                    borderColor: 'rgba(239, 68, 68, 0.25)',
-                    borderWidth: 1.5,
-                    borderDash: [4, 4],
-                    fill: false,
-                    pointRadius: 0
-                },
-                {
-                    label: '',
-                    data: predictor.data.map(() => predictor.globalMean - predictor.stdDev),
-                    borderColor: 'rgba(239, 68, 68, 0.25)',
-                    borderWidth: 1.5,
-                    borderDash: [4, 4],
-                    fill: '-1',
-                    backgroundColor: 'rgba(239, 68, 68, 0.03)',
-                    pointRadius: 0
-                }
-            ]
-        },
-        options: {
-            ...professionalOptions,
-            plugins: {
-                ...professionalOptions.plugins,
-                legend: {
-                    ...professionalOptions.plugins.legend,
-                    labels: {
-                        ...professionalOptions.plugins.legend.labels,
-                        filter: function(item) {
-                            return item.text !== '';
-                        }
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '實際人數',
+                        data: values,
+                        borderColor: '#4f46e5',
+                        backgroundColor: historyGradient,
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: '#4f46e5',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
+                    },
+                    {
+                        label: `平均 (${Math.round(mean)})`,
+                        data: historicalData.map(() => mean),
+                        borderColor: '#ef4444',
+                        borderWidth: 2.5,
+                        borderDash: [8, 4],
+                        fill: false,
+                        pointRadius: 0
+                    },
+                    {
+                        label: '±1σ 範圍',
+                        data: historicalData.map(() => mean + stdDev),
+                        borderColor: 'rgba(239, 68, 68, 0.25)',
+                        borderWidth: 1.5,
+                        borderDash: [4, 4],
+                        fill: false,
+                        pointRadius: 0
+                    },
+                    {
+                        label: '',
+                        data: historicalData.map(() => mean - stdDev),
+                        borderColor: 'rgba(239, 68, 68, 0.25)',
+                        borderWidth: 1.5,
+                        borderDash: [4, 4],
+                        fill: '-1',
+                        backgroundColor: 'rgba(239, 68, 68, 0.03)',
+                        pointRadius: 0
                     }
-                },
-                tooltip: {
-                    ...professionalOptions.plugins.tooltip,
-                    callbacks: {
-                        title: function(items) {
-                            const idx = items[0].dataIndex;
-                            return formatDateDDMM(predictor.data[idx].date, true); // 工具提示顯示完整日期
-                        },
-                        label: function(item) {
-                            if (item.datasetIndex === 0) {
-                                return `實際: ${item.raw} 人`;
-                            }
-                            return null;
-                        }
-                    }
-                }
+                ]
             },
-            scales: {
-                x: {
-                    ...professionalOptions.scales.x,
-                    ticks: { 
-                        ...professionalOptions.scales.x.ticks,
-                        autoSkip: true,
-                        maxTicksLimit: 12,
-                        callback: function(value, index) {
-                            return monthLabels[index] || null;
+            options: {
+                ...professionalOptions,
+                plugins: {
+                    ...professionalOptions.plugins,
+                    legend: {
+                        ...professionalOptions.plugins.legend,
+                        labels: {
+                            ...professionalOptions.plugins.legend.labels,
+                            filter: function(item) {
+                                return item.text !== '';
+                            }
+                        }
+                    },
+                    tooltip: {
+                        ...professionalOptions.plugins.tooltip,
+                        callbacks: {
+                            title: function(items) {
+                                const idx = items[0].dataIndex;
+                                return formatDateDDMM(historicalData[idx].date, true);
+                            },
+                            label: function(item) {
+                                if (item.datasetIndex === 0) {
+                                    return `實際: ${item.raw} 人`;
+                                }
+                                return null;
+                            }
                         }
                     }
                 },
-                y: {
-                    ...professionalOptions.scales.y,
-                    min: 140,
-                    max: 340,
-                    ticks: {
-                        ...professionalOptions.scales.y.ticks,
-                        stepSize: 40
+                scales: {
+                    x: {
+                        ...professionalOptions.scales.x,
+                        ticks: { 
+                            ...professionalOptions.scales.x.ticks,
+                            autoSkip: true,
+                            maxTicksLimit: 12,
+                            callback: function(value, index) {
+                                return labels[index] || null;
+                            }
+                        }
+                    },
+                    y: {
+                        ...professionalOptions.scales.y,
+                        min: Math.max(0, Math.min(...values) - 50),
+                        max: Math.max(...values) + 50,
+                        ticks: {
+                            ...professionalOptions.scales.y.ticks,
+                            stepSize: Math.ceil((Math.max(...values) - Math.min(...values)) / 10)
+                        }
                     }
                 }
             }
-        }
-    });
-    
-    updateLoadingProgress('history', 90);
-    updateLoadingProgress('history', 100);
-    completeChartLoading('history');
-    totalProgress += 25;
-    console.log('✅ 歷史趨勢圖已載入');
-    console.log('✅ 所有圖表載入完成');
+        });
+        
+        updateLoadingProgress('history', 90);
+        updateLoadingProgress('history', 100);
+        completeChartLoading('history');
+        console.log(`✅ 歷史趨勢圖已載入 (${historicalData.length} 筆數據, 範圍: ${range})`);
     } catch (error) {
         console.error('❌ 歷史趨勢圖載入失敗:', error);
         updateLoadingProgress('history', 0);
+    }
+}
+
+// 初始化實際vs預測對比圖
+async function initComparisonChart() {
+    try {
+        updateLoadingProgress('comparison', 10);
+        const comparisonCanvas = document.getElementById('comparison-chart');
+        if (!comparisonCanvas) {
+            console.error('❌ 找不到 comparison-chart canvas');
+            updateLoadingProgress('comparison', 0);
+            return;
+        }
+        
+        updateLoadingProgress('comparison', 20);
+        // 從數據庫獲取比較數據
+        const comparisonData = await fetchComparisonData(100);
+        
+        if (comparisonData.length === 0) {
+            console.warn('⚠️ 沒有比較數據');
+            updateLoadingProgress('comparison', 0);
+            return;
+        }
+        
+        updateLoadingProgress('comparison', 40);
+        const comparisonCtx = comparisonCanvas.getContext('2d');
+        
+        // 日期標籤
+        const labels = comparisonData.map(d => formatDateDDMM(d.date, false));
+        
+        updateLoadingProgress('comparison', 60);
+        
+        // 如果已有圖表，先銷毀
+        if (comparisonChart) {
+            comparisonChart.destroy();
+        }
+        
+        comparisonChart = new Chart(comparisonCtx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '實際人數',
+                        data: comparisonData.map(d => d.actual || null),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointHoverRadius: 6
+                    },
+                    {
+                        label: '預測人數',
+                        data: comparisonData.map(d => d.predicted || null),
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointHoverRadius: 6
+                    },
+                    {
+                        label: '80% CI 上限',
+                        data: comparisonData.map(d => d.ci80_high || null),
+                        borderColor: 'rgba(156, 163, 175, 0.5)',
+                        backgroundColor: 'rgba(156, 163, 175, 0.05)',
+                        borderWidth: 1,
+                        borderDash: [2, 2],
+                        fill: '-1',
+                        pointRadius: 0
+                    },
+                    {
+                        label: '80% CI 下限',
+                        data: comparisonData.map(d => d.ci80_low || null),
+                        borderColor: 'rgba(34, 197, 94, 0.5)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.05)',
+                        borderWidth: 1,
+                        borderDash: [2, 2],
+                        fill: false,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                ...professionalOptions,
+                plugins: {
+                    ...professionalOptions.plugins,
+                    tooltip: {
+                        ...professionalOptions.plugins.tooltip,
+                        callbacks: {
+                            title: function(items) {
+                                const idx = items[0].dataIndex;
+                                return formatDateDDMM(comparisonData[idx].date, true);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ...professionalOptions.scales.x,
+                        ticks: {
+                            ...professionalOptions.scales.x.ticks,
+                            autoSkip: true,
+                            maxTicksLimit: 15
+                        }
+                    },
+                    y: {
+                        ...professionalOptions.scales.y,
+                        min: 0,
+                        ticks: {
+                            ...professionalOptions.scales.y.ticks,
+                            stepSize: 20
+                        }
+                    }
+                }
+            }
+        });
+        
+        updateLoadingProgress('comparison', 90);
+        updateLoadingProgress('comparison', 100);
+        completeChartLoading('comparison');
+        console.log(`✅ 實際vs預測對比圖已載入 (${comparisonData.length} 筆數據)`);
+    } catch (error) {
+        console.error('❌ 實際vs預測對比圖載入失敗:', error);
+        updateLoadingProgress('comparison', 0);
+    }
+}
+
+// 初始化詳細比較表格
+async function initComparisonTable() {
+    try {
+        const tableBody = document.getElementById('comparison-table-body');
+        const table = document.getElementById('comparison-table');
+        const loading = document.getElementById('comparison-table-loading');
+        
+        if (!tableBody || !table) {
+            console.error('❌ 找不到比較表格元素');
+            return;
+        }
+        
+        if (loading) loading.style.display = 'block';
+        if (table) table.style.display = 'none';
+        
+        // 從數據庫獲取比較數據
+        const comparisonData = await fetchComparisonData(100);
+        
+        if (comparisonData.length === 0) {
+            console.warn('⚠️ 沒有比較數據');
+            if (loading) loading.style.display = 'none';
+            tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #64748b;">暫無數據</td></tr>';
+            if (table) table.style.display = 'table';
+            return;
+        }
+        
+        // 生成表格行
+        tableBody.innerHTML = comparisonData.map(d => {
+            const error = d.error || (d.predicted && d.actual ? d.predicted - d.actual : null);
+            const errorRate = d.error_percentage || (error && d.actual ? ((error / d.actual) * 100).toFixed(2) : null);
+            const ci80 = d.ci80_low && d.ci80_high ? `${d.ci80_low}-${d.ci80_high}` : '--';
+            const ci95 = d.ci95_low && d.ci95_high ? `${d.ci95_low}-${d.ci95_high}` : '--';
+            const accuracy = errorRate ? (100 - Math.abs(parseFloat(errorRate))).toFixed(2) + '%' : '--';
+            
+            return `
+                <tr>
+                    <td>${formatDateDDMM(d.date, true)}</td>
+                    <td>${d.actual || '--'}</td>
+                    <td>${d.predicted || '--'}</td>
+                    <td>${error !== null ? (error > 0 ? '+' : '') + error : '--'}</td>
+                    <td>${errorRate !== null ? (errorRate > 0 ? '+' : '') + errorRate + '%' : '--'}</td>
+                    <td>${ci80}</td>
+                    <td>${ci95}</td>
+                    <td>${accuracy}</td>
+                </tr>
+            `;
+        }).join('');
+        
+        if (loading) loading.style.display = 'none';
+        if (table) table.style.display = 'table';
+        console.log(`✅ 詳細比較表格已載入 (${comparisonData.length} 筆數據)`);
+    } catch (error) {
+        console.error('❌ 詳細比較表格載入失敗:', error);
+        const loading = document.getElementById('comparison-table-loading');
+        const table = document.getElementById('comparison-table');
+        if (loading) loading.style.display = 'none';
+        if (table) table.style.display = 'table';
     }
 }
 
@@ -1852,6 +2114,94 @@ async function checkDatabaseStatus() {
         console.error('❌ 數據庫檢查失敗:', error);
         return null;
     }
+}
+
+// 從數據庫獲取歷史數據
+async function fetchHistoricalData(startDate = null, endDate = null) {
+    try {
+        let url = '/api/actual-data';
+        const params = new URLSearchParams();
+        if (startDate) params.append('start', startDate);
+        if (endDate) params.append('end', endDate);
+        if (params.toString()) url += '?' + params.toString();
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+            // 轉換為圖表需要的格式，按日期升序排列
+            return data.data
+                .map(d => ({
+                    date: d.date,
+                    attendance: d.patient_count
+                }))
+                .sort((a, b) => new Date(a.date) - new Date(b.date));
+        }
+        return [];
+    } catch (error) {
+        console.error('❌ 獲取歷史數據失敗:', error);
+        return [];
+    }
+}
+
+// 從數據庫獲取比較數據（實際vs預測）
+async function fetchComparisonData(limit = 100) {
+    try {
+        const response = await fetch(`/api/comparison?limit=${limit}`);
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+            // 按日期升序排列
+            return data.data.sort((a, b) => new Date(a.date) - new Date(b.date));
+        }
+        return [];
+    } catch (error) {
+        console.error('❌ 獲取比較數據失敗:', error);
+        return [];
+    }
+}
+
+// 計算時間範圍的開始日期
+function getDateRangeStart(range) {
+    const hk = getHKTime();
+    const today = new Date(`${hk.dateStr}T00:00:00+08:00`);
+    const start = new Date(today);
+    
+    switch (range) {
+        case '1D':
+            start.setDate(today.getDate() - 1);
+            break;
+        case '1週':
+            start.setDate(today.getDate() - 7);
+            break;
+        case '1月':
+            start.setMonth(today.getMonth() - 1);
+            break;
+        case '3月':
+            start.setMonth(today.getMonth() - 3);
+            break;
+        case '6月':
+            start.setMonth(today.getMonth() - 6);
+            break;
+        case '1年':
+            start.setFullYear(today.getFullYear() - 1);
+            break;
+        case '2年':
+            start.setFullYear(today.getFullYear() - 2);
+            break;
+        case '5年':
+            start.setFullYear(today.getFullYear() - 5);
+            break;
+        case '10年':
+            start.setFullYear(today.getFullYear() - 10);
+            break;
+        case '全部':
+            return null; // 返回null表示獲取所有數據
+        default:
+            start.setMonth(today.getMonth() - 1);
+    }
+    
+    return start.toISOString().split('T')[0];
 }
 
 // 更新天氣顯示
@@ -2516,7 +2866,8 @@ async function refreshPredictions(predictor) {
     if (dowChart) dowChart.destroy();
     if (monthChart) monthChart.destroy();
     if (historyChart) historyChart.destroy();
-    initCharts(predictor);
+    if (comparisonChart) comparisonChart.destroy();
+    await initCharts(predictor);
     
     console.log('✅ 預測數據已刷新');
 }
@@ -2608,8 +2959,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateUI(predictor);
     updateSectionProgress('today-prediction', 50);
     
+    // 設置歷史趨勢時間範圍選擇按鈕
+    setupHistoryTimeRangeButtons();
+    
     // 初始化圖表（使用緩存的 AI 因素）
-    initCharts(predictor);
+    await initCharts(predictor);
     updateSectionProgress('today-prediction', 100);
     
     // 在背景異步檢查並更新 AI 因素（如果需要，不阻塞 UI）
@@ -2633,7 +2987,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (dowChart) dowChart.destroy();
                 if (monthChart) monthChart.destroy();
                 if (historyChart) historyChart.destroy();
-                initCharts(predictor);
+                if (comparisonChart) comparisonChart.destroy();
+                await initCharts(predictor);
                 console.log('✅ AI 因素已更新，UI 已刷新');
             } else {
                 console.log('ℹ️ AI 因素無需更新，使用緩存數據');
@@ -2651,7 +3006,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (dowChart) dowChart.destroy();
                 if (monthChart) monthChart.destroy();
                 if (historyChart) historyChart.destroy();
-                initCharts(predictor);
+                if (comparisonChart) comparisonChart.destroy();
+                await initCharts(predictor);
                 console.log('✅ AI 因素已生成並保存到數據庫');
             }
         }
