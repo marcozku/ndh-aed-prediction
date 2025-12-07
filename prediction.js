@@ -1328,6 +1328,30 @@ async function initHistoryChart(range = currentHistoryRange) {
             historyChart.destroy();
         }
         
+        // 計算圖表所需的最小寬度（根據數據點數量）
+        const dataPointWidth = window.innerWidth <= 600 ? 40 : window.innerWidth <= 900 ? 50 : 60;
+        const minChartWidth = Math.max(
+            window.innerWidth * 1.2, // 至少比屏幕寬20%
+            historicalData.length * dataPointWidth
+        );
+        
+        // 設置容器和canvas的最小寬度以支持滾動
+        const historyContainer = document.getElementById('history-chart-container');
+        if (historyContainer) {
+            // 容器保持100%寬度，但允許內部內容溢出
+            historyContainer.style.width = '100%';
+            historyContainer.style.maxWidth = '100%';
+            historyContainer.style.overflowX = 'auto';
+            historyContainer.style.overflowY = 'hidden';
+            historyContainer.style.webkitOverflowScrolling = 'touch';
+        }
+        if (historyCanvas) {
+            // Canvas設置最小寬度以支持滾動
+            historyCanvas.style.minWidth = `${minChartWidth}px`;
+            historyCanvas.style.width = `${minChartWidth}px`;
+            historyCanvas.style.maxWidth = 'none';
+        }
+        
         historyChart = new Chart(historyCtx, {
             type: 'line',
             data: {
@@ -1379,6 +1403,8 @@ async function initHistoryChart(range = currentHistoryRange) {
             },
             options: {
                 ...professionalOptions,
+                responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
                     ...professionalOptions.plugins,
                     legend: {
@@ -1444,8 +1470,11 @@ async function initHistoryChart(range = currentHistoryRange) {
                     historicalData.length * dataPointWidth
                 );
                 
+                // 強制設置canvas寬度
                 historyCanvas.style.minWidth = `${minChartWidth}px`;
                 historyCanvas.style.width = `${minChartWidth}px`;
+                historyCanvas.style.maxWidth = 'none';
+                historyCanvas.width = minChartWidth;
                 
                 historyChart.options.layout.padding = getResponsivePadding();
                 if (historyChart.options.scales && historyChart.options.scales.x && historyChart.options.scales.x.ticks) {
@@ -1454,8 +1483,8 @@ async function initHistoryChart(range = currentHistoryRange) {
                     historyChart.options.scales.x.ticks.maxTicksLimit = undefined;
                 }
                 
-                // 強制重新計算圖表尺寸
-                historyChart.resize(minChartWidth, historyChart.height);
+                // 強制重新計算圖表尺寸（使用固定寬度）
+                historyChart.resize(minChartWidth, parseInt(historyContainer.style.height) || 380);
                 historyChart.update('none');
                 
                 // 確保容器可以滾動
@@ -1463,11 +1492,41 @@ async function initHistoryChart(range = currentHistoryRange) {
                 if (historyContainer) {
                     historyContainer.style.overflowX = 'auto';
                     historyContainer.style.overflowY = 'hidden';
-                    // 添加觸摸滾動支持
                     historyContainer.style.webkitOverflowScrolling = 'touch';
+                    historyContainer.style.cursor = 'grab';
+                    
+                    // 添加拖動滾動支持（移動端）
+                    let isDragging = false;
+                    let startX = 0;
+                    let scrollLeft = 0;
+                    
+                    historyContainer.addEventListener('mousedown', (e) => {
+                        isDragging = true;
+                        startX = e.pageX - historyContainer.offsetLeft;
+                        scrollLeft = historyContainer.scrollLeft;
+                        historyContainer.style.cursor = 'grabbing';
+                    });
+                    
+                    historyContainer.addEventListener('mouseleave', () => {
+                        isDragging = false;
+                        historyContainer.style.cursor = 'grab';
+                    });
+                    
+                    historyContainer.addEventListener('mouseup', () => {
+                        isDragging = false;
+                        historyContainer.style.cursor = 'grab';
+                    });
+                    
+                    historyContainer.addEventListener('mousemove', (e) => {
+                        if (!isDragging) return;
+                        e.preventDefault();
+                        const x = e.pageX - historyContainer.offsetLeft;
+                        const walk = (x - startX) * 2;
+                        historyContainer.scrollLeft = scrollLeft - walk;
+                    });
                 }
             }
-        }, 200);
+        }, 300);
         console.log(`✅ 歷史趨勢圖已載入 (${historicalData.length} 筆數據, 範圍: ${range})`);
     } catch (error) {
         console.error('❌ 歷史趨勢圖載入失敗:', error);
