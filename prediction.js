@@ -1285,10 +1285,12 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         
         // 對於長時間範圍，進行數據抽樣以減少混亂
         // 如果數據點超過1000個，進行抽樣
-        if (historicalData.length > 1000) {
-            const sampleRate = Math.ceil(historicalData.length / 1000);
-            historicalData = historicalData.filter((d, i) => i % sampleRate === 0 || i === 0 || i === historicalData.length - 1);
-            console.log(`📊 數據抽樣：從 ${historicalData.length * sampleRate} 個數據點抽樣到 ${historicalData.length} 個`);
+        const originalLength = historicalData.length;
+        if (originalLength > 1000) {
+            const sampleRate = Math.ceil(originalLength / 1000);
+            const lastIndex = originalLength - 1;
+            historicalData = historicalData.filter((d, i) => i % sampleRate === 0 || i === 0 || i === lastIndex);
+            console.log(`📊 數據抽樣：從 ${originalLength} 個數據點抽樣到 ${historicalData.length} 個（抽樣率：${sampleRate}）`);
         }
         
         updateLoadingProgress('history', 40);
