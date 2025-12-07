@@ -268,6 +268,44 @@ const apiHandlers = {
         }
     },
 
+    // Add specific actual data (2025-12-01 to 2025-12-06)
+    'POST /api/add-december-data': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        try {
+            const actualData = [
+                { date: '2025-12-01', patient_count: 276 },
+                { date: '2025-12-02', patient_count: 285 },
+                { date: '2025-12-03', patient_count: 253 },
+                { date: '2025-12-04', patient_count: 234 },
+                { date: '2025-12-05', patient_count: 262 },
+                { date: '2025-12-06', patient_count: 234 }
+            ];
+            
+            const results = await db.insertBulkActualData(actualData.map(d => ({
+                date: d.date,
+                patient_count: d.patient_count,
+                source: 'manual_upload',
+                notes: 'Added via API endpoint'
+            })));
+            
+            // Calculate accuracy for all dates
+            for (const record of results) {
+                await db.calculateAccuracy(record.date);
+            }
+            
+            sendJson(res, { 
+                success: true, 
+                inserted: results.length, 
+                data: results,
+                message: `成功添加 ${results.length} 筆實際數據並計算準確度`
+            });
+        } catch (err) {
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+
     // Import CSV data
     'POST /api/import-csv': async (req, res) => {
         if (!db || !db.pool) {
