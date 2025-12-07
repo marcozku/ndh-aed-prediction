@@ -2476,9 +2476,10 @@ function getDateRangeWithOffset(range, pageOffset = 0) {
     // 根據時間範圍計算基礎日期範圍
     switch (range) {
         case '1D':
-            // 1D: 顯示今天和昨天（2天數據）
+            // 1D: 顯示最近2天數據（昨天和今天）
             start.setDate(today.getDate() - 1);
-            end.setDate(today.getDate() + 1); // 包含今天
+            end = new Date(today); // 到今天為止
+            end.setDate(end.getDate() + 1); // 包含今天（結束日期不包含，所以+1）
             break;
         case '1週':
             start.setDate(today.getDate() - 7);
@@ -2580,15 +2581,21 @@ function updateHistoryNavigationButtons(range, pageOffset, historicalData) {
     // pageOffset > 0: 更早的歷史數據
     // pageOffset < 0: 更晚的數據（未來，通常不存在）
     prevBtn.disabled = false; // 總是允許查看更早的數據
-    nextBtn.disabled = historyPageOffset <= 0; // 只有在歷史數據中才能返回
+    nextBtn.disabled = pageOffset <= 0; // 只有在歷史數據中才能返回
+    
+    // 移除舊的事件監聽器（避免重複添加）
+    const newPrevBtn = prevBtn.cloneNode(true);
+    const newNextBtn = nextBtn.cloneNode(true);
+    prevBtn.parentNode.replaceChild(newPrevBtn, prevBtn);
+    nextBtn.parentNode.replaceChild(newNextBtn, nextBtn);
     
     // 設置按鈕事件
-    prevBtn.onclick = async () => {
+    newPrevBtn.onclick = async () => {
         historyPageOffset += 1;
         await initHistoryChart(range, historyPageOffset);
     };
     
-    nextBtn.onclick = async () => {
+    newNextBtn.onclick = async () => {
         if (historyPageOffset > 0) {
             historyPageOffset -= 1;
             await initHistoryChart(range, historyPageOffset);
