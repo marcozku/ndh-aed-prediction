@@ -1787,6 +1787,18 @@ function updateUI(predictor) {
     updateSectionProgress('forecast-cards', 10);
     const forecasts = predictor.predictRange(today, 7, weatherForecastData, aiFactors);
     updateSectionProgress('forecast-cards', 50);
+    
+    // 保存未來7天的預測到數據庫（每次更新都保存）
+    forecasts.forEach((forecast, index) => {
+        // 獲取該日期的天氣數據和AI因素
+        const forecastWeather = weatherForecastData?.[forecast.date] || null;
+        const forecastAIFactor = aiFactors?.[forecast.date] || null;
+        
+        saveDailyPrediction(forecast, forecastWeather, forecastAIFactor).catch(err => {
+            console.error(`❌ 保存 ${forecast.date} 的預測失敗:`, err);
+        });
+    });
+    
     const forecastCardsEl = document.getElementById('forecast-cards');
     if (forecastCardsEl) {
         forecastCardsEl.innerHTML = forecasts.map((p, i) => {

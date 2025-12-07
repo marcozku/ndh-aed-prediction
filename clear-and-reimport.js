@@ -1,21 +1,14 @@
 /**
- * CSV 數據導入腳本
- * 從 CSV 文件導入歷史數據到 PostgreSQL 數據庫
+ * 清除並重新導入數據腳本
+ * 清除所有數據庫數據，然後重新導入CSV數據
  */
 
 const fs = require('fs');
-const path = require('path');
-
-// 使用共享的數據庫連接（如果可用）
-let pool = null;
+const { Pool } = require('pg');
 
 // 初始化數據庫連接
 function initPool() {
-    if (pool) return pool;
-    
-    const { Pool } = require('pg');
-    // 從環境變量或默認值讀取數據庫配置
-    pool = new Pool({
+    const pool = new Pool({
         host: process.env.DB_HOST || process.env.PGHOST || 'localhost',
         port: process.env.DB_PORT || process.env.PGPORT || 5432,
         database: process.env.DB_NAME || process.env.PGDATABASE || 'ndh_aed',
@@ -45,8 +38,8 @@ function parseCSV(filePath) {
             data.push({
                 date: date.trim(),
                 patient_count: parseInt(attendance.trim(), 10),
-                source: 'csv_import',
-                notes: `從 CSV 文件導入的歷史數據 (${new Date().toISOString()})`
+                source: 'csv_reimport',
+                notes: `從 CSV 文件重新導入的歷史數據 (${new Date().toISOString()})`
             });
         }
     }
@@ -54,8 +47,45 @@ function parseCSV(filePath) {
     return data;
 }
 
+// 清除所有數據
+async function clearAllData(pool) {
+    const client = await pool.connect();
+    try {
+        console.log('🗑️  開始清除所有數據...');
+        await client.query('BEGIN');
+        
+        // 按順序清除（考慮外鍵約束）
+        await client.query('TRUNCATE TABLE prediction_accuracy CASCADE');
+        console.log('  ✅ 已清除 prediction_accuracy');
+        
+        await client.query('TRUNCATE TABLE final_daily_predictions CASCADE');
+        console.log('  ✅ 已清除 final_daily_predictions');
+        
+        await client.query('TRUNCATE TABLE daily_predictions CASCADE');
+        console.log('  ✅ 已清除 daily_predictions');
+        
+        await client.query('TRUNCATE TABLE predictions CASCADE');
+        console.log('  ✅ 已清除 predictions');
+        
+        await client.query('TRUNCATE TABLE actual_data CASCADE');
+        console.log('  ✅ 已清除 actual_data');
+        
+        // 保留 ai_factors_cache（不需要清除）
+        // await client.query('TRUNCATE TABLE ai_factors_cache CASCADE');
+        
+        await client.query('COMMIT');
+        console.log('✅ 所有數據已清除');
+        return true;
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
 // 批量導入數據
-async function importCSVData(csvFilePath, dbModule = null) {
+async function importCSVData(pool, csvFilePath) {
     console.log('📊 開始導入 CSV 數據...');
     console.log(`📁 文件路徑: ${csvFilePath}`);
     
@@ -69,18 +99,7 @@ async function importCSVData(csvFilePath, dbModule = null) {
             return { success: false, count: 0, error: '沒有有效數據' };
         }
         
-        // 如果提供了數據庫模塊，使用它的連接池
-        let client;
-        
-        if (dbModule && dbModule.pool) {
-            // 使用現有的數據庫連接
-            client = await dbModule.pool.connect();
-        } else {
-            // 初始化並連接數據庫
-            const dbPool = initPool();
-            client = await dbPool.connect();
-        }
-        
+        const client = await pool.connect();
         let successCount = 0;
         let errorCount = 0;
         
@@ -118,16 +137,12 @@ async function importCSVData(csvFilePath, dbModule = null) {
                 console.warn(`⚠️ ${errorCount} 筆數據導入失敗`);
             }
             
-            // 保存成功導入的日期列表，用於後續計算準確度
-            const importedDates = data.map(r => r.date);
-            
-            return { success: true, count: successCount, errors: errorCount, importedDates };
+            return { success: true, count: successCount, errors: errorCount };
         } catch (err) {
             await client.query('ROLLBACK');
             throw err;
         } finally {
             client.release();
-            // 不關閉 pool，因為可能被其他地方使用
         }
     } catch (error) {
         console.error('❌ 導入 CSV 數據失敗:', error);
@@ -137,27 +152,46 @@ async function importCSVData(csvFilePath, dbModule = null) {
 
 // 主函數
 async function main() {
-    const csvFilePath = process.argv[2];
-    
-    if (!csvFilePath) {
-        console.error('❌ 請提供 CSV 文件路徑');
-        console.log('使用方法: node import-csv-data.js <csv-file-path>');
-        process.exit(1);
-    }
+    const csvFilePath = process.argv[2] || '/Users/yoyoau/Library/Containers/net.whatsapp.WhatsApp/Data/tmp/documents/86448351-FEDA-406E-B465-B7D0B0753234/NDH_AED_Attendance_Minimal.csv';
     
     if (!fs.existsSync(csvFilePath)) {
         console.error(`❌ 文件不存在: ${csvFilePath}`);
+        console.log('使用方法: node clear-and-reimport.js [csv-file-path]');
         process.exit(1);
     }
     
-    const result = await importCSVData(csvFilePath);
+    const pool = initPool();
     
-    if (result.success) {
-        console.log(`\n✅ 導入完成！成功導入 ${result.count} 筆數據`);
-        process.exit(0);
-    } else {
-        console.error(`\n❌ 導入失敗: ${result.error}`);
+    try {
+        // 1. 清除所有數據
+        await clearAllData(pool);
+        
+        // 2. 重新導入 CSV 數據
+        const result = await importCSVData(pool, csvFilePath);
+        
+        if (result.success) {
+            console.log(`\n✅ 重新導入完成！成功導入 ${result.count} 筆數據`);
+            
+            // 3. 顯示統計信息
+            const statsClient = await pool.connect();
+            try {
+                const actualCount = await statsClient.query('SELECT COUNT(*) FROM actual_data');
+                console.log(`\n📊 數據庫統計:`);
+                console.log(`   實際數據: ${actualCount.rows[0].count} 筆`);
+            } finally {
+                statsClient.release();
+            }
+            
+            process.exit(0);
+        } else {
+            console.error(`\n❌ 導入失敗: ${result.error}`);
+            process.exit(1);
+        }
+    } catch (err) {
+        console.error('❌ 執行失敗:', err);
         process.exit(1);
+    } finally {
+        await pool.end();
     }
 }
 
@@ -169,4 +203,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { importCSVData, parseCSV };
+module.exports = { clearAllData, importCSVData, parseCSV };

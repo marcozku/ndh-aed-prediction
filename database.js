@@ -346,7 +346,15 @@ async function calculateAccuracy(targetDate) {
             [targetDate]
         );
         
-        // Fallback to most recent prediction if no final prediction exists
+        // Fallback to most recent daily prediction if no final prediction exists
+        if (predictionResult.rows.length === 0) {
+            predictionResult = await client.query(
+                'SELECT * FROM daily_predictions WHERE target_date = $1 ORDER BY created_at DESC LIMIT 1',
+                [targetDate]
+            );
+        }
+        
+        // Last fallback to predictions table
         if (predictionResult.rows.length === 0) {
             predictionResult = await client.query(
                 'SELECT * FROM predictions WHERE target_date = $1 ORDER BY created_at DESC LIMIT 1',
@@ -411,22 +419,59 @@ async function getAccuracyStats() {
 
 // Get comparison data for visualization
 async function getComparisonData(limit = 100) {
+    // 優先使用 final_daily_predictions（每日平均），然後使用 daily_predictions 的最新預測，最後使用 predictions
     const query = `
         SELECT 
             a.date,
             a.patient_count as actual,
-            COALESCE(fdp.predicted_count, p.predicted_count) as predicted,
-            COALESCE(fdp.ci80_low, p.ci80_low) as ci80_low,
-            COALESCE(fdp.ci80_high, p.ci80_high) as ci80_high,
-            COALESCE(fdp.ci95_low, p.ci95_low) as ci95_low,
-            COALESCE(fdp.ci95_high, p.ci95_high) as ci95_high,
+            COALESCE(
+                fdp.predicted_count,
+                (SELECT predicted_count FROM daily_predictions 
+                 WHERE target_date = a.date 
+                 ORDER BY created_at DESC LIMIT 1),
+                p.predicted_count
+            ) as predicted,
+            COALESCE(
+                fdp.ci80_low,
+                (SELECT ci80_low FROM daily_predictions 
+                 WHERE target_date = a.date 
+                 ORDER BY created_at DESC LIMIT 1),
+                p.ci80_low
+            ) as ci80_low,
+            COALESCE(
+                fdp.ci80_high,
+                (SELECT ci80_high FROM daily_predictions 
+                 WHERE target_date = a.date 
+                 ORDER BY created_at DESC LIMIT 1),
+                p.ci80_high
+            ) as ci80_high,
+            COALESCE(
+                fdp.ci95_low,
+                (SELECT ci95_low FROM daily_predictions 
+                 WHERE target_date = a.date 
+                 ORDER BY created_at DESC LIMIT 1),
+                p.ci95_low
+            ) as ci95_low,
+            COALESCE(
+                fdp.ci95_high,
+                (SELECT ci95_high FROM daily_predictions 
+                 WHERE target_date = a.date 
+                 ORDER BY created_at DESC LIMIT 1),
+                p.ci95_high
+            ) as ci95_high,
             pa.error,
             pa.error_percentage
         FROM actual_data a
         LEFT JOIN final_daily_predictions fdp ON a.date = fdp.target_date
         LEFT JOIN predictions p ON a.date = p.target_date AND fdp.target_date IS NULL
         LEFT JOIN prediction_accuracy pa ON a.date = pa.target_date
-        WHERE COALESCE(fdp.predicted_count, p.predicted_count) IS NOT NULL
+        WHERE COALESCE(
+            fdp.predicted_count,
+            (SELECT predicted_count FROM daily_predictions 
+             WHERE target_date = a.date 
+             ORDER BY created_at DESC LIMIT 1),
+            p.predicted_count
+        ) IS NOT NULL
         ORDER BY a.date DESC
         LIMIT $1
     `;
@@ -601,6 +646,31 @@ async function getFinalDailyPredictions(startDate = null, endDate = null) {
     return result.rows;
 }
 
+// Clear all data from tables (for reimport)
+async function clearAllData() {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // 按順序清除（考慮外鍵約束）
+        await client.query('TRUNCATE TABLE prediction_accuracy CASCADE');
+        await client.query('TRUNCATE TABLE final_daily_predictions CASCADE');
+        await client.query('TRUNCATE TABLE daily_predictions CASCADE');
+        await client.query('TRUNCATE TABLE predictions CASCADE');
+        await client.query('TRUNCATE TABLE actual_data CASCADE');
+        
+        // 保留 ai_factors_cache（不需要清除）
+        
+        await client.query('COMMIT');
+        return { success: true, message: '所有數據已清除' };
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
 module.exports = {
     get pool() { return pool; },
     initDatabase,
@@ -616,6 +686,7 @@ module.exports = {
     updateAIFactorsCache,
     insertDailyPrediction,
     calculateFinalDailyPrediction,
-    getFinalDailyPredictions
+    getFinalDailyPredictions,
+    clearAllData
 };
 

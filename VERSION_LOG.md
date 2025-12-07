@@ -1,5 +1,59 @@
 # 版本更新日誌
 
+## v1.3.4 - 2025-12-08 01:45 HKT
+
+### 🐛 Bug 修復
+
+1. **比較數據查詢問題**
+   - 修復 `getComparisonData()` 無法找到比較數據的問題
+   - 現在優先使用 `final_daily_predictions`（每日平均）
+   - 如果沒有，使用 `daily_predictions` 表的最新預測（每30分鐘保存的數據）
+   - 最後才使用 `predictions` 表作為後備
+   - 修復 `calculateAccuracy()` 使用相同的邏輯
+
+2. **預測數據記錄完整性**
+   - 確保所有預測更新（每30分鐘、天氣變化、AI更新）都保存到 `daily_predictions`
+   - 確保未來7天的預測也會保存到數據庫
+   - 確保CSV導入真實數據時自動計算準確度
+
+### 🔧 改進
+
+- 改進比較數據查詢邏輯，現在可以找到所有有預測數據的日期
+- 改進準確度計算邏輯，使用相同的數據源優先級
+- 確保所有預測修改都會記錄到數據庫
+
+### 🆕 新功能
+
+1. **清除並重新導入數據功能**
+   - 新增 `clear-and-reimport.js` 腳本
+   - 新增 `POST /api/clear-and-reimport` API 端點
+   - 支持清除所有數據並重新導入CSV數據
+   - 新增 `clearAllData()` 函數到 database.js
+
+### 📊 技術細節
+
+- 修改 `getComparisonData()` 查詢，添加 `daily_predictions` 表支持
+- 修改 `calculateAccuracy()` 函數，使用相同的數據源優先級
+- 確保每30分鐘的AI預測修改都會保存
+- 確保未來7天的預測也會保存
+- 新增 `clearAllData()` 函數清除所有數據表
+
+### 🔧 使用說明
+
+**清除並重新導入數據：**
+
+方法1：通過 API
+```bash
+curl -X POST "http://localhost:3001/api/clear-and-reimport"
+```
+
+方法2：使用 Node.js 腳本
+```bash
+node clear-and-reimport.js [csv-file-path]
+```
+
+---
+
 ## v1.3.3 - 2025-12-06 16:00 HKT
 
 ### 🐛 Bug 修復

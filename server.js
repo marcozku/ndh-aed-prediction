@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '1.3.3';
+const MODEL_VERSION = '1.3.4';
 
 // AI 服務（僅在服務器端使用）
 let aiService = null;
@@ -25,12 +25,32 @@ if (process.env.DATABASE_URL) {
             console.log('📊 檢測到 CSV 文件，開始自動導入...');
             try {
                 const { importCSVData } = require('./import-csv-data');
-                const result = await importCSVData(defaultCsvPath, db);
-                if (result.success) {
-                    console.log(`✅ 自動導入完成！成功導入 ${result.count} 筆數據`);
-                } else {
-                    console.error(`❌ 自動導入失敗: ${result.error}`);
+            const result = await importCSVData(defaultCsvPath, db);
+            if (result.success) {
+                console.log(`✅ 自動導入完成！成功導入 ${result.count} 筆數據`);
+                // 導入完成後，計算所有導入日期的準確度（如果有預測數據）
+                if (result.count > 0 && result.importedDates && db.calculateAccuracy) {
+                    console.log('📊 開始計算導入數據的準確度...');
+                    let accuracyCount = 0;
+                    for (const date of result.importedDates) {
+                        try {
+                            const accuracy = await db.calculateAccuracy(date);
+                            if (accuracy) {
+                                accuracyCount++;
+                            }
+                        } catch (err) {
+                            console.warn(`⚠️ 計算 ${date} 準確度時出錯:`, err.message);
+                        }
+                    }
+                    if (accuracyCount > 0) {
+                        console.log(`✅ 已計算 ${accuracyCount} 筆數據的準確度`);
+                    } else {
+                        console.log('ℹ️ 沒有找到對應的預測數據，跳過準確度計算');
+                    }
                 }
+            } else {
+                console.error(`❌ 自動導入失敗: ${result.error}`);
+            }
             } catch (err) {
                 console.error('❌ 自動導入 CSV 時出錯:', err.message);
             }
@@ -245,16 +265,75 @@ const apiHandlers = {
             // 傳遞數據庫模塊以使用現有連接
             const result = await importCSVData(csvPath, db);
             if (result.success) {
+                // 導入完成後，計算所有導入日期的準確度（如果有預測數據）
+                let accuracyCount = 0;
+                if (result.count > 0 && result.importedDates && db.calculateAccuracy) {
+                    for (const date of result.importedDates) {
+                        try {
+                            const accuracy = await db.calculateAccuracy(date);
+                            if (accuracy) accuracyCount++;
+                        } catch (err) {
+                            // 忽略錯誤，繼續處理下一個
+                        }
+                    }
+                }
+                
                 sendJson(res, {
                     success: true,
-                    message: `成功導入 ${result.count} 筆數據`,
+                    message: `成功導入 ${result.count} 筆數據${accuracyCount > 0 ? `，已計算 ${accuracyCount} 筆準確度` : ''}`,
                     count: result.count,
-                    errors: result.errors || 0
+                    errors: result.errors || 0,
+                    accuracyCalculated: accuracyCount
                 });
             } else {
                 sendJson(res, { error: result.error || '導入失敗' }, 500);
             }
         } catch (err) {
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+
+    // Clear all data and reimport CSV
+    'POST /api/clear-and-reimport': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        try {
+            const { importCSVData } = require('./import-csv-data');
+            const parsedUrl = url.parse(req.url, true);
+            const csvPath = parsedUrl.query.path || req.body?.path || '/Users/yoyoau/Library/Containers/net.whatsapp.WhatsApp/Data/tmp/documents/86448351-FEDA-406E-B465-B7D0B0753234/NDH_AED_Attendance_Minimal.csv';
+            
+            if (!fs.existsSync(csvPath)) {
+                return sendJson(res, { error: `CSV 文件不存在: ${csvPath}` }, 404);
+            }
+            
+            console.log('🗑️  開始清除並重新導入數據...');
+            
+            // 1. 清除所有數據
+            await db.clearAllData();
+            console.log('✅ 所有數據已清除');
+            
+            // 2. 重新導入 CSV 數據
+            const result = await importCSVData(csvPath, db);
+            
+            if (result.success) {
+                // 3. 獲取統計信息
+                const actualCount = await db.pool.query('SELECT COUNT(*) FROM actual_data');
+                
+                console.log(`✅ 清除並重新導入完成！成功導入 ${result.count} 筆數據`);
+                sendJson(res, {
+                    success: true,
+                    message: `成功清除並重新導入 ${result.count} 筆數據`,
+                    count: result.count,
+                    errors: result.errors || 0,
+                    totalRecords: parseInt(actualCount.rows[0].count)
+                });
+            } else {
+                console.error(`❌ 重新導入失敗: ${result.error}`);
+                sendJson(res, { error: result.error || '重新導入失敗' }, 500);
+            }
+        } catch (err) {
+            console.error('❌ 清除並重新導入失敗:', err);
             sendJson(res, { error: err.message }, 500);
         }
     },
@@ -279,11 +358,29 @@ const apiHandlers = {
             
             if (result.success) {
                 console.log(`✅ 成功導入 ${result.count} 筆數據`);
+                // 導入完成後，計算所有導入日期的準確度（如果有預測數據）
+                let accuracyCount = 0;
+                if (result.count > 0 && result.importedDates && db.calculateAccuracy) {
+                    console.log('📊 開始計算導入數據的準確度...');
+                    for (const date of result.importedDates) {
+                        try {
+                            const accuracy = await db.calculateAccuracy(date);
+                            if (accuracy) accuracyCount++;
+                        } catch (err) {
+                            console.warn(`⚠️ 計算 ${date} 準確度時出錯:`, err.message);
+                        }
+                    }
+                    if (accuracyCount > 0) {
+                        console.log(`✅ 已計算 ${accuracyCount} 筆數據的準確度`);
+                    }
+                }
+                
                 sendJson(res, {
                     success: true,
-                    message: `成功導入 ${result.count} 筆數據`,
+                    message: `成功導入 ${result.count} 筆數據${accuracyCount > 0 ? `，已計算 ${accuracyCount} 筆準確度` : ''}`,
                     count: result.count,
-                    errors: result.errors || 0
+                    errors: result.errors || 0,
+                    accuracyCalculated: accuracyCount
                 });
             } else {
                 console.error(`❌ 導入失敗: ${result.error}`);
