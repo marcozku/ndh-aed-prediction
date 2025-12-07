@@ -1777,7 +1777,7 @@ section h2 {
     }
     
     .prediction-header {
-        padding: var(--space-lg) var(--space-sm);
+        padding: var(--space-md);
         width: 100%;
         max-width: 100%;
     }
@@ -1788,12 +1788,14 @@ section h2 {
     }
     
     .prediction-card,
-    .chart-card {
+    .chart-card,
+    .algorithm-section {
         padding: var(--space-md);
         width: 100%;
         max-width: 100%;
         overflow: hidden;
         position: relative;
+        box-sizing: border-box;
     }
     
     .chart-container {
