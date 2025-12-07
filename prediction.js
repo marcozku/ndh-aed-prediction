@@ -1403,6 +1403,8 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         
         // 設置容器（使用responsive模式，不再需要滾動）
         const historyContainer = document.getElementById('history-chart-container');
+        const containerWidth = historyContainer ? (historyContainer.offsetWidth || window.innerWidth) : window.innerWidth;
+        
         if (historyContainer) {
             historyContainer.style.width = '100%';
             historyContainer.style.maxWidth = '100%';
