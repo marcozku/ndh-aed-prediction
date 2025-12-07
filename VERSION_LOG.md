@@ -1,5 +1,160 @@
 # 版本更新日誌
 
+## v1.3.1 - 2025-12-08 16:30 HKT
+
+### 🎨 UI/UX 重大改進
+
+#### 新功能
+
+1. **歷史趨勢圖表時間段選擇器**
+   - 添加類似股票圖表的時間段選擇功能
+   - 支持時間段：1D, 1週, 1月, 3月, 6月, 1年, 2年, 5年, 10年, 全部
+   - 點擊按鈕即可切換不同時間段的歷史數據視圖
+   - 智能日期標籤顯示：
+     - 1週內：顯示所有日期
+     - 3個月內：每週顯示一次
+     - 1年內：每月1號和15號顯示
+     - 超過1年：每月1號顯示
+   - 動態調整 Y 軸範圍以適應選擇的數據範圍
+   - 根據過濾後的數據重新計算平均值和標準差
+
+2. **全面響應式設計改進**
+   - 所有 section 容器適配所有設備尺寸（手機、平板、桌面）
+   - 所有容器使用 `width: 100%` 和 `max-width: 100%`
+   - 內容區域支持滾動（overflow-x/overflow-y）
+   - 改進移動端顯示和交互體驗
+
+3. **數據自動導入系統增強**
+   - 改進自動導入邏輯，確保所有歷史數據正確導入
+   - 支持三個數據來源的自動導入：
+     - `import-historical-data.js` - 原始字符串數據
+     - `prediction.js` - HISTORICAL_DATA 數組
+     - `seed-data.js` - 歷史種子數據
+   - 使用 vm 模組安全提取 prediction.js 中的數據
+   - 顯示詳細的導入統計（按來源分類）
+   - 智能檢測已存在的數據，避免重複導入
+
+#### 技術實現
+
+- 新增 `filterDataByPeriod()` 函數：根據時間段過濾歷史數據
+- 新增 `initHistoryChart()` 函數：初始化/更新歷史趨勢圖表
+- 新增 `setupHistoryPeriodSelector()` 函數：設置時間段選擇器事件
+- 改進 `autoImportHistoricalData()` 函數：支持多數據來源導入
+- 改進 `importPredictionJsHistoricalData()` 函數：使用 vm 模組安全提取數據
+- 所有容器添加 `box-sizing: border-box` 確保正確尺寸計算
+
+#### CSS 改進
+
+- 新增 `.time-period-selector` 和 `.period-btn` 樣式
+- 新增 `.chart-header-with-controls` 樣式
+- 改進所有 section 的響應式設計
+- 添加自定義滾動條樣式
+- 移動端優化：時間段選擇器支持橫向滾動
+
+### 🔧 改進
+
+- 歷史趨勢圖表現在支持動態時間段切換
+- 所有容器適配所有設備尺寸
+- 內容區域支持滾動，不會溢出
+- 數據導入更可靠，支持多來源
+
+---
+
+## v1.3.0 - 2025-12-08 HKT
+
+### 🚀 重大算法升級（基於 AI 規格文件）
+
+根據 AI-AED-Algorithm-Specification.txt 規格文件，全面實施特徵工程和改進預測算法：
+
+#### 核心算法變更
+
+1. **特徵工程實施（根據 AI 規格文件）**
+   - **Lag Features**: 實現 Lag1, Lag7, Lag14, Lag30, Lag365
+     - Lag1 重要性 0.18（最強預測因子，β ≈ 0.62）
+     - Lag365 捕捉年度季節性（流感季節重複）
+   - **Rolling Statistics**: 實現 Rolling7, Rolling30, Std7, Max7, Min7
+     - Rolling7 重要性 0.16（趨勢延續，β ≈ 0.35）
+     - Std7 用於動態調整信賴區間（波動性感知）
+   - **Cyclical Encoding**: 實現 Month_sin/cos, DayOfWeek_sin/cos
+     - 保留月份和星期的週期性特徵
+     - 解決 December(12) 和 January(1) 的相鄰問題
+
+2. **事件指標實施（根據 AI 規格文件）**
+   - **Is_COVID_Period**: 2020-2022 期間標記（β ≈ -44，減少44%）
+   - **Is_Omicron_Wave**: 2022年1-5月標記
+   - **Is_Winter_Flu_Season**: 12-3月標記（β ≈ +8-12%）
+   - **Is_Summer_Period**: 6-8月標記
+   - **Is_Protest_Period**: 2019年6月後標記
+   - **Is_Umbrella_Movement**: 2014年9月後標記
+   - **Era Indicator**: 三個時代（Pre-COVID, COVID, Post-COVID）
+
+3. **改進的預測算法（特徵加權組合）**
+   - **組合預測公式**：
+     ```
+     預測值 = Lag1預測 × 0.18 + Rolling7預測 × 0.16 + Baseline預測 × 0.66
+     ```
+   - **Lag1 權重**: 0.18（根據規格文件重要性）
+   - **Rolling7 權重**: 0.16（捕捉趨勢延續）
+   - **Baseline 權重**: 0.66（傳統因子組合）
+
+4. **動態信賴區間調整**
+   - 使用 Rolling7 的標準差（Std7）來調整信賴區間
+   - 高波動性時期自動擴大信賴區間
+   - 低波動性時期縮小信賴區間
+
+#### 技術細節
+
+- 預計算所有歷史數據的特徵（Lag, Rolling statistics）
+- 特徵緩存機制提升預測性能
+- 未來日期預測使用最近歷史數據的特徵
+- 保持向後兼容性（所有現有功能正常運作）
+
+#### 算法公式更新
+
+```
+預測值 = (Lag1 × 0.62) × 0.18 
+       + (Rolling7 × 0.35) × 0.16
+       + Baseline × 0.66
+       
+其中 Baseline = 260 
+       × 月份因子 
+       × 星期因子 
+       × COVID調整（如適用：×0.56）
+       × Winter調整（如適用：×1.10）
+       × Monday調整（如適用：×1.22）
+       × Weekend調整（如適用：×0.82）
+       × 假期因子 
+       × Post-Holiday因子(1.20)
+       × 天氣因子 
+       × AI因子
+       × Post-Typhoon因子(1.30)
+```
+
+### 📊 預期性能提升
+
+根據 AI 規格文件，預期性能目標：
+- **MAE**: < 13 病人（5.2% MAPE）
+- **RMSE**: < 18 病人
+- **Directional Accuracy**: > 91%
+- **Inference Time**: < 100ms
+
+### 🔧 技術實現
+
+- 新增 `_precomputeFeatures()` 方法：預計算所有歷史數據的特徵
+- 新增 `_getFeatures()` 方法：獲取指定日期的特徵（從緩存或計算）
+- 新增 `_getEventIndicators()` 方法：計算事件指標
+- 新增 `_getCyclicalEncoding()` 方法：計算週期性編碼
+- 改進 `predict()` 方法：整合特徵工程和加權組合預測
+
+### 📋 參考文件
+
+- `ai/AI-AED-Algorithm-Specification.txt` - 完整算法規格
+- `ai/Feature_Specifications_for_Algorithm.csv` - 33個特徵詳細規格
+- `ai/Model_Parameters_Reference.csv` - 模型參數參考
+- `ai/Quick-Start-Implementation.txt` - 實施指南
+
+---
+
 ## v1.2.0 - 2025-12-07 15:46 HKT
 
 ### 🎯 重大算法更新（基於十年數據分析報告）

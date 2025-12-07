@@ -84,16 +84,25 @@ function parseRawData(rawDataStr) {
 
 /**
  * 主函數：導入歷史數據
+ * @param {boolean} skipInit - 是否跳過數據庫初始化（如果已經初始化則傳 true）
+ * @param {object} dbInstance - 可選的數據庫實例（如果提供則使用，否則使用默認的）
  */
-async function importHistoricalData(skipInit = false) {
+async function importHistoricalData(skipInit = false, dbInstance = null) {
     console.log('📊 開始導入歷史數據...');
     console.log(`🕐 開始時間: ${getHKTimeStr()} HKT`);
     
     try {
-        // 初始化數據庫（如果尚未初始化）
-        if (!skipInit) {
-            await initDatabase();
-            console.log('✅ 數據庫初始化完成');
+        // 使用提供的 db 實例或初始化數據庫
+        let db = dbInstance;
+        if (!db) {
+            // 初始化數據庫（如果尚未初始化）
+            if (!skipInit) {
+                await initDatabase();
+                console.log('✅ 數據庫初始化完成');
+            }
+            // 獲取數據庫實例
+            const dbModule = require('./database');
+            db = dbModule;
         }
         
         // 解析原始數據
@@ -111,7 +120,7 @@ async function importHistoricalData(skipInit = false) {
         
         // 批量插入數據
         console.log('💾 開始插入數據到數據庫...');
-        const results = await insertBulkActualData(dataToInsert);
+        const results = await db.insertBulkActualData(dataToInsert);
         console.log(`✅ 成功導入 ${results.length} 筆歷史數據到數據庫`);
         
         // 顯示統計信息
@@ -148,4 +157,5 @@ if (require.main === module) {
     });
 }
 
-module.exports = { parseRawData, importHistoricalData };
+// 導出 rawData 以便測試
+module.exports = { parseRawData, importHistoricalData, rawData };

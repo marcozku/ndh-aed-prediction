@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '1.2.0';
+const MODEL_VERSION = '1.3.1';
 const APP_VERSION = require('./package.json').version;
 
 // AI 服務（僅在服務器端使用）
@@ -35,25 +35,188 @@ async function autoImportHistoricalData() {
     }
     
     try {
-        // 檢查是否已有歷史數據
-        const checkResult = await db.pool.query(
-            "SELECT COUNT(*) as count FROM actual_data WHERE source = 'historical_analysis_2015_2024'"
+        // 1. 導入 import-historical-data.js 中的數據
+        const checkResult1 = await db.pool.query(
+            "SELECT COUNT(*) as count FROM actual_data WHERE source = 'historical_bulk_import'"
         );
-        const existingCount = parseInt(checkResult.rows[0].count);
+        const existingCount1 = parseInt(checkResult1.rows[0].count);
         
-        if (existingCount > 0) {
-            console.log(`✅ 歷史數據已存在（${existingCount}筆），跳過自動導入`);
+        if (existingCount1 === 0) {
+            console.log('📊 開始自動導入 import-historical-data.js 中的歷史數據...');
+            const importScript = require('./import-historical-data');
+            // 傳入已初始化的db實例（跳過初始化，因為已經初始化了）
+            await importScript.importHistoricalData(true, db);
+            console.log('✅ import-historical-data.js 數據導入完成');
+        } else {
+            console.log(`✅ import-historical-data.js 數據已存在（${existingCount1}筆），跳過`);
+        }
+        
+        // 2. 導入 prediction.js 中的 HISTORICAL_DATA
+        const checkResult2 = await db.pool.query(
+            "SELECT COUNT(*) as count FROM actual_data WHERE source = 'prediction_js_historical'"
+        );
+        const existingCount2 = parseInt(checkResult2.rows[0].count);
+        
+        if (existingCount2 === 0) {
+            console.log('📊 開始自動導入 prediction.js 中的 HISTORICAL_DATA...');
+            await importPredictionJsHistoricalData();
+            console.log('✅ prediction.js HISTORICAL_DATA 導入完成');
+        } else {
+            console.log(`✅ prediction.js HISTORICAL_DATA 已存在（${existingCount2}筆），跳過`);
+        }
+        
+        // 3. 導入 seed-data.js 中的數據（如果存在）
+        const checkResult3 = await db.pool.query(
+            "SELECT COUNT(*) as count FROM actual_data WHERE source = 'seed_data_historical'"
+        );
+        const existingCount3 = parseInt(checkResult3.rows[0].count);
+        
+        if (existingCount3 === 0) {
+            try {
+                console.log('📊 開始自動導入 seed-data.js 中的歷史數據...');
+                const seedData = require('./seed-data');
+                if (seedData.seedHistoricalData) {
+                    await seedData.seedHistoricalData(db);
+                    console.log('✅ seed-data.js 數據導入完成');
+                }
+            } catch (err) {
+                console.log('⚠️ seed-data.js 導入跳過（可能已存在或無數據）:', err.message);
+            }
+        } else {
+            console.log(`✅ seed-data.js 數據已存在（${existingCount3}筆），跳過`);
+        }
+        
+        // 顯示總計和按來源統計
+        const totalResult = await db.pool.query("SELECT COUNT(*) as count FROM actual_data");
+        const totalCount = parseInt(totalResult.rows[0].count);
+        
+        const sourceStats = await db.pool.query(`
+            SELECT source, COUNT(*) as count 
+            FROM actual_data 
+            GROUP BY source 
+            ORDER BY count DESC
+        `);
+        
+        console.log(`\n📊 數據庫統計:`);
+        console.log(`   總計: ${totalCount} 筆歷史數據`);
+        sourceStats.rows.forEach(row => {
+            console.log(`   ${row.source}: ${row.count} 筆`);
+        });
+        
+        // 檢查日期範圍
+        const dateRange = await db.pool.query(`
+            SELECT MIN(date) as min_date, MAX(date) as max_date 
+            FROM actual_data
+        `);
+        if (dateRange.rows[0].min_date) {
+            console.log(`   日期範圍: ${dateRange.rows[0].min_date} 至 ${dateRange.rows[0].max_date}`);
+        }
+        
+    } catch (error) {
+        console.error('❌ 自動導入歷史數據失敗:', error.message);
+        console.error('錯誤堆疊:', error.stack);
+        // 不阻止服務器啟動，只記錄錯誤
+    }
+}
+
+// 導入 prediction.js 中的 HISTORICAL_DATA
+async function importPredictionJsHistoricalData() {
+    if (!db || !db.pool) {
+        return;
+    }
+    
+    try {
+        // 使用 vm 模組安全地執行 prediction.js 並提取 HISTORICAL_DATA
+        const fs = require('fs');
+        const path = require('path');
+        const vm = require('vm');
+        
+        const predictionJsPath = path.join(__dirname, 'prediction.js');
+        const predictionJsContent = fs.readFileSync(predictionJsPath, 'utf8');
+        
+        // 提取 HISTORICAL_DATA 數組定義
+        const dataMatch = predictionJsContent.match(/const HISTORICAL_DATA = \[([\s\S]*?)\];/);
+        if (!dataMatch) {
+            console.log('⚠️ 無法在 prediction.js 中找到 HISTORICAL_DATA');
             return;
         }
         
-        console.log('📊 開始自動導入2015-2024年歷史數據...');
-        const importScript = require('./import-historical-data');
-        // 傳入已初始化的db實例
-        await importScript.importHistoricalData(db);
-        console.log('✅ 歷史數據自動導入完成');
+        // 使用 vm 安全執行來提取數據
+        const context = { HISTORICAL_DATA: null };
+        try {
+            // 提取數組部分並執行
+            const arrayCode = dataMatch[0].replace('const ', '');
+            const script = new vm.Script(arrayCode);
+            script.runInNewContext(context);
+            
+            if (!context.HISTORICAL_DATA || !Array.isArray(context.HISTORICAL_DATA)) {
+                throw new Error('HISTORICAL_DATA 不是數組');
+            }
+            
+            const dataItems = context.HISTORICAL_DATA.map(d => ({
+                date: d.date,
+                patient_count: d.attendance
+            }));
+            
+            console.log(`📊 從 prediction.js 解析出 ${dataItems.length} 筆歷史數據`);
+            
+            // 轉換為數據庫格式
+            const dataToInsert = dataItems.map(d => ({
+                date: d.date,
+                patient_count: d.patient_count,
+                source: 'prediction_js_historical',
+                notes: `從 prediction.js 自動導入的歷史數據（共 ${dataItems.length} 筆）`
+            }));
+            
+            // 批量插入數據（使用 ON CONFLICT 更新，避免重複）
+            console.log(`💾 準備插入/更新 ${dataToInsert.length} 筆 prediction.js 數據...`);
+            const results = await db.insertBulkActualData(dataToInsert);
+            console.log(`✅ 成功導入/更新 ${results.length} 筆 prediction.js 歷史數據到數據庫`);
+            
+            return results;
+        } catch (vmError) {
+            console.log('⚠️ VM 執行失敗，嘗試正則表達式解析:', vmError.message);
+            
+            // 備用方法：使用正則表達式解析
+            const dataArrayStr = dataMatch[1];
+            const dataItems = [];
+            
+            // 改進的正則匹配：支持多行和各種空白字符
+            const itemRegex = /\{\s*date:\s*['"]([^'"]+)['"],\s*attendance:\s*(\d+)\s*\}/g;
+            let match;
+            while ((match = itemRegex.exec(dataArrayStr)) !== null) {
+                dataItems.push({
+                    date: match[1],
+                    patient_count: parseInt(match[2], 10)
+                });
+            }
+            
+            if (dataItems.length === 0) {
+                console.log('❌ 無法從 prediction.js 中解析出任何歷史數據');
+                return;
+            }
+            
+            console.log(`📊 使用正則表達式解析出 ${dataItems.length} 筆歷史數據`);
+            
+            // 轉換為數據庫格式
+            const dataToInsert = dataItems.map(d => ({
+                date: d.date,
+                patient_count: d.patient_count,
+                source: 'prediction_js_historical',
+                notes: `從 prediction.js 自動導入的歷史數據（共 ${dataItems.length} 筆）`
+            }));
+            
+            // 批量插入數據
+            console.log(`💾 準備插入/更新 ${dataToInsert.length} 筆 prediction.js 數據...`);
+            const results = await db.insertBulkActualData(dataToInsert);
+            console.log(`✅ 成功導入/更新 ${results.length} 筆 prediction.js 歷史數據到數據庫`);
+            
+            return results;
+        }
     } catch (error) {
-        console.error('❌ 自動導入歷史數據失敗:', error.message);
-        // 不阻止服務器啟動，只記錄錯誤
+        console.error('❌ 導入 prediction.js 歷史數據失敗:', error.message);
+        console.error('錯誤堆疊:', error.stack);
+        throw error;
     }
 }
 

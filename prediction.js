@@ -433,7 +433,11 @@ class NDHAttendancePredictor {
         this.monthFactors = {};
         this.fluSeasonFactor = 1.004;
         
+        // 特徵工程緩存（根據 AI 規格文件）
+        this.featureCache = new Map(); // 緩存已計算的特徵
+        
         this._calculateFactors();
+        this._precomputeFeatures();
     }
     
     _calculateFactors() {
@@ -476,12 +480,193 @@ class NDHAttendancePredictor {
         }
     }
     
+    /**
+     * 預計算特徵工程（根據 AI-AED-Algorithm-Specification.txt）
+     * 包括：Lag features, Rolling statistics, Cyclical encoding
+     */
+    _precomputeFeatures() {
+        // 按日期排序數據
+        const sortedData = [...this.data].sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        // 計算 Lag features 和 Rolling statistics
+        for (let i = 0; i < sortedData.length; i++) {
+            const dateStr = sortedData[i].date;
+            const features = {
+                // Lag features (根據規格文件：Lag1, Lag7, Lag14, Lag30, Lag365)
+                lag1: i > 0 ? sortedData[i - 1].attendance : this.globalMean,
+                lag7: i >= 7 ? sortedData[i - 7].attendance : this.globalMean,
+                lag14: i >= 14 ? sortedData[i - 14].attendance : this.globalMean,
+                lag30: i >= 30 ? sortedData[i - 30].attendance : this.globalMean,
+                lag365: i >= 365 ? sortedData[i - 365].attendance : this.globalMean,
+                
+                // Rolling statistics (根據規格文件：Rolling7, Rolling30, Std7, Max7, Min7)
+                rolling7: this._calculateRollingMean(sortedData, i, 7),
+                rolling30: this._calculateRollingMean(sortedData, i, 30),
+                std7: this._calculateRollingStd(sortedData, i, 7),
+                max7: this._calculateRollingMax(sortedData, i, 7),
+                min7: this._calculateRollingMin(sortedData, i, 7)
+            };
+            
+            this.featureCache.set(dateStr, features);
+        }
+    }
+    
+    _calculateRollingMean(data, index, window) {
+        const start = Math.max(0, index - window + 1);
+        const slice = data.slice(start, index + 1);
+        if (slice.length === 0) return this.globalMean;
+        const sum = slice.reduce((a, b) => a + b.attendance, 0);
+        return sum / slice.length;
+    }
+    
+    _calculateRollingStd(data, index, window) {
+        const start = Math.max(0, index - window + 1);
+        const slice = data.slice(start, index + 1);
+        if (slice.length < 2) return 0;
+        const mean = this._calculateRollingMean(data, index, window);
+        const variance = slice.reduce((sum, d) => sum + Math.pow(d.attendance - mean, 2), 0) / slice.length;
+        return Math.sqrt(variance);
+    }
+    
+    _calculateRollingMax(data, index, window) {
+        const start = Math.max(0, index - window + 1);
+        const slice = data.slice(start, index + 1);
+        if (slice.length === 0) return this.globalMean;
+        return Math.max(...slice.map(d => d.attendance));
+    }
+    
+    _calculateRollingMin(data, index, window) {
+        const start = Math.max(0, index - window + 1);
+        const slice = data.slice(start, index + 1);
+        if (slice.length === 0) return this.globalMean;
+        return Math.min(...slice.map(d => d.attendance));
+    }
+    
+    /**
+     * 獲取特徵（從緩存或計算）
+     */
+    _getFeatures(dateStr) {
+        // 先從緩存獲取
+        if (this.featureCache.has(dateStr)) {
+            return this.featureCache.get(dateStr);
+        }
+        
+        // 如果緩存中沒有，嘗試從歷史數據計算
+        const date = new Date(dateStr);
+        const dateIndex = this.data.findIndex(d => d.date === dateStr);
+        
+        if (dateIndex >= 0) {
+            // 數據在歷史範圍內，計算特徵
+            const sortedData = [...this.data].sort((a, b) => new Date(a.date) - new Date(b.date));
+            const index = sortedData.findIndex(d => d.date === dateStr);
+            
+            if (index >= 0) {
+                return {
+                    lag1: index > 0 ? sortedData[index - 1].attendance : this.globalMean,
+                    lag7: index >= 7 ? sortedData[index - 7].attendance : this.globalMean,
+                    lag14: index >= 14 ? sortedData[index - 14].attendance : this.globalMean,
+                    lag30: index >= 30 ? sortedData[index - 30].attendance : this.globalMean,
+                    lag365: index >= 365 ? sortedData[index - 365].attendance : this.globalMean,
+                    rolling7: this._calculateRollingMean(sortedData, index, 7),
+                    rolling30: this._calculateRollingMean(sortedData, index, 30),
+                    std7: this._calculateRollingStd(sortedData, index, 7),
+                    max7: this._calculateRollingMax(sortedData, index, 7),
+                    min7: this._calculateRollingMin(sortedData, index, 7)
+                };
+            }
+        }
+        
+        // 如果不在歷史範圍內，使用最近的數據或默認值
+        const sortedData = [...this.data].sort((a, b) => new Date(b.date) - new Date(a.date));
+        const recentData = sortedData.slice(0, 365);
+        
+        return {
+            lag1: recentData[0]?.attendance || this.globalMean,
+            lag7: recentData[6]?.attendance || this.globalMean,
+            lag14: recentData[13]?.attendance || this.globalMean,
+            lag30: recentData[29]?.attendance || this.globalMean,
+            lag365: recentData[364]?.attendance || this.globalMean,
+            rolling7: this._calculateRollingMean(recentData.reverse(), 0, 7),
+            rolling30: this._calculateRollingMean(recentData.reverse(), 0, 30),
+            std7: this._calculateRollingStd(recentData.reverse(), 0, 7),
+            max7: this._calculateRollingMax(recentData.reverse(), 0, 7),
+            min7: this._calculateRollingMin(recentData.reverse(), 0, 7)
+        };
+    }
+    
+    /**
+     * 計算事件指標（根據 AI 規格文件）
+     */
+    _getEventIndicators(dateStr) {
+        const date = new Date(dateStr);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const dayOfWeek = date.getDay();
+        
+        return {
+            // 根據規格文件：Is_COVID_Period = 1 if (Year >= 2020 AND Year <= 2022) else 0
+            isCOVIDPeriod: (year >= 2020 && year <= 2022) ? 1 : 0,
+            
+            // 根據規格文件：Is_Omicron_Wave = 1 if (Year == 2022 AND Month <= 5) else 0
+            isOmicronWave: (year === 2022 && month <= 5) ? 1 : 0,
+            
+            // 根據規格文件：Is_Winter_Flu_Season = 1 if Month in [12, 1, 2, 3] else 0
+            isWinterFluSeason: [12, 1, 2, 3].includes(month) ? 1 : 0,
+            
+            // 根據規格文件：Is_Summer_Period = 1 if Month in [6, 7, 8] else 0
+            isSummerPeriod: [6, 7, 8].includes(month) ? 1 : 0,
+            
+            // 根據規格文件：Is_Protest_Period = 1 if (Year == 2019 AND Month >= 6) else 0
+            isProtestPeriod: (year === 2019 && month >= 6) ? 1 : 0,
+            
+            // 根據規格文件：Is_Umbrella_Movement = 1 if (Year == 2014 AND Month >= 9) else 0
+            isUmbrellaMovement: (year === 2014 && month >= 9) ? 1 : 0,
+            
+            // 根據規格文件：Is_Weekend = 1 if DayOfWeek in [5, 6] else 0 (注意：JS中0=Sunday, 6=Saturday)
+            isWeekend: (dayOfWeek === 0 || dayOfWeek === 6) ? 1 : 0,
+            
+            // 根據規格文件：Is_Monday = 1 if DayOfWeek == 0 else 0 (注意：JS中1=Monday)
+            isMonday: (dayOfWeek === 1) ? 1 : 0,
+            
+            // Era indicator (根據規格文件：三個時代)
+            era: year < 2020 ? 1 : (year <= 2022 ? 2 : 3),
+            
+            // Days since start (從2014-12-01開始計算)
+            daysSinceStart: Math.floor((date - new Date('2014-12-01')) / (1000 * 60 * 60 * 24))
+        };
+    }
+    
+    /**
+     * 計算週期性編碼（根據 AI 規格文件）
+     * Month_sin = sin(2π × Month / 12)
+     * Month_cos = cos(2π × Month / 12)
+     * DayOfWeek_sin = sin(2π × DayOfWeek / 7)
+     * DayOfWeek_cos = cos(2π × DayOfWeek / 7)
+     */
+    _getCyclicalEncoding(dateStr) {
+        const date = new Date(dateStr);
+        const month = date.getMonth() + 1;
+        const dayOfWeek = date.getDay();
+        
+        return {
+            monthSin: Math.sin(2 * Math.PI * month / 12),
+            monthCos: Math.cos(2 * Math.PI * month / 12),
+            dayOfWeekSin: Math.sin(2 * Math.PI * dayOfWeek / 7),
+            dayOfWeekCos: Math.cos(2 * Math.PI * dayOfWeek / 7)
+        };
+    }
+    
     predict(dateStr, weatherData = null, aiFactor = null) {
         const date = new Date(dateStr);
         const dow = date.getDay();
         const month = date.getMonth() + 1;
         const isWeekend = dow === 0 || dow === 6;
         const isFluSeason = [1, 2, 3, 7, 8].includes(month);
+        
+        // 獲取特徵工程數據（根據 AI 規格文件）
+        const features = this._getFeatures(dateStr);
+        const events = this._getEventIndicators(dateStr);
+        const cyclical = this._getCyclicalEncoding(dateStr);
         
         // 檢查假期
         const holidayInfo = HK_PUBLIC_HOLIDAYS[dateStr];
@@ -503,26 +688,66 @@ class NDHAttendancePredictor {
             }
         }
         
-        // 基準值 (月份效應)
-        let baseline = this.globalMean * (this.monthFactors[month] || 1.0);
+        // ============================================
+        // 改進的預測算法（根據 AI 規格文件）
+        // 使用特徵重要性加權組合
+        // ============================================
         
-        // 星期效應
-        let value = baseline * (this.dowFactors[dow] || 1.0);
+        // 方法1：基於 Lag1 的預測（重要性 0.18，最強預測因子）
+        // 根據規格文件：Attendance_Lag1 是最強預測因子（β ≈ 0.62）
+        const lag1Prediction = features.lag1 * 0.62;
+        
+        // 方法2：基於 Rolling7 的預測（重要性 0.16）
+        // 根據規格文件：Rolling7 捕捉趨勢延續（β ≈ 0.35）
+        const rolling7Prediction = features.rolling7 * 0.35;
+        
+        // 方法3：基於 Baseline 的預測（傳統方法）
+        let baseline = this.globalMean * (this.monthFactors[month] || 1.0);
+        let baselinePrediction = baseline * (this.dowFactors[dow] || 1.0);
+        
+        // COVID Period 調整（根據規格文件：β ≈ -44，即減少44%）
+        if (events.isCOVIDPeriod) {
+            baselinePrediction *= 0.56; // 1 - 0.44 = 0.56
+        }
+        
+        // Winter Flu Season 調整（根據規格文件：β ≈ +8 to +12%）
+        if (events.isWinterFluSeason) {
+            baselinePrediction *= 1.10; // 增加10%
+        }
+        
+        // Monday 調整（根據規格文件：β ≈ +22，即增加22%）
+        if (events.isMonday) {
+            baselinePrediction *= 1.22; // 增加22%
+        }
+        
+        // Weekend 調整（根據規格文件：β ≈ -18，即減少18%）
+        if (events.isWeekend) {
+            baselinePrediction *= 0.82; // 減少18%
+        }
         
         // 假期效應
         if (isHoliday) {
-            value *= holidayInfo.factor;
+            baselinePrediction *= holidayInfo.factor;
         }
         
         // Post-Holiday Surge: 假期後首個工作日增加15-25% (1.20)
         if (isPostHoliday) {
-            value *= 1.20;
+            baselinePrediction *= 1.20;
         }
         
         // 流感季節效應
         if (isFluSeason) {
-            value *= this.fluSeasonFactor;
+            baselinePrediction *= this.fluSeasonFactor;
         }
+        
+        // 組合預測（根據規格文件的特徵重要性加權）
+        // Lag1 (0.18) + Rolling7 (0.16) + Baseline (0.66) = 1.0
+        const combinedPrediction = 
+            lag1Prediction * 0.18 + 
+            rolling7Prediction * 0.16 + 
+            baselinePrediction * 0.66;
+        
+        let value = combinedPrediction;
         
         // 天氣效應
         let weatherFactor = 1.0;
@@ -563,15 +788,20 @@ class NDHAttendancePredictor {
             value *= aiFactorValue;
         }
         
+        // 使用 Rolling7 的標準差來調整信賴區間（根據規格文件）
+        // 如果 Rolling7 的標準差較大，表示波動性較高，應擴大信賴區間
+        const adjustedStdDev = features.std7 > 0 ? 
+            Math.max(this.stdDev, features.std7) : this.stdDev;
+        
         // 信賴區間
         const ci80 = {
-            lower: Math.max(0, Math.round(value - 1.28 * this.stdDev)),
-            upper: Math.round(value + 1.28 * this.stdDev)
+            lower: Math.max(0, Math.round(value - 1.28 * adjustedStdDev)),
+            upper: Math.round(value + 1.28 * adjustedStdDev)
         };
         
         const ci95 = {
-            lower: Math.max(0, Math.round(value - 1.96 * this.stdDev)),
-            upper: Math.round(value + 1.96 * this.stdDev)
+            lower: Math.max(0, Math.round(value - 1.96 * adjustedStdDev)),
+            upper: Math.round(value + 1.96 * adjustedStdDev)
         };
         
         const dayNames = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
@@ -595,6 +825,16 @@ class NDHAttendancePredictor {
             isPostHoliday,
             isPostTyphoon,
             isFluSeason,
+            // 新增：特徵工程數據（用於調試和分析）
+            features: {
+                lag1: Math.round(features.lag1),
+                lag7: Math.round(features.lag7),
+                lag365: Math.round(features.lag365),
+                rolling7: Math.round(features.rolling7),
+                rolling30: Math.round(features.rolling30),
+                std7: Math.round(features.std7 * 10) / 10
+            },
+            events: events,
             ci80,
             ci95
         };
@@ -1213,7 +1453,7 @@ function initCharts(predictor) {
         updateLoadingProgress('month', 0);
     }
     
-    // 4. 歷史趨勢圖 - 專業區域圖
+    // 4. 歷史趨勢圖 - 專業區域圖（支持時間段選擇）
     try {
         updateLoadingProgress('history', 10);
         const historyCanvas = document.getElementById('history-chart');
@@ -1225,47 +1465,180 @@ function initCharts(predictor) {
         const historyCtx = historyCanvas.getContext('2d');
         updateLoadingProgress('history', 30);
         
-        // 創建漸變
-        const historyGradient = historyCtx.createLinearGradient(0, 0, 0, 320);
-        historyGradient.addColorStop(0, 'rgba(79, 70, 229, 0.25)');
-        historyGradient.addColorStop(0.5, 'rgba(79, 70, 229, 0.08)');
-        historyGradient.addColorStop(1, 'rgba(79, 70, 229, 0)');
-        updateLoadingProgress('history', 50);
+        // 初始化歷史趨勢圖表（使用全部數據）
+        initHistoryChart(predictor, historyCtx, historyCanvas, 'ALL');
         
-        // 簡化日期標籤 - 只顯示月份
-        const monthLabels = predictor.data.map((d, i) => {
+        // 設置時間段選擇器事件
+        setupHistoryPeriodSelector(predictor, historyCtx, historyCanvas);
+        
+        updateLoadingProgress('history', 100);
+        completeChartLoading('history');
+        totalProgress += 25;
+        console.log('✅ 歷史趨勢圖已載入');
+        console.log('✅ 所有圖表載入完成');
+    } catch (error) {
+        console.error('❌ 歷史趨勢圖載入失敗:', error);
+        updateLoadingProgress('history', 0);
+    }
+}
+
+// ============================================
+// 歷史趨勢圖表時間段過濾函數
+// ============================================
+function filterDataByPeriod(data, period, today = null) {
+    if (!today) {
+        const hk = getHKTime();
+        today = new Date(hk.dateStr);
+    } else if (typeof today === 'string') {
+        today = new Date(today);
+    }
+    
+    const todayDate = new Date(today);
+    todayDate.setHours(0, 0, 0, 0);
+    
+    let cutoffDate = new Date(todayDate);
+    
+    switch (period) {
+        case '1D':
+            cutoffDate.setDate(todayDate.getDate() - 1);
+            break;
+        case '1WK':
+            cutoffDate.setDate(todayDate.getDate() - 7);
+            break;
+        case '1MTH':
+            cutoffDate.setMonth(todayDate.getMonth() - 1);
+            break;
+        case '3MTH':
+            cutoffDate.setMonth(todayDate.getMonth() - 3);
+            break;
+        case '6MTH':
+            cutoffDate.setMonth(todayDate.getMonth() - 6);
+            break;
+        case '1YEAR':
+            cutoffDate.setFullYear(todayDate.getFullYear() - 1);
+            break;
+        case '2YEAR':
+            cutoffDate.setFullYear(todayDate.getFullYear() - 2);
+            break;
+        case '5YEAR':
+            cutoffDate.setFullYear(todayDate.getFullYear() - 5);
+            break;
+        case '10YEAR':
+            cutoffDate.setFullYear(todayDate.getFullYear() - 10);
+            break;
+        case 'ALL':
+        default:
+            return data; // 返回所有數據
+    }
+    
+    cutoffDate.setHours(0, 0, 0, 0);
+    
+    return data.filter(d => {
+        const dataDate = new Date(d.date);
+        dataDate.setHours(0, 0, 0, 0);
+        return dataDate >= cutoffDate && dataDate <= todayDate;
+    });
+}
+
+// ============================================
+// 初始化歷史趨勢圖表
+// ============================================
+function initHistoryChart(predictor, historyCtx, historyCanvas, period = 'ALL') {
+    // 根據時間段過濾數據
+    const filteredData = filterDataByPeriod(predictor.data, period);
+    
+    if (filteredData.length === 0) {
+        console.warn('⚠️ 選擇的時間段沒有數據');
+        return;
+    }
+    
+    // 銷毀現有圖表（如果存在）
+    if (historyChart) {
+        historyChart.destroy();
+    }
+    
+    // 創建漸變
+    const historyGradient = historyCtx.createLinearGradient(0, 0, 0, 320);
+    historyGradient.addColorStop(0, 'rgba(79, 70, 229, 0.25)');
+    historyGradient.addColorStop(0.5, 'rgba(79, 70, 229, 0.08)');
+    historyGradient.addColorStop(1, 'rgba(79, 70, 229, 0)');
+    
+    // 根據數據量決定日期標籤顯示策略
+    const dataLength = filteredData.length;
+    let dateLabels = [];
+    let maxTicksLimit = 12;
+    
+    if (dataLength <= 7) {
+        // 1週內：顯示所有日期
+        dateLabels = filteredData.map(d => {
             const date = new Date(d.date);
-            const day = date.getDate();
-            // 只在每月1號或15號顯示
-            if (day === 1) {
-                return `${date.getMonth()+1}月`;
+            return `${date.getMonth()+1}/${date.getDate()}`;
+        });
+        maxTicksLimit = dataLength;
+    } else if (dataLength <= 90) {
+        // 3個月內：每週顯示一次
+        dateLabels = filteredData.map((d, i) => {
+            const date = new Date(d.date);
+            const dayOfWeek = date.getDay();
+            if (dayOfWeek === 0 || i === 0 || i === filteredData.length - 1) {
+                return `${date.getMonth()+1}/${date.getDate()}`;
             }
             return '';
         });
-        updateLoadingProgress('history', 70);
-        
-        historyChart = new Chart(historyCtx, {
+        maxTicksLimit = Math.min(20, Math.ceil(dataLength / 7));
+    } else if (dataLength <= 365) {
+        // 1年內：每月1號和15號顯示
+        dateLabels = filteredData.map(d => {
+            const date = new Date(d.date);
+            const day = date.getDate();
+            if (day === 1 || day === 15) {
+                return `${date.getMonth()+1}月${day}日`;
+            }
+            return '';
+        });
+        maxTicksLimit = 24;
+    } else {
+        // 超過1年：每月1號顯示
+        dateLabels = filteredData.map(d => {
+            const date = new Date(d.date);
+            const day = date.getDate();
+            if (day === 1) {
+                return `${date.getFullYear()}-${date.getMonth()+1}`;
+            }
+            return '';
+        });
+        maxTicksLimit = Math.min(30, Math.ceil(dataLength / 30));
+    }
+    
+    // 計算過濾後數據的統計信息
+    const filteredAttendances = filteredData.map(d => d.attendance);
+    const filteredMean = filteredAttendances.reduce((a, b) => a + b, 0) / filteredAttendances.length;
+    const filteredStd = Math.sqrt(
+        filteredAttendances.reduce((sum, a) => sum + Math.pow(a - filteredMean, 2), 0) / filteredAttendances.length
+    );
+    
+    historyChart = new Chart(historyCtx, {
         type: 'line',
         data: {
-            labels: monthLabels,
+            labels: dateLabels,
             datasets: [
                 {
                     label: '實際人數',
-                    data: predictor.data.map(d => d.attendance),
+                    data: filteredAttendances,
                     borderColor: '#4f46e5',
                     backgroundColor: historyGradient,
                     borderWidth: 2,
                     fill: true,
                     tension: 0.35,
-                    pointRadius: 0,
+                    pointRadius: dataLength > 365 ? 0 : (dataLength > 90 ? 1 : 2),
                     pointHoverRadius: 6,
                     pointBackgroundColor: '#4f46e5',
                     pointBorderColor: '#fff',
                     pointBorderWidth: 2
                 },
                 {
-                    label: '平均 (256)',
-                    data: predictor.data.map(() => predictor.globalMean),
+                    label: `平均 (${Math.round(filteredMean)})`,
+                    data: filteredData.map(() => filteredMean),
                     borderColor: '#ef4444',
                     borderWidth: 2.5,
                     borderDash: [8, 4],
@@ -1274,7 +1647,7 @@ function initCharts(predictor) {
                 },
                 {
                     label: '±1σ 範圍',
-                    data: predictor.data.map(() => predictor.globalMean + predictor.stdDev),
+                    data: filteredData.map(() => filteredMean + filteredStd),
                     borderColor: 'rgba(239, 68, 68, 0.25)',
                     borderWidth: 1.5,
                     borderDash: [4, 4],
@@ -1283,7 +1656,7 @@ function initCharts(predictor) {
                 },
                 {
                     label: '',
-                    data: predictor.data.map(() => predictor.globalMean - predictor.stdDev),
+                    data: filteredData.map(() => filteredMean - filteredStd),
                     borderColor: 'rgba(239, 68, 68, 0.25)',
                     borderWidth: 1.5,
                     borderDash: [4, 4],
@@ -1311,7 +1684,7 @@ function initCharts(predictor) {
                     callbacks: {
                         title: function(items) {
                             const idx = items[0].dataIndex;
-                            return formatDateDDMM(predictor.data[idx].date, true); // 工具提示顯示完整日期
+                            return formatDateDDMM(filteredData[idx].date, true);
                         },
                         label: function(item) {
                             if (item.datasetIndex === 0) {
@@ -1328,44 +1701,68 @@ function initCharts(predictor) {
                     ticks: { 
                         ...professionalOptions.scales.x.ticks,
                         autoSkip: true,
-                        maxTicksLimit: 12,
+                        maxTicksLimit: maxTicksLimit,
                         callback: function(value, index) {
-                            return monthLabels[index] || null;
+                            return dateLabels[index] || null;
                         }
                     }
                 },
                 y: {
                     ...professionalOptions.scales.y,
-                    min: 140,
-                    max: 340,
+                    min: Math.max(100, Math.floor(Math.min(...filteredAttendances) / 20) * 20 - 40),
+                    max: Math.ceil(Math.max(...filteredAttendances) / 20) * 20 + 40,
                     ticks: {
                         ...professionalOptions.scales.y.ticks,
-                        stepSize: 40
+                        stepSize: Math.ceil((Math.max(...filteredAttendances) - Math.min(...filteredAttendances)) / 8 / 10) * 10
                     }
                 }
             }
         }
     });
     
-    updateLoadingProgress('history', 90);
-    
-    // 設置canvas寬度以支持滾動（365天數據需要更寬的canvas）
-    const dataLength = predictor.data.length;
-    const minWidth = 1200; // 最小寬度
-    const calculatedWidth = Math.max(minWidth, dataLength * 3); // 每個數據點3px
+    // 根據數據量調整canvas寬度
+    const minWidth = 800;
+    const calculatedWidth = dataLength > 365 ? Math.max(minWidth, dataLength * 2) : minWidth;
     historyCanvas.width = calculatedWidth;
     historyCanvas.style.width = `${calculatedWidth}px`;
     historyChart.resize();
     
-    updateLoadingProgress('history', 100);
-    completeChartLoading('history');
-    totalProgress += 25;
-    console.log('✅ 歷史趨勢圖已載入');
-    console.log('✅ 所有圖表載入完成');
-    } catch (error) {
-        console.error('❌ 歷史趨勢圖載入失敗:', error);
-        updateLoadingProgress('history', 0);
+    // 顯示/隱藏滾動提示
+    const scrollHint = document.getElementById('history-scroll-hint');
+    if (scrollHint) {
+        scrollHint.style.display = dataLength > 365 ? 'block' : 'none';
     }
+}
+
+// ============================================
+// 設置時間段選擇器事件
+// ============================================
+function setupHistoryPeriodSelector(predictor, historyCtx, historyCanvas) {
+    const selector = document.getElementById('history-time-period-selector');
+    if (!selector) {
+        console.warn('⚠️ 找不到時間段選擇器');
+        return;
+    }
+    
+    const buttons = selector.querySelectorAll('.period-btn');
+    
+    buttons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const period = this.getAttribute('data-period');
+            
+            // 更新按鈕狀態
+            buttons.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            // 更新圖表
+            try {
+                initHistoryChart(predictor, historyCtx, historyCanvas, period);
+                console.log(`✅ 歷史趨勢圖已更新為 ${period} 時間段`);
+            } catch (error) {
+                console.error('❌ 更新歷史趨勢圖失敗:', error);
+            }
+        });
+    });
 }
 
 // ============================================

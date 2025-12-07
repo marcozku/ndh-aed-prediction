@@ -67,8 +67,28 @@
     box-sizing: border-box;
 }
 
+/* 確保所有容器適配所有設備 */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+/* 通用容器適配規則 */
+.container,
+.wrapper,
+.content {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
 html {
     scroll-behavior: smooth;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    box-sizing: border-box;
 }
 
 body {
@@ -77,9 +97,13 @@ body {
     color: var(--text-primary);
     min-height: 100vh;
     overflow-x: hidden;
+    overflow-y: auto;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    width: 100%;
+    max-width: 100vw;
+    box-sizing: border-box;
 }
 
 /* Ambient Background Effect - Bright Theme */
@@ -103,10 +127,12 @@ body::before {
    ============================================ */
 .prediction-container {
     max-width: 1400px;
+    width: 100%;
     margin: 0 auto;
     padding: var(--space-xl);
     position: relative;
     z-index: 1;
+    box-sizing: border-box;
 }
 
 /* ============================================
@@ -343,6 +369,17 @@ body::before {
    ============================================ */
 section {
     margin-bottom: var(--space-3xl);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    position: relative;
+}
+
+/* Section 容器 - 適配所有設備 */
+section > * {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 section h2 {
@@ -354,6 +391,27 @@ section h2 {
     display: flex;
     align-items: center;
     gap: var(--space-sm);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Section 內容容器 - 可滾動 */
+.section-content {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
+}
+
+.section-content::-webkit-scrollbar {
+    height: 8px;
+}
+
+.section-content::-webkit-scrollbar-thumb {
+    background: var(--border-medium);
+    border-radius: var(--radius-full);
 }
 
 /* ============================================
@@ -363,6 +421,9 @@ section h2 {
     display: grid;
     grid-template-columns: 1.2fr 1fr;
     gap: var(--space-xl);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* ============================================
@@ -377,6 +438,26 @@ section h2 {
     transition: var(--transition-base);
     position: relative;
     overflow: hidden;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* Card 內容可滾動 */
+.prediction-card .card-content {
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 100%;
+    -webkit-overflow-scrolling: touch;
+}
+
+.prediction-card .card-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.prediction-card .card-content::-webkit-scrollbar-thumb {
+    background: var(--border-medium);
+    border-radius: var(--radius-full);
 }
 
 .prediction-card::before {
@@ -624,6 +705,27 @@ section h2 {
     padding: var(--space-lg);
     box-shadow: var(--glow-primary);
     border: 1px solid var(--border-subtle);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.factors-container .section-content {
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 600px;
+    -webkit-overflow-scrolling: touch;
+    padding-right: var(--space-sm);
+}
+
+.factors-container .section-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.factors-container .section-content::-webkit-scrollbar-thumb {
+    background: var(--border-medium);
+    border-radius: var(--radius-full);
 }
 
 .factors-loading {
@@ -703,9 +805,12 @@ section h2 {
 
 .factors-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: var(--space-md);
     margin-bottom: var(--space-lg);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .factor-card {
@@ -898,8 +1003,21 @@ section h2 {
     grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: var(--space-md);
     width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     overflow-x: auto;
+    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
+    padding-bottom: var(--space-sm);
+}
+
+.forecast-cards::-webkit-scrollbar {
+    height: 6px;
+}
+
+.forecast-cards::-webkit-scrollbar-thumb {
+    background: var(--border-medium);
+    border-radius: var(--radius-full);
 }
 
 .forecast-day-card {
@@ -912,6 +1030,10 @@ section h2 {
     transition: var(--transition-base);
     position: relative;
     overflow: hidden;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
 }
 
 .forecast-day-card::after {
@@ -1012,6 +1134,9 @@ section h2 {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-xl);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .charts-section h2 {
@@ -1030,6 +1155,10 @@ section h2 {
     border: 1px solid var(--border-subtle);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 20px rgba(0, 0, 0, 0.03);
     transition: var(--transition-base);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 .chart-card:hover {
@@ -1049,9 +1178,71 @@ section h2 {
     letter-spacing: -0.01em;
 }
 
+/* 圖表標題與控制項容器 */
+.chart-header-with-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-lg);
+    flex-wrap: wrap;
+    gap: var(--space-md);
+}
+
+.chart-header-with-controls h3 {
+    margin-bottom: 0;
+    flex: 1;
+    min-width: 120px;
+}
+
+/* 時間段選擇器 */
+.time-period-selector {
+    display: flex;
+    gap: var(--space-xs);
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.period-btn {
+    padding: var(--space-xs) var(--space-md);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    white-space: nowrap;
+    min-width: 40px;
+    text-align: center;
+}
+
+.period-btn:hover {
+    background: var(--bg-secondary);
+    border-color: var(--border-medium);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+}
+
+.period-btn.active {
+    background: var(--accent-primary);
+    color: #ffffff;
+    border-color: var(--accent-primary);
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
+}
+
+.period-btn.active:hover {
+    background: var(--accent-secondary);
+    border-color: var(--accent-secondary);
+    transform: translateY(-1px);
+}
+
 .chart-container {
     position: relative;
     height: 300px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .chart-container.large {
@@ -1063,6 +1254,8 @@ section h2 {
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
+    width: 100%;
+    max-width: 100%;
 }
 
 .chart-scroll-wrapper {
@@ -1088,6 +1281,27 @@ section h2 {
     padding: var(--space-2xl);
     border: 1px solid var(--border-subtle);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 20px rgba(0, 0, 0, 0.03);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.algorithm-content {
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 600px;
+    -webkit-overflow-scrolling: touch;
+    padding-right: var(--space-sm);
+}
+
+.algorithm-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.algorithm-content::-webkit-scrollbar-thumb {
+    background: var(--border-medium);
+    border-radius: var(--radius-full);
 }
 
 .algorithm-section h2::before {
@@ -1098,6 +1312,9 @@ section h2 {
 .algorithm-content {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     gap: var(--space-xl);
 }
 
@@ -1241,30 +1458,44 @@ section h2 {
         grid-template-columns: 1fr;
     }
     
+    .factors-grid {
+        grid-template-columns: 1fr;
+    }
+    
     .forecast-cards {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
         gap: var(--space-sm);
         padding-bottom: var(--space-md);
         overflow-x: auto;
+        overflow-y: hidden;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: thin;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
     }
     
     .forecast-day-card {
         min-width: 90px;
         max-width: 100%;
+        box-sizing: border-box;
     }
 }
 
 @media (max-width: 600px) {
     .prediction-container {
         padding: var(--space-md);
+        width: 100%;
+        max-width: 100%;
     }
     
     .prediction-header {
         padding: var(--space-xl) var(--space-md);
         margin-bottom: var(--space-xl);
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
     }
     
     .prediction-header h1 {
@@ -1274,6 +1505,9 @@ section h2 {
     .weather-display {
         padding: var(--space-sm) var(--space-md);
         gap: var(--space-sm);
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
     }
     
     .weather-icon {
@@ -1286,14 +1520,22 @@ section h2 {
     
     section {
         margin-bottom: var(--space-2xl);
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
     }
     
     section h2 {
         font-size: 1.25rem;
+        width: 100%;
+        max-width: 100%;
     }
     
     .prediction-card {
         padding: var(--space-lg);
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
     }
     
     .big-number {
@@ -1308,16 +1550,22 @@ section h2 {
         flex-direction: column;
         align-items: flex-start;
         gap: var(--space-sm);
+        width: 100%;
+        max-width: 100%;
     }
     
     .forecast-cards {
         grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
         gap: var(--space-xs);
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
     }
     
     .forecast-day-card {
         min-width: 75px;
         padding: var(--space-md) var(--space-sm);
+        box-sizing: border-box;
     }
     
     .forecast-value {
@@ -1342,11 +1590,57 @@ section h2 {
     
     .chart-container {
         height: 280px;
+        width: 100%;
+        max-width: 100%;
     }
     
-.chart-container.large {
-    height: 320px;
-}
+    .chart-container.large {
+        height: 320px;
+    }
+    
+    .factors-grid {
+        grid-template-columns: 1fr;
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .algorithm-content {
+        max-height: 400px;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+    
+    .comparison-section {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .table-wrapper {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: visible;
+    }
+    
+    .chart-header-with-controls {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .time-period-selector {
+        width: 100%;
+        justify-content: flex-start;
+        overflow-x: auto;
+        padding-bottom: var(--space-xs);
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .period-btn {
+        font-size: 0.7rem;
+        padding: var(--space-xs) var(--space-sm);
+        min-width: 35px;
+    }
 
 /* 圖表載入狀態 */
 .chart-loading {
@@ -1574,6 +1868,10 @@ section h2 {
     border: 1px solid var(--border-subtle);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 20px rgba(0, 0, 0, 0.03);
     margin-bottom: var(--space-3xl);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 .comparison-section h2::before {
@@ -1612,6 +1910,9 @@ section h2 {
 
 .comparison-table-container {
     margin-top: var(--space-2xl);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .comparison-table-container h3 {
@@ -1619,11 +1920,17 @@ section h2 {
     font-weight: 600;
     margin-bottom: var(--space-lg);
     color: var(--text-primary);
+    width: 100%;
+    max-width: 100%;
 }
 
 .table-wrapper {
     overflow-x: auto;
+    overflow-y: visible;
     -webkit-overflow-scrolling: touch;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-subtle);
 }

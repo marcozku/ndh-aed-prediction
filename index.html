@@ -189,7 +189,21 @@
 
             <!-- 歷史趨勢圖 -->
             <div class="chart-card full-width">
-                <h3>歷史趨勢 (365 天)</h3>
+                <div class="chart-header-with-controls">
+                    <h3>歷史趨勢</h3>
+                    <div class="time-period-selector" id="history-time-period-selector">
+                        <button class="period-btn active" data-period="1D">1D</button>
+                        <button class="period-btn" data-period="1WK">1週</button>
+                        <button class="period-btn" data-period="1MTH">1月</button>
+                        <button class="period-btn" data-period="3MTH">3月</button>
+                        <button class="period-btn" data-period="6MTH">6月</button>
+                        <button class="period-btn" data-period="1YEAR">1年</button>
+                        <button class="period-btn" data-period="2YEAR">2年</button>
+                        <button class="period-btn" data-period="5YEAR">5年</button>
+                        <button class="period-btn" data-period="10YEAR">10年</button>
+                        <button class="period-btn" data-period="ALL">全部</button>
+                    </div>
+                </div>
                 <div class="chart-container large scrollable-chart" id="history-chart-container">
                     <div class="chart-loading" id="history-chart-loading">
                         <div class="loading-spinner"></div>
@@ -201,7 +215,7 @@
                     <div class="chart-scroll-wrapper">
                         <canvas id="history-chart" style="display: none;"></canvas>
                     </div>
-                    <div class="chart-scroll-hint">← 左右滾動查看更多歷史數據 →</div>
+                    <div class="chart-scroll-hint" id="history-scroll-hint" style="display: none;">← 左右滾動查看更多歷史數據 →</div>
                 </div>
             </div>
         </section>
