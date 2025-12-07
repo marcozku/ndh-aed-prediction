@@ -1298,26 +1298,97 @@ async function initHistoryChart(range = currentHistoryRange) {
         const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
         const stdDev = Math.sqrt(variance);
         
-        // 日期標籤
+        // 根據選擇的時間範圍動態生成日期標籤（類似股票圖表）
         const labels = historicalData.map((d, i) => {
             const date = new Date(d.date);
-            // 根據數據量決定顯示頻率
             const totalDays = historicalData.length;
-            if (totalDays <= 30) {
-                // 少於30天，每天顯示
-                return formatDateDDMM(d.date, false);
-            } else if (totalDays <= 90) {
-                // 30-90天，每週顯示
-                if (date.getDay() === 0 || i === 0 || i === historicalData.length - 1) {
+            const isFirst = i === 0;
+            const isLast = i === historicalData.length - 1;
+            
+            // 根據時間範圍決定標籤格式和顯示頻率
+            switch (range) {
+                case '1D':
+                    // 1天：顯示日期和時間（如果有時間數據）或只顯示日期
                     return formatDateDDMM(d.date, false);
-                }
-                return '';
-            } else {
-                // 超過90天，每月1號顯示
-                if (date.getDate() === 1 || i === 0 || i === historicalData.length - 1) {
-                    return `${date.getMonth() + 1}月`;
-                }
-                return '';
+                    
+                case '1週':
+                    // 1週：顯示日期（DD/MM），每天顯示
+                    return formatDateDDMM(d.date, false);
+                    
+                case '1月':
+                    // 1月：顯示日期（DD/MM），每3-5天顯示一次
+                    if (isFirst || isLast || i % 5 === 0 || date.getDate() === 1 || date.getDate() === 15) {
+                        return formatDateDDMM(d.date, false);
+                    }
+                    return '';
+                    
+                case '3月':
+                    // 3月：顯示日期（DD/MM），每週顯示一次
+                    if (isFirst || isLast || date.getDay() === 0 || date.getDate() === 1) {
+                        return formatDateDDMM(d.date, false);
+                    }
+                    return '';
+                    
+                case '6月':
+                    // 6月：顯示月份（MM月），每月1號和15號顯示
+                    if (isFirst || isLast || date.getDate() === 1 || date.getDate() === 15) {
+                        if (date.getDate() === 1) {
+                            return `${date.getMonth() + 1}月`;
+                        }
+                        return formatDateDDMM(d.date, false);
+                    }
+                    return '';
+                    
+                case '1年':
+                    // 1年：顯示月份（MM月），每月1號顯示
+                    if (isFirst || isLast || date.getDate() === 1) {
+                        return `${date.getMonth() + 1}月`;
+                    }
+                    return '';
+                    
+                case '2年':
+                    // 2年：顯示年份和月份（YYYY年MM月），每季度顯示
+                    if (isFirst || isLast || (date.getDate() === 1 && [0, 3, 6, 9].includes(date.getMonth()))) {
+                        return `${date.getFullYear()}年${date.getMonth() + 1}月`;
+                    }
+                    return '';
+                    
+                case '5年':
+                    // 5年：顯示年份和月份（YYYY年MM月），每半年顯示
+                    if (isFirst || isLast || (date.getDate() === 1 && [0, 6].includes(date.getMonth()))) {
+                        return `${date.getFullYear()}年${date.getMonth() + 1}月`;
+                    }
+                    return '';
+                    
+                case '10年':
+                    // 10年：顯示年份（YYYY年），每年1月1號顯示
+                    if (isFirst || isLast || (date.getMonth() === 0 && date.getDate() === 1)) {
+                        return `${date.getFullYear()}年`;
+                    }
+                    return '';
+                    
+                case '全部':
+                    // 全部：顯示年份（YYYY年），每年1月1號顯示
+                    if (isFirst || isLast || (date.getMonth() === 0 && date.getDate() === 1)) {
+                        return `${date.getFullYear()}年`;
+                    }
+                    return '';
+                    
+                default:
+                    // 默認：根據數據量決定
+                    if (totalDays <= 30) {
+                        return formatDateDDMM(d.date, false);
+                    } else if (totalDays <= 90) {
+                        if (date.getDay() === 0 || isFirst || isLast) {
+                            return formatDateDDMM(d.date, false);
+                        }
+                        return '';
+                    } else {
+                        if (date.getDate() === 1 || isFirst || isLast) {
+                            return `${date.getMonth() + 1}月`;
+                        }
+                        return '';
+                    }
             }
         });
         
@@ -1747,6 +1818,34 @@ async function initComparisonTable() {
 // ============================================
 // 日期格式化工具函數
 // ============================================
+// 根據時間範圍獲取最大標籤數量
+function getMaxTicksForRange(range, dataLength) {
+    switch (range) {
+        case '1D':
+            return Math.min(24, dataLength); // 1天最多24個標籤
+        case '1週':
+            return Math.min(7, dataLength); // 1週最多7個標籤
+        case '1月':
+            return Math.min(10, dataLength); // 1月最多10個標籤
+        case '3月':
+            return Math.min(12, dataLength); // 3月最多12個標籤
+        case '6月':
+            return Math.min(12, dataLength); // 6月最多12個標籤
+        case '1年':
+            return Math.min(12, dataLength); // 1年最多12個標籤（每月）
+        case '2年':
+            return Math.min(8, dataLength); // 2年最多8個標籤（每季度）
+        case '5年':
+            return Math.min(10, dataLength); // 5年最多10個標籤（每半年）
+        case '10年':
+            return Math.min(10, dataLength); // 10年最多10個標籤（每年）
+        case '全部':
+            return Math.min(20, dataLength); // 全部最多20個標籤
+        default:
+            return Math.min(15, dataLength);
+    }
+}
+
 function formatDateDDMM(dateStr, includeYear = false) {
     if (!dateStr) return '';
     const date = new Date(dateStr);
