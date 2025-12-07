@@ -1659,13 +1659,58 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                             callback: function(value, index, ticks) {
                                 // 確保返回字符串，避免 [object Object]
                                 if (value === undefined || value === null) return '';
+                                
                                 try {
-                                    const date = new Date(value);
-                                    if (isNaN(date.getTime())) return '';
+                                    let date;
+                                    
+                                    // 處理不同類型的 value
+                                    if (value instanceof Date) {
+                                        // 如果已經是 Date 對象，直接使用
+                                        date = value;
+                                    } else if (typeof value === 'number') {
+                                        // 如果是數字（時間戳），轉換為 Date
+                                        date = new Date(value);
+                                    } else if (typeof value === 'string') {
+                                        // 如果是字符串，轉換為 Date
+                                        date = new Date(value);
+                                    } else {
+                                        // 如果是對象，嘗試提取時間戳或日期字符串
+                                        if (value && typeof value === 'object') {
+                                            // 嘗試從對象中提取值
+                                            const timestamp = value.getTime ? value.getTime() : 
+                                                             value.valueOf ? value.valueOf() : 
+                                                             value.x ? value.x : 
+                                                             value.t ? value.t : null;
+                                            if (timestamp !== null) {
+                                                date = new Date(timestamp);
+                                            } else {
+                                                console.warn('無法從對象中提取日期:', value);
+                                                return '';
+                                            }
+                                        } else {
+                                            return '';
+                                        }
+                                    }
+                                    
+                                    // 驗證日期有效性
+                                    if (!date || isNaN(date.getTime())) {
+                                        return '';
+                                    }
+                                    
+                                    // 格式化日期
                                     const formatted = formatTimeLabel(date, range);
-                                    return formatted || '';
+                                    
+                                    // 確保返回字符串
+                                    if (formatted && typeof formatted === 'string') {
+                                        return formatted;
+                                    } else {
+                                        // 如果 formatTimeLabel 返回非字符串，手動格式化
+                                        const day = String(date.getDate()).padStart(2, '0');
+                                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                                        return `${day}/${month}`;
+                                    }
                                 } catch (e) {
-                                    console.warn('日期格式化錯誤:', e, value);
+                                    console.warn('日期格式化錯誤:', e, value, typeof value);
                                     return '';
                                 }
                             }
@@ -2120,15 +2165,19 @@ function formatTimeLabel(date, range) {
                 }
                 return `${day}/${month}`;
             case '10年':
+                // 只在每年1月1日顯示年份標籤
                 if (date.getMonth() === 0 && date.getDate() === 1) {
                     return `${year}年`;
                 }
-                return `${year}年`;
+                // 其他日期返回空字符串，讓 Chart.js 自動跳過
+                return '';
             case '全部':
+                // 只在每年1月1日顯示年份標籤
                 if (date.getMonth() === 0 && date.getDate() === 1) {
                     return `${year}年`;
                 }
-                return `${year}年`;
+                // 其他日期返回空字符串，讓 Chart.js 自動跳過
+                return '';
             default:
                 return `${day}/${month}`;
         }
