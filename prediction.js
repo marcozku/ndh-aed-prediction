@@ -1466,8 +1466,9 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         const dataPoints = historicalData.map((d, i) => {
             let date;
             if (typeof d.date === 'string') {
-                // 如果是字符串，轉換為 Date 對象
-                date = new Date(d.date + 'T00:00:00'); // 添加時間部分確保正確解析
+                // 如果是字符串，直接轉換為 Date 對象
+                // 數據庫返回的日期已經是 ISO 格式（如 2025-11-07T00:00:00.000Z），不需要再添加時間部分
+                date = new Date(d.date);
             } else if (d.date instanceof Date) {
                 date = d.date;
             } else {
@@ -1475,7 +1476,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             }
             // 確保日期有效
             if (isNaN(date.getTime())) {
-                console.warn('無效日期:', d.date);
+                console.warn('無效日期:', d.date, '類型:', typeof d.date);
                 return null;
             }
             return {
@@ -1515,7 +1516,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         data: historicalData.map((d, i) => {
                             let date;
                             if (typeof d.date === 'string') {
-                                date = new Date(d.date + 'T00:00:00');
+                                date = new Date(d.date);
                             } else if (d.date instanceof Date) {
                                 date = d.date;
                             } else {
@@ -1538,7 +1539,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         data: historicalData.map((d, i) => {
                             let date;
                             if (typeof d.date === 'string') {
-                                date = new Date(d.date + 'T00:00:00');
+                                date = new Date(d.date);
                             } else if (d.date instanceof Date) {
                                 date = d.date;
                             } else {
@@ -1561,7 +1562,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         data: historicalData.map((d, i) => {
                             let date;
                             if (typeof d.date === 'string') {
-                                date = new Date(d.date + 'T00:00:00');
+                                date = new Date(d.date);
                             } else if (d.date instanceof Date) {
                                 date = d.date;
                             } else {
@@ -1742,27 +1743,36 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 historyCanvas.style.width = '100%';
                 historyCanvas.style.maxWidth = '100%';
                 
-                // 更新圖表選項
+                // 更新圖表選項，特別是時間軸配置
                 historyChart.options.layout.padding = getResponsivePadding();
-                if (historyChart.options.scales && historyChart.options.scales.x && historyChart.options.scales.x.ticks) {
-                    historyChart.options.scales.x.ticks.autoSkip = true;
-                    historyChart.options.scales.x.ticks.maxTicksLimit = getMaxTicksForRange(range, historicalData.length);
-                    historyChart.options.scales.x.ticks.maxRotation = 0;
+                if (historyChart.options.scales && historyChart.options.scales.x) {
+                    // 更新時間軸配置
+                    historyChart.options.scales.x.time.unit = getTimeUnit(range);
+                    historyChart.options.scales.x.time.displayFormats = getTimeDisplayFormats(range);
+                    
+                    if (historyChart.options.scales.x.ticks) {
+                        historyChart.options.scales.x.ticks.autoSkip = true;
+                        historyChart.options.scales.x.ticks.maxTicksLimit = getMaxTicksForRange(range, historicalData.length);
+                        historyChart.options.scales.x.ticks.maxRotation = 0;
+                    }
                 }
                 
                 // 讓圖表自動適應容器寬度（響應式）
                 historyChart.resize();
-                // 使用 'active' 模式更新，確保圖表正確渲染
-                historyChart.update('active');
+                // 使用 'none' 模式更新，然後強制重新渲染以確保 X 軸更新
+                historyChart.update('none');
                 
                 // 確保canvas可見
                 historyCanvas.style.display = 'block';
                 historyCanvas.style.visibility = 'visible';
                 
-                // 再次強制更新，確保數據顯示
+                // 再次強制更新，確保 X 軸時間線正確顯示
                 setTimeout(() => {
                     if (historyChart) {
+                        // 強制重新計算和渲染圖表
                         historyChart.update('active');
+                        // 觸發 resize 以確保時間軸正確更新
+                        historyChart.resize();
                     }
                 }, 200);
             }
