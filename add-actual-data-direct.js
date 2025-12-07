@@ -150,6 +150,62 @@ async function addActualDataDirect() {
                             inCI95
                         ]);
                         console.log(`  ✅ ${data.date}: 實際 ${actual} 人, 預測 ${predicted} 人, 誤差 ${error > 0 ? '+' : ''}${error} (${errorPct}%)`);
+                        
+                        // 如果該日期有 daily_predictions，計算最終預測
+                        try {
+                            const finalPredQuery = `
+                                SELECT COUNT(*) as count FROM daily_predictions WHERE target_date = $1
+                            `;
+                            const finalPredCheck = await client.query(finalPredQuery, [data.date]);
+                            if (parseInt(finalPredCheck.rows[0].count) > 0) {
+                                // 計算最終預測（平均所有預測）
+                                const avgQuery = `
+                                    SELECT 
+                                        AVG(predicted_count)::INTEGER as avg_predicted,
+                                        AVG(ci80_low)::INTEGER as avg_ci80_low,
+                                        AVG(ci80_high)::INTEGER as avg_ci80_high,
+                                        AVG(ci95_low)::INTEGER as avg_ci95_low,
+                                        AVG(ci95_high)::INTEGER as avg_ci95_high,
+                                        COUNT(*) as prediction_count,
+                                        MAX(model_version) as model_version
+                                    FROM daily_predictions
+                                    WHERE target_date = $1
+                                `;
+                                const avgResult = await client.query(avgQuery, [data.date]);
+                                const avg = avgResult.rows[0];
+                                
+                                const insertFinalQuery = `
+                                    INSERT INTO final_daily_predictions (
+                                        target_date, predicted_count, ci80_low, ci80_high, ci95_low, ci95_high,
+                                        prediction_count, model_version
+                                    )
+                                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                                    ON CONFLICT (target_date) DO UPDATE SET
+                                        predicted_count = EXCLUDED.predicted_count,
+                                        ci80_low = EXCLUDED.ci80_low,
+                                        ci80_high = EXCLUDED.ci80_high,
+                                        ci95_low = EXCLUDED.ci95_low,
+                                        ci95_high = EXCLUDED.ci95_high,
+                                        prediction_count = EXCLUDED.prediction_count,
+                                        model_version = EXCLUDED.model_version,
+                                        calculated_at = CURRENT_TIMESTAMP
+                                `;
+                                await client.query(insertFinalQuery, [
+                                    data.date,
+                                    avg.avg_predicted,
+                                    avg.avg_ci80_low,
+                                    avg.avg_ci80_high,
+                                    avg.avg_ci95_low,
+                                    avg.avg_ci95_high,
+                                    parseInt(avg.prediction_count),
+                                    avg.model_version
+                                ]);
+                                console.log(`  📊 ${data.date}: 已計算最終預測（基於 ${avg.prediction_count} 次預測的平均值）`);
+                            }
+                        } catch (finalPredError) {
+                            // 忽略錯誤，繼續處理
+                            console.log(`  ℹ️  ${data.date}: 計算最終預測時出錯（可能沒有足夠的預測數據）`);
+                        }
                     } else {
                         console.log(`  ⚠️  ${data.date}: 已添加實際數據，但沒有找到預測數據`);
                     }
