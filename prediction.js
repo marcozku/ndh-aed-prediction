@@ -2112,6 +2112,9 @@ async function checkDatabaseStatus() {
                     v${data.model_version || '1.0.0'}
                 </span>
             `;
+            
+            // 更新頁腳的數據來源信息
+            updateDataSourceFooter(data.date_range);
         } else {
             dbStatusEl.className = 'db-status disconnected';
             dbStatusEl.innerHTML = `
@@ -2132,6 +2135,37 @@ async function checkDatabaseStatus() {
         `;
         console.error('❌ 數據庫檢查失敗:', error);
         return null;
+    }
+}
+
+// 更新頁腳的數據來源信息
+function updateDataSourceFooter(dateRange) {
+    const footer = document.querySelector('.prediction-footer');
+    if (!footer || !dateRange) return;
+    
+    const minDate = dateRange.min_date;
+    const maxDate = dateRange.max_date;
+    const totalDays = dateRange.total_days || 0;
+    
+    if (minDate && maxDate) {
+        // 格式化日期為 YYYY-MM-DD
+        const formatDate = (dateStr) => {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+        
+        const formattedMinDate = formatDate(minDate);
+        const formattedMaxDate = formatDate(maxDate);
+        
+        // 更新第一個段落（數據來源）
+        const dataSourceP = footer.querySelector('p:first-child');
+        if (dataSourceP) {
+            dataSourceP.textContent = `數據來源：NDH AED ${formattedMinDate} 至 ${formattedMaxDate} 歷史數據 (${totalDays}天)`;
+        }
     }
 }
 

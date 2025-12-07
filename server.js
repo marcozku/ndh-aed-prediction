@@ -218,12 +218,32 @@ const apiHandlers = {
             const stats = await db.getAccuracyStats();
             const actualCount = await db.pool.query('SELECT COUNT(*) FROM actual_data');
             const predCount = await db.pool.query('SELECT COUNT(*) FROM predictions');
+            
+            // 獲取實際數據的日期範圍
+            const dateRange = await db.pool.query(`
+                SELECT 
+                    MIN(date) as min_date, 
+                    MAX(date) as max_date,
+                    COUNT(*) as total_count
+                FROM actual_data
+            `);
+            
+            const dateRangeData = dateRange.rows[0];
+            const minDate = dateRangeData.min_date;
+            const maxDate = dateRangeData.max_date;
+            const totalDays = dateRangeData.total_count ? parseInt(dateRangeData.total_count) : 0;
+            
             sendJson(res, { 
                 connected: true, 
                 model_version: MODEL_VERSION,
                 actual_data_count: parseInt(actualCount.rows[0].count),
                 predictions_count: parseInt(predCount.rows[0].count),
-                stats 
+                stats,
+                date_range: {
+                    min_date: minDate,
+                    max_date: maxDate,
+                    total_days: totalDays
+                }
             });
         } catch (err) {
             sendJson(res, { connected: false, error: err.message }, 500);
