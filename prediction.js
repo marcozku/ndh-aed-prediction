@@ -1232,7 +1232,31 @@ async function initCharts(predictor) {
     // 6. 詳細比較表格
     await initComparisonTable();
     
+    // 強制所有圖表重新計算尺寸以確保響應式
+    setTimeout(() => {
+        forceChartsResize();
+    }, 100);
+    
     console.log('✅ 所有圖表載入完成');
+}
+
+// 強制所有圖表重新計算尺寸
+function forceChartsResize() {
+    const charts = [forecastChart, dowChart, monthChart, historyChart, comparisonChart];
+    charts.forEach(chart => {
+        if (chart) {
+            // 更新響應式設置
+            chart.options.layout.padding = getResponsivePadding();
+            if (chart.options.scales && chart.options.scales.x && chart.options.scales.x.ticks) {
+                chart.options.scales.x.ticks.maxTicksLimit = getResponsiveMaxTicksLimit();
+                chart.options.scales.x.ticks.font.size = window.innerWidth <= 600 ? 9 : 11;
+                chart.options.scales.x.ticks.padding = window.innerWidth <= 600 ? 4 : 8;
+            }
+            // 強制重新計算尺寸
+            chart.resize();
+            chart.update('none');
+        }
+    });
 }
 
 // 初始化歷史趨勢圖
@@ -1410,6 +1434,17 @@ async function initHistoryChart(range = currentHistoryRange) {
         updateLoadingProgress('history', 90);
         updateLoadingProgress('history', 100);
         completeChartLoading('history');
+        // 確保圖表正確適應
+        setTimeout(() => {
+            if (historyChart) {
+                historyChart.options.layout.padding = getResponsivePadding();
+                if (historyChart.options.scales && historyChart.options.scales.x && historyChart.options.scales.x.ticks) {
+                    historyChart.options.scales.x.ticks.maxTicksLimit = getResponsiveMaxTicksLimit();
+                }
+                historyChart.resize();
+                historyChart.update('none');
+            }
+        }, 50);
         console.log(`✅ 歷史趨勢圖已載入 (${historicalData.length} 筆數據, 範圍: ${range})`);
     } catch (error) {
         console.error('❌ 歷史趨勢圖載入失敗:', error);
@@ -1546,6 +1581,17 @@ async function initComparisonChart() {
         updateLoadingProgress('comparison', 90);
         updateLoadingProgress('comparison', 100);
         completeChartLoading('comparison');
+        // 確保圖表正確適應
+        setTimeout(() => {
+            if (comparisonChart) {
+                comparisonChart.options.layout.padding = getResponsivePadding();
+                if (comparisonChart.options.scales && comparisonChart.options.scales.x && comparisonChart.options.scales.x.ticks) {
+                    comparisonChart.options.scales.x.ticks.maxTicksLimit = getResponsiveMaxTicksLimit();
+                }
+                comparisonChart.resize();
+                comparisonChart.update('none');
+            }
+        }, 50);
         console.log(`✅ 實際vs預測對比圖已載入 (${comparisonData.length} 筆數據)`);
     } catch (error) {
         console.error('❌ 實際vs預測對比圖載入失敗:', error);
@@ -2955,6 +3001,8 @@ async function refreshPredictions(predictor) {
     if (historyChart) historyChart.destroy();
     if (comparisonChart) comparisonChart.destroy();
     await initCharts(predictor);
+    // 確保圖表正確適應
+    setTimeout(() => forceChartsResize(), 200);
     
     console.log('✅ 預測數據已刷新');
 }
@@ -3076,6 +3124,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (historyChart) historyChart.destroy();
                 if (comparisonChart) comparisonChart.destroy();
                 await initCharts(predictor);
+                // 確保圖表正確適應
+                setTimeout(() => forceChartsResize(), 200);
                 console.log('✅ AI 因素已更新，UI 已刷新');
             } else {
                 console.log('ℹ️ AI 因素無需更新，使用緩存數據');
@@ -3095,6 +3145,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (historyChart) historyChart.destroy();
                 if (comparisonChart) comparisonChart.destroy();
                 await initCharts(predictor);
+                // 確保圖表正確適應
+                setTimeout(() => forceChartsResize(), 200);
                 console.log('✅ AI 因素已生成並保存到數據庫');
             }
         }
