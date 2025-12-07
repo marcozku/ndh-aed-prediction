@@ -1423,19 +1423,19 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             historyCanvas.style.maxWidth = '100%';
         }
         
-        // 將日期轉換為時間戳，用於線性比例
-        const dateValues = historicalData.map(d => new Date(d.date).getTime());
-        const minDate = Math.min(...dateValues);
-        const maxDate = Math.max(...dateValues);
+        // 將數據轉換為 {x: date, y: value} 格式以支持 time scale
+        const dataPoints = historicalData.map((d, i) => ({
+            x: d.date,
+            y: d.attendance
+        }));
         
         historyChart = new Chart(historyCtx, {
             type: 'line',
             data: {
-                labels: labels,
                 datasets: [
                     {
                         label: '實際人數',
-                        data: values,
+                        data: dataPoints,
                         borderColor: '#4f46e5',
                         backgroundColor: historyGradient,
                         borderWidth: 2,
@@ -1449,7 +1449,10 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                     },
                     {
                         label: `平均 (${Math.round(mean)})`,
-                        data: historicalData.map(() => mean),
+                        data: historicalData.map((d, i) => ({
+                            x: d.date,
+                            y: mean
+                        })),
                         borderColor: '#ef4444',
                         borderWidth: 2.5,
                         borderDash: [8, 4],
@@ -1467,7 +1470,10 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                     },
                     {
                         label: '',
-                        data: historicalData.map(() => mean - stdDev),
+                        data: historicalData.map((d, i) => ({
+                            x: d.date,
+                            y: mean - stdDev
+                        })),
                         borderColor: 'rgba(239, 68, 68, 0.25)',
                         borderWidth: 1.5,
                         borderDash: [4, 4],
@@ -1496,8 +1502,9 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         ...professionalOptions.plugins.tooltip,
                         callbacks: {
                             title: function(items) {
-                                const idx = items[0].dataIndex;
-                                return formatDateDDMM(historicalData[idx].date, true);
+                                const item = items[0];
+                                const date = item.parsed.x ? new Date(item.parsed.x) : new Date(historicalData[item.dataIndex].date);
+                                return formatDateDDMM(date.toISOString().split('T')[0], true);
                             },
                             label: function(item) {
                                 if (item.datasetIndex === 0) {
@@ -1510,36 +1517,26 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 },
                 scales: {
                     x: {
-                        type: 'linear', // 使用線性比例以確保日期間距正確
-                        position: 'bottom',
-                        min: 0,
-                        max: historicalData.length - 1,
+                        type: 'time', // 使用時間軸確保日期間距正確
+                        time: {
+                            unit: getTimeUnit(range), // 根據範圍動態設置時間單位
+                            displayFormats: getTimeDisplayFormats(range),
+                            tooltipFormat: 'yyyy-MM-dd'
+                        },
                         ticks: {
-                            stepSize: 1, // 每個數據點都顯示
-                            autoSkip: false, // 不自動跳過，顯示所有標籤
-                            maxTicksLimit: undefined, // 不限制標籤數量
+                            autoSkip: true,
+                            maxTicksLimit: getMaxTicksForRange(range, historicalData.length),
                             font: {
                                 size: containerWidth <= 600 ? 8 : 10
                             },
                             padding: containerWidth <= 600 ? 2 : 6,
                             minRotation: 0,
                             maxRotation: 0,
+                            source: 'data', // 使用數據中的實際日期
                             callback: function(value, index) {
-                                // 確保返回正確的標籤
-                                const idx = Math.round(value);
-                                if (idx >= 0 && idx < labels.length) {
-                                    const label = labels[idx];
-                                    // 如果標籤為空，返回null（Chart.js會自動跳過）
-                                    return label || null;
-                                }
-                                return null;
-                            },
-                            // 根據時間範圍動態調整標籤間距
-                            stepSize: getTickStepSize(range, historicalData.length),
-                            // 只顯示有標籤的位置
-                            filter: function(tickValue, index) {
-                                const idx = Math.round(tickValue);
-                                return idx >= 0 && idx < labels.length && labels[idx] !== '';
+                                // 格式化日期標籤
+                                const date = new Date(value);
+                                return formatTimeLabel(date, range);
                             }
                         },
                         grid: {
@@ -1847,16 +1844,110 @@ function getMaxTicksForRange(range, dataLength) {
     }
 }
 
-// 根據時間範圍獲取標籤間距（stepSize）
-function getTickStepSize(range, dataLength) {
-    // 計算應該顯示多少個標籤
-    const maxTicks = getMaxTicksForRange(range, dataLength);
-    // 計算間距：如果數據點少於最大標籤數，每個都顯示；否則按比例間隔
-    if (dataLength <= maxTicks) {
-        return 1; // 每個數據點都顯示
+// 根據時間範圍獲取時間單位
+function getTimeUnit(range) {
+    switch (range) {
+        case '1D':
+            return 'hour';
+        case '1週':
+            return 'day';
+        case '1月':
+            return 'day';
+        case '3月':
+            return 'week';
+        case '6月':
+            return 'week';
+        case '1年':
+            return 'month';
+        case '2年':
+            return 'month';
+        case '5年':
+            return 'month';
+        case '10年':
+            return 'year';
+        case '全部':
+            return 'year';
+        default:
+            return 'day';
     }
-    // 計算間距，確保標籤均勻分佈
-    return Math.ceil(dataLength / maxTicks);
+}
+
+// 根據時間範圍獲取時間顯示格式
+function getTimeDisplayFormats(range) {
+    switch (range) {
+        case '1D':
+            return { hour: 'HH:mm' };
+        case '1週':
+            return { day: 'dd/MM' };
+        case '1月':
+            return { day: 'dd/MM' };
+        case '3月':
+            return { week: 'dd/MM', day: 'dd/MM' };
+        case '6月':
+            return { month: 'MM月', week: 'dd/MM' };
+        case '1年':
+            return { month: 'MM月' };
+        case '2年':
+            return { month: 'MM月', year: 'yyyy年' };
+        case '5年':
+            return { month: 'MM月', year: 'yyyy年' };
+        case '10年':
+            return { year: 'yyyy年' };
+        case '全部':
+            return { year: 'yyyy年' };
+        default:
+            return { day: 'dd/MM' };
+    }
+}
+
+// 格式化時間標籤
+function formatTimeLabel(date, range) {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    
+    switch (range) {
+        case '1D':
+            return `${day}/${month}`;
+        case '1週':
+            return `${day}/${month}`;
+        case '1月':
+            return `${day}/${month}`;
+        case '3月':
+            return `${day}/${month}`;
+        case '6月':
+            if (date.getDate() === 1) {
+                return `${month}月`;
+            }
+            return `${day}/${month}`;
+        case '1年':
+            if (date.getDate() === 1) {
+                return `${month}月`;
+            }
+            return `${day}/${month}`;
+        case '2年':
+            if (date.getDate() === 1 && [0, 3, 6, 9].includes(date.getMonth())) {
+                return `${year}年${month}月`;
+            }
+            return `${day}/${month}`;
+        case '5年':
+            if (date.getDate() === 1 && [0, 6].includes(date.getMonth())) {
+                return `${year}年${month}月`;
+            }
+            return `${day}/${month}`;
+        case '10年':
+            if (date.getMonth() === 0 && date.getDate() === 1) {
+                return `${year}年`;
+            }
+            return `${year}年`;
+        case '全部':
+            if (date.getMonth() === 0 && date.getDate() === 1) {
+                return `${year}年`;
+            }
+            return `${year}年`;
+        default:
+            return `${day}/${month}`;
+    }
 }
 
 // HTML 轉義函數，防止 XSS 並確保文本正確顯示
