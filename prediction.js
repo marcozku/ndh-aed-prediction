@@ -1399,16 +1399,16 @@ async function initHistoryChart(range = currentHistoryRange) {
             historyChart.destroy();
         }
         
+        // 設置容器和canvas的最小寬度以支持滾動
+        const historyContainer = document.getElementById('history-chart-container');
+        
         // 計算圖表所需的最小寬度（根據數據點數量）
-        const containerWidth = historyContainer ? historyContainer.offsetWidth || window.innerWidth : window.innerWidth;
+        const containerWidth = historyContainer ? (historyContainer.offsetWidth || window.innerWidth) : window.innerWidth;
         const dataPointWidth = containerWidth <= 600 ? 50 : containerWidth <= 900 ? 60 : 70;
         const minChartWidth = Math.max(
             containerWidth * 1.5, // 至少比容器寬50%以確保可以滾動
             historicalData.length * dataPointWidth
         );
-        
-        // 設置容器和canvas的最小寬度以支持滾動
-        const historyContainer = document.getElementById('history-chart-container');
         if (historyContainer) {
             // 容器保持100%寬度，但允許內部內容溢出
             historyContainer.style.width = '100%';
