@@ -41,6 +41,24 @@
 - 添加批量導入進度顯示
 - 添加日期範圍檢查和日誌
 
+### 🎨 UI/UX 改進
+
+1. **統一所有區塊響應式寬度**
+   - 所有區塊（section, cards, charts）現在都使用 `width: 100%` 和 `max-width: 100%`
+   - 確保所有元素都能適應所有設備尺寸（手機、平板、桌面）
+   - 統一使用 `box-sizing: border-box` 確保正確計算寬度
+
+2. **圖表響應式適配**
+   - 所有圖表容器都設置為 `width: 100%` 和 `max-width: 100%`
+   - Canvas 元素強制使用 `width: 100% !important`
+   - 圖表高度根據設備尺寸自動調整（桌面 300px，平板 250px，手機 220px，小手機 200px）
+   - 確保 Chart.js 的 `responsive: true` 和 `maintainAspectRatio: false` 正確設置
+
+3. **改進移動端顯示**
+   - 添加更多響應式斷點（1200px, 900px, 600px, 380px）
+   - 所有區塊在不同設備上都能正確顯示
+   - 表格支持橫向滾動（`-webkit-overflow-scrolling: touch`）
+
 ### 🔧 使用說明
 
 **清除並重新導入數據：**

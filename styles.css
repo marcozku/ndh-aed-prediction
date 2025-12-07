@@ -573,9 +573,12 @@ section h2 {
    Stats Grid - Premium Style
    ============================================ */
 .stats-grid {
+    width: 100%;
+    max-width: 100%;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-md);
+    box-sizing: border-box;
 }
 
 .stat-item {
@@ -726,10 +729,13 @@ section h2 {
 }
 
 .factors-grid {
+    width: 100%;
+    max-width: 100%;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: var(--space-md);
     margin-bottom: var(--space-lg);
+    box-sizing: border-box;
 }
 
 .factor-card {
