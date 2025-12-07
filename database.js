@@ -420,6 +420,7 @@ async function getAccuracyStats() {
 // Get comparison data for visualization
 async function getComparisonData(limit = 100) {
     // 優先使用 final_daily_predictions（每日平均），然後使用 daily_predictions 的最新預測，最後使用 predictions
+    // 改進查詢：使用子查詢來獲取預測數據，確保能找到所有有實際數據的日期
     const query = `
         SELECT 
             a.date,
@@ -463,15 +464,18 @@ async function getComparisonData(limit = 100) {
             pa.error_percentage
         FROM actual_data a
         LEFT JOIN final_daily_predictions fdp ON a.date = fdp.target_date
-        LEFT JOIN predictions p ON a.date = p.target_date AND fdp.target_date IS NULL
-        LEFT JOIN prediction_accuracy pa ON a.date = pa.target_date
-        WHERE COALESCE(
-            fdp.predicted_count,
-            (SELECT predicted_count FROM daily_predictions 
-             WHERE target_date = a.date 
-             ORDER BY created_at DESC LIMIT 1),
-            p.predicted_count
-        ) IS NOT NULL
+        LEFT JOIN predictions p ON a.date = p.target_date
+        LEFT JOIN prediction_accuracy pa ON a.date = pa.date
+        WHERE 
+            -- 確保至少有一個預測數據來源
+            (
+                fdp.predicted_count IS NOT NULL
+                OR EXISTS (
+                    SELECT 1 FROM daily_predictions 
+                    WHERE target_date = a.date
+                )
+                OR p.predicted_count IS NOT NULL
+            )
         ORDER BY a.date DESC
         LIMIT $1
     `;

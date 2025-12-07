@@ -1498,7 +1498,7 @@ async function initComparisonChart() {
                 datasets: [
                     {
                         label: '實際人數',
-                        data: comparisonData.map(d => d.actual || null),
+                        data: validComparisonData.map(d => d.actual || null),
                         borderColor: '#3b82f6',
                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
                         borderWidth: 2,
