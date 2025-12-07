@@ -1280,7 +1280,32 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         
         if (historicalData.length === 0) {
             console.warn(`⚠️ 沒有歷史數據 (範圍=${range}, pageOffset=${pageOffset}, ${startDate} 至 ${endDate})`);
-            // 即使沒有數據，也要更新按鈕狀態，禁用"上一頁"按鈕
+            
+            // 銷毀現有圖表（如果存在）
+            if (historyChart) {
+                historyChart.destroy();
+                historyChart = null;
+            }
+            
+            // 隱藏canvas，顯示錯誤訊息
+            if (historyCanvas) {
+                historyCanvas.style.display = 'none';
+            }
+            const historyLoadingEl = document.getElementById('history-chart-loading');
+            if (historyLoadingEl) {
+                historyLoadingEl.style.display = 'block';
+                historyLoadingEl.innerHTML = `
+                    <div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">
+                        <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">⚠️ 暫無歷史數據</div>
+                        <div style="font-size: 0.875rem; color: var(--text-secondary);">
+                            查詢範圍：${startDate || '全部'} 至 ${endDate || '全部'}<br>
+                            請嘗試選擇其他時間範圍或分頁
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // 更新按鈕狀態，禁用"上一頁"按鈕
             updateHistoryNavigationButtons(range, pageOffset, []);
             updateLoadingProgress('history', 0);
             return;
@@ -1629,6 +1654,30 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         const historyLoadingEl = document.getElementById('history-chart-loading');
         if (historyLoadingEl) {
             historyLoadingEl.style.display = 'none';
+        }
+        
+        // 確保有數據才顯示圖表
+        if (historicalData.length === 0) {
+            console.error('❌ 圖表創建後數據為空，這不應該發生');
+            if (historyChart) {
+                historyChart.destroy();
+                historyChart = null;
+            }
+            if (historyCanvas) {
+                historyCanvas.style.display = 'none';
+            }
+            if (historyLoadingEl) {
+                historyLoadingEl.style.display = 'block';
+                historyLoadingEl.innerHTML = `
+                    <div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">
+                        <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">⚠️ 數據處理錯誤</div>
+                        <div style="font-size: 0.875rem; color: var(--text-secondary);">
+                            請刷新頁面重試
+                        </div>
+                    </div>
+                `;
+            }
+            return;
         }
         
         updateLoadingProgress('history', 100);
@@ -2631,19 +2680,31 @@ async function fetchHistoricalData(startDate = null, endDate = null) {
         if (endDate) params.append('end', endDate);
         if (params.toString()) url += '?' + params.toString();
         
+        console.log(`🔍 查詢歷史數據 API: ${url}`);
         const response = await fetch(url);
-        const data = await response.json();
         
-        if (data.success && data.data) {
+        if (!response.ok) {
+            console.error(`❌ API 請求失敗: ${response.status} ${response.statusText}`);
+            return [];
+        }
+        
+        const data = await response.json();
+        console.log(`📊 API 響應: success=${data.success}, data.length=${data.data ? data.data.length : 0}`);
+        
+        if (data.success && data.data && Array.isArray(data.data)) {
             // 轉換為圖表需要的格式，按日期升序排列
-            return data.data
+            const result = data.data
                 .map(d => ({
                     date: d.date,
                     attendance: d.patient_count
                 }))
                 .sort((a, b) => new Date(a.date) - new Date(b.date));
+            console.log(`✅ 成功獲取 ${result.length} 筆歷史數據`);
+            return result;
+        } else {
+            console.warn(`⚠️ API 返回無效數據:`, data);
+            return [];
         }
-        return [];
     } catch (error) {
         console.error('❌ 獲取歷史數據失敗:', error);
         return [];
@@ -2734,11 +2795,11 @@ function getDateRangeWithOffset(range, pageOffset = 0) {
         const newEnd = new Date(end.getTime() - offsetMs);
         
         // 確保日期不會太早（數據庫可能沒有那麼早的數據）
-        // 假設數據庫最早有2014年的數據
-        const minDate = new Date('2014-01-01');
+        // 假設數據庫最早有2014-12-01的數據（根據用戶之前的說明）
+        const minDate = new Date('2014-12-01');
         if (newEnd < minDate) {
             // 如果計算的結束日期早於最小日期，返回空範圍
-            console.warn(`⚠️ 計算的日期範圍過早：${newStart.toISOString().split('T')[0]} 至 ${newEnd.toISOString().split('T')[0]}`);
+            console.warn(`⚠️ 計算的日期範圍過早：${newStart.toISOString().split('T')[0]} 至 ${newEnd.toISOString().split('T')[0]}，早於數據庫最小日期 ${minDate.toISOString().split('T')[0]}`);
             return { startDate: null, endDate: null };
         }
         
@@ -2746,6 +2807,11 @@ function getDateRangeWithOffset(range, pageOffset = 0) {
         if (newStart < minDate) {
             start = new Date(minDate);
             end = new Date(newEnd);
+            // 如果調整後的結束日期也早於最小日期，返回空範圍
+            if (end < minDate) {
+                console.warn(`⚠️ 調整後的日期範圍仍然過早：${start.toISOString().split('T')[0]} 至 ${end.toISOString().split('T')[0]}`);
+                return { startDate: null, endDate: null };
+            }
         } else {
             start = newStart;
             end = newEnd;
