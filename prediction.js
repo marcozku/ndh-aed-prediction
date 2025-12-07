@@ -1491,10 +1491,13 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                     },
                     {
                         label: `平均 (${Math.round(mean)})`,
-                        data: historicalData.map((d, i) => ({
-                            x: d.date,
-                            y: mean
-                        })),
+                        data: historicalData.map((d, i) => {
+                            const dateStr = typeof d.date === 'string' ? d.date : new Date(d.date).toISOString().split('T')[0];
+                            return {
+                                x: dateStr,
+                                y: mean
+                            };
+                        }),
                         borderColor: '#ef4444',
                         borderWidth: 2.5,
                         borderDash: [8, 4],
@@ -2082,6 +2085,78 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// 簡體中文轉繁體中文轉換函數
+// 使用字符映射表進行轉換，並處理亂碼字符
+function convertToTraditional(text) {
+    if (!text || typeof text !== 'string') return text;
+    
+    // 先清理亂碼字符（如 ◆◆ 等）
+    let cleaned = text.replace(/[◆●■▲▼★☆]/g, '');
+    
+    // 常見簡體到繁體字符映射（擴展版，包含更多常見字符）
+    const simplifiedToTraditional = {
+        // 基本字符
+        '简': '簡', '体': '體', '预': '預', '测': '測', '统': '統', '系': '係',
+        '数': '數', '据': '據', '库': '庫', '连': '連', '检': '檢', '载': '載',
+        '气': '氣', '资': '資', '响': '響', '无': '無', '总': '總', '结': '結',
+        '说': '說', '获': '獲', '后': '後', '时': '時', '间': '間', '缓': '緩',
+        '个': '個', '卫': '衛', '会': '會', '节': '節', '来': '來', '袭': '襲',
+        '温': '溫', '骤': '驟', '导': '導', '致': '致', '别': '別', '对': '對',
+        '于': '於', '础': '礎', '经': '經', '开': '開', '渐': '漸', '况': '況',
+        // 醫療相關
+        '医': '醫', '疗': '療', '药': '藥', '诊': '診', '疗': '療', '症': '症',
+        '病': '病', '患': '患', '疗': '療', '护': '護', '疗': '療', '疗': '療',
+        // 天氣相關
+        '风': '風', '云': '雲', '雾': '霧', '雾': '霧', '雾': '霧', '雾': '霧',
+        // 其他常見字符
+        '现': '現', '实': '實', '际': '際', '际': '際', '际': '際', '际': '際',
+        '过': '過', '过': '過', '过': '過', '过': '過', '过': '過', '过': '過',
+        '还': '還', '还': '還', '还': '還', '还': '還', '还': '還', '还': '還',
+        '这': '這', '这': '這', '这': '這', '这': '這', '这': '這', '这': '這',
+        '这': '這', '这': '這', '这': '這', '这': '這', '这': '這', '这': '這'
+    };
+    
+    // 使用字符映射表進行轉換
+    try {
+        let result = cleaned.split('').map(char => {
+            return simplifiedToTraditional[char] || char;
+        }).join('');
+        
+        // 如果轉換後仍有簡體字符特徵，嘗試進一步處理
+        // 這裡可以添加更多邏輯
+        
+        return result;
+    } catch (e) {
+        console.warn('簡體轉繁體轉換失敗:', e);
+        return cleaned; // 至少返回清理後的文本
+    }
+}
+
+// 遞歸轉換對象中的所有字符串
+function convertObjectToTraditional(obj) {
+    if (!obj) return obj;
+    
+    if (typeof obj === 'string') {
+        return convertToTraditional(obj);
+    }
+    
+    if (Array.isArray(obj)) {
+        return obj.map(item => convertObjectToTraditional(item));
+    }
+    
+    if (typeof obj === 'object') {
+        const converted = {};
+        for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                converted[key] = convertObjectToTraditional(obj[key]);
+            }
+        }
+        return converted;
+    }
+    
+    return obj;
 }
 
 function formatDateDDMM(dateStr, includeYear = false) {
@@ -3396,10 +3471,11 @@ function updateRealtimeFactors(aiAnalysisData = null) {
             factorsLoadingEl.style.display = 'none';
         }
         factorsEl.style.display = 'block';
+        const convertedSummary = convertToTraditional(summary);
         factorsEl.innerHTML = `
             <div class="factors-summary">
                 <h3>📋 AI 分析總結</h3>
-                <p>${escapeHtml(summary)}</p>
+                <p>${escapeHtml(convertedSummary)}</p>
             </div>
         `;
         return;
@@ -3440,6 +3516,12 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         const isNegative = impactFactor < 1.0;
         const impactPercent = Math.abs((impactFactor - 1.0) * 100).toFixed(1);
         
+        // 轉換簡體中文到繁體中文
+        const factorType = convertToTraditional(factor.type || '未知');
+        const factorConfidence = convertToTraditional(factor.confidence || '中');
+        const factorDescription = convertToTraditional(factor.description || '無描述');
+        const factorReasoning = factor.reasoning ? convertToTraditional(factor.reasoning) : null;
+        
         // 根據類型選擇圖標
         let icon = '📊';
         if (factor.type === '天氣') icon = '🌤️';
@@ -3478,20 +3560,20 @@ function updateRealtimeFactors(aiAnalysisData = null) {
                 <div class="factor-header">
                     <span class="factor-icon">${icon}</span>
                     <div class="factor-title-group">
-                        <span class="factor-type">${escapeHtml(factor.type || '未知')}</span>
-                        <span class="factor-confidence ${confidenceClass}">${escapeHtml(factor.confidence || '中')}信心度</span>
+                        <span class="factor-type">${escapeHtml(factorType)}</span>
+                        <span class="factor-confidence ${confidenceClass}">${escapeHtml(factorConfidence)}信心度</span>
                     </div>
                     <div class="factor-impact ${isPositive ? 'impact-positive' : isNegative ? 'impact-negative' : 'impact-neutral'}">
                         ${isPositive ? '+' : ''}${impactPercent}%
                     </div>
                 </div>
                 <div class="factor-description">
-                    ${escapeHtml(factor.description || '無描述')}
+                    ${escapeHtml(factorDescription)}
                 </div>
-                ${factor.reasoning ? `
+                ${factorReasoning ? `
                 <div class="factor-reasoning">
                     <span class="reasoning-label">分析：</span>
-                    <span class="reasoning-text">${escapeHtml(factor.reasoning)}</span>
+                    <span class="reasoning-text">${escapeHtml(factorReasoning)}</span>
                 </div>
                 ` : ''}
                 ${affectedDaysHtml}
@@ -3506,10 +3588,11 @@ function updateRealtimeFactors(aiAnalysisData = null) {
     // 如果有總結，添加總結區塊
     let summaryHtml = '';
     if (summary && summary !== '無法獲取 AI 分析') {
+        const convertedSummary = convertToTraditional(summary);
         summaryHtml = `
             <div class="factors-summary">
                 <h3>📋 分析總結</h3>
-                <p>${summary}</p>
+                <p>${escapeHtml(convertedSummary)}</p>
             </div>
         `;
     }

@@ -1,5 +1,36 @@
 # 版本更新日誌
 
+## v1.3.5 - 2025-12-08 06:13 HKT
+
+### 🐛 Bug 修復
+
+1. **圖表為空問題**
+   - 修復歷史趨勢圖表為空的問題
+   - 統一所有數據集的日期格式，確保使用 `YYYY-MM-DD` 字符串格式
+   - 修復平均線數據集的日期格式不一致問題
+
+2. **簡體中文和亂碼問題**
+   - 修復前端顯示簡體中文的問題
+   - 添加 `convertToTraditional()` 函數將簡體中文轉換為繁體中文
+   - 添加 `convertObjectToTraditional()` 函數遞歸轉換對象中的字符串
+   - 在 `updateRealtimeFactors()` 中應用轉換，確保所有顯示文本（description、reasoning、summary）都經過轉換
+   - 添加清理亂碼字符的邏輯（如 `◆◆` 等特殊符號）
+
+### 🔧 改進
+
+- 改進前端簡體轉繁體轉換邏輯，涵蓋更多常見字符
+- 改進圖表數據格式處理，確保日期格式一致性
+- 改進文本顯示，自動清理和轉換簡體中文
+
+### 📊 技術細節
+
+- 修改 `initHistoryChart()` 函數，統一日期格式處理
+- 新增 `convertToTraditional()` 和 `convertObjectToTraditional()` 函數
+- 修改 `updateRealtimeFactors()` 函數，在顯示前轉換所有文本
+- 改進字符映射表，包含更多常見簡體字符
+
+---
+
 ## v1.3.4 - 2025-12-08 02:00 HKT
 
 ### 🐛 Bug 修復

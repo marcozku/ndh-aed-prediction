@@ -1159,6 +1159,13 @@ section h2 {
 }
 
 #history-date-range {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    min-width: 200px;
+    text-align: center;
+}
+
+#history-date-range {
     font-size: 0.875rem;
     color: var(--text-secondary);
     min-width: 200px;
