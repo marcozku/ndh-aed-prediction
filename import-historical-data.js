@@ -1,6 +1,6 @@
 /**
  * 歷史數據導入腳本
- * 解析並導入從 2014-12-01 到 2025-12-01 的歷史數據
+ * 解析並導入從 2014-12-01 到 2025-12-06 的歷史數據
  */
 
 const { initDatabase, insertBulkActualData } = require('./database');
@@ -106,7 +106,7 @@ async function importHistoricalData(skipInit = false) {
             date: d.date,
             patient_count: d.patient_count,
             source: 'historical_bulk_import',
-            notes: `批量導入的歷史數據（2014-12-01 至 2025-12-01）`
+            notes: `批量導入的歷史數據（2014-12-01 至 2025-12-06）`
         }));
         
         // 批量插入數據

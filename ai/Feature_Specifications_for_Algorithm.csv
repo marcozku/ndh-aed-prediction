@@ -1,0 +1,34 @@
+Feature_Name,Data_Type,Range,Category,Importance_Score,Description,Usage
+Date,datetime,2014-12-01 to 2025-12-01,Temporal,0.0,Date of observation,"Index/reference, derive all temporal features"
+Attendance,integer,111-394,Target,1.0,Daily AED attendance (patients),Target variable for prediction
+Year,integer,2014-2025,Temporal,0.04,Calendar year,"Capture long-term trends, policy changes"
+Month,integer,1-12,Temporal,0.08,Calendar month,Seasonal pattern detection
+Day_of_Week,integer,0-6 (Mon-Sun),Temporal,0.11,"Day of week (0=Monday, 6=Sunday)",Weekly cycle detection (Monday peak +22 pts)
+Day_of_Month,integer,1-31,Temporal,0.02,Day within month,"End-of-month effects, salary cycles"
+Week_of_Year,integer,1-53,Temporal,0.03,ISO week number,Multi-week seasonality patterns
+Quarter,integer,1-4,Temporal,0.02,Quarter of year,Quarterly business cycles
+Days_Since_Start,integer,0-4073,Temporal,0.05,Days elapsed since 2014-12-01,"Long-term trend capture, normalization"
+Month_sin,float,-1.0 to 1.0,Cyclical,0.09,sin(2π × Month/12),Preserve cyclical nature of months (Dec≈Jan)
+Month_cos,float,-1.0 to 1.0,Cyclical,0.07,cos(2π × Month/12),Orthogonal seasonal component
+DayOfWeek_sin,float,-1.0 to 1.0,Cyclical,0.06,sin(2π × DayOfWeek/7),Preserve cyclical week (Sun≈Mon)
+DayOfWeek_cos,float,-1.0 to 1.0,Cyclical,0.06,cos(2π × DayOfWeek/7),Orthogonal day-of-week component
+Attendance_Lag1,float,111-394,Lagged,0.18,Attendance from previous day,"Day-to-day persistence (ACF=0.62), strongest predictor"
+Attendance_Lag7,float,111-394,Lagged,0.05,Attendance from 7 days prior,Weekly seasonality (same day last week)
+Attendance_Lag14,float,111-394,Lagged,0.03,Attendance from 14 days prior,Bi-weekly patterns
+Attendance_Lag30,float,111-394,Lagged,0.02,Attendance from 30 days prior,Monthly patterns
+Attendance_Lag365,float,111-394,Lagged,0.08,Attendance from same day last year,Yearly seasonality (flu recurrence)
+Attendance_Rolling7,float,111-394,Rolling,0.16,7-day moving average,"Trend smoothing, medium-term baseline"
+Attendance_Rolling30,float,111-394,Rolling,0.04,30-day moving average,"Monthly baseline, normalization"
+Attendance_Std7,float,0-80,Rolling,0.02,7-day rolling standard deviation,"Volatility signal, uncertainty estimation"
+Attendance_Max7,float,111-394,Rolling,0.01,7-day rolling maximum,"Peak detection, outlier identification"
+Attendance_Min7,float,111-394,Rolling,0.01,7-day rolling minimum,"Trough detection, range analysis"
+Is_COVID_Period,binary,0 or 1,Event,0.14,"1 if Year 2020-2022, else 0",Regime change indicator (-44% attendance)
+Is_Omicron_Wave,binary,0 or 1,Event,0.03,1 if Year=2022 AND Month≤5,Peak pandemic wave (lowest attendance despite peak cases)
+Is_Winter_Flu_Season,binary,0 or 1,Event,0.12,"1 if Month in [12,1,2,3]",Winter influenza peak (+8-12%)
+Is_Summer_Period,binary,0 or 1,Event,0.04,"1 if Month in [6,7,8]","Summer trough, baseline low"
+Is_Protest_Period,binary,0 or 1,Event,0.01,1 if Year=2019 AND Month≥6,"Anti-extradition protests (minimal direct impact, -1.8%)"
+Is_Umbrella_Movement,binary,0 or 1,Event,0.0,1 if Year=2014 AND Month≥9,"Umbrella Movement occupation (minimal impact, -3.5%)"
+Is_Holiday,binary,0 or 1,Event,0.02,1 if date is HK public holiday,Holiday suppression (-12 to -15 patients)
+Is_School_Holiday,binary,0 or 1,Event,0.01,1 if date in school break period,School holiday impact on family ED visits
+Is_Weekend,binary,0 or 1,Event,0.07,1 if DayOfWeek ≥ 5 (Sat/Sun),Weekend suppression (-18 patients vs weekday)
+Is_Monday,binary,0 or 1,Event,0.1,1 if DayOfWeek = 0,Monday peak (+22 patients vs weekend)

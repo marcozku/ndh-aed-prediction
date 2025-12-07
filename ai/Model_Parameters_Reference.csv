@@ -1,0 +1,20 @@
+Model_Type,Hyperparameter,Recommended_Value,Range,Purpose
+XGBoost,n_estimators,500,100-1000,Number of boosting rounds (trees)
+XGBoost,max_depth,6,4-8,Maximum tree depth (6-8 optimal for time series)
+XGBoost,learning_rate,0.05,0.01-0.1,Step size (lower = more iterations needed)
+XGBoost,subsample,0.8,0.5-1.0,Fraction of samples for each tree
+XGBoost,colsample_bytree,0.8,0.5-1.0,Fraction of features for each tree
+XGBoost,alpha,1.0,0.1-5.0,L1 regularization (feature selection)
+XGBoost,lambda,1.0,0.1-5.0,L2 regularization (smoothing)
+LSTM,sequence_length,60,30-90,Days of history for sequence (60-day window)
+LSTM,units_layer1,128,64-256,First LSTM layer neurons
+LSTM,units_layer2,64,32-128,Second LSTM layer neurons
+LSTM,dropout,0.2,0.1-0.3,Regularization for overfitting prevention
+LSTM,epochs,100,50-200,Training iterations
+Prophet,yearly_seasonality,True,True/False,Enable yearly seasonal pattern
+Prophet,weekly_seasonality,True,True/False,Enable weekly pattern (important!)
+Prophet,fourier_order_yearly,10,5-15,Fourier terms for yearly seasonality
+Prophet,fourier_order_weekly,5,3-10,Fourier terms for weekly pattern
+Ensemble,xgb_weight,0.40,0.3-0.5,Weight for XGBoost in ensemble
+Ensemble,lstm_weight,0.35,0.25-0.45,Weight for LSTM in ensemble
+Ensemble,prophet_weight,0.25,0.15-0.35,Weight for Prophet in ensemble

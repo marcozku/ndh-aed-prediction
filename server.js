@@ -20,11 +20,41 @@ let db = null;
 if (process.env.DATABASE_URL) {
     db = require('./database');
     db.initDatabase().then(async () => {
-        // 數據庫初始化成功後，自動執行歷史數據導入
+        // 數據庫初始化成功後，自動檢查並導入歷史數據
         await autoImportHistoricalData();
     }).catch(err => {
         console.error('Failed to initialize database:', err.message);
     });
+}
+
+// 自動導入歷史數據（如果尚未導入）
+async function autoImportHistoricalData() {
+    if (!db || !db.pool) {
+        console.log('⚠️ 數據庫未配置，跳過自動導入');
+        return;
+    }
+    
+    try {
+        // 檢查是否已有歷史數據
+        const checkResult = await db.pool.query(
+            "SELECT COUNT(*) as count FROM actual_data WHERE source = 'historical_analysis_2015_2024'"
+        );
+        const existingCount = parseInt(checkResult.rows[0].count);
+        
+        if (existingCount > 0) {
+            console.log(`✅ 歷史數據已存在（${existingCount}筆），跳過自動導入`);
+            return;
+        }
+        
+        console.log('📊 開始自動導入2015-2024年歷史數據...');
+        const importScript = require('./import-historical-data');
+        // 傳入已初始化的db實例
+        await importScript.importHistoricalData(db);
+        console.log('✅ 歷史數據自動導入完成');
+    } catch (error) {
+        console.error('❌ 自動導入歷史數據失敗:', error.message);
+        // 不阻止服務器啟動，只記錄錯誤
+    }
 }
 
 const mimeTypes = {
