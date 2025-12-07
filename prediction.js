@@ -1553,87 +1553,29 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         updateLoadingProgress('history', 100);
         completeChartLoading('history');
         
-        // 確保圖表正確適應並支持滾動
+        // 確保圖表正確顯示（使用響應式模式，適應容器寬度）
         setTimeout(() => {
             if (historyChart && historyCanvas && historyContainer) {
-                // 重新計算容器寬度
-                const currentContainerWidth = historyContainer.offsetWidth || window.innerWidth;
-                const dataPointWidth = currentContainerWidth <= 600 ? 50 : currentContainerWidth <= 900 ? 60 : 70;
-                const calculatedWidth = Math.max(
-                    currentContainerWidth * 1.5,
-                    historicalData.length * dataPointWidth
-                );
-                
-                // 強制設置canvas寬度和高度
-                historyCanvas.width = calculatedWidth;
-                historyCanvas.height = 380;
-                historyCanvas.style.width = `${calculatedWidth}px`;
-                historyCanvas.style.height = '380px';
-                historyCanvas.style.minWidth = `${calculatedWidth}px`;
-                historyCanvas.style.maxWidth = 'none';
+                // 確保容器和canvas使用響應式寬度（不滾動）
+                historyContainer.style.overflow = 'hidden';
+                historyCanvas.style.width = '100%';
+                historyCanvas.style.maxWidth = '100%';
                 
                 // 更新圖表選項
                 historyChart.options.layout.padding = getResponsivePadding();
                 if (historyChart.options.scales && historyChart.options.scales.x && historyChart.options.scales.x.ticks) {
                     historyChart.options.scales.x.ticks.autoSkip = true;
-                    historyChart.options.scales.x.ticks.maxTicksLimit = Math.min(
-                        getMaxTicksForRange(range, historicalData.length),
-                        Math.floor(currentContainerWidth / 60)
-                    );
+                    historyChart.options.scales.x.ticks.maxTicksLimit = getMaxTicksForRange(range, historicalData.length);
                     historyChart.options.scales.x.ticks.maxRotation = 0;
                 }
                 
-                // 使用固定尺寸重新渲染圖表（禁用響應式）
-                historyChart.resize(calculatedWidth, 380);
+                // 讓圖表自動適應容器寬度（響應式）
+                historyChart.resize();
                 historyChart.update('none');
                 
                 // 確保canvas可見
                 historyCanvas.style.display = 'block';
                 historyCanvas.style.visibility = 'visible';
-                
-                // 確保容器可以滾動
-                historyContainer.style.overflowX = 'auto';
-                historyContainer.style.overflowY = 'hidden';
-                historyContainer.style.webkitOverflowScrolling = 'touch';
-                historyContainer.style.cursor = 'grab';
-                
-                // 確保滾動條可見
-                console.log(`✅ 歷史趨勢圖已設置滾動：容器寬度=${currentContainerWidth}px，圖表寬度=${calculatedWidth}px`);
-                
-                // 添加拖動滾動支持（使用事件委託避免重複添加）
-                if (!historyContainer.dataset.dragHandlerAdded) {
-                    let isDragging = false;
-                    let startX = 0;
-                    let scrollLeft = 0;
-                    
-                    historyContainer.addEventListener('mousedown', (e) => {
-                        isDragging = true;
-                        startX = e.pageX - historyContainer.offsetLeft;
-                        scrollLeft = historyContainer.scrollLeft;
-                        historyContainer.style.cursor = 'grabbing';
-                        e.preventDefault();
-                    });
-                    
-                    historyContainer.addEventListener('mouseleave', () => {
-                        isDragging = false;
-                        historyContainer.style.cursor = 'grab';
-                    });
-                    
-                    historyContainer.addEventListener('mouseup', () => {
-                        isDragging = false;
-                        historyContainer.style.cursor = 'grab';
-                    });
-                    
-                    historyContainer.addEventListener('mousemove', (e) => {
-                        if (!isDragging) return;
-                        e.preventDefault();
-                        const x = e.pageX - historyContainer.offsetLeft;
-                        const walk = (x - startX) * 2;
-                        historyContainer.scrollLeft = scrollLeft - walk;
-                    });
-                    
-                    historyContainer.dataset.dragHandlerAdded = 'true';
-                }
             }
         }, 100);
         console.log(`✅ 歷史趨勢圖已載入 (${historicalData.length} 筆數據, 範圍: ${range})`);
@@ -2534,8 +2476,9 @@ function getDateRangeWithOffset(range, pageOffset = 0) {
     // 根據時間範圍計算基礎日期範圍
     switch (range) {
         case '1D':
+            // 1D: 顯示今天和昨天（2天數據）
             start.setDate(today.getDate() - 1);
-            end.setDate(today.getDate());
+            end.setDate(today.getDate() + 1); // 包含今天
             break;
         case '1週':
             start.setDate(today.getDate() - 7);
