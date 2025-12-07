@@ -1096,7 +1096,10 @@ async function initCharts(predictor) {
                     ...professionalOptions.scales.x,
                     ticks: {
                         ...professionalOptions.scales.x.ticks,
-                        font: { size: 13, weight: 700 }
+                        font: { 
+                            size: window.innerWidth <= 600 ? 10 : 13, 
+                            weight: 700 
+                        }
                     }
                 },
                 y: {
@@ -1384,7 +1387,7 @@ async function initHistoryChart(range = currentHistoryRange) {
                         ticks: { 
                             ...professionalOptions.scales.x.ticks,
                             autoSkip: true,
-                            maxTicksLimit: 12,
+                            maxTicksLimit: getResponsiveMaxTicksLimit(),
                             callback: function(value, index) {
                                 return labels[index] || null;
                             }
@@ -1524,7 +1527,7 @@ async function initComparisonChart() {
                         ticks: {
                             ...professionalOptions.scales.x.ticks,
                             autoSkip: true,
-                            maxTicksLimit: 15
+                            maxTicksLimit: getResponsiveMaxTicksLimit()
                         }
                     },
                     y: {
