@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "pg": "^8.16.3",
-    "opencc": "^1.1.6"
+    "chinese-conv": "^1.0.2"
   }
 }
 

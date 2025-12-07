@@ -5,32 +5,23 @@
 
 const https = require('https');
 const http = require('http');
-let OpenCC = null;
+let chineseConv = null;
 
-// 嘗試載入 OpenCC（如果已安裝）
+// 嘗試載入 chinese-conv（如果已安裝）
 try {
-    OpenCC = require('opencc');
+    chineseConv = require('chinese-conv');
 } catch (e) {
-    console.warn('⚠️ OpenCC 未安裝，將無法自動轉換簡體中文到繁體中文');
-}
-
-// 簡體中文轉繁體中文轉換器
-let s2tConverter = null;
-if (OpenCC) {
-    try {
-        s2tConverter = new OpenCC('s2t.json'); // 簡體到繁體
-    } catch (e) {
-        console.warn('⚠️ 無法初始化 OpenCC 轉換器:', e.message);
-    }
+    console.warn('⚠️ chinese-conv 未安裝，將無法自動轉換簡體中文到繁體中文');
 }
 
 // 轉換簡體中文到繁體中文的輔助函數
-async function convertToTraditional(text) {
+function convertToTraditional(text) {
     if (!text || typeof text !== 'string') return text;
-    if (!s2tConverter) return text; // 如果沒有轉換器，直接返回
+    if (!chineseConv) return text; // 如果沒有轉換器，直接返回
     
     try {
-        return await s2tConverter.convertPromise(text);
+        // chinese-conv 使用 sify() 方法將簡體轉換為繁體
+        return chineseConv.sify(text);
     } catch (e) {
         console.warn('⚠️ 轉換簡體中文失敗:', e.message);
         return text; // 轉換失敗時返回原文
@@ -38,22 +29,18 @@ async function convertToTraditional(text) {
 }
 
 // 遞歸轉換對象中的所有字符串
-async function convertObjectToTraditional(obj) {
+function convertObjectToTraditional(obj) {
     if (!obj) return obj;
     
     if (typeof obj === 'string') {
-        return await convertToTraditional(obj);
+        return convertToTraditional(obj);
     } else if (Array.isArray(obj)) {
-        const converted = [];
-        for (const item of obj) {
-            converted.push(await convertObjectToTraditional(item));
-        }
-        return converted;
+        return obj.map(item => convertObjectToTraditional(item));
     } else if (typeof obj === 'object') {
         const converted = {};
         for (const key in obj) {
             if (obj.hasOwnProperty(key)) {
-                converted[key] = await convertObjectToTraditional(obj[key]);
+                converted[key] = convertObjectToTraditional(obj[key]);
             }
         }
         return converted;
@@ -490,7 +477,7 @@ async function searchRelevantNewsAndEvents() {
         const response = await callAI(prompt, null, 0.5);
         
         // 先轉換響應中的簡體中文到繁體中文
-        const convertedResponse = await convertToTraditional(response);
+        const convertedResponse = convertToTraditional(response);
         
         // 嘗試解析 JSON
         let result;
@@ -513,7 +500,7 @@ async function searchRelevantNewsAndEvents() {
         }
         
         // 轉換結果中的所有字符串為繁體中文
-        result = await convertObjectToTraditional(result);
+        result = convertObjectToTraditional(result);
         
         return result;
     } catch (error) {
@@ -572,7 +559,7 @@ ${weatherData ? `當前天氣狀況：
         const response = await callAI(prompt, null, 0.5);
         
         // 先轉換響應中的簡體中文到繁體中文
-        const convertedResponse = await convertToTraditional(response);
+        const convertedResponse = convertToTraditional(response);
         
         let result;
         try {
@@ -592,7 +579,7 @@ ${weatherData ? `當前天氣狀況：
         }
         
         // 轉換結果中的所有字符串為繁體中文
-        result = await convertObjectToTraditional(result);
+        result = convertObjectToTraditional(result);
         
         return result;
     } catch (error) {
