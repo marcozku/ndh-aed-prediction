@@ -223,6 +223,39 @@ const apiHandlers = {
         sendJson(res, { success: true, data });
     },
 
+    // Debug: Check data for specific dates
+    'GET /api/debug-data': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        try {
+            const parsedUrl = url.parse(req.url, true);
+            const dates = parsedUrl.query.dates ? parsedUrl.query.dates.split(',') : ['2025-12-04', '2025-12-05', '2025-12-06'];
+            
+            const results = [];
+            for (const date of dates) {
+                const actualQuery = await db.pool.query('SELECT * FROM actual_data WHERE date = $1', [date]);
+                const dailyPredQuery = await db.pool.query('SELECT * FROM daily_predictions WHERE target_date = $1 ORDER BY created_at DESC', [date]);
+                const finalPredQuery = await db.pool.query('SELECT * FROM final_daily_predictions WHERE target_date = $1', [date]);
+                const predQuery = await db.pool.query('SELECT * FROM predictions WHERE target_date = $1 ORDER BY created_at DESC', [date]);
+                const accuracyQuery = await db.pool.query('SELECT * FROM prediction_accuracy WHERE date = $1', [date]);
+                
+                results.push({
+                    date,
+                    actual_data: actualQuery.rows[0] || null,
+                    daily_predictions: dailyPredQuery.rows,
+                    final_daily_predictions: finalPredQuery.rows[0] || null,
+                    predictions: predQuery.rows,
+                    prediction_accuracy: accuracyQuery.rows[0] || null
+                });
+            }
+            
+            sendJson(res, { success: true, data: results });
+        } catch (err) {
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+
     // Database status
     'GET /api/db-status': async (req, res) => {
         if (!db || !db.pool) {
