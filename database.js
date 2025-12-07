@@ -467,12 +467,13 @@ async function getComparisonData(limit = 100) {
         LEFT JOIN predictions p ON a.date = p.target_date
         LEFT JOIN prediction_accuracy pa ON a.date = pa.date
         WHERE 
-            -- 確保至少有一個預測數據來源
+            -- 確保至少有一個預測數據來源（使用子查詢檢查 daily_predictions）
             (
                 fdp.predicted_count IS NOT NULL
                 OR EXISTS (
-                    SELECT 1 FROM daily_predictions 
-                    WHERE target_date = a.date
+                    SELECT 1 FROM daily_predictions dp
+                    WHERE dp.target_date = a.date
+                    AND dp.predicted_count IS NOT NULL
                 )
                 OR p.predicted_count IS NOT NULL
             )

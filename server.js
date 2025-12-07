@@ -108,8 +108,16 @@ const apiHandlers = {
             const results = await db.insertBulkActualData(data);
             
             // Calculate accuracy for any dates that now have both prediction and actual
+            // Also calculate final daily predictions for dates that have daily_predictions
             for (const record of results) {
                 await db.calculateAccuracy(record.date);
+                // 如果該日期有 daily_predictions，計算最終預測
+                try {
+                    await db.calculateFinalDailyPrediction(record.date);
+                } catch (err) {
+                    // 如果沒有預測數據，忽略錯誤
+                    console.log(`ℹ️ ${record.date} 沒有預測數據，跳過最終預測計算`);
+                }
             }
             
             sendJson(res, { success: true, inserted: results.length, data: results });
@@ -117,6 +125,13 @@ const apiHandlers = {
             // Single record
             const result = await db.insertActualData(data.date, data.patient_count, data.source, data.notes);
             await db.calculateAccuracy(data.date);
+            // 如果該日期有 daily_predictions，計算最終預測
+            try {
+                await db.calculateFinalDailyPrediction(data.date);
+            } catch (err) {
+                // 如果沒有預測數據，忽略錯誤
+                console.log(`ℹ️ ${data.date} 沒有預測數據，跳過最終預測計算`);
+            }
             sendJson(res, { success: true, data: result });
         }
     },
@@ -291,8 +306,16 @@ const apiHandlers = {
             })));
             
             // Calculate accuracy for all dates
+            // Also calculate final daily predictions for dates that have daily_predictions
             for (const record of results) {
                 await db.calculateAccuracy(record.date);
+                // 如果該日期有 daily_predictions，計算最終預測
+                try {
+                    await db.calculateFinalDailyPrediction(record.date);
+                } catch (err) {
+                    // 如果沒有預測數據，忽略錯誤
+                    console.log(`ℹ️ ${record.date} 沒有預測數據，跳過最終預測計算`);
+                }
             }
             
             sendJson(res, { 
