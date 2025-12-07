@@ -814,19 +814,29 @@ function parseCSVData(csvText) {
     return data;
 }
 
-async function importHistoricalData() {
+async function importHistoricalData(customDb = null) {
     console.log('📊 開始導入2015-2024年歷史數據...');
     
+    // 使用傳入的db實例，或使用默認的
+    const dbInstance = customDb || db;
+    
     try {
-        // 初始化數據庫
-        await db.initDatabase();
+        // 確保數據庫已初始化（如果尚未初始化）
+        if (!dbInstance.pool) {
+            await dbInstance.initDatabase();
+        }
+        
+        // 檢查數據庫連接
+        if (!dbInstance.pool) {
+            throw new Error('數據庫連接未初始化');
+        }
         
         // 解析CSV數據
         const dataToInsert = parseCSVData(CSV_DATA);
         console.log(`✅ 解析完成，共 ${dataToInsert.length} 筆數據`);
         
         // 批量插入數據
-        const results = await db.insertBulkActualData(dataToInsert);
+        const results = await dbInstance.insertBulkActualData(dataToInsert);
         console.log(`✅ 成功導入 ${results.length} 筆歷史數據到數據庫`);
         
         // 顯示數據範圍
