@@ -1487,8 +1487,9 @@ async function initHistoryChart(range = currentHistoryRange) {
             },
             options: {
                 ...professionalOptions,
-                responsive: true,
+                responsive: false, // 禁用自動適應，使用固定寬度以支持滾動
                 maintainAspectRatio: false,
+                devicePixelRatio: window.devicePixelRatio || 1,
                 plugins: {
                     ...professionalOptions.plugins,
                     legend: {
