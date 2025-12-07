@@ -1318,22 +1318,25 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                     return formatDateDDMM(d.date, false);
                     
                 case '1月':
-                    // 1月：顯示日期（DD/MM），每3-5天顯示一次
-                    if (isFirst || isLast || i % 5 === 0 || date.getDate() === 1 || date.getDate() === 15) {
+                    // 1月：顯示日期（DD/MM），每2-3天顯示一次，確保均勻分佈
+                    const step1Month = Math.max(1, Math.floor(totalDays / 15)); // 大約15個標籤
+                    if (isFirst || isLast || i % step1Month === 0 || date.getDate() === 1 || date.getDate() === 15) {
                         return formatDateDDMM(d.date, false);
                     }
                     return '';
                     
                 case '3月':
-                    // 3月：顯示日期（DD/MM），每週顯示一次
-                    if (isFirst || isLast || date.getDay() === 0 || date.getDate() === 1) {
+                    // 3月：顯示日期（DD/MM），每週顯示一次，確保均勻分佈
+                    const step3Month = Math.max(1, Math.floor(totalDays / 20)); // 大約20個標籤
+                    if (isFirst || isLast || i % step3Month === 0 || date.getDay() === 0 || date.getDate() === 1) {
                         return formatDateDDMM(d.date, false);
                     }
                     return '';
                     
                 case '6月':
-                    // 6月：顯示月份（MM月），每月1號和15號顯示
-                    if (isFirst || isLast || date.getDate() === 1 || date.getDate() === 15) {
+                    // 6月：顯示月份（MM月），每2週顯示一次，確保均勻分佈
+                    const step6Month = Math.max(1, Math.floor(totalDays / 24)); // 大約24個標籤
+                    if (isFirst || isLast || i % step6Month === 0 || date.getDate() === 1 || date.getDate() === 15) {
                         if (date.getDate() === 1) {
                             return `${date.getMonth() + 1}月`;
                         }
@@ -1342,9 +1345,13 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                     return '';
                     
                 case '1年':
-                    // 1年：顯示月份（MM月），每月1號顯示
-                    if (isFirst || isLast || date.getDate() === 1) {
-                        return `${date.getMonth() + 1}月`;
+                    // 1年：顯示月份（MM月），每2週顯示一次，確保均勻分佈
+                    const step1Year = Math.max(1, Math.floor(totalDays / 24)); // 大約24個標籤
+                    if (isFirst || isLast || i % step1Year === 0 || date.getDate() === 1) {
+                        if (date.getDate() === 1) {
+                            return `${date.getMonth() + 1}月`;
+                        }
+                        return formatDateDDMM(d.date, false);
                     }
                     return '';
                     
@@ -1415,6 +1422,11 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             historyCanvas.style.height = '380px';
             historyCanvas.style.maxWidth = '100%';
         }
+        
+        // 將日期轉換為時間戳，用於線性比例
+        const dateValues = historicalData.map(d => new Date(d.date).getTime());
+        const minDate = Math.min(...dateValues);
+        const maxDate = Math.max(...dateValues);
         
         historyChart = new Chart(historyCtx, {
             type: 'line',
@@ -1498,32 +1510,41 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 },
                 scales: {
                     x: {
-                        ...professionalOptions.scales.x,
-                        ticks: { 
-                        ...professionalOptions.scales.x.ticks,
-                        autoSkip: true, // 啟用自動跳過以減少標籤密度
-                        maxTicksLimit: getMaxTicksForRange(range, historicalData.length),
-                        font: {
-                            size: containerWidth <= 600 ? 8 : 10
-                        },
-                        padding: containerWidth <= 600 ? 2 : 6,
-                        minRotation: 0,
-                        maxRotation: 0, // 不旋轉，保持水平以支持滾動
-                        callback: function(value, index) {
-                            // 確保返回正確的標籤
-                            if (index >= 0 && index < labels.length) {
-                                const label = labels[index];
-                                // 如果標籤為空，返回null（Chart.js會自動跳過）
-                                return label || null;
+                        type: 'linear', // 使用線性比例以確保日期間距正確
+                        position: 'bottom',
+                        min: 0,
+                        max: historicalData.length - 1,
+                        ticks: {
+                            stepSize: 1, // 每個數據點都顯示
+                            autoSkip: false, // 不自動跳過，顯示所有標籤
+                            maxTicksLimit: undefined, // 不限制標籤數量
+                            font: {
+                                size: containerWidth <= 600 ? 8 : 10
+                            },
+                            padding: containerWidth <= 600 ? 2 : 6,
+                            minRotation: 0,
+                            maxRotation: 0,
+                            callback: function(value, index) {
+                                // 確保返回正確的標籤
+                                const idx = Math.round(value);
+                                if (idx >= 0 && idx < labels.length) {
+                                    const label = labels[idx];
+                                    // 如果標籤為空，返回null（Chart.js會自動跳過）
+                                    return label || null;
+                                }
+                                return null;
+                            },
+                            // 根據時間範圍動態調整標籤間距
+                            stepSize: getTickStepSize(range, historicalData.length),
+                            // 只顯示有標籤的位置
+                            filter: function(tickValue, index) {
+                                const idx = Math.round(tickValue);
+                                return idx >= 0 && idx < labels.length && labels[idx] !== '';
                             }
-                            return null;
                         },
-                        afterFit: function(scale) {
-                            // 確保x軸寬度不超過圖表寬度
-                            if (scale.width > scale.chart.width) {
-                                // 允許溢出以支持滾動
-                            }
-                        }
+                        grid: {
+                            ...professionalOptions.scales.x.grid,
+                            display: true
                         }
                     },
                     y: {
@@ -1806,24 +1827,36 @@ function getMaxTicksForRange(range, dataLength) {
         case '1週':
             return Math.min(7, dataLength); // 1週最多7個標籤
         case '1月':
-            return Math.min(10, dataLength); // 1月最多10個標籤
+            return Math.min(15, dataLength); // 1月最多15個標籤（每2天）
         case '3月':
-            return Math.min(12, dataLength); // 3月最多12個標籤
+            return Math.min(20, dataLength); // 3月最多20個標籤（每週）
         case '6月':
-            return Math.min(12, dataLength); // 6月最多12個標籤
+            return Math.min(24, dataLength); // 6月最多24個標籤（每週）
         case '1年':
-            return Math.min(12, dataLength); // 1年最多12個標籤（每月）
+            return Math.min(24, dataLength); // 1年最多24個標籤（每2週）
         case '2年':
-            return Math.min(8, dataLength); // 2年最多8個標籤（每季度）
+            return Math.min(24, dataLength); // 2年最多24個標籤（每月）
         case '5年':
-            return Math.min(10, dataLength); // 5年最多10個標籤（每半年）
+            return Math.min(30, dataLength); // 5年最多30個標籤（每2月）
         case '10年':
-            return Math.min(10, dataLength); // 10年最多10個標籤（每年）
+            return Math.min(40, dataLength); // 10年最多40個標籤（每季度）
         case '全部':
-            return Math.min(20, dataLength); // 全部最多20個標籤
+            return Math.min(50, dataLength); // 全部最多50個標籤
         default:
-            return Math.min(15, dataLength);
+            return Math.min(20, dataLength);
     }
+}
+
+// 根據時間範圍獲取標籤間距（stepSize）
+function getTickStepSize(range, dataLength) {
+    // 計算應該顯示多少個標籤
+    const maxTicks = getMaxTicksForRange(range, dataLength);
+    // 計算間距：如果數據點少於最大標籤數，每個都顯示；否則按比例間隔
+    if (dataLength <= maxTicks) {
+        return 1; // 每個數據點都顯示
+    }
+    // 計算間距，確保標籤均勻分佈
+    return Math.ceil(dataLength / maxTicks);
 }
 
 // HTML 轉義函數，防止 XSS 並確保文本正確顯示
