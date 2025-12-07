@@ -1087,10 +1087,12 @@ section h2 {
 
 .chart-card h3 {
     color: var(--text-primary);
-    font-size: 1rem;
+    font-size: clamp(0.9rem, 2.5vw, 1rem);
     font-weight: 600;
     margin-bottom: var(--space-lg);
     letter-spacing: -0.01em;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .chart-container {
@@ -1099,6 +1101,9 @@ section h2 {
     max-width: 100%;
     height: 300px;
     box-sizing: border-box;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
 }
 
 .chart-container.large {
@@ -1266,6 +1271,8 @@ section h2 {
     padding: var(--space-2xl);
     border: 1px solid var(--border-subtle);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 20px rgba(0, 0, 0, 0.03);
+    position: relative;
+    overflow: hidden;
     box-sizing: border-box;
 }
 

@@ -749,7 +749,8 @@ const professionalOptions = {
         mode: 'index'
     },
     layout: {
-        padding: getResponsivePadding()
+        padding: getResponsivePadding(),
+        autoPadding: false
     },
     plugins: {
         legend: {
