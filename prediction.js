@@ -1481,6 +1481,8 @@ async function initComparisonChart() {
             },
             options: {
                 ...professionalOptions,
+                responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
                     ...professionalOptions.plugins,
                     tooltip: {

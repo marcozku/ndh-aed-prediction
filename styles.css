@@ -99,20 +99,24 @@ body::before {
 }
 
 /* ============================================
-   Main Container
+   Main Container - Full Width Responsive
    ============================================ */
 .prediction-container {
-    max-width: 1400px;
+    width: 100%;
+    max-width: 100%;
     margin: 0 auto;
     padding: var(--space-xl);
     position: relative;
     z-index: 1;
+    box-sizing: border-box;
 }
 
 /* ============================================
    Header Section - Hero Style
    ============================================ */
 .prediction-header {
+    width: 100%;
+    max-width: 100%;
     text-align: center;
     margin-bottom: var(--space-3xl);
     padding: var(--space-3xl) var(--space-xl);
@@ -122,6 +126,7 @@ body::before {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 10px 40px rgba(0, 0, 0, 0.03);
     position: relative;
     overflow: hidden;
+    box-sizing: border-box;
 }
 
 .prediction-header::before {
@@ -326,6 +331,8 @@ body::before {
    區塊載入進度（用於所有區塊）
    ============================================ */
 .section-loading {
+    width: 100%;
+    max-width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -336,13 +343,17 @@ body::before {
     border-radius: 16px;
     border: 1px solid var(--border-subtle);
     margin-bottom: var(--space-lg);
+    box-sizing: border-box;
 }
 
 /* ============================================
-   Section Styles - Unified Design
+   Section Styles - Unified Design (Full Width)
    ============================================ */
 section {
+    width: 100%;
+    max-width: 100%;
     margin-bottom: var(--space-3xl);
+    box-sizing: border-box;
 }
 
 section h2 {
@@ -357,18 +368,23 @@ section h2 {
 }
 
 /* ============================================
-   Today's Prediction Section
+   Today's Prediction Section - Full Width Responsive
    ============================================ */
 .today-prediction {
+    width: 100%;
+    max-width: 100%;
     display: grid;
     grid-template-columns: 1.2fr 1fr;
     gap: var(--space-xl);
+    box-sizing: border-box;
 }
 
 /* ============================================
    Card Design System
    ============================================ */
 .prediction-card {
+    width: 100%;
+    max-width: 100%;
     background: var(--bg-secondary);
     border-radius: var(--radius-xl);
     padding: var(--space-xl);
@@ -377,6 +393,7 @@ section h2 {
     transition: var(--transition-base);
     position: relative;
     overflow: hidden;
+    box-sizing: border-box;
 }
 
 .prediction-card::before {
@@ -613,6 +630,13 @@ section h2 {
 /* ============================================
    實時影響因素區塊
    ============================================ */
+.realtime-factors-section,
+.forecast-section {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
 .realtime-factors-section h2::before {
     content: '📊';
     font-size: 1.5rem;
@@ -894,12 +918,14 @@ section h2 {
 }
 
 .forecast-cards {
+    width: 100%;
+    max-width: 100%;
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: var(--space-md);
-    width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
 }
 
 .forecast-day-card {
@@ -1009,9 +1035,12 @@ section h2 {
    Charts Section - Clean & Modern
    ============================================ */
 .charts-section {
+    width: 100%;
+    max-width: 100%;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-xl);
+    box-sizing: border-box;
 }
 
 .charts-section h2 {
@@ -1038,7 +1067,10 @@ section h2 {
 }
 
 .chart-card.full-width {
+    width: 100%;
+    max-width: 100%;
     grid-column: 1 / -1;
+    box-sizing: border-box;
 }
 
 .chart-card h3 {
@@ -1051,11 +1083,45 @@ section h2 {
 
 .chart-container {
     position: relative;
+    width: 100%;
+    max-width: 100%;
     height: 300px;
+    box-sizing: border-box;
 }
 
 .chart-container.large {
     height: 380px;
+}
+
+/* 圖表響應式高度 */
+@media (max-width: 900px) {
+    .chart-container {
+        height: 250px;
+    }
+    
+    .chart-container.large {
+        height: 300px;
+    }
+}
+
+@media (max-width: 600px) {
+    .chart-container {
+        height: 220px;
+    }
+    
+    .chart-container.large {
+        height: 260px;
+    }
+}
+
+@media (max-width: 380px) {
+    .chart-container {
+        height: 200px;
+    }
+    
+    .chart-container.large {
+        height: 240px;
+    }
 }
 
 /* 時間範圍選擇按鈕 */
@@ -1110,8 +1176,10 @@ section h2 {
 
 .comparison-table {
     width: 100%;
+    max-width: 100%;
     border-collapse: collapse;
     font-size: 0.875rem;
+    box-sizing: border-box;
 }
 
 .comparison-table thead {
@@ -1145,11 +1213,14 @@ section h2 {
    Algorithm Section - Documentation Style
    ============================================ */
 .algorithm-section {
+    width: 100%;
+    max-width: 100%;
     background: var(--bg-secondary);
     border-radius: var(--radius-xl);
     padding: var(--space-2xl);
     border: 1px solid var(--border-subtle);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 20px rgba(0, 0, 0, 0.03);
+    box-sizing: border-box;
 }
 
 .algorithm-section h2::before {
@@ -1158,9 +1229,12 @@ section h2 {
 }
 
 .algorithm-content {
+    width: 100%;
+    max-width: 100%;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--space-xl);
+    box-sizing: border-box;
 }
 
 .algorithm-formula {
@@ -1283,23 +1357,41 @@ section h2 {
 @media (max-width: 1200px) {
     .prediction-container {
         padding: var(--space-lg);
+        width: 100%;
+        max-width: 100%;
     }
     
     .forecast-cards {
         gap: var(--space-sm);
     }
+    
+    .charts-section {
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    }
 }
 
 @media (max-width: 900px) {
+    .prediction-container {
+        padding: var(--space-md);
+        width: 100%;
+        max-width: 100%;
+    }
+    
     .today-prediction {
+        width: 100%;
+        max-width: 100%;
         grid-template-columns: 1fr;
     }
     
     .charts-section {
+        width: 100%;
+        max-width: 100%;
         grid-template-columns: 1fr;
     }
     
     .algorithm-content {
+        width: 100%;
+        max-width: 100%;
         grid-template-columns: 1fr;
     }
     
@@ -1322,11 +1414,57 @@ section h2 {
 @media (max-width: 600px) {
     .prediction-container {
         padding: var(--space-md);
+        width: 100%;
+        max-width: 100%;
     }
     
     .prediction-header {
+        width: 100%;
+        max-width: 100%;
         padding: var(--space-xl) var(--space-md);
         margin-bottom: var(--space-xl);
+        box-sizing: border-box;
+    }
+    
+    section {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .today-prediction {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .charts-section {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .algorithm-content {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .prediction-card,
+    .chart-card {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .chart-container {
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .chart-container canvas {
+        width: 100% !important;
+        max-width: 100% !important;
     }
     
     .prediction-header h1 {
@@ -1405,11 +1543,18 @@ section h2 {
     
     .chart-container {
         height: 280px;
+        width: 100%;
+        max-width: 100%;
     }
     
-.chart-container.large {
-    height: 320px;
-}
+    .chart-container.large {
+        height: 320px;
+    }
+    
+    .chart-container canvas {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
 
 /* 圖表載入狀態 */
 .chart-loading {
@@ -1524,6 +1669,30 @@ section h2 {
 }
 
 @media (max-width: 380px) {
+    .prediction-container {
+        padding: var(--space-sm);
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .prediction-header {
+        padding: var(--space-lg) var(--space-sm);
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    section {
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .prediction-card,
+    .chart-card {
+        padding: var(--space-md);
+        width: 100%;
+        max-width: 100%;
+    }
+    
     .big-number {
         font-size: 2.75rem;
     }
@@ -1531,6 +1700,8 @@ section h2 {
     .forecast-cards {
         grid-template-columns: repeat(auto-fit, minmax(65px, 1fr));
         gap: var(--space-xs);
+        width: 100%;
+        max-width: 100%;
     }
     
     .forecast-day-card {
@@ -1548,6 +1719,21 @@ section h2 {
     
     .forecast-day {
         font-size: 0.75rem;
+    }
+    
+    .chart-container {
+        height: 180px;
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .chart-container.large {
+        height: 220px;
+    }
+    
+    .chart-container canvas {
+        width: 100% !important;
+        max-width: 100% !important;
     }
 }
 
