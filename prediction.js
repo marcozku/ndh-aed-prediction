@@ -712,6 +712,34 @@ const chartColors = {
     border: 'rgba(0, 0, 0, 0.1)'
 };
 
+// 獲取響應式 layout padding（根據屏幕寬度）
+function getResponsivePadding() {
+    const width = window.innerWidth;
+    if (width <= 380) {
+        return { top: 8, bottom: 8, left: 0, right: 0 };
+    } else if (width <= 600) {
+        return { top: 8, bottom: 8, left: 2, right: 2 };
+    } else if (width <= 900) {
+        return { top: 10, bottom: 10, left: 5, right: 5 };
+    } else {
+        return { top: 10, bottom: 10, left: 5, right: 15 };
+    }
+}
+
+// 獲取響應式 maxTicksLimit（根據屏幕寬度）
+function getResponsiveMaxTicksLimit() {
+    const width = window.innerWidth;
+    if (width <= 380) {
+        return 5;
+    } else if (width <= 600) {
+        return 8;
+    } else if (width <= 900) {
+        return 12;
+    } else {
+        return 15;
+    }
+}
+
 // 專業圖表選項 - 手機友好
 const professionalOptions = {
     responsive: true,
@@ -721,12 +749,7 @@ const professionalOptions = {
         mode: 'index'
     },
     layout: {
-        padding: {
-            top: 10,
-            bottom: 10,
-            left: 5,
-            right: 15
-        }
+        padding: getResponsivePadding()
     },
     plugins: {
         legend: {
@@ -976,7 +999,7 @@ async function initCharts(predictor) {
                     ...professionalOptions.scales.x,
                     ticks: {
                         ...professionalOptions.scales.x.ticks,
-                        maxTicksLimit: 15
+                        maxTicksLimit: getResponsiveMaxTicksLimit()
                     }
                 },
                 y: {
@@ -2140,8 +2163,7 @@ async function checkDatabaseStatus() {
 
 // 更新頁腳的數據來源信息
 function updateDataSourceFooter(dateRange) {
-    const footer = document.querySelector('.prediction-footer');
-    if (!footer || !dateRange) return;
+    if (!dateRange) return;
     
     const minDate = dateRange.min_date;
     const maxDate = dateRange.max_date;
@@ -2161,10 +2183,18 @@ function updateDataSourceFooter(dateRange) {
         const formattedMinDate = formatDate(minDate);
         const formattedMaxDate = formatDate(maxDate);
         
-        // 更新第一個段落（數據來源）
-        const dataSourceP = footer.querySelector('p:first-child');
-        if (dataSourceP) {
-            dataSourceP.textContent = `數據來源：NDH AED ${formattedMinDate} 至 ${formattedMaxDate} 歷史數據 (${totalDays}天)`;
+        // 更新數據來源信息（使用 id 或第一個段落）
+        const dataSourceEl = document.getElementById('data-source-info') || 
+                            document.querySelector('.prediction-footer p:first-child');
+        if (dataSourceEl) {
+            dataSourceEl.textContent = `數據來源：NDH AED ${formattedMinDate} 至 ${formattedMaxDate} 歷史數據 (${totalDays}天)`;
+        }
+    } else {
+        // 如果沒有日期範圍，顯示載入中
+        const dataSourceEl = document.getElementById('data-source-info') || 
+                            document.querySelector('.prediction-footer p:first-child');
+        if (dataSourceEl) {
+            dataSourceEl.textContent = '數據來源：載入中...';
         }
     }
 }

@@ -1197,9 +1197,35 @@ section h2 {
 .comparison-table {
     width: 100%;
     max-width: 100%;
+    min-width: 600px;
     border-collapse: collapse;
-    font-size: 0.875rem;
+    font-size: clamp(0.7rem, 1.5vw, 0.875rem);
     box-sizing: border-box;
+}
+
+.comparison-table th,
+.comparison-table td {
+    padding: clamp(0.5rem, 1vw, var(--space-md));
+    white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+    .comparison-table {
+        min-width: 500px;
+        font-size: 0.7rem;
+    }
+    
+    .comparison-table th,
+    .comparison-table td {
+        padding: var(--space-xs) var(--space-sm);
+    }
+}
+
+@media (max-width: 380px) {
+    .comparison-table {
+        min-width: 450px;
+        font-size: 0.65rem;
+    }
 }
 
 .comparison-table thead {
