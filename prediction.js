@@ -1509,7 +1509,7 @@ async function initComparisonChart() {
                     },
                     {
                         label: '預測人數',
-                        data: comparisonData.map(d => d.predicted || null),
+                        data: validComparisonData.map(d => d.predicted || null),
                         borderColor: '#10b981',
                         backgroundColor: 'rgba(16, 185, 129, 0.1)',
                         borderWidth: 2,
@@ -1521,7 +1521,7 @@ async function initComparisonChart() {
                     },
                     {
                         label: '80% CI 上限',
-                        data: comparisonData.map(d => d.ci80_high || null),
+                        data: validComparisonData.map(d => d.ci80_high || null),
                         borderColor: 'rgba(156, 163, 175, 0.5)',
                         backgroundColor: 'rgba(156, 163, 175, 0.05)',
                         borderWidth: 1,
@@ -1531,7 +1531,7 @@ async function initComparisonChart() {
                     },
                     {
                         label: '80% CI 下限',
-                        data: comparisonData.map(d => d.ci80_low || null),
+                        data: validComparisonData.map(d => d.ci80_low || null),
                         borderColor: 'rgba(34, 197, 94, 0.5)',
                         backgroundColor: 'rgba(34, 197, 94, 0.05)',
                         borderWidth: 1,
@@ -1552,7 +1552,7 @@ async function initComparisonChart() {
                         callbacks: {
                             title: function(items) {
                                 const idx = items[0].dataIndex;
-                                return formatDateDDMM(comparisonData[idx].date, true);
+                                return formatDateDDMM(validComparisonData[idx].date, true);
                             }
                         }
                     }
@@ -1592,7 +1592,7 @@ async function initComparisonChart() {
                 comparisonChart.update('none');
             }
         }, 50);
-        console.log(`✅ 實際vs預測對比圖已載入 (${comparisonData.length} 筆數據)`);
+        console.log(`✅ 實際vs預測對比圖已載入 (${validComparisonData.length} 筆有效數據，總共 ${comparisonData.length} 筆)`);
     } catch (error) {
         console.error('❌ 實際vs預測對比圖載入失敗:', error);
         updateLoadingProgress('comparison', 0);
@@ -1649,7 +1649,7 @@ async function initComparisonTable() {
         
         if (loading) loading.style.display = 'none';
         if (table) table.style.display = 'table';
-        console.log(`✅ 詳細比較表格已載入 (${comparisonData.length} 筆數據)`);
+        console.log(`✅ 詳細比較表格已載入 (${validComparisonData.length} 筆有效數據，總共 ${comparisonData.length} 筆)`);
     } catch (error) {
         console.error('❌ 詳細比較表格載入失敗:', error);
         const loading = document.getElementById('comparison-table-loading');
