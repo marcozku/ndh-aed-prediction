@@ -217,10 +217,17 @@ const apiHandlers = {
     'GET /api/comparison': async (req, res) => {
         if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
         
-        const parsedUrl = url.parse(req.url, true);
-        const limit = parseInt(parsedUrl.query.limit) || 30;
-        const data = await db.getComparisonData(limit);
-        sendJson(res, { success: true, data });
+        try {
+            const parsedUrl = url.parse(req.url, true);
+            const limit = parseInt(parsedUrl.query.limit) || 100;
+            const data = await db.getComparisonData(limit);
+            console.log(`📊 比較數據查詢結果: ${data.length} 筆數據`);
+            sendJson(res, { success: true, data });
+        } catch (error) {
+            console.error('❌ 獲取比較數據失敗:', error);
+            console.error('錯誤詳情:', error.stack);
+            sendJson(res, { error: error.message, stack: error.stack }, 500);
+        }
     },
 
     // Debug: Check data for specific dates
