@@ -2208,16 +2208,26 @@ function getMaxTicksForRange(range, dataLength) {
         case '2年':
             return Math.min(24, dataLength); // 2年最多24個標籤（每月）
         case '5年':
-            // 5年：確保均勻分佈，每年約6個標籤
-            return Math.min(Math.max(20, Math.floor(dataLength / 365 * 6)), dataLength);
+            // 5年：每5年一個標籤，計算需要多少個標籤
+            const years5 = dataLength / 365;
+            return Math.min(Math.max(1, Math.ceil(years5 / 5)), 10); // 最多10個標籤
         case '10年':
-            // 10年：確保均勻分佈，每年約4個標籤
-            return Math.min(Math.max(30, Math.floor(dataLength / 365 * 4)), dataLength);
+            // 10年：每10年一個標籤，計算需要多少個標籤
+            const years10 = dataLength / 365;
+            return Math.min(Math.max(1, Math.ceil(years10 / 10)), 10); // 最多10個標籤
         case '全部':
-            // 全部：根據數據量動態調整，確保均勻分佈
-            const years = dataLength / 365;
-            const ticksPerYear = years > 10 ? 3 : years > 5 ? 4 : 6;
-            return Math.min(Math.max(30, Math.floor(dataLength / 365 * ticksPerYear)), dataLength);
+            // 全部：根據數據範圍動態調整
+            const yearsAll = dataLength / 365;
+            if (yearsAll > 20) {
+                // 超過20年：每10年一個標籤
+                return Math.min(Math.max(2, Math.ceil(yearsAll / 10)), 15);
+            } else if (yearsAll > 10) {
+                // 10-20年：每5年一個標籤
+                return Math.min(Math.max(2, Math.ceil(yearsAll / 5)), 10);
+            } else {
+                // 少於10年：每2年一個標籤
+                return Math.min(Math.max(2, Math.ceil(yearsAll / 2)), 10);
+            }
         default:
             return Math.min(baseMaxTicks, dataLength);
     }
@@ -2296,18 +2306,20 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
     // 根據不同的時間範圍，計算 X 軸標籤的實際位置
     switch (range) {
         case '10年':
-        case '全部':
-            // 10年視圖：每年1月1日顯示標籤，數據點也應該對齊到每年1月1日
-            let currentYear = firstDate.getFullYear();
-            const lastYear = lastDate.getFullYear();
+            // 10年視圖：每10年顯示一個標籤（例如 2014年, 2024年），數據點也應該對齊到每10年
+            let currentYear10 = firstDate.getFullYear();
+            const lastYear10 = lastDate.getFullYear();
             
-            // 確保從第一個完整年份開始
-            if (firstDate.getMonth() !== 0 || firstDate.getDate() !== 1) {
-                currentYear = currentYear + 1; // 從下一年開始
+            // 調整到第一個10年的倍數（例如 2014, 2024, 2034...）
+            const firstDecade = Math.floor(currentYear10 / 10) * 10;
+            if (currentYear10 !== firstDecade) {
+                currentYear10 = firstDecade + 10; // 從下一個10年開始
+            } else {
+                currentYear10 = firstDecade; // 如果正好是10年的倍數，從這一年開始
             }
             
-            while (currentYear <= lastYear) {
-                const targetDate = new Date(currentYear, 0, 1); // 1月1日
+            while (currentYear10 <= lastYear10) {
+                const targetDate = new Date(currentYear10, 0, 1); // 1月1日
                 
                 // 找到最接近目標日期的數據點
                 let closestData = null;
@@ -2316,8 +2328,8 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
                 for (const d of data) {
                     const date = new Date(d.date);
                     const diff = Math.abs(date.getTime() - targetDate.getTime());
-                    // 允許在目標日期前後30天內
-                    if (diff < minDiff && diff < 30 * 24 * 60 * 60 * 1000) {
+                    // 允許在目標日期前後1年內
+                    if (diff < minDiff && diff < 365 * 24 * 60 * 60 * 1000) {
                         minDiff = diff;
                         closestData = d;
                     }
@@ -2328,33 +2340,46 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
                     usedDates.add(closestData.date);
                 }
                 
-                currentYear += 1; // 每年一個標籤
+                currentYear10 += 10; // 每10年一個標籤
             }
             break;
             
-        case '5年':
-            // 5年視圖：每半年（1月1日和7月1日）顯示標籤
-            let currentDate5 = new Date(firstDate);
-            // 調整到下一個1月1日或7月1日
-            if (currentDate5.getMonth() !== 0 && currentDate5.getMonth() !== 6) {
-                if (currentDate5.getMonth() < 6) {
-                    currentDate5 = new Date(currentDate5.getFullYear(), 6, 1);
-                } else {
-                    currentDate5 = new Date(currentDate5.getFullYear() + 1, 0, 1);
-                }
+        case '全部':
+            // 全部視圖：根據數據範圍動態決定標籤間隔
+            const firstYearAll = firstDate.getFullYear();
+            const lastYearAll = lastDate.getFullYear();
+            const yearSpan = lastYearAll - firstYearAll;
+            
+            let yearInterval;
+            if (yearSpan > 20) {
+                // 超過20年：每10年一個標籤
+                yearInterval = 10;
+            } else if (yearSpan > 10) {
+                // 10-20年：每5年一個標籤
+                yearInterval = 5;
             } else {
-                currentDate5 = new Date(currentDate5.getFullYear(), currentDate5.getMonth(), 1);
+                // 少於10年：每2年一個標籤
+                yearInterval = 2;
             }
             
-            while (currentDate5 <= lastDate) {
+            // 調整到第一個間隔的倍數
+            let currentYearAll = Math.floor(firstYearAll / yearInterval) * yearInterval;
+            if (currentYearAll < firstYearAll) {
+                currentYearAll += yearInterval;
+            }
+            
+            while (currentYearAll <= lastYearAll) {
+                const targetDate = new Date(currentYearAll, 0, 1); // 1月1日
+                
                 // 找到最接近目標日期的數據點
                 let closestData = null;
                 let minDiff = Infinity;
                 
                 for (const d of data) {
                     const date = new Date(d.date);
-                    const diff = Math.abs(date.getTime() - currentDate5.getTime());
-                    if (diff < minDiff && diff < 15 * 24 * 60 * 60 * 1000) {
+                    const diff = Math.abs(date.getTime() - targetDate.getTime());
+                    // 允許在目標日期前後1年內
+                    if (diff < minDiff && diff < 365 * 24 * 60 * 60 * 1000) {
                         minDiff = diff;
                         closestData = d;
                     }
@@ -2365,12 +2390,46 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
                     usedDates.add(closestData.date);
                 }
                 
-                // 移動到下一個半年（1月1日或7月1日）
-                if (currentDate5.getMonth() === 0) {
-                    currentDate5 = new Date(currentDate5.getFullYear(), 6, 1);
-                } else {
-                    currentDate5 = new Date(currentDate5.getFullYear() + 1, 0, 1);
+                currentYearAll += yearInterval;
+            }
+            break;
+            
+        case '5年':
+            // 5年視圖：每5年顯示一個標籤（例如 2015年, 2020年, 2025年），數據點也應該對齊到每5年
+            let currentYear5 = firstDate.getFullYear();
+            const lastYear5 = lastDate.getFullYear();
+            
+            // 調整到第一個5年的倍數（例如 2015, 2020, 2025...）
+            const firstQuinquennium = Math.floor(currentYear5 / 5) * 5;
+            if (currentYear5 !== firstQuinquennium) {
+                currentYear5 = firstQuinquennium + 5; // 從下一個5年開始
+            } else {
+                currentYear5 = firstQuinquennium; // 如果正好是5年的倍數，從這一年開始
+            }
+            
+            while (currentYear5 <= lastYear5) {
+                const targetDate = new Date(currentYear5, 0, 1); // 1月1日
+                
+                // 找到最接近目標日期的數據點
+                let closestData = null;
+                let minDiff = Infinity;
+                
+                for (const d of data) {
+                    const date = new Date(d.date);
+                    const diff = Math.abs(date.getTime() - targetDate.getTime());
+                    // 允許在目標日期前後1年內
+                    if (diff < minDiff && diff < 365 * 24 * 60 * 60 * 1000) {
+                        minDiff = diff;
+                        closestData = d;
+                    }
                 }
+                
+                if (closestData && !usedDates.has(closestData.date)) {
+                    sampled.push(closestData);
+                    usedDates.add(closestData.date);
+                }
+                
+                currentYear5 += 5; // 每5年一個標籤
             }
             break;
             
@@ -2565,31 +2624,24 @@ function getTimeStepSize(range, dataLength) {
         case '2年':
             return 30; // 每月（約30天）
         case '5年':
-            // 5年：計算均勻間距，目標是每年約6個標籤
-            const ticks5Year = Math.min(30, Math.max(20, Math.floor(days / 365 * 6)));
-            // 返回每兩個標籤之間的天數
-            return Math.max(60, Math.floor(days / ticks5Year));
+            // 5年：每5年一個標籤，返回5年的天數（約1825天）
+            return 1825; // 5年 = 5 * 365天
         case '10年':
-            // 10年：計算均勻間距，目標是每年約4個標籤
-            const ticks10Year = Math.min(40, Math.max(30, Math.floor(days / 365 * 4)));
-            // 返回每兩個標籤之間的天數
-            return Math.max(90, Math.floor(days / ticks10Year));
+            // 10年：每10年一個標籤，返回10年的天數（約3650天）
+            return 3650; // 10年 = 10 * 365天
         case '全部':
-            // 全部：根據數據量動態計算，確保均勻分佈
+            // 全部：根據數據範圍動態計算
             const years = days / 365;
-            let ticksAll;
-            if (years > 10) {
-                // 超過10年：每年約3個標籤
-                ticksAll = Math.min(50, Math.max(30, Math.floor(years * 3)));
-            } else if (years > 5) {
-                // 5-10年：每年約4個標籤
-                ticksAll = Math.min(40, Math.max(30, Math.floor(years * 4)));
+            if (years > 20) {
+                // 超過20年：每10年一個標籤
+                return 3650; // 10年
+            } else if (years > 10) {
+                // 10-20年：每5年一個標籤
+                return 1825; // 5年
             } else {
-                // 少於5年：每年約6個標籤
-                ticksAll = Math.min(30, Math.max(20, Math.floor(years * 6)));
+                // 少於10年：每2年一個標籤
+                return 730; // 2年
             }
-            // 返回每兩個標籤之間的天數，確保均勻分佈
-            return Math.max(30, Math.floor(days / ticksAll));
         default:
             return undefined; // 讓 Chart.js 自動計算
     }
@@ -2632,21 +2684,32 @@ function formatTimeLabel(date, range) {
                 }
                 return `${day}/${month}`;
             case '5年':
-                if (date.getDate() === 1 && [0, 6].includes(date.getMonth())) {
-                    return `${year}年${month}月`;
+                // 只在每5年的1月1日顯示年份標籤（例如 2015年, 2020年, 2025年）
+                if (date.getMonth() === 0 && date.getDate() === 1 && year % 5 === 0) {
+                    return `${year}年`;
                 }
-                return `${day}/${month}`;
+                // 其他日期返回空字符串，讓 Chart.js 自動跳過
+                return '';
             case '10年':
-                // 只在每年1月1日顯示年份標籤
-                if (date.getMonth() === 0 && date.getDate() === 1) {
+                // 只在每10年的1月1日顯示年份標籤（例如 2014年, 2024年）
+                if (date.getMonth() === 0 && date.getDate() === 1 && year % 10 === 4) {
                     return `${year}年`;
                 }
                 // 其他日期返回空字符串，讓 Chart.js 自動跳過
                 return '';
             case '全部':
-                // 只在每年1月1日顯示年份標籤
+                // 根據數據範圍動態決定標籤間隔
+                // 這裡我們假設是每10年、每5年或每2年，具體由 Chart.js 根據數據範圍決定
+                // 我們只在年份是特定倍數時顯示標籤
                 if (date.getMonth() === 0 && date.getDate() === 1) {
-                    return `${year}年`;
+                    // 優先顯示10年的倍數（例如 2014, 2024）
+                    if (year % 10 === 4) {
+                        return `${year}年`;
+                    }
+                    // 如果沒有10年的倍數，顯示5年的倍數（例如 2015, 2020）
+                    if (year % 5 === 0 && year % 10 !== 0) {
+                        return `${year}年`;
+                    }
                 }
                 // 其他日期返回空字符串，讓 Chart.js 自動跳過
                 return '';
