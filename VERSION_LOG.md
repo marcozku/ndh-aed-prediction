@@ -1,5 +1,38 @@
 # 版本更新日誌
 
+## v1.3.12 - 2025-12-08 09:13 HKT
+
+### 🐛 Bug 修復
+
+1. **徹底修復圖表中點太大的問題**
+   - 將所有數據集的 `pointHoverRadius` 設置為 0，確保 hover 時也不顯示點
+   - 將 `pointBackgroundColor` 和 `pointBorderColor` 設置為 `transparent`
+   - 將 `pointBorderWidth` 設置為 0
+   - 確保所有數據集（實際人數、平均線、±1σ 範圍）都沒有顯示點
+
+2. **徹底修復 X 軸間距不均勻問題**
+   - 移除 `ticks.stepSize`，避免與 `time.stepSize` 衝突
+   - 將 `autoSkip` 設置為 `false`，使用我們計算的均勻間距
+   - 將 `source` 從 `'data'` 改為 `'auto'`，讓 Chart.js 根據時間軸計算均勻間距
+   - 添加 `bounds: 'ticks'` 確保刻度在數據範圍內均勻分佈
+   - 改進 `getTimeStepSize()` 函數，根據數據量和時間範圍動態計算均勻間距
+   - 對於長時間範圍（5年、10年、全部），確保標籤間距完全均勻
+
+### 🔧 改進
+
+- 改進時間軸配置，確保所有時間範圍的標籤都完全均勻分佈
+- 改進步長計算邏輯，根據實際數據量動態調整
+- 確保圖表在所有時間範圍下都顯示均勻的間距
+
+### 📊 技術細節
+
+- 修改所有數據集的點配置，完全隱藏點
+- 改進 time scale 配置，使用 `bounds: 'ticks'` 和 `distribution: 'linear'`
+- 改進 `getTimeStepSize()` 函數，根據數據天數和目標標籤數計算均勻間距
+- 移除 ticks 配置中的 `stepSize`，避免與 time.stepSize 衝突
+
+---
+
 ## v1.3.11 - 2025-12-08 09:10 HKT
 
 ### 🐛 Bug 修復

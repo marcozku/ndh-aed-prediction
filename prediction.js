@@ -1506,10 +1506,10 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         fill: true,
                         tension: 0.35,
                         pointRadius: 0,
-                        pointHoverRadius: 4,
-                        pointBackgroundColor: '#4f46e5',
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 1,
+                        pointHoverRadius: 0,
+                        pointBackgroundColor: 'transparent',
+                        pointBorderColor: 'transparent',
+                        pointBorderWidth: 0,
                         showLine: true
                     },
                     {
@@ -1533,7 +1533,8 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         borderWidth: 2.5,
                         borderDash: [8, 4],
                         fill: false,
-                        pointRadius: 0
+                        pointRadius: 0,
+                        pointHoverRadius: 0
                     },
                     {
                         label: '±1σ 範圍',
@@ -1556,7 +1557,8 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         borderWidth: 1.5,
                         borderDash: [4, 4],
                         fill: false,
-                        pointRadius: 0
+                        pointRadius: 0,
+                        pointHoverRadius: 0
                     },
                     {
                         label: '',
@@ -1580,7 +1582,8 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         borderDash: [4, 4],
                         fill: '-1',
                         backgroundColor: 'rgba(239, 68, 68, 0.03)',
-                        pointRadius: 0
+                        pointRadius: 0,
+                        pointHoverRadius: 0
                     }
                 ]
             },
@@ -1702,20 +1705,23 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                             displayFormats: getTimeDisplayFormats(range),
                             tooltipFormat: 'yyyy-MM-dd',
                             // 對於長時間範圍，確保均勻分佈
-                            stepSize: getTimeStepSize(range, historicalData.length)
+                            stepSize: getTimeStepSize(range, historicalData.length),
+                            // 確保時間軸使用均勻間距
+                            round: false // 不四捨五入，保持精確時間
                         },
                         distribution: 'linear', // 使用線性分佈確保均勻間距
+                        bounds: 'ticks', // 確保刻度在數據範圍內均勻分佈
                         ticks: {
-                            autoSkip: true,
+                            autoSkip: false, // 禁用自動跳過，使用我們計算的均勻間距
                             maxTicksLimit: getMaxTicksForRange(range, historicalData.length),
-                            source: 'data', // 使用數據源確保均勻分佈
+                            source: 'auto', // 使用自動源，讓 Chart.js 根據時間軸計算均勻間距
                             font: {
                                 size: containerWidth <= 600 ? 8 : 10
                             },
                             padding: containerWidth <= 600 ? 2 : 6,
                             minRotation: 0,
                             maxRotation: containerWidth <= 600 ? 45 : 0, // 小屏幕允許旋轉
-                            stepSize: undefined, // 讓 Chart.js 自動計算步長以確保均勻分佈
+                            // 移除 stepSize，讓 time.stepSize 控制
                             // 使用自定義 callback 來格式化日期標籤，避免 [object Object]
                             callback: function(value, index, ticks) {
                                 // 確保返回字符串，避免 [object Object]
@@ -2232,9 +2238,12 @@ function getTimeDisplayFormats(range) {
 function getTimeStepSize(range, dataLength) {
     if (!dataLength || dataLength === 0) return undefined;
     
+    // 計算數據的時間跨度（天數）
+    const days = dataLength;
+    
     switch (range) {
         case '1D':
-            return 1; // 每小時
+            return 1; // 每小時（Chart.js 會自動轉換）
         case '1週':
             return 1; // 每天
         case '1月':
@@ -2248,24 +2257,31 @@ function getTimeStepSize(range, dataLength) {
         case '2年':
             return 30; // 每月（約30天）
         case '5年':
-            // 5年：每2個月一個標籤，約60天
-            return Math.max(60, Math.floor(dataLength / 30));
+            // 5年：計算均勻間距，目標是每年約6個標籤
+            const ticks5Year = Math.min(30, Math.max(20, Math.floor(days / 365 * 6)));
+            // 返回每兩個標籤之間的天數
+            return Math.max(60, Math.floor(days / ticks5Year));
         case '10年':
-            // 10年：每季度一個標籤，約90天
-            return Math.max(90, Math.floor(dataLength / 40));
+            // 10年：計算均勻間距，目標是每年約4個標籤
+            const ticks10Year = Math.min(40, Math.max(30, Math.floor(days / 365 * 4)));
+            // 返回每兩個標籤之間的天數
+            return Math.max(90, Math.floor(days / ticks10Year));
         case '全部':
             // 全部：根據數據量動態計算，確保均勻分佈
-            const years = dataLength / 365;
+            const years = days / 365;
+            let ticksAll;
             if (years > 10) {
-                // 超過10年：每季度一個標籤
-                return Math.max(90, Math.floor(dataLength / 40));
+                // 超過10年：每年約3個標籤
+                ticksAll = Math.min(50, Math.max(30, Math.floor(years * 3)));
             } else if (years > 5) {
-                // 5-10年：每2個月一個標籤
-                return Math.max(60, Math.floor(dataLength / 30));
+                // 5-10年：每年約4個標籤
+                ticksAll = Math.min(40, Math.max(30, Math.floor(years * 4)));
             } else {
-                // 少於5年：每月一個標籤
-                return Math.max(30, Math.floor(dataLength / 24));
+                // 少於5年：每年約6個標籤
+                ticksAll = Math.min(30, Math.max(20, Math.floor(years * 6)));
             }
+            // 返回每兩個標籤之間的天數，確保均勻分佈
+            return Math.max(30, Math.floor(days / ticksAll));
         default:
             return undefined; // 讓 Chart.js 自動計算
     }
