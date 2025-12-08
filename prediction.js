@@ -1311,41 +1311,50 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             return;
         }
         
-        // 對於長時間範圍，進行數據均勻化處理
-        // 確保數據點在時間軸上均勻分佈
+        // 根據 X 軸標籤數量進行數據均勻化處理
+        // 確保數據點對齊到 X 軸標籤的位置
         const originalLength = historicalData.length;
         if (originalLength > 0) {
-            // 計算目標數據點數量（根據時間範圍和數據量）
+            // 計算 X 軸標籤數量（根據時間範圍和容器寬度）
+            const containerWidth = window.innerWidth || 1200;
+            const maxTicks = getMaxTicksForRange(range, originalLength);
+            
+            // 根據時間範圍決定是否需要採樣
+            // 短時間範圍保持所有數據，長時間範圍根據 X 軸標籤數量採樣
             let targetPoints;
             switch (range) {
                 case '1D':
                 case '1週':
                 case '1月':
-                    targetPoints = originalLength; // 短時間範圍保持所有數據
+                    // 短時間範圍：保持所有數據，或最多不超過 X 軸標籤數的 3 倍
+                    targetPoints = Math.min(originalLength, maxTicks * 3);
                     break;
                 case '3月':
                 case '6月':
-                    targetPoints = Math.min(originalLength, 200); // 中等範圍最多200個點
+                    // 中等範圍：根據 X 軸標籤數量採樣，每個標籤對應多個數據點
+                    targetPoints = Math.min(originalLength, maxTicks * 5);
                     break;
                 case '1年':
                 case '2年':
-                    targetPoints = Math.min(originalLength, 300); // 1-2年最多300個點
+                    // 1-2年：每個標籤對應多個數據點
+                    targetPoints = Math.min(originalLength, maxTicks * 8);
                     break;
                 case '5年':
-                    targetPoints = Math.min(originalLength, 400); // 5年最多400個點
-                    break;
                 case '10年':
                 case '全部':
-                    targetPoints = Math.min(originalLength, 500); // 長時間範圍最多500個點
+                    // 長時間範圍：根據 X 軸標籤數量採樣，確保數據點對齊到標籤位置
+                    // 每個標籤對應的數據點數量根據數據密度動態調整
+                    const dataDensity = originalLength / maxTicks;
+                    targetPoints = Math.min(originalLength, Math.max(maxTicks, Math.floor(dataDensity * maxTicks)));
                     break;
                 default:
-                    targetPoints = Math.min(originalLength, 1000);
+                    targetPoints = Math.min(originalLength, maxTicks * 10);
             }
             
-            // 如果需要均勻化，重新採樣數據
+            // 如果需要均勻化，根據 X 軸標籤位置重新採樣數據
             if (originalLength > targetPoints) {
-                historicalData = uniformSampleData(historicalData, targetPoints);
-                console.log(`📊 數據均勻化：從 ${originalLength} 個數據點均勻採樣到 ${historicalData.length} 個`);
+                historicalData = uniformSampleDataByAxis(historicalData, range, maxTicks, originalLength);
+                console.log(`📊 數據均勻化（對齊 X 軸）：從 ${originalLength} 個數據點採樣到 ${historicalData.length} 個（X 軸標籤：${maxTicks}）`);
             }
         }
         
@@ -2270,14 +2279,14 @@ function getTimeDisplayFormats(range) {
     }
 }
 
-// 均勻採樣數據，確保數據點在時間軸上均勻分佈
-function uniformSampleData(data, targetCount) {
-    if (!data || data.length === 0 || targetCount >= data.length) {
+// 根據 X 軸標籤位置均勻採樣數據，確保數據點對齊到 X 軸標籤
+function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
+    if (!data || data.length === 0 || maxTicks >= data.length) {
         return data;
     }
     
-    if (targetCount <= 2) {
-        // 如果目標數量太少，只返回首尾
+    if (maxTicks <= 2) {
+        // 如果標籤太少，只返回首尾
         return [data[0], data[data.length - 1]].filter(Boolean);
     }
     
@@ -2285,27 +2294,30 @@ function uniformSampleData(data, targetCount) {
     const firstDate = new Date(data[0].date);
     const lastDate = new Date(data[data.length - 1].date);
     const timeSpan = lastDate.getTime() - firstDate.getTime();
-    const interval = timeSpan / (targetCount - 1); // 均勻間隔
+    
+    // 根據時間範圍計算 X 軸標籤的實際時間間隔
+    const stepSize = getTimeStepSize(range, originalLength);
+    let interval;
+    
+    if (stepSize && stepSize > 0) {
+        // 使用計算的步長（以天為單位）
+        interval = stepSize * 24 * 60 * 60 * 1000; // 轉換為毫秒
+    } else {
+        // 如果沒有步長，根據標籤數量計算均勻間隔
+        interval = timeSpan / (maxTicks - 1);
+    }
     
     const sampled = [];
-    const dataMap = new Map(); // 用於快速查找
+    const usedDates = new Set(); // 避免重複
     
-    // 建立日期到數據的映射
-    data.forEach(d => {
-        const date = new Date(d.date);
-        const timestamp = date.getTime();
-        dataMap.set(timestamp, d);
-    });
-    
-    // 均勻採樣
-    for (let i = 0; i < targetCount; i++) {
+    // 根據 X 軸標籤位置採樣數據點
+    for (let i = 0; i < maxTicks; i++) {
         const targetTime = firstDate.getTime() + (interval * i);
         
         // 找到最接近目標時間的數據點
         let closestData = null;
         let minDiff = Infinity;
         
-        // 在原始數據中查找最接近的點
         for (const d of data) {
             const date = new Date(d.date);
             const diff = Math.abs(date.getTime() - targetTime);
@@ -2315,20 +2327,103 @@ function uniformSampleData(data, targetCount) {
             }
         }
         
-        if (closestData) {
-            // 避免重複添加相同的數據點
-            if (sampled.length === 0 || sampled[sampled.length - 1].date !== closestData.date) {
-                sampled.push(closestData);
-            }
+        if (closestData && !usedDates.has(closestData.date)) {
+            sampled.push(closestData);
+            usedDates.add(closestData.date);
         }
     }
     
     // 確保第一個和最後一個數據點始終包含
     if (sampled.length > 0) {
-        if (sampled[0].date !== data[0].date) {
+        if (!usedDates.has(data[0].date)) {
             sampled.unshift(data[0]);
         }
-        if (sampled[sampled.length - 1].date !== data[data.length - 1].date) {
+        if (!usedDates.has(data[data.length - 1].date)) {
+            sampled.push(data[data.length - 1]);
+        }
+    } else {
+        sampled.push(data[0], data[data.length - 1]);
+    }
+    
+    // 對於長時間範圍，在標籤之間添加額外的數據點以保持線條平滑
+    if (range === '5年' || range === '10年' || range === '全部') {
+        const enriched = [];
+        for (let i = 0; i < sampled.length - 1; i++) {
+            enriched.push(sampled[i]);
+            
+            // 在兩個標籤之間添加中間數據點
+            const currentDate = new Date(sampled[i].date);
+            const nextDate = new Date(sampled[i + 1].date);
+            const midTime = (currentDate.getTime() + nextDate.getTime()) / 2;
+            
+            // 找到最接近中間時間的數據點
+            let midData = null;
+            let minMidDiff = Infinity;
+            for (const d of data) {
+                const date = new Date(d.date);
+                const diff = Math.abs(date.getTime() - midTime);
+                if (diff < minMidDiff && date > currentDate && date < nextDate) {
+                    minMidDiff = diff;
+                    midData = d;
+                }
+            }
+            
+            if (midData && !usedDates.has(midData.date)) {
+                enriched.push(midData);
+                usedDates.add(midData.date);
+            }
+        }
+        enriched.push(sampled[sampled.length - 1]);
+        return enriched;
+    }
+    
+    return sampled;
+}
+
+// 均勻採樣數據，確保數據點在時間軸上均勻分佈（保留作為備用）
+function uniformSampleData(data, targetCount) {
+    if (!data || data.length === 0 || targetCount >= data.length) {
+        return data;
+    }
+    
+    if (targetCount <= 2) {
+        return [data[0], data[data.length - 1]].filter(Boolean);
+    }
+    
+    const firstDate = new Date(data[0].date);
+    const lastDate = new Date(data[data.length - 1].date);
+    const timeSpan = lastDate.getTime() - firstDate.getTime();
+    const interval = timeSpan / (targetCount - 1);
+    
+    const sampled = [];
+    const usedDates = new Set();
+    
+    for (let i = 0; i < targetCount; i++) {
+        const targetTime = firstDate.getTime() + (interval * i);
+        
+        let closestData = null;
+        let minDiff = Infinity;
+        
+        for (const d of data) {
+            const date = new Date(d.date);
+            const diff = Math.abs(date.getTime() - targetTime);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestData = d;
+            }
+        }
+        
+        if (closestData && !usedDates.has(closestData.date)) {
+            sampled.push(closestData);
+            usedDates.add(closestData.date);
+        }
+    }
+    
+    if (sampled.length > 0) {
+        if (!usedDates.has(data[0].date)) {
+            sampled.unshift(data[0]);
+        }
+        if (!usedDates.has(data[data.length - 1].date)) {
             sampled.push(data[data.length - 1]);
         }
     } else {
