@@ -1,5 +1,52 @@
 # 版本更新日誌
 
+## v1.3.11 - 2025-12-08 09:10 HKT
+
+### 🐛 Bug 修復
+
+1. **修復歷史趨勢圖表中點太大的問題**
+   - 將所有數據集的 `pointRadius` 設置為 0，確保點不顯示
+   - 調整 `pointHoverRadius` 從 6 減小到 4，避免 hover 時點太大遮擋圖表
+   - 添加 `showLine: true` 確保線條正確顯示
+
+2. **修復 "實際: [object Object]人" 顯示問題**
+   - 改進 tooltip label callback 的數據提取邏輯
+   - 處理不同的數據格式（對象、數字、字符串）
+   - 從對象中正確提取 `y` 或 `value` 屬性
+   - 確保返回值始終是數字並四捨五入
+
+3. **修復 AI 結果中的簡體中文問題**
+   - 改進 `convertToTraditional()` 函數，添加更多常見字符映射
+   - 添加常見簡體詞組的轉換（如 "实际" → "實際"、"预测" → "預測" 等）
+   - 確保所有 AI 結果文本（description、reasoning、summary）都經過轉換
+   - 在 `updateRealtimeFactors()` 中確保所有字符串都轉換為繁體中文
+
+4. **修復 X 軸間距不均勻和圖表斷裂問題**
+   - 改進 `getMaxTicksForRange()` 函數，根據時間範圍和數據量動態調整標籤數量
+   - 對於長時間範圍（5年、10年、全部），確保標籤均勻分佈
+   - 添加 `getTimeStepSize()` 函數計算時間步長，確保均勻分佈
+   - 在 time scale 配置中添加 `distribution: 'linear'` 確保線性分佈
+   - 添加 `source: 'data'` 和 `stepSize` 配置，讓 Chart.js 自動計算均勻間距
+   - 改進長時間範圍的標籤計算邏輯，根據數據量動態調整
+
+### 🔧 改進
+
+- 改進圖表響應式設計，根據容器寬度動態調整標籤數量
+- 改進時間軸配置，確保所有時間範圍的標籤都均勻分佈
+- 改進簡體轉繁體轉換邏輯，涵蓋更多常見字符和詞組
+- 改進錯誤處理，確保所有返回值都是正確的類型
+
+### 📊 技術細節
+
+- 修改 `initHistoryChart()` 中的數據集配置，設置 `pointRadius: 0`
+- 修改 tooltip label callback，改進數據提取邏輯
+- 改進 `convertToTraditional()` 函數，添加詞組轉換邏輯
+- 新增 `getTimeStepSize()` 函數計算時間步長
+- 改進 `getMaxTicksForRange()` 函數，動態計算標籤數量
+- 在 time scale 配置中添加 `distribution` 和 `stepSize` 選項
+
+---
+
 ## v1.3.10 - 2025-12-08 06:45 HKT
 
 ### 🐛 Bug 修復

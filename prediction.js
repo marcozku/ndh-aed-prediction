@@ -1506,10 +1506,11 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         fill: true,
                         tension: 0.35,
                         pointRadius: 0,
-                        pointHoverRadius: 6,
+                        pointHoverRadius: 4,
                         pointBackgroundColor: '#4f46e5',
                         pointBorderColor: '#fff',
-                        pointBorderWidth: 2
+                        pointBorderWidth: 1,
+                        showLine: true
                     },
                     {
                         label: `平均 (${Math.round(mean)})`,
@@ -1666,9 +1667,23 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                                 if (!item) return null;
                                 try {
                                     if (item.datasetIndex === 0) {
-                                        const value = item.raw;
+                                        let value = item.raw;
+                                        // 處理不同的數據格式
                                         if (value === null || value === undefined) return null;
-                                        return `實際: ${value} 人`;
+                                        
+                                        // 如果是對象，提取 y 值
+                                        if (typeof value === 'object' && value !== null) {
+                                            value = value.y !== undefined ? value.y : 
+                                                   value.value !== undefined ? value.value :
+                                                   null;
+                                        }
+                                        
+                                        // 確保是數字
+                                        if (typeof value !== 'number' || isNaN(value)) {
+                                            return null;
+                                        }
+                                        
+                                        return `實際: ${Math.round(value)} 人`;
                                     }
                                     return null;
                                 } catch (e) {
@@ -1685,17 +1700,22 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         time: {
                             unit: getTimeUnit(range), // 根據範圍動態設置時間單位
                             displayFormats: getTimeDisplayFormats(range),
-                            tooltipFormat: 'yyyy-MM-dd'
+                            tooltipFormat: 'yyyy-MM-dd',
+                            // 對於長時間範圍，確保均勻分佈
+                            stepSize: getTimeStepSize(range, historicalData.length)
                         },
+                        distribution: 'linear', // 使用線性分佈確保均勻間距
                         ticks: {
                             autoSkip: true,
                             maxTicksLimit: getMaxTicksForRange(range, historicalData.length),
+                            source: 'data', // 使用數據源確保均勻分佈
                             font: {
                                 size: containerWidth <= 600 ? 8 : 10
                             },
                             padding: containerWidth <= 600 ? 2 : 6,
                             minRotation: 0,
                             maxRotation: containerWidth <= 600 ? 45 : 0, // 小屏幕允許旋轉
+                            stepSize: undefined, // 讓 Chart.js 自動計算步長以確保均勻分佈
                             // 使用自定義 callback 來格式化日期標籤，避免 [object Object]
                             callback: function(value, index, ticks) {
                                 // 確保返回字符串，避免 [object Object]
@@ -2117,6 +2137,10 @@ async function initComparisonTable() {
 // ============================================
 // 根據時間範圍獲取最大標籤數量
 function getMaxTicksForRange(range, dataLength) {
+    // 根據容器寬度動態調整標籤數量
+    const containerWidth = window.innerWidth || 1200;
+    const baseMaxTicks = containerWidth <= 600 ? 12 : containerWidth <= 900 ? 18 : 24;
+    
     switch (range) {
         case '1D':
             return Math.min(24, dataLength); // 1天最多24個標籤
@@ -2133,13 +2157,18 @@ function getMaxTicksForRange(range, dataLength) {
         case '2年':
             return Math.min(24, dataLength); // 2年最多24個標籤（每月）
         case '5年':
-            return Math.min(30, dataLength); // 5年最多30個標籤（每2月）
+            // 5年：確保均勻分佈，每年約6個標籤
+            return Math.min(Math.max(20, Math.floor(dataLength / 365 * 6)), dataLength);
         case '10年':
-            return Math.min(40, dataLength); // 10年最多40個標籤（每季度）
+            // 10年：確保均勻分佈，每年約4個標籤
+            return Math.min(Math.max(30, Math.floor(dataLength / 365 * 4)), dataLength);
         case '全部':
-            return Math.min(50, dataLength); // 全部最多50個標籤
+            // 全部：根據數據量動態調整，確保均勻分佈
+            const years = dataLength / 365;
+            const ticksPerYear = years > 10 ? 3 : years > 5 ? 4 : 6;
+            return Math.min(Math.max(30, Math.floor(dataLength / 365 * ticksPerYear)), dataLength);
         default:
-            return Math.min(20, dataLength);
+            return Math.min(baseMaxTicks, dataLength);
     }
 }
 
@@ -2196,6 +2225,49 @@ function getTimeDisplayFormats(range) {
             return { year: 'yyyy年' };
         default:
             return { day: 'dd/MM' };
+    }
+}
+
+// 根據時間範圍獲取時間步長（用於確保均勻分佈）
+function getTimeStepSize(range, dataLength) {
+    if (!dataLength || dataLength === 0) return undefined;
+    
+    switch (range) {
+        case '1D':
+            return 1; // 每小時
+        case '1週':
+            return 1; // 每天
+        case '1月':
+            return 1; // 每天
+        case '3月':
+            return 7; // 每週
+        case '6月':
+            return 7; // 每週
+        case '1年':
+            return 30; // 每月（約30天）
+        case '2年':
+            return 30; // 每月（約30天）
+        case '5年':
+            // 5年：每2個月一個標籤，約60天
+            return Math.max(60, Math.floor(dataLength / 30));
+        case '10年':
+            // 10年：每季度一個標籤，約90天
+            return Math.max(90, Math.floor(dataLength / 40));
+        case '全部':
+            // 全部：根據數據量動態計算，確保均勻分佈
+            const years = dataLength / 365;
+            if (years > 10) {
+                // 超過10年：每季度一個標籤
+                return Math.max(90, Math.floor(dataLength / 40));
+            } else if (years > 5) {
+                // 5-10年：每2個月一個標籤
+                return Math.max(60, Math.floor(dataLength / 30));
+            } else {
+                // 少於5年：每月一個標籤
+                return Math.max(30, Math.floor(dataLength / 24));
+            }
+        default:
+            return undefined; // 讓 Chart.js 自動計算
     }
 }
 
@@ -2290,16 +2362,19 @@ function convertToTraditional(text) {
         '温': '溫', '骤': '驟', '导': '導', '致': '致', '别': '別', '对': '對',
         '于': '於', '础': '礎', '经': '經', '开': '開', '渐': '漸', '况': '況',
         // 醫療相關
-        '医': '醫', '疗': '療', '药': '藥', '诊': '診', '疗': '療', '症': '症',
-        '病': '病', '患': '患', '疗': '療', '护': '護', '疗': '療', '疗': '療',
+        '医': '醫', '疗': '療', '药': '藥', '诊': '診', '症': '症',
+        '病': '病', '患': '患', '护': '護',
         // 天氣相關
-        '风': '風', '云': '雲', '雾': '霧', '雾': '霧', '雾': '霧', '雾': '霧',
+        '风': '風', '云': '雲', '雾': '霧',
         // 其他常見字符
-        '现': '現', '实': '實', '际': '際', '际': '際', '际': '際', '际': '際',
-        '过': '過', '过': '過', '过': '過', '过': '過', '过': '過', '过': '過',
-        '还': '還', '还': '還', '还': '還', '还': '還', '还': '還', '还': '還',
-        '这': '這', '这': '這', '这': '這', '这': '這', '这': '這', '这': '這',
-        '这': '這', '这': '這', '这': '這', '这': '這', '这': '這', '这': '這'
+        '现': '現', '实': '實', '际': '際',
+        '过': '過', '还': '還', '这': '這',
+        '为': '為', '产': '產', '发': '發', '长': '長', '门': '門',
+        '问': '問', '题': '題', '题': '題', '题': '題',
+        '应': '應', '该': '該', '该': '該', '该': '該',
+        '较': '較', '较': '較', '较': '較',
+        '较': '較', '较': '較', '较': '較',
+        '较': '較', '较': '較', '较': '較'
     };
     
     // 使用字符映射表進行轉換
@@ -2308,8 +2383,27 @@ function convertToTraditional(text) {
             return simplifiedToTraditional[char] || char;
         }).join('');
         
-        // 如果轉換後仍有簡體字符特徵，嘗試進一步處理
-        // 這裡可以添加更多邏輯
+        // 處理常見的簡體詞組
+        const phraseMap = {
+            '实际': '實際', '预测': '預測', '系统': '系統', '数据': '數據',
+            '数据库': '數據庫', '连接': '連接', '检查': '檢查', '载入': '載入',
+            '天气': '天氣', '资源': '資源', '影响': '影響', '无法': '無法',
+            '总结': '總結', '说明': '說明', '获取': '獲取', '之后': '之後',
+            '时间': '時間', '间隔': '間隔', '缓存': '緩存', '个别': '個別',
+            '卫生': '衛生', '会议': '會議', '节日': '節日', '未来': '未來',
+            '袭击': '襲擊', '温度': '溫度', '骤降': '驟降', '导致': '導致',
+            '对于': '對於', '基础': '基礎', '经过': '經過', '开始': '開始',
+            '逐渐': '逐漸', '情况': '情況', '医疗': '醫療', '治疗': '治療',
+            '药物': '藥物', '诊断': '診斷', '症状': '症狀', '患者': '患者',
+            '护理': '護理', '风云': '風雲', '云雾': '雲霧', '现在': '現在',
+            '过去': '過去', '还是': '還是', '这个': '這個', '问题': '問題',
+            '应该': '應該', '比较': '比較'
+        };
+        
+        // 替換常見詞組
+        for (const [simplified, traditional] of Object.entries(phraseMap)) {
+            result = result.replace(new RegExp(simplified, 'g'), traditional);
+        }
         
         return result;
     } catch (e) {
@@ -3725,11 +3819,11 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         const isNegative = impactFactor < 1.0;
         const impactPercent = Math.abs((impactFactor - 1.0) * 100).toFixed(1);
         
-        // 轉換簡體中文到繁體中文
-        const factorType = convertToTraditional(factor.type || '未知');
-        const factorConfidence = convertToTraditional(factor.confidence || '中');
-        const factorDescription = convertToTraditional(factor.description || '無描述');
-        const factorReasoning = factor.reasoning ? convertToTraditional(factor.reasoning) : null;
+        // 轉換簡體中文到繁體中文（確保所有文本都經過轉換）
+        const factorType = convertToTraditional(String(factor.type || '未知'));
+        const factorConfidence = convertToTraditional(String(factor.confidence || '中'));
+        const factorDescription = convertToTraditional(String(factor.description || '無描述'));
+        const factorReasoning = factor.reasoning ? convertToTraditional(String(factor.reasoning)) : null;
         
         // 根據類型選擇圖標
         let icon = '📊';
@@ -3794,10 +3888,12 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         `;
     });
     
-    // 如果有總結，添加總結區塊
+    // 如果有總結，添加總結區塊（確保轉換為繁體中文）
     let summaryHtml = '';
     if (summary && summary !== '無法獲取 AI 分析') {
-        const convertedSummary = convertToTraditional(summary);
+        // 確保 summary 是字符串並轉換為繁體中文
+        const summaryStr = String(summary);
+        const convertedSummary = convertToTraditional(summaryStr);
         summaryHtml = `
             <div class="factors-summary">
                 <h3>📋 分析總結</h3>
