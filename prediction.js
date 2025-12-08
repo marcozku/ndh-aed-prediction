@@ -2281,56 +2281,194 @@ function getTimeDisplayFormats(range) {
 
 // 根據 X 軸標籤位置均勻採樣數據，確保數據點對齊到 X 軸標籤
 function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
-    if (!data || data.length === 0 || maxTicks >= data.length) {
+    if (!data || data.length === 0) {
         return data;
-    }
-    
-    if (maxTicks <= 2) {
-        // 如果標籤太少，只返回首尾
-        return [data[0], data[data.length - 1]].filter(Boolean);
     }
     
     // 獲取第一個和最後一個數據點的時間戳
     const firstDate = new Date(data[0].date);
     const lastDate = new Date(data[data.length - 1].date);
-    const timeSpan = lastDate.getTime() - firstDate.getTime();
     
-    // 根據時間範圍計算 X 軸標籤的實際時間間隔
-    const stepSize = getTimeStepSize(range, originalLength);
-    let interval;
-    
-    if (stepSize && stepSize > 0) {
-        // 使用計算的步長（以天為單位）
-        interval = stepSize * 24 * 60 * 60 * 1000; // 轉換為毫秒
-    } else {
-        // 如果沒有步長，根據標籤數量計算均勻間隔
-        interval = timeSpan / (maxTicks - 1);
-    }
-    
+    // 根據時間範圍計算 X 軸標籤的實際位置
     const sampled = [];
     const usedDates = new Set(); // 避免重複
     
-    // 根據 X 軸標籤位置採樣數據點
-    for (let i = 0; i < maxTicks; i++) {
-        const targetTime = firstDate.getTime() + (interval * i);
-        
-        // 找到最接近目標時間的數據點
-        let closestData = null;
-        let minDiff = Infinity;
-        
-        for (const d of data) {
-            const date = new Date(d.date);
-            const diff = Math.abs(date.getTime() - targetTime);
-            if (diff < minDiff) {
-                minDiff = diff;
-                closestData = d;
+    // 根據不同的時間範圍，計算 X 軸標籤的實際位置
+    switch (range) {
+        case '10年':
+        case '全部':
+            // 10年視圖：每年1月1日顯示標籤，數據點也應該對齊到每年1月1日
+            let currentYear = firstDate.getFullYear();
+            const lastYear = lastDate.getFullYear();
+            
+            // 確保從第一個完整年份開始
+            if (firstDate.getMonth() !== 0 || firstDate.getDate() !== 1) {
+                currentYear = currentYear + 1; // 從下一年開始
             }
-        }
-        
-        if (closestData && !usedDates.has(closestData.date)) {
-            sampled.push(closestData);
-            usedDates.add(closestData.date);
-        }
+            
+            while (currentYear <= lastYear) {
+                const targetDate = new Date(currentYear, 0, 1); // 1月1日
+                
+                // 找到最接近目標日期的數據點
+                let closestData = null;
+                let minDiff = Infinity;
+                
+                for (const d of data) {
+                    const date = new Date(d.date);
+                    const diff = Math.abs(date.getTime() - targetDate.getTime());
+                    // 允許在目標日期前後30天內
+                    if (diff < minDiff && diff < 30 * 24 * 60 * 60 * 1000) {
+                        minDiff = diff;
+                        closestData = d;
+                    }
+                }
+                
+                if (closestData && !usedDates.has(closestData.date)) {
+                    sampled.push(closestData);
+                    usedDates.add(closestData.date);
+                }
+                
+                currentYear += 1; // 每年一個標籤
+            }
+            break;
+            
+        case '5年':
+            // 5年視圖：每半年（1月1日和7月1日）顯示標籤
+            let currentDate5 = new Date(firstDate);
+            // 調整到下一個1月1日或7月1日
+            if (currentDate5.getMonth() !== 0 && currentDate5.getMonth() !== 6) {
+                if (currentDate5.getMonth() < 6) {
+                    currentDate5 = new Date(currentDate5.getFullYear(), 6, 1);
+                } else {
+                    currentDate5 = new Date(currentDate5.getFullYear() + 1, 0, 1);
+                }
+            } else {
+                currentDate5 = new Date(currentDate5.getFullYear(), currentDate5.getMonth(), 1);
+            }
+            
+            while (currentDate5 <= lastDate) {
+                // 找到最接近目標日期的數據點
+                let closestData = null;
+                let minDiff = Infinity;
+                
+                for (const d of data) {
+                    const date = new Date(d.date);
+                    const diff = Math.abs(date.getTime() - currentDate5.getTime());
+                    if (diff < minDiff && diff < 15 * 24 * 60 * 60 * 1000) {
+                        minDiff = diff;
+                        closestData = d;
+                    }
+                }
+                
+                if (closestData && !usedDates.has(closestData.date)) {
+                    sampled.push(closestData);
+                    usedDates.add(closestData.date);
+                }
+                
+                // 移動到下一個半年（1月1日或7月1日）
+                if (currentDate5.getMonth() === 0) {
+                    currentDate5 = new Date(currentDate5.getFullYear(), 6, 1);
+                } else {
+                    currentDate5 = new Date(currentDate5.getFullYear() + 1, 0, 1);
+                }
+            }
+            break;
+            
+        case '1年':
+        case '2年':
+            // 1-2年視圖：每月1日顯示標籤（例如 1月, 2月, 3月...）
+            let currentDate1 = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+            
+            while (currentDate1 <= lastDate) {
+                // 找到最接近目標日期的數據點
+                let closestData = null;
+                let minDiff = Infinity;
+                
+                for (const d of data) {
+                    const date = new Date(d.date);
+                    const diff = Math.abs(date.getTime() - currentDate1.getTime());
+                    if (diff < minDiff && diff < 7 * 24 * 60 * 60 * 1000) {
+                        minDiff = diff;
+                        closestData = d;
+                    }
+                }
+                
+                if (closestData && !usedDates.has(closestData.date)) {
+                    sampled.push(closestData);
+                    usedDates.add(closestData.date);
+                }
+                
+                // 移動到下一個月1日
+                currentDate1 = new Date(currentDate1.getFullYear(), currentDate1.getMonth() + 1, 1);
+            }
+            break;
+            
+        case '3月':
+        case '6月':
+            // 3-6月視圖：每週顯示標籤
+            let currentDate3 = new Date(firstDate);
+            // 調整到最近的週日
+            const dayOfWeek = currentDate3.getDay();
+            currentDate3.setDate(currentDate3.getDate() - dayOfWeek);
+            
+            while (currentDate3 <= lastDate) {
+                // 找到最接近目標日期的數據點
+                let closestData = null;
+                let minDiff = Infinity;
+                
+                for (const d of data) {
+                    const date = new Date(d.date);
+                    const diff = Math.abs(date.getTime() - currentDate3.getTime());
+                    if (diff < minDiff && diff < 3 * 24 * 60 * 60 * 1000) {
+                        minDiff = diff;
+                        closestData = d;
+                    }
+                }
+                
+                if (closestData && !usedDates.has(closestData.date)) {
+                    sampled.push(closestData);
+                    usedDates.add(closestData.date);
+                }
+                
+                // 移動到下一個週日
+                currentDate3.setDate(currentDate3.getDate() + 7);
+            }
+            break;
+            
+        case '1月':
+        case '1週':
+        case '1D':
+        default:
+            // 短時間範圍：保持所有數據或根據標籤數量均勻採樣
+            if (data.length <= maxTicks * 3) {
+                return data; // 數據量不大，保持所有數據
+            }
+            
+            // 根據標籤數量均勻採樣
+            const timeSpan = lastDate.getTime() - firstDate.getTime();
+            const interval = timeSpan / (maxTicks - 1);
+            
+            for (let i = 0; i < maxTicks; i++) {
+                const targetTime = firstDate.getTime() + (interval * i);
+                
+                let closestData = null;
+                let minDiff = Infinity;
+                
+                for (const d of data) {
+                    const date = new Date(d.date);
+                    const diff = Math.abs(date.getTime() - targetTime);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closestData = d;
+                    }
+                }
+                
+                if (closestData && !usedDates.has(closestData.date)) {
+                    sampled.push(closestData);
+                    usedDates.add(closestData.date);
+                }
+            }
+            break;
     }
     
     // 確保第一個和最後一個數據點始終包含
@@ -2345,37 +2483,8 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
         sampled.push(data[0], data[data.length - 1]);
     }
     
-    // 對於長時間範圍，在標籤之間添加額外的數據點以保持線條平滑
-    if (range === '5年' || range === '10年' || range === '全部') {
-        const enriched = [];
-        for (let i = 0; i < sampled.length - 1; i++) {
-            enriched.push(sampled[i]);
-            
-            // 在兩個標籤之間添加中間數據點
-            const currentDate = new Date(sampled[i].date);
-            const nextDate = new Date(sampled[i + 1].date);
-            const midTime = (currentDate.getTime() + nextDate.getTime()) / 2;
-            
-            // 找到最接近中間時間的數據點
-            let midData = null;
-            let minMidDiff = Infinity;
-            for (const d of data) {
-                const date = new Date(d.date);
-                const diff = Math.abs(date.getTime() - midTime);
-                if (diff < minMidDiff && date > currentDate && date < nextDate) {
-                    minMidDiff = diff;
-                    midData = d;
-                }
-            }
-            
-            if (midData && !usedDates.has(midData.date)) {
-                enriched.push(midData);
-                usedDates.add(midData.date);
-            }
-        }
-        enriched.push(sampled[sampled.length - 1]);
-        return enriched;
-    }
+    // 按日期排序
+    sampled.sort((a, b) => new Date(a.date) - new Date(b.date));
     
     return sampled;
 }
