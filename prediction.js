@@ -1311,14 +1311,42 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             return;
         }
         
-        // 對於長時間範圍，進行數據抽樣以減少混亂
-        // 如果數據點超過1000個，進行抽樣
+        // 對於長時間範圍，進行數據均勻化處理
+        // 確保數據點在時間軸上均勻分佈
         const originalLength = historicalData.length;
-        if (originalLength > 1000) {
-            const sampleRate = Math.ceil(originalLength / 1000);
-            const lastIndex = originalLength - 1;
-            historicalData = historicalData.filter((d, i) => i % sampleRate === 0 || i === 0 || i === lastIndex);
-            console.log(`📊 數據抽樣：從 ${originalLength} 個數據點抽樣到 ${historicalData.length} 個（抽樣率：${sampleRate}）`);
+        if (originalLength > 0) {
+            // 計算目標數據點數量（根據時間範圍和數據量）
+            let targetPoints;
+            switch (range) {
+                case '1D':
+                case '1週':
+                case '1月':
+                    targetPoints = originalLength; // 短時間範圍保持所有數據
+                    break;
+                case '3月':
+                case '6月':
+                    targetPoints = Math.min(originalLength, 200); // 中等範圍最多200個點
+                    break;
+                case '1年':
+                case '2年':
+                    targetPoints = Math.min(originalLength, 300); // 1-2年最多300個點
+                    break;
+                case '5年':
+                    targetPoints = Math.min(originalLength, 400); // 5年最多400個點
+                    break;
+                case '10年':
+                case '全部':
+                    targetPoints = Math.min(originalLength, 500); // 長時間範圍最多500個點
+                    break;
+                default:
+                    targetPoints = Math.min(originalLength, 1000);
+            }
+            
+            // 如果需要均勻化，重新採樣數據
+            if (originalLength > targetPoints) {
+                historicalData = uniformSampleData(historicalData, targetPoints);
+                console.log(`📊 數據均勻化：從 ${originalLength} 個數據點均勻採樣到 ${historicalData.length} 個`);
+            }
         }
         
         updateLoadingProgress('history', 40);
@@ -1510,7 +1538,14 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         pointBackgroundColor: 'transparent',
                         pointBorderColor: 'transparent',
                         pointBorderWidth: 0,
-                        showLine: true
+                        showLine: true,
+                        spanGaps: false, // 不跨越缺失數據，保持線條連續
+                        segment: {
+                            borderColor: (ctx) => {
+                                // 確保線條顏色一致
+                                return '#4f46e5';
+                            }
+                        }
                     },
                     {
                         label: `平均 (${Math.round(mean)})`,
@@ -1710,7 +1745,8 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                             round: false // 不四捨五入，保持精確時間
                         },
                         distribution: 'linear', // 使用線性分佈確保均勻間距
-                        bounds: 'ticks', // 確保刻度在數據範圍內均勻分佈
+                        bounds: 'data', // 使用數據邊界，確保數據點均勻分佈
+                        offset: false, // 不偏移，確保數據點對齊到時間軸
                         ticks: {
                             autoSkip: false, // 禁用自動跳過，使用我們計算的均勻間距
                             maxTicksLimit: getMaxTicksForRange(range, historicalData.length),
@@ -2232,6 +2268,74 @@ function getTimeDisplayFormats(range) {
         default:
             return { day: 'dd/MM' };
     }
+}
+
+// 均勻採樣數據，確保數據點在時間軸上均勻分佈
+function uniformSampleData(data, targetCount) {
+    if (!data || data.length === 0 || targetCount >= data.length) {
+        return data;
+    }
+    
+    if (targetCount <= 2) {
+        // 如果目標數量太少，只返回首尾
+        return [data[0], data[data.length - 1]].filter(Boolean);
+    }
+    
+    // 獲取第一個和最後一個數據點的時間戳
+    const firstDate = new Date(data[0].date);
+    const lastDate = new Date(data[data.length - 1].date);
+    const timeSpan = lastDate.getTime() - firstDate.getTime();
+    const interval = timeSpan / (targetCount - 1); // 均勻間隔
+    
+    const sampled = [];
+    const dataMap = new Map(); // 用於快速查找
+    
+    // 建立日期到數據的映射
+    data.forEach(d => {
+        const date = new Date(d.date);
+        const timestamp = date.getTime();
+        dataMap.set(timestamp, d);
+    });
+    
+    // 均勻採樣
+    for (let i = 0; i < targetCount; i++) {
+        const targetTime = firstDate.getTime() + (interval * i);
+        
+        // 找到最接近目標時間的數據點
+        let closestData = null;
+        let minDiff = Infinity;
+        
+        // 在原始數據中查找最接近的點
+        for (const d of data) {
+            const date = new Date(d.date);
+            const diff = Math.abs(date.getTime() - targetTime);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestData = d;
+            }
+        }
+        
+        if (closestData) {
+            // 避免重複添加相同的數據點
+            if (sampled.length === 0 || sampled[sampled.length - 1].date !== closestData.date) {
+                sampled.push(closestData);
+            }
+        }
+    }
+    
+    // 確保第一個和最後一個數據點始終包含
+    if (sampled.length > 0) {
+        if (sampled[0].date !== data[0].date) {
+            sampled.unshift(data[0]);
+        }
+        if (sampled[sampled.length - 1].date !== data[data.length - 1].date) {
+            sampled.push(data[data.length - 1]);
+        }
+    } else {
+        sampled.push(data[0], data[data.length - 1]);
+    }
+    
+    return sampled;
 }
 
 // 根據時間範圍獲取時間步長（用於確保均勻分佈）
