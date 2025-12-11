@@ -1325,6 +1325,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             historicalData = historicalData.filter((d, i) => i % sampleRate === 0 || i === 0 || i === lastIndex);
             console.log(`📊 數據抽樣：從 ${originalLength} 個數據點抽樣到 ${historicalData.length} 個（抽樣率：${sampleRate}）`);
         }
+        }
         
         updateLoadingProgress('history', 40);
         const historyCtx = historyCanvas.getContext('2d');
@@ -1512,10 +1513,18 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         // 對於長時間範圍，使用更高的平滑度
                         tension: (range === '5年' || range === '10年' || range === '全部') ? 0.5 : 0.35,
                         pointRadius: 0,
-                        pointHoverRadius: 6,
-                        pointBackgroundColor: '#4f46e5',
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2
+                        pointHoverRadius: 0,
+                        pointBackgroundColor: 'transparent',
+                        pointBorderColor: 'transparent',
+                        pointBorderWidth: 0,
+                        showLine: true,
+                        spanGaps: false, // 不跨越缺失數據，保持線條連續
+                        segment: {
+                            borderColor: (ctx) => {
+                                // 確保線條顏色一致
+                                return '#4f46e5';
+                            }
+                        }
                     },
                     {
                         label: `平均 (${Math.round(mean)})`,
@@ -1538,7 +1547,8 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         borderWidth: 2.5,
                         borderDash: [8, 4],
                         fill: false,
-                        pointRadius: 0
+                        pointRadius: 0,
+                        pointHoverRadius: 0
                     },
                     {
                         label: '±1σ 範圍',
@@ -1561,7 +1571,8 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         borderWidth: 1.5,
                         borderDash: [4, 4],
                         fill: false,
-                        pointRadius: 0
+                        pointRadius: 0,
+                        pointHoverRadius: 0
                     },
                     {
                         label: '',
@@ -1585,7 +1596,8 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         borderDash: [4, 4],
                         fill: '-1',
                         backgroundColor: 'rgba(239, 68, 68, 0.03)',
-                        pointRadius: 0
+                        pointRadius: 0,
+                        pointHoverRadius: 0
                     }
                 ]
             },
@@ -1672,9 +1684,23 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                                 if (!item) return null;
                                 try {
                                     if (item.datasetIndex === 0) {
-                                        const value = item.raw;
+                                        let value = item.raw;
+                                        // 處理不同的數據格式
                                         if (value === null || value === undefined) return null;
-                                        return `實際: ${value} 人`;
+                                        
+                                        // 如果是對象，提取 y 值
+                                        if (typeof value === 'object' && value !== null) {
+                                            value = value.y !== undefined ? value.y : 
+                                                   value.value !== undefined ? value.value :
+                                                   null;
+                                        }
+                                        
+                                        // 確保是數字
+                                        if (typeof value !== 'number' || isNaN(value)) {
+                                            return null;
+                                        }
+                                        
+                                        return `實際: ${Math.round(value)} 人`;
                                     }
                                     return null;
                                 } catch (e) {
@@ -1691,17 +1717,26 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         time: {
                             unit: getTimeUnit(range), // 根據範圍動態設置時間單位
                             displayFormats: getTimeDisplayFormats(range),
-                            tooltipFormat: 'yyyy-MM-dd'
+                            tooltipFormat: 'yyyy-MM-dd',
+                            // 對於長時間範圍，確保均勻分佈
+                            stepSize: getTimeStepSize(range, historicalData.length),
+                            // 確保時間軸使用均勻間距
+                            round: false // 不四捨五入，保持精確時間
                         },
+                        distribution: 'linear', // 使用線性分佈確保均勻間距
+                        bounds: 'data', // 使用數據邊界，確保數據點均勻分佈
+                        offset: false, // 不偏移，確保數據點對齊到時間軸
                         ticks: {
-                            autoSkip: true,
+                            autoSkip: false, // 禁用自動跳過，使用我們計算的均勻間距
                             maxTicksLimit: getMaxTicksForRange(range, historicalData.length),
+                            source: 'auto', // 使用自動源，讓 Chart.js 根據時間軸計算均勻間距
                             font: {
                                 size: containerWidth <= 600 ? 8 : 10
                             },
                             padding: containerWidth <= 600 ? 2 : 6,
                             minRotation: 0,
                             maxRotation: containerWidth <= 600 ? 45 : 0, // 小屏幕允許旋轉
+                            // 移除 stepSize，讓 time.stepSize 控制
                             // 使用自定義 callback 來格式化日期標籤，避免 [object Object]
                             callback: function(value, index, ticks) {
                                 // 確保返回字符串，避免 [object Object]
@@ -2123,6 +2158,10 @@ async function initComparisonTable() {
 // ============================================
 // 根據時間範圍獲取最大標籤數量
 function getMaxTicksForRange(range, dataLength) {
+    // 根據容器寬度動態調整標籤數量
+    const containerWidth = window.innerWidth || 1200;
+    const baseMaxTicks = containerWidth <= 600 ? 12 : containerWidth <= 900 ? 18 : 24;
+    
     switch (range) {
         case '1D':
             return Math.min(24, dataLength); // 1天最多24個標籤
@@ -2139,13 +2178,28 @@ function getMaxTicksForRange(range, dataLength) {
         case '2年':
             return Math.min(24, dataLength); // 2年最多24個標籤（每月）
         case '5年':
-            return Math.min(30, dataLength); // 5年最多30個標籤（每2月）
+            // 5年：每5年一個標籤，計算需要多少個標籤
+            const years5 = dataLength / 365;
+            return Math.min(Math.max(1, Math.ceil(years5 / 5)), 10); // 最多10個標籤
         case '10年':
-            return Math.min(40, dataLength); // 10年最多40個標籤（每季度）
+            // 10年：每10年一個標籤，計算需要多少個標籤
+            const years10 = dataLength / 365;
+            return Math.min(Math.max(1, Math.ceil(years10 / 10)), 10); // 最多10個標籤
         case '全部':
-            return Math.min(50, dataLength); // 全部最多50個標籤
+            // 全部：根據數據範圍動態調整
+            const yearsAll = dataLength / 365;
+            if (yearsAll > 20) {
+                // 超過20年：每10年一個標籤
+                return Math.min(Math.max(2, Math.ceil(yearsAll / 10)), 15);
+            } else if (yearsAll > 10) {
+                // 10-20年：每5年一個標籤
+                return Math.min(Math.max(2, Math.ceil(yearsAll / 5)), 10);
+            } else {
+                // 少於10年：每2年一個標籤
+                return Math.min(Math.max(2, Math.ceil(yearsAll / 2)), 10);
+            }
         default:
-            return Math.min(20, dataLength);
+            return Math.min(baseMaxTicks, dataLength);
     }
 }
 
@@ -2205,6 +2259,364 @@ function getTimeDisplayFormats(range) {
     }
 }
 
+// 根據 X 軸標籤位置均勻採樣數據，確保數據點對齊到 X 軸標籤
+function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
+    if (!data || data.length === 0) {
+        return data;
+    }
+    
+    // 獲取第一個和最後一個數據點的時間戳
+    const firstDate = new Date(data[0].date);
+    const lastDate = new Date(data[data.length - 1].date);
+    
+    // 根據時間範圍計算 X 軸標籤的實際位置
+    const sampled = [];
+    const usedDates = new Set(); // 避免重複
+    
+    // 根據不同的時間範圍，計算 X 軸標籤的實際位置
+    switch (range) {
+        case '10年':
+            // 10年視圖：每10年顯示一個標籤（例如 2014年, 2024年），數據點也應該對齊到每10年
+            let currentYear10 = firstDate.getFullYear();
+            const lastYear10 = lastDate.getFullYear();
+            
+            // 調整到第一個10年的倍數（例如 2014, 2024, 2034...）
+            const firstDecade = Math.floor(currentYear10 / 10) * 10;
+            if (currentYear10 !== firstDecade) {
+                currentYear10 = firstDecade + 10; // 從下一個10年開始
+            } else {
+                currentYear10 = firstDecade; // 如果正好是10年的倍數，從這一年開始
+            }
+            
+            while (currentYear10 <= lastYear10) {
+                const targetDate = new Date(currentYear10, 0, 1); // 1月1日
+                
+                // 找到最接近目標日期的數據點
+                let closestData = null;
+                let minDiff = Infinity;
+                
+                for (const d of data) {
+                    const date = new Date(d.date);
+                    const diff = Math.abs(date.getTime() - targetDate.getTime());
+                    // 允許在目標日期前後1年內
+                    if (diff < minDiff && diff < 365 * 24 * 60 * 60 * 1000) {
+                        minDiff = diff;
+                        closestData = d;
+                    }
+                }
+                
+                if (closestData && !usedDates.has(closestData.date)) {
+                    sampled.push(closestData);
+                    usedDates.add(closestData.date);
+                }
+                
+                currentYear10 += 10; // 每10年一個標籤
+            }
+            break;
+            
+        case '全部':
+            // 全部視圖：根據數據範圍動態決定標籤間隔
+            const firstYearAll = firstDate.getFullYear();
+            const lastYearAll = lastDate.getFullYear();
+            const yearSpan = lastYearAll - firstYearAll;
+            
+            let yearInterval;
+            if (yearSpan > 20) {
+                // 超過20年：每10年一個標籤
+                yearInterval = 10;
+            } else if (yearSpan > 10) {
+                // 10-20年：每5年一個標籤
+                yearInterval = 5;
+            } else {
+                // 少於10年：每2年一個標籤
+                yearInterval = 2;
+            }
+            
+            // 調整到第一個間隔的倍數
+            let currentYearAll = Math.floor(firstYearAll / yearInterval) * yearInterval;
+            if (currentYearAll < firstYearAll) {
+                currentYearAll += yearInterval;
+            }
+            
+            while (currentYearAll <= lastYearAll) {
+                const targetDate = new Date(currentYearAll, 0, 1); // 1月1日
+                
+                // 找到最接近目標日期的數據點
+                let closestData = null;
+                let minDiff = Infinity;
+                
+                for (const d of data) {
+                    const date = new Date(d.date);
+                    const diff = Math.abs(date.getTime() - targetDate.getTime());
+                    // 允許在目標日期前後1年內
+                    if (diff < minDiff && diff < 365 * 24 * 60 * 60 * 1000) {
+                        minDiff = diff;
+                        closestData = d;
+                    }
+                }
+                
+                if (closestData && !usedDates.has(closestData.date)) {
+                    sampled.push(closestData);
+                    usedDates.add(closestData.date);
+                }
+                
+                currentYearAll += yearInterval;
+            }
+            break;
+            
+        case '5年':
+            // 5年視圖：每5年顯示一個標籤（例如 2015年, 2020年, 2025年），數據點也應該對齊到每5年
+            let currentYear5 = firstDate.getFullYear();
+            const lastYear5 = lastDate.getFullYear();
+            
+            // 調整到第一個5年的倍數（例如 2015, 2020, 2025...）
+            const firstQuinquennium = Math.floor(currentYear5 / 5) * 5;
+            if (currentYear5 !== firstQuinquennium) {
+                currentYear5 = firstQuinquennium + 5; // 從下一個5年開始
+            } else {
+                currentYear5 = firstQuinquennium; // 如果正好是5年的倍數，從這一年開始
+            }
+            
+            while (currentYear5 <= lastYear5) {
+                const targetDate = new Date(currentYear5, 0, 1); // 1月1日
+                
+                // 找到最接近目標日期的數據點
+                let closestData = null;
+                let minDiff = Infinity;
+                
+                for (const d of data) {
+                    const date = new Date(d.date);
+                    const diff = Math.abs(date.getTime() - targetDate.getTime());
+                    // 允許在目標日期前後1年內
+                    if (diff < minDiff && diff < 365 * 24 * 60 * 60 * 1000) {
+                        minDiff = diff;
+                        closestData = d;
+                    }
+                }
+                
+                if (closestData && !usedDates.has(closestData.date)) {
+                    sampled.push(closestData);
+                    usedDates.add(closestData.date);
+                }
+                
+                currentYear5 += 5; // 每5年一個標籤
+            }
+            break;
+            
+        case '1年':
+        case '2年':
+            // 1-2年視圖：每月1日顯示標籤（例如 1月, 2月, 3月...）
+            let currentDate1 = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+            
+            while (currentDate1 <= lastDate) {
+                // 找到最接近目標日期的數據點
+                let closestData = null;
+                let minDiff = Infinity;
+                
+                for (const d of data) {
+                    const date = new Date(d.date);
+                    const diff = Math.abs(date.getTime() - currentDate1.getTime());
+                    if (diff < minDiff && diff < 7 * 24 * 60 * 60 * 1000) {
+                        minDiff = diff;
+                        closestData = d;
+                    }
+                }
+                
+                if (closestData && !usedDates.has(closestData.date)) {
+                    sampled.push(closestData);
+                    usedDates.add(closestData.date);
+                }
+                
+                // 移動到下一個月1日
+                currentDate1 = new Date(currentDate1.getFullYear(), currentDate1.getMonth() + 1, 1);
+            }
+            break;
+            
+        case '3月':
+        case '6月':
+            // 3-6月視圖：每週顯示標籤
+            let currentDate3 = new Date(firstDate);
+            // 調整到最近的週日
+            const dayOfWeek = currentDate3.getDay();
+            currentDate3.setDate(currentDate3.getDate() - dayOfWeek);
+            
+            while (currentDate3 <= lastDate) {
+                // 找到最接近目標日期的數據點
+                let closestData = null;
+                let minDiff = Infinity;
+                
+                for (const d of data) {
+                    const date = new Date(d.date);
+                    const diff = Math.abs(date.getTime() - currentDate3.getTime());
+                    if (diff < minDiff && diff < 3 * 24 * 60 * 60 * 1000) {
+                        minDiff = diff;
+                        closestData = d;
+                    }
+                }
+                
+                if (closestData && !usedDates.has(closestData.date)) {
+                    sampled.push(closestData);
+                    usedDates.add(closestData.date);
+                }
+                
+                // 移動到下一個週日
+                currentDate3.setDate(currentDate3.getDate() + 7);
+            }
+            break;
+            
+        case '1月':
+        case '1週':
+        case '1D':
+        default:
+            // 短時間範圍：保持所有數據或根據標籤數量均勻採樣
+            if (data.length <= maxTicks * 3) {
+                return data; // 數據量不大，保持所有數據
+            }
+            
+            // 根據標籤數量均勻採樣
+            const timeSpan = lastDate.getTime() - firstDate.getTime();
+            const interval = timeSpan / (maxTicks - 1);
+            
+            for (let i = 0; i < maxTicks; i++) {
+                const targetTime = firstDate.getTime() + (interval * i);
+                
+                let closestData = null;
+                let minDiff = Infinity;
+                
+                for (const d of data) {
+                    const date = new Date(d.date);
+                    const diff = Math.abs(date.getTime() - targetTime);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closestData = d;
+                    }
+                }
+                
+                if (closestData && !usedDates.has(closestData.date)) {
+                    sampled.push(closestData);
+                    usedDates.add(closestData.date);
+                }
+            }
+            break;
+    }
+    
+    // 確保第一個和最後一個數據點始終包含
+    if (sampled.length > 0) {
+        if (!usedDates.has(data[0].date)) {
+            sampled.unshift(data[0]);
+        }
+        if (!usedDates.has(data[data.length - 1].date)) {
+            sampled.push(data[data.length - 1]);
+        }
+    } else {
+        sampled.push(data[0], data[data.length - 1]);
+    }
+    
+    // 按日期排序
+    sampled.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    return sampled;
+}
+
+// 均勻採樣數據，確保數據點在時間軸上均勻分佈（保留作為備用）
+function uniformSampleData(data, targetCount) {
+    if (!data || data.length === 0 || targetCount >= data.length) {
+        return data;
+    }
+    
+    if (targetCount <= 2) {
+        return [data[0], data[data.length - 1]].filter(Boolean);
+    }
+    
+    const firstDate = new Date(data[0].date);
+    const lastDate = new Date(data[data.length - 1].date);
+    const timeSpan = lastDate.getTime() - firstDate.getTime();
+    const interval = timeSpan / (targetCount - 1);
+    
+    const sampled = [];
+    const usedDates = new Set();
+    
+    for (let i = 0; i < targetCount; i++) {
+        const targetTime = firstDate.getTime() + (interval * i);
+        
+        let closestData = null;
+        let minDiff = Infinity;
+        
+        for (const d of data) {
+            const date = new Date(d.date);
+            const diff = Math.abs(date.getTime() - targetTime);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestData = d;
+            }
+        }
+        
+        if (closestData && !usedDates.has(closestData.date)) {
+            sampled.push(closestData);
+            usedDates.add(closestData.date);
+        }
+    }
+    
+    if (sampled.length > 0) {
+        if (!usedDates.has(data[0].date)) {
+            sampled.unshift(data[0]);
+        }
+        if (!usedDates.has(data[data.length - 1].date)) {
+            sampled.push(data[data.length - 1]);
+        }
+    } else {
+        sampled.push(data[0], data[data.length - 1]);
+    }
+    
+    return sampled;
+}
+
+// 根據時間範圍獲取時間步長（用於確保均勻分佈）
+function getTimeStepSize(range, dataLength) {
+    if (!dataLength || dataLength === 0) return undefined;
+    
+    // 計算數據的時間跨度（天數）
+    const days = dataLength;
+    
+    switch (range) {
+        case '1D':
+            return 1; // 每小時（Chart.js 會自動轉換）
+        case '1週':
+            return 1; // 每天
+        case '1月':
+            return 1; // 每天
+        case '3月':
+            return 7; // 每週
+        case '6月':
+            return 7; // 每週
+        case '1年':
+            return 30; // 每月（約30天）
+        case '2年':
+            return 30; // 每月（約30天）
+        case '5年':
+            // 5年：每5年一個標籤，返回5年的天數（約1825天）
+            return 1825; // 5年 = 5 * 365天
+        case '10年':
+            // 10年：每10年一個標籤，返回10年的天數（約3650天）
+            return 3650; // 10年 = 10 * 365天
+        case '全部':
+            // 全部：根據數據範圍動態計算
+            const years = days / 365;
+            if (years > 20) {
+                // 超過20年：每10年一個標籤
+                return 3650; // 10年
+            } else if (years > 10) {
+                // 10-20年：每5年一個標籤
+                return 1825; // 5年
+            } else {
+                // 少於10年：每2年一個標籤
+                return 730; // 2年
+            }
+        default:
+            return undefined; // 讓 Chart.js 自動計算
+    }
+}
+
 // 格式化時間標籤
 function formatTimeLabel(date, range) {
     // 確保輸入是有效的日期對象
@@ -2242,21 +2654,32 @@ function formatTimeLabel(date, range) {
                 }
                 return `${day}/${month}`;
             case '5年':
-                if (date.getDate() === 1 && [0, 6].includes(date.getMonth())) {
-                    return `${year}年${month}月`;
+                // 只在每5年的1月1日顯示年份標籤（例如 2015年, 2020年, 2025年）
+                if (date.getMonth() === 0 && date.getDate() === 1 && year % 5 === 0) {
+                    return `${year}年`;
                 }
-                return `${day}/${month}`;
+                // 其他日期返回空字符串，讓 Chart.js 自動跳過
+                return '';
             case '10年':
-                // 只在每年1月1日顯示年份標籤
-                if (date.getMonth() === 0 && date.getDate() === 1) {
+                // 只在每10年的1月1日顯示年份標籤（例如 2014年, 2024年）
+                if (date.getMonth() === 0 && date.getDate() === 1 && year % 10 === 4) {
                     return `${year}年`;
                 }
                 // 其他日期返回空字符串，讓 Chart.js 自動跳過
                 return '';
             case '全部':
-                // 只在每年1月1日顯示年份標籤
+                // 根據數據範圍動態決定標籤間隔
+                // 這裡我們假設是每10年、每5年或每2年，具體由 Chart.js 根據數據範圍決定
+                // 我們只在年份是特定倍數時顯示標籤
                 if (date.getMonth() === 0 && date.getDate() === 1) {
-                    return `${year}年`;
+                    // 優先顯示10年的倍數（例如 2014, 2024）
+                    if (year % 10 === 4) {
+                        return `${year}年`;
+                    }
+                    // 如果沒有10年的倍數，顯示5年的倍數（例如 2015, 2020）
+                    if (year % 5 === 0 && year % 10 !== 0) {
+                        return `${year}年`;
+                    }
                 }
                 // 其他日期返回空字符串，讓 Chart.js 自動跳過
                 return '';
@@ -2296,7 +2719,8 @@ function convertToTraditional(text) {
         '温': '溫', '骤': '驟', '导': '導', '致': '致', '别': '別', '对': '對',
         '于': '於', '础': '礎', '经': '經', '开': '開', '渐': '漸', '况': '況',
         // 醫療相關
-        '医': '醫', '疗': '療', '药': '藥', '诊': '診', '护': '護',
+        '医': '醫', '疗': '療', '药': '藥', '诊': '診', '症': '症',
+        '病': '病', '患': '患', '护': '護',
         // 天氣相關
         '风': '風', '云': '雲', '雾': '霧',
         // 其他常見字符
@@ -2318,7 +2742,12 @@ function convertToTraditional(text) {
         // 活動相關
         '动': '動',
         // 學校相關
-        '学': '學'
+        '学': '學',
+        // 其他常見字符
+        '为': '為', '产': '產', '发': '發', '长': '長', '门': '門',
+        '问': '問', '题': '題',
+        '应': '應', '该': '該',
+        '较': '較'
     };
     
     // 先進行詞組級別的轉換（優先處理常見詞組）
@@ -2337,7 +2766,20 @@ function convertToTraditional(text) {
         '活动': '活動',
         '学校': '學校',
         '需求': '需求',
-        '中毒': '中毒'
+        '中毒': '中毒',
+        '实际': '實際', '预测': '預測', '系统': '系統',
+        '数据库': '數據庫', '连接': '連接', '检查': '檢查', '载入': '載入',
+        '天气': '天氣', '资源': '資源', '影响': '影響', '无法': '無法',
+        '总结': '總結', '说明': '說明', '获取': '獲取', '之后': '之後',
+        '时间': '時間', '间隔': '間隔', '缓存': '緩存', '个别': '個別',
+        '卫生': '衛生', '会议': '會議', '节日': '節日', '未来': '未來',
+        '袭击': '襲擊', '温度': '溫度', '骤降': '驟降',
+        '对于': '對於', '基础': '基礎', '经过': '經過', '开始': '開始',
+        '逐渐': '逐漸', '情况': '情況', '医疗': '醫療', '治疗': '治療',
+        '药物': '藥物', '诊断': '診斷', '症状': '症狀', '患者': '患者',
+        '护理': '護理', '风云': '風雲', '云雾': '雲霧', '现在': '現在',
+        '过去': '過去', '还是': '還是', '这个': '這個', '问题': '問題',
+        '应该': '應該', '比较': '比較'
     };
     
     // 使用字符映射表進行轉換
@@ -3824,11 +4266,11 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         const isNegative = impactFactor < 1.0;
         const impactPercent = Math.abs((impactFactor - 1.0) * 100).toFixed(1);
         
-        // 轉換簡體中文到繁體中文
-        const factorType = convertToTraditional(factor.type || '未知');
-        const factorConfidence = convertToTraditional(factor.confidence || '中');
-        const factorDescription = convertToTraditional(factor.description || '無描述');
-        const factorReasoning = factor.reasoning ? convertToTraditional(factor.reasoning) : null;
+        // 轉換簡體中文到繁體中文（確保所有文本都經過轉換）
+        const factorType = convertToTraditional(String(factor.type || '未知'));
+        const factorConfidence = convertToTraditional(String(factor.confidence || '中'));
+        const factorDescription = convertToTraditional(String(factor.description || '無描述'));
+        const factorReasoning = factor.reasoning ? convertToTraditional(String(factor.reasoning)) : null;
         
         // 根據類型選擇圖標
         let icon = '📊';
@@ -3893,10 +4335,12 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         `;
     });
     
-    // 如果有總結，添加總結區塊
+    // 如果有總結，添加總結區塊（確保轉換為繁體中文）
     let summaryHtml = '';
     if (summary && summary !== '無法獲取 AI 分析') {
-        const convertedSummary = convertToTraditional(summary);
+        // 確保 summary 是字符串並轉換為繁體中文
+        const summaryStr = String(summary);
+        const convertedSummary = convertToTraditional(summaryStr);
         summaryHtml = `
             <div class="factors-summary">
                 <h3>📋 分析總結</h3>
