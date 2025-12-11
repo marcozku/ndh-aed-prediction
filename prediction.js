@@ -1311,11 +1311,16 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             return;
         }
         
-        // 對於長時間範圍，進行數據抽樣以減少混亂
-        // 如果數據點超過1000個，進行抽樣
+        // 對於長時間範圍（5年、10年、全部），進行數據聚合和平滑處理
         const originalLength = historicalData.length;
-        if (originalLength > 1000) {
-            const sampleRate = Math.ceil(originalLength / 1000);
+        if (range === '5年' || range === '10年' || range === '全部') {
+            // 使用按月聚合的方式，平均選取數據點
+            historicalData = aggregateDataByMonth(historicalData);
+            console.log(`📊 數據聚合：從 ${originalLength} 個數據點聚合到 ${historicalData.length} 個（按月平均）`);
+        } else if (originalLength > 1000) {
+            // 對於其他長時間範圍，如果數據點超過1000個，進行均勻抽樣
+            const targetPoints = 1000;
+            const sampleRate = Math.ceil(originalLength / targetPoints);
             const lastIndex = originalLength - 1;
             historicalData = historicalData.filter((d, i) => i % sampleRate === 0 || i === 0 || i === lastIndex);
             console.log(`📊 數據抽樣：從 ${originalLength} 個數據點抽樣到 ${historicalData.length} 個（抽樣率：${sampleRate}）`);
@@ -1504,7 +1509,8 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         backgroundColor: historyGradient,
                         borderWidth: 2,
                         fill: true,
-                        tension: 0.35,
+                        // 對於長時間範圍，使用更高的平滑度
+                        tension: (range === '5年' || range === '10年' || range === '全部') ? 0.5 : 0.35,
                         pointRadius: 0,
                         pointHoverRadius: 6,
                         pointBackgroundColor: '#4f46e5',
@@ -2279,7 +2285,7 @@ function convertToTraditional(text) {
     // 先清理亂碼字符（如 ◆◆ 等）
     let cleaned = text.replace(/[◆●■▲▼★☆]/g, '');
     
-    // 常見簡體到繁體字符映射（擴展版，包含更多常見字符）
+    // 常見簡體到繁體字符映射（完整版，無重複）
     const simplifiedToTraditional = {
         // 基本字符
         '简': '簡', '体': '體', '预': '預', '测': '測', '统': '統', '系': '係',
@@ -2290,26 +2296,63 @@ function convertToTraditional(text) {
         '温': '溫', '骤': '驟', '导': '導', '致': '致', '别': '別', '对': '對',
         '于': '於', '础': '礎', '经': '經', '开': '開', '渐': '漸', '况': '況',
         // 醫療相關
-        '医': '醫', '疗': '療', '药': '藥', '诊': '診', '疗': '療', '症': '症',
-        '病': '病', '患': '患', '疗': '療', '护': '護', '疗': '療', '疗': '療',
+        '医': '醫', '疗': '療', '药': '藥', '诊': '診', '护': '護',
         // 天氣相關
-        '风': '風', '云': '雲', '雾': '霧', '雾': '霧', '雾': '霧', '雾': '霧',
+        '风': '風', '云': '雲', '雾': '霧',
         // 其他常見字符
-        '现': '現', '实': '實', '际': '際', '际': '際', '际': '際', '际': '際',
-        '过': '過', '过': '過', '过': '過', '过': '過', '过': '過', '过': '過',
-        '还': '還', '还': '還', '还': '還', '还': '還', '还': '還', '还': '還',
-        '这': '這', '这': '這', '这': '這', '这': '這', '这': '這', '这': '這',
-        '这': '這', '这': '這', '这': '這', '这': '這', '这': '這', '这': '這'
+        '现': '現', '实': '實', '际': '際',
+        '过': '過', '还': '還', '这': '這',
+        // 節日相關
+        '圣': '聖', '诞': '誕',
+        // 時間相關
+        '临': '臨',
+        // 動作相關
+        '准': '準', '备': '備',
+        '伤': '傷', '关': '關',
+        // 負擔相關
+        '负': '負', '担': '擔',
+        // 歷史相關
+        '历': '歷',
+        // 顯著相關
+        '显': '顯', '着': '著',
+        // 活動相關
+        '动': '動',
+        // 學校相關
+        '学': '學'
+    };
+    
+    // 先進行詞組級別的轉換（優先處理常見詞組）
+    const phraseMap = {
+        '圣诞節': '聖誕節',
+        '临近': '臨近',
+        '准备期': '準備期',
+        '导致': '導致',
+        '伤害': '傷害',
+        '相关': '相關',
+        '负担': '負擔',
+        '历史': '歷史',
+        '数据': '數據',
+        '显着': '顯著',
+        '人群': '人群',
+        '活动': '活動',
+        '学校': '學校',
+        '需求': '需求',
+        '中毒': '中毒'
     };
     
     // 使用字符映射表進行轉換
     try {
-        let result = cleaned.split('').map(char => {
+        let result = cleaned;
+        
+        // 先進行詞組轉換
+        for (const [simp, trad] of Object.entries(phraseMap)) {
+            result = result.replace(new RegExp(simp, 'g'), trad);
+        }
+        
+        // 再進行字符級別轉換
+        result = result.split('').map(char => {
             return simplifiedToTraditional[char] || char;
         }).join('');
-        
-        // 如果轉換後仍有簡體字符特徵，嘗試進一步處理
-        // 這裡可以添加更多邏輯
         
         return result;
     } catch (e) {
@@ -2955,6 +2998,44 @@ function updateDataSourceFooter(dateRange) {
     }
 }
 
+// 按月聚合數據（用於長時間範圍的平滑顯示）
+function aggregateDataByMonth(data) {
+    if (!data || data.length === 0) return [];
+    
+    // 按年月分組
+    const monthlyGroups = {};
+    data.forEach(d => {
+        const date = new Date(d.date);
+        const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (!monthlyGroups[yearMonth]) {
+            monthlyGroups[yearMonth] = [];
+        }
+        monthlyGroups[yearMonth].push({
+            date: d.date,
+            attendance: d.attendance
+        });
+    });
+    
+    // 計算每個月的平均值，使用該月的中間日期
+    const aggregated = Object.keys(monthlyGroups).sort().map(yearMonth => {
+        const group = monthlyGroups[yearMonth];
+        const sum = group.reduce((acc, d) => acc + d.attendance, 0);
+        const avg = Math.round(sum / group.length);
+        
+        // 使用該月的中間日期（15號）作為時間點
+        const [year, month] = yearMonth.split('-').map(Number);
+        const midDate = new Date(year, month - 1, 15);
+        
+        return {
+            date: midDate.toISOString().split('T')[0],
+            attendance: avg
+        };
+    });
+    
+    return aggregated;
+}
+
 // 從數據庫獲取歷史數據
 async function fetchHistoricalData(startDate = null, endDate = null) {
     try {
@@ -3160,9 +3241,27 @@ function updateHistoryNavigationButtons(range, pageOffset, historicalData) {
     // 如果沒有數據，禁用"上一頁"按鈕（表示已經到達數據庫的邊界）
     const hasData = historicalData && historicalData.length > 0;
     
-    // 上一頁：只有在有數據時才允許查看更早的數據
-    // 如果當前查詢沒有數據，說明已經到達數據庫邊界，禁用"上一頁"
-    prevBtn.disabled = !hasData;
+    // 檢查是否已經到達數據庫的開始邊界
+    // 對於5年/10年，需要檢查獲取的數據是否覆蓋了完整的時間範圍
+    let hasMoreData = hasData;
+    if (hasData && (range === '5年' || range === '10年')) {
+        // 檢查獲取的數據是否早於預期的開始日期
+        const { startDate } = getDateRangeWithOffset(range, pageOffset + 1);
+        if (!startDate) {
+            // 如果下一個偏移量返回null，說明已經到達邊界
+            hasMoreData = false;
+        } else {
+            // 檢查實際數據的第一個日期是否早於預期的開始日期
+            const firstDataDate = new Date(historicalData[0].date);
+            const expectedStartDate = new Date(startDate);
+            // 如果第一個數據日期已經接近或早於預期開始日期，可能沒有更多數據
+            // 但為了安全起見，我們仍然允許嘗試查看
+            hasMoreData = true;
+        }
+    }
+    
+    // 上一頁：只有在有數據且可能有更多數據時才允許查看更早的數據
+    prevBtn.disabled = !hasMoreData;
     
     // 下一頁：只有在歷史數據中（pageOffset > 0）才能返回
     nextBtn.disabled = pageOffset <= 0;
