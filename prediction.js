@@ -1276,6 +1276,41 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         // 從數據庫獲取數據（根據時間範圍和分頁偏移量）
         const { startDate, endDate } = getDateRangeWithOffset(range, pageOffset);
         console.log(`📅 查詢歷史數據：範圍=${range}, pageOffset=${pageOffset}, ${startDate} 至 ${endDate}`);
+        
+        // 如果日期範圍為 null（表示過早，超出數據庫範圍），顯示提示並禁用導航
+        if (!startDate || !endDate) {
+            console.warn(`⚠️ 日期範圍無效或過早 (範圍=${range}, pageOffset=${pageOffset})`);
+            
+            // 銷毀現有圖表（如果存在）
+            if (historyChart) {
+                historyChart.destroy();
+                historyChart = null;
+            }
+            
+            // 顯示友好的提示消息，而不是完全隱藏區塊
+            const historyContainer = document.getElementById('history-chart-container');
+            const historyCard = historyContainer?.closest('.chart-card');
+            if (historyCard) {
+                historyCard.style.display = '';
+                if (historyContainer) {
+                    historyContainer.innerHTML = `
+                        <div style="padding: 40px; text-align: center; color: #666;">
+                            <p style="font-size: 16px; margin-bottom: 10px;">📅 已到達數據庫的最早日期</p>
+                            <p style="font-size: 14px;">無法顯示更早的歷史數據</p>
+                        </div>
+                    `;
+                }
+            }
+            
+            // 更新日期範圍顯示
+            updateHistoryDateRange(null, null, range);
+            
+            // 更新按鈕狀態，禁用"上一頁"按鈕
+            updateHistoryNavigationButtons(range, pageOffset, []);
+            updateLoadingProgress('history', 0);
+            return;
+        }
+        
         let historicalData = await fetchHistoricalData(startDate, endDate);
         
         // 確保數據被正確過濾到請求的範圍內（防止數據庫返回超出範圍的數據）
@@ -1301,11 +1336,23 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 historyChart = null;
             }
             
-            // 隱藏整個圖表區域（如果沒有數據就不顯示）
+            // 顯示友好的提示消息，而不是完全隱藏區塊
             const historyContainer = document.getElementById('history-chart-container');
-            if (historyContainer && historyContainer.closest('.chart-card')) {
-                historyContainer.closest('.chart-card').style.display = 'none';
+            const historyCard = historyContainer?.closest('.chart-card');
+            if (historyCard) {
+                historyCard.style.display = '';
+                if (historyContainer) {
+                    historyContainer.innerHTML = `
+                        <div style="padding: 40px; text-align: center; color: #666;">
+                            <p style="font-size: 16px; margin-bottom: 10px;">📊 此時間範圍內沒有數據</p>
+                            <p style="font-size: 14px;">日期範圍：${startDate} 至 ${endDate}</p>
+                        </div>
+                    `;
+                }
             }
+            
+            // 更新日期範圍顯示
+            updateHistoryDateRange(startDate, endDate, range);
             
             // 更新按鈕狀態，禁用"上一頁"按鈕
             updateHistoryNavigationButtons(range, pageOffset, []);
@@ -1370,7 +1417,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             }
         }
         
-        // 如果聚合/採樣後數據為空，隱藏圖表
+        // 如果聚合/採樣後數據為空，顯示友好提示
         if (historicalData.length === 0) {
             console.warn(`⚠️ 數據處理後為空 (範圍=${range}, pageOffset=${pageOffset})`);
             
@@ -1380,11 +1427,23 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 historyChart = null;
             }
             
-            // 隱藏整個圖表區域（如果沒有數據就不顯示）
+            // 顯示友好的提示消息，而不是完全隱藏區塊
             const historyContainer = document.getElementById('history-chart-container');
-            if (historyContainer && historyContainer.closest('.chart-card')) {
-                historyContainer.closest('.chart-card').style.display = 'none';
+            const historyCard = historyContainer?.closest('.chart-card');
+            if (historyCard) {
+                historyCard.style.display = '';
+                if (historyContainer) {
+                    historyContainer.innerHTML = `
+                        <div style="padding: 40px; text-align: center; color: #666;">
+                            <p style="font-size: 16px; margin-bottom: 10px;">📊 此時間範圍內沒有數據</p>
+                            <p style="font-size: 14px;">日期範圍：${startDate} 至 ${endDate}</p>
+                        </div>
+                    `;
+                }
             }
+            
+            // 更新日期範圍顯示
+            updateHistoryDateRange(startDate, endDate, range);
             
             // 更新按鈕狀態
             updateHistoryNavigationButtons(range, pageOffset, []);
@@ -4134,21 +4193,26 @@ function updateHistoryNavigationButtons(range, pageOffset, historicalData) {
     const hasData = historicalData && historicalData.length > 0;
     
     // 檢查是否已經到達數據庫的開始邊界
-    // 對於5年/10年，需要檢查獲取的數據是否覆蓋了完整的時間範圍
+    // 檢查下一個 pageOffset 是否會返回有效的日期範圍
     let hasMoreData = hasData;
-    if (hasData && (range === '5年' || range === '10年')) {
-        // 檢查獲取的數據是否早於預期的開始日期
-        const { startDate } = getDateRangeWithOffset(range, pageOffset + 1);
-        if (!startDate) {
+    if (hasData) {
+        // 檢查下一個偏移量是否會返回有效的日期範圍
+        const { startDate: nextStartDate } = getDateRangeWithOffset(range, pageOffset + 1);
+        if (!nextStartDate) {
             // 如果下一個偏移量返回null，說明已經到達邊界
             hasMoreData = false;
         } else {
-            // 檢查實際數據的第一個日期是否早於預期的開始日期
-            const firstDataDate = new Date(historicalData[0].date);
-            const expectedStartDate = new Date(startDate);
-            // 如果第一個數據日期已經接近或早於預期開始日期，可能沒有更多數據
-            // 但為了安全起見，我們仍然允許嘗試查看
-            hasMoreData = true;
+            // 對於5年/10年，需要檢查獲取的數據是否覆蓋了完整的時間範圍
+            if (range === '5年' || range === '10年') {
+                // 檢查實際數據的第一個日期是否早於預期的開始日期
+                const firstDataDate = new Date(historicalData[0].date);
+                const expectedStartDate = new Date(nextStartDate);
+                // 如果第一個數據日期已經接近或早於預期開始日期，可能沒有更多數據
+                // 但為了安全起見，我們仍然允許嘗試查看
+                hasMoreData = true;
+            } else {
+                hasMoreData = true;
+            }
         }
     }
     
