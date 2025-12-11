@@ -4106,24 +4106,43 @@ function getDateRangeWithOffset(range, pageOffset = 0) {
         // 確保日期不會太早（數據庫可能沒有那麼早的數據）
         // 假設數據庫最早有2014-12-01的數據（根據用戶之前的說明）
         const minDate = new Date('2014-12-01');
+        
+        // 檢查計算的範圍是否完全在數據庫範圍內
         if (newEnd < minDate) {
             // 如果計算的結束日期早於最小日期，返回空範圍
             console.warn(`⚠️ 計算的日期範圍過早：${newStart.toISOString().split('T')[0]} 至 ${newEnd.toISOString().split('T')[0]}，早於數據庫最小日期 ${minDate.toISOString().split('T')[0]}`);
             return { startDate: null, endDate: null };
         }
         
-        // 如果開始日期早於最小日期，調整為最小日期
+        // 如果開始日期早於最小日期，需要確保時間範圍長度保持一致
+        // 如果無法保持完整的時間範圍長度，返回 null（表示此 pageOffset 無效）
         if (newStart < minDate) {
-            start = new Date(minDate);
-            end = new Date(newEnd);
-            // 如果調整後的結束日期也早於最小日期，返回空範圍
-            if (end < minDate) {
-                console.warn(`⚠️ 調整後的日期範圍仍然過早：${start.toISOString().split('T')[0]} 至 ${end.toISOString().split('T')[0]}`);
+            // 嘗試從最小日期開始，保持相同的時間範圍長度
+            const adjustedStart = new Date(minDate);
+            const adjustedEnd = new Date(adjustedStart.getTime() + rangeLength);
+            
+            // 檢查調整後的範圍是否仍然在有效範圍內
+            if (adjustedEnd <= newEnd) {
+                // 如果調整後的範圍長度與原始範圍長度一致，使用調整後的範圍
+                start = adjustedStart;
+                end = adjustedEnd;
+            } else {
+                // 如果無法保持完整的時間範圍長度，返回 null
+                console.warn(`⚠️ 無法保持完整的時間範圍長度：計算的範圍 ${newStart.toISOString().split('T')[0]} 至 ${newEnd.toISOString().split('T')[0]} 超出數據庫邊界`);
                 return { startDate: null, endDate: null };
             }
         } else {
             start = newStart;
             end = newEnd;
+        }
+        
+        // 最終驗證：確保時間範圍長度與原始範圍長度一致
+        const actualRangeLength = end.getTime() - start.getTime();
+        const tolerance = 24 * 60 * 60 * 1000; // 允許1天的誤差（考慮月份長度差異）
+        if (Math.abs(actualRangeLength - rangeLength) > tolerance) {
+            console.warn(`⚠️ 時間範圍長度不一致：期望 ${rangeLength / (24 * 60 * 60 * 1000)} 天，實際 ${actualRangeLength / (24 * 60 * 60 * 1000)} 天`);
+            // 如果範圍長度差異太大，返回 null
+            return { startDate: null, endDate: null };
         }
     }
     
