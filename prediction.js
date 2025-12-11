@@ -1792,9 +1792,9 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         bounds: 'data', // 使用數據邊界，確保數據點均勻分佈
                         offset: false, // 不偏移，確保數據點對齊到時間軸
                         ticks: {
-                            autoSkip: false, // 禁用自動跳過，使用我們計算的均勻間距
+                            autoSkip: true, // 啟用自動跳過，配合 time.stepSize 確保均勻間距
                             maxTicksLimit: getMaxTicksForRange(range, historicalData.length),
-                            source: 'auto', // 使用自動源，讓 Chart.js 根據時間軸計算均勻間距
+                            source: 'data', // 使用數據源，確保標籤對齊到實際數據點
                             font: {
                                 size: containerWidth <= 600 ? 8 : 10
                             },
@@ -2288,15 +2288,15 @@ function getTimeUnit(range) {
         case '6月':
             return 'week';
         case '1年':
-            return 'month';
+            return 'day'; // 使用 day 單位，stepSize 為 60 天（每2個月）
         case '2年':
-            return 'month';
+            return 'day'; // 使用 day 單位，stepSize 為 120 天（每4個月）
         case '5年':
-            return 'month';
+            return 'day'; // 使用 day 單位，stepSize 為 180 天（每6個月）
         case '10年':
-            return 'year';
+            return 'day'; // 使用 day 單位，stepSize 為 365 天（每年）
         case '全部':
-            return 'year';
+            return 'day'; // 使用 day 單位，stepSize 動態計算
         default:
             return 'day';
     }
@@ -2475,9 +2475,15 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
             break;
             
         case '1年':
-        case '2年':
-            // 1-2年視圖：每月1日顯示標籤（例如 1月, 2月, 3月...），確保每月都有數據點
+            // 1年視圖：每2個月顯示標籤（例如 1月, 3月, 5月...），確保每2個月都有數據點
             let currentDate1 = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+            // 調整到最近的2個月間隔（1月、3月、5月、7月、9月、11月）
+            const startMonth1 = currentDate1.getMonth();
+            const adjustedMonth1 = Math.floor(startMonth1 / 2) * 2; // 調整到偶數月份（0,2,4,6,8,10）
+            currentDate1 = new Date(currentDate1.getFullYear(), adjustedMonth1, 1);
+            if (currentDate1 < firstDate) {
+                currentDate1 = new Date(currentDate1.getFullYear(), currentDate1.getMonth() + 2, 1);
+            }
             
             while (currentDate1 <= lastDate) {
                 // 找到最接近目標日期的數據點
@@ -2487,8 +2493,8 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
                 for (const d of data) {
                     const date = new Date(d.date);
                     const diff = Math.abs(date.getTime() - currentDate1.getTime());
-                    // 允許在目標日期前後15天內
-                    if (diff < minDiff && diff < 15 * 24 * 60 * 60 * 1000) {
+                    // 允許在目標日期前後30天內
+                    if (diff < minDiff && diff < 30 * 24 * 60 * 60 * 1000) {
                         minDiff = diff;
                         closestData = d;
                     }
@@ -2503,7 +2509,7 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
                     if (sampled.length > 0) {
                         // 找到下一個有數據的月份
                         let nextData = null;
-                        for (let checkMonth = 1; checkMonth <= 12; checkMonth++) {
+                        for (let checkMonth = 2; checkMonth <= 12; checkMonth += 2) {
                             const checkDate = new Date(currentDate1.getFullYear(), currentDate1.getMonth() + checkMonth, 1);
                             if (checkDate > lastDate) break;
                             
@@ -2538,8 +2544,84 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
                     }
                 }
                 
-                // 移動到下一個月1日
-                currentDate1 = new Date(currentDate1.getFullYear(), currentDate1.getMonth() + 1, 1);
+                // 移動到下一個2個月間隔（每2個月）
+                currentDate1 = new Date(currentDate1.getFullYear(), currentDate1.getMonth() + 2, 1);
+            }
+            break;
+            
+        case '2年':
+            // 2年視圖：每4個月顯示標籤（例如 1月, 5月, 9月...），確保每4個月都有數據點
+            let currentDate2 = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+            // 調整到最近的4個月間隔（1月、5月、9月）
+            const startMonth2 = currentDate2.getMonth();
+            // 調整到 0(1月), 4(5月), 8(9月)
+            let adjustedMonth2 = Math.floor(startMonth2 / 4) * 4;
+            currentDate2 = new Date(currentDate2.getFullYear(), adjustedMonth2, 1);
+            if (currentDate2 < firstDate) {
+                currentDate2 = new Date(currentDate2.getFullYear(), currentDate2.getMonth() + 4, 1);
+            }
+            
+            while (currentDate2 <= lastDate) {
+                // 找到最接近目標日期的數據點
+                let closestData = null;
+                let minDiff = Infinity;
+                
+                for (const d of data) {
+                    const date = new Date(d.date);
+                    const diff = Math.abs(date.getTime() - currentDate2.getTime());
+                    // 允許在目標日期前後60天內
+                    if (diff < minDiff && diff < 60 * 24 * 60 * 60 * 1000) {
+                        minDiff = diff;
+                        closestData = d;
+                    }
+                }
+                
+                // 如果找到了數據點，添加它
+                if (closestData && !usedDates.has(closestData.date)) {
+                    sampled.push(closestData);
+                    usedDates.add(closestData.date);
+                } else if (closestData === null) {
+                    // 如果這個月沒有數據，使用線性插值
+                    if (sampled.length > 0) {
+                        // 找到下一個有數據的月份
+                        let nextData = null;
+                        for (let checkMonth = 4; checkMonth <= 12; checkMonth += 4) {
+                            const checkDate = new Date(currentDate2.getFullYear(), currentDate2.getMonth() + checkMonth, 1);
+                            if (checkDate > lastDate) break;
+                            
+                            for (const d of data) {
+                                const date = new Date(d.date);
+                                if (date.getFullYear() === checkDate.getFullYear() && 
+                                    date.getMonth() === checkDate.getMonth()) {
+                                    nextData = d;
+                                    break;
+                                }
+                            }
+                            if (nextData) break;
+                        }
+                        
+                        // 使用前一個和後一個數據點進行線性插值
+                        const lastData = sampled[sampled.length - 1];
+                        let interpolatedValue = lastData.attendance;
+                        
+                        if (nextData) {
+                            const lastTime = new Date(lastData.date).getTime();
+                            const nextTime = new Date(nextData.date).getTime();
+                            const currentTime = currentDate2.getTime();
+                            const ratio = (currentTime - lastTime) / (nextTime - lastTime);
+                            interpolatedValue = Math.round(lastData.attendance + (nextData.attendance - lastData.attendance) * ratio);
+                        }
+                        
+                        sampled.push({
+                            date: currentDate2.toISOString().split('T')[0],
+                            attendance: interpolatedValue
+                        });
+                        usedDates.add(currentDate2.toISOString().split('T')[0]);
+                    }
+                }
+                
+                // 移動到下一個4個月間隔（每4個月：1月->5月->9月->1月）
+                currentDate2 = new Date(currentDate2.getFullYear(), currentDate2.getMonth() + 4, 1);
             }
             break;
             
@@ -2837,9 +2919,6 @@ function uniformSampleData(data, targetCount) {
 function getTimeStepSize(range, dataLength) {
     if (!dataLength || dataLength === 0) return undefined;
     
-    // 計算數據的時間跨度（天數）
-    const days = dataLength;
-    
     switch (range) {
         case '1D':
             return 1; // 每小時（Chart.js 會自動轉換）
@@ -2848,31 +2927,34 @@ function getTimeStepSize(range, dataLength) {
         case '1月':
             return 1; // 每天
         case '3月':
-            return 7; // 每週
+            return 7; // 每週（7天）
         case '6月':
-            return 7; // 每週
+            return 7; // 每週（7天）
         case '1年':
-            return 30; // 每月（約30天）
+            // 1年：每2個月一個標籤，約60天
+            return 60;
         case '2年':
-            return 30; // 每月（約30天）
+            // 2年：每4個月一個標籤，約120天（確保均勻間距：1月、5月、9月）
+            return 120;
         case '5年':
-            // 5年：每5年一個標籤，返回5年的天數（約1825天）
-            return 1825; // 5年 = 5 * 365天
+            // 5年：每6個月一個標籤，約180天
+            return 180;
         case '10年':
-            // 10年：每10年一個標籤，返回10年的天數（約3650天）
-            return 3650; // 10年 = 10 * 365天
+            // 10年：每1年一個標籤，約365天
+            return 365;
         case '全部':
             // 全部：根據數據範圍動態計算
+            const days = dataLength;
             const years = days / 365;
             if (years > 20) {
-                // 超過20年：每10年一個標籤
-                return 3650; // 10年
+                // 超過20年：每2年一個標籤
+                return 730; // 2年 = 2 * 365天
             } else if (years > 10) {
-                // 10-20年：每5年一個標籤
-                return 1825; // 5年
+                // 10-20年：每1年一個標籤
+                return 365; // 1年
             } else {
-                // 少於10年：每2年一個標籤
-                return 730; // 2年
+                // 少於10年：每6個月一個標籤
+                return 180; // 6個月
             }
         default:
             return undefined; // 讓 Chart.js 自動計算
