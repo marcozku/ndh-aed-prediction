@@ -1,5 +1,35 @@
 # 版本更新日誌
 
+## v1.2.0 - 2025-12-11 17:09 HKT
+
+### 🐛 Bug 修復
+
+1. **確保 AI 只生成繁體中文**
+   - 加強 AI 服務的 system prompt，明確要求只使用繁體中文，絕對不能使用簡體中文
+   - 在 user prompt 中重複強調必須使用繁體中文
+   - 確保所有 AI 響應都經過 `convertToTraditional()` 和 `convertObjectToTraditional()` 轉換
+   - 在前端顯示前，所有 AI 生成的文本（type、description、reasoning、confidence、summary）都經過轉換
+
+2. **擴展簡體到繁體轉換映射表**
+   - 添加更多常見簡體字符到前端的 `convertToTraditional()` 函數
+   - 擴展詞組映射表，添加醫療、天氣、社會事件相關的常見詞組
+   - 確保所有可能的簡體中文都能正確轉換為繁體中文
+
+### 🔧 改進
+
+- AI 服務的 system prompt 更加嚴格，明確要求所有輸出都必須是繁體中文
+- 前端轉換函數更加完善，能夠處理更多簡體字符和詞組
+- 所有 AI 響應在顯示前都經過雙重轉換（服務端 + 前端）
+
+### 📊 技術細節
+
+- 修改 `ai-service.js` 中的 system prompt，加強繁體中文要求
+- 修改 `ai-service.js` 中的 user prompt，重複強調繁體中文要求
+- 擴展 `prediction.js` 中的 `convertToTraditional()` 函數映射表
+- 確保 `updateRealtimeFactors()` 中所有文本字段都經過轉換
+
+---
+
 ## v1.1.9 - 2025-12-11 17:06 HKT
 
 ### 🐛 Bug 修復

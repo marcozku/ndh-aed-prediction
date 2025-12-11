@@ -230,11 +230,11 @@ async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord
                 messages: [
                     {
                         role: 'system',
-                        content: '你是一個專業的醫療數據分析助手，專門分析可能影響香港北區醫院急症室病人數量的各種因素。\n\n重要：你必須只使用繁體中文（Traditional Chinese）進行回應，絕對不能使用簡體中文（Simplified Chinese）。所有文字、描述、分析都必須使用繁體中文。'
+                        content: '你是一個專業的醫療數據分析助手，專門分析可能影響香港北區醫院急症室病人數量的各種因素。\n\n**嚴格要求：你必須只使用繁體中文（Traditional Chinese）進行回應，絕對不能使用簡體中文（Simplified Chinese）。**\n\n所有文字、描述、分析、JSON 內容都必須使用繁體中文。包括：\n- 所有描述性文字\n- JSON 中的字段值\n- 分析理由和說明\n- 任何輸出的文本內容\n\n如果使用簡體中文，系統將無法正確顯示內容。請務必確保所有輸出都是繁體中文。'
                     },
                     {
                         role: 'user',
-                        content: prompt + '\n\n請注意：請務必只使用繁體中文回應，不要使用簡體中文。'
+                        content: prompt + '\n\n**重要提醒：請務必只使用繁體中文（Traditional Chinese）回應，絕對不要使用簡體中文（Simplified Chinese）。所有文字內容都必須是繁體中文，包括 JSON 中的所有字段值。**'
                     }
                 ],
                 temperature: temperature,
