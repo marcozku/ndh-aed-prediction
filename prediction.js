@@ -2737,17 +2737,6 @@ function ensureDataConsistency(data, range) {
             expectedInterval = 1 * 24 * 60 * 60 * 1000; // 默認1天
     }
     
-    const firstDate = new Date(data[0].date);
-    const lastDate = new Date(data[data.length - 1].date);
-    const filled = [];
-    const dataMap = new Map();
-    
-    // 創建數據映射表以便快速查找
-    data.forEach(d => {
-        const dateKey = new Date(d.date).toISOString().split('T')[0];
-        dataMap.set(dateKey, d);
-    });
-    
     // 檢查數據點之間的間隔，只在間隔過大時進行填充
     const maxGap = expectedInterval * 3; // 允許的最大間隔（3倍期望間隔）
     const filled = [];
