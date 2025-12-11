@@ -1288,17 +1288,37 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             }
             
             // 顯示友好的提示消息，而不是完全隱藏區塊
+            // 但保留 canvas 元素，以便下次可以正常顯示圖表
             const historyContainer = document.getElementById('history-chart-container');
             const historyCard = historyContainer?.closest('.chart-card');
+            const historyCanvas = document.getElementById('history-chart');
+            
             if (historyCard) {
                 historyCard.style.display = '';
-                if (historyContainer) {
-                    historyContainer.innerHTML = `
-                        <div style="padding: 40px; text-align: center; color: #666;">
-                            <p style="font-size: 16px; margin-bottom: 10px;">📅 已到達數據庫的最早日期</p>
-                            <p style="font-size: 14px;">無法顯示更早的歷史數據</p>
-                        </div>
+                // 如果 canvas 不存在，創建它
+                if (!historyCanvas && historyContainer) {
+                    const canvas = document.createElement('canvas');
+                    canvas.id = 'history-chart';
+                    historyContainer.appendChild(canvas);
+                }
+                // 顯示提示消息，但不替換整個容器（保留 canvas）
+                const existingMessage = historyContainer.querySelector('.no-data-message');
+                if (!existingMessage) {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'no-data-message';
+                    messageDiv.style.cssText = 'padding: 40px; text-align: center; color: #666; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10;';
+                    messageDiv.innerHTML = `
+                        <p style="font-size: 16px; margin-bottom: 10px;">📅 已到達數據庫的最早日期</p>
+                        <p style="font-size: 14px;">無法顯示更早的歷史數據</p>
                     `;
+                    if (historyContainer) {
+                        historyContainer.style.position = 'relative';
+                        historyContainer.appendChild(messageDiv);
+                    }
+                }
+                // 隱藏 canvas（如果有）
+                if (historyCanvas) {
+                    historyCanvas.style.display = 'none';
                 }
             }
             
@@ -1336,18 +1356,38 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 historyChart = null;
             }
             
-            // 顯示友好的提示消息，而不是完全隱藏區塊
+            // 顯示友好的提示消息，但保留 canvas 元素以便下次使用
             const historyContainer = document.getElementById('history-chart-container');
             const historyCard = historyContainer?.closest('.chart-card');
+            let historyCanvas = document.getElementById('history-chart');
+            
             if (historyCard) {
                 historyCard.style.display = '';
+                // 如果 canvas 不存在，創建它
+                if (!historyCanvas && historyContainer) {
+                    historyCanvas = document.createElement('canvas');
+                    historyCanvas.id = 'history-chart';
+                    historyCanvas.style.display = 'none';
+                    historyContainer.appendChild(historyCanvas);
+                }
+                // 移除舊的提示消息（如果存在）
+                const oldMessage = historyContainer.querySelector('.no-data-message');
+                if (oldMessage) oldMessage.remove();
+                
+                // 顯示新的提示消息，但不替換整個容器（保留 canvas）
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'no-data-message';
+                messageDiv.style.cssText = 'padding: 40px; text-align: center; color: #666;';
+                messageDiv.innerHTML = `
+                    <p style="font-size: 16px; margin-bottom: 10px;">📊 此時間範圍內沒有數據</p>
+                    <p style="font-size: 14px;">日期範圍：${startDate} 至 ${endDate}</p>
+                `;
                 if (historyContainer) {
-                    historyContainer.innerHTML = `
-                        <div style="padding: 40px; text-align: center; color: #666;">
-                            <p style="font-size: 16px; margin-bottom: 10px;">📊 此時間範圍內沒有數據</p>
-                            <p style="font-size: 14px;">日期範圍：${startDate} 至 ${endDate}</p>
-                        </div>
-                    `;
+                    historyContainer.appendChild(messageDiv);
+                }
+                // 隱藏 canvas
+                if (historyCanvas) {
+                    historyCanvas.style.display = 'none';
                 }
             }
             
@@ -1427,18 +1467,38 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 historyChart = null;
             }
             
-            // 顯示友好的提示消息，而不是完全隱藏區塊
+            // 顯示友好的提示消息，但保留 canvas 元素以便下次使用
             const historyContainer = document.getElementById('history-chart-container');
             const historyCard = historyContainer?.closest('.chart-card');
+            let historyCanvas = document.getElementById('history-chart');
+            
             if (historyCard) {
                 historyCard.style.display = '';
+                // 如果 canvas 不存在，創建它
+                if (!historyCanvas && historyContainer) {
+                    historyCanvas = document.createElement('canvas');
+                    historyCanvas.id = 'history-chart';
+                    historyCanvas.style.display = 'none';
+                    historyContainer.appendChild(historyCanvas);
+                }
+                // 移除舊的提示消息（如果存在）
+                const oldMessage = historyContainer.querySelector('.no-data-message');
+                if (oldMessage) oldMessage.remove();
+                
+                // 顯示新的提示消息，但不替換整個容器（保留 canvas）
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'no-data-message';
+                messageDiv.style.cssText = 'padding: 40px; text-align: center; color: #666;';
+                messageDiv.innerHTML = `
+                    <p style="font-size: 16px; margin-bottom: 10px;">📊 此時間範圍內沒有數據</p>
+                    <p style="font-size: 14px;">日期範圍：${startDate} 至 ${endDate}</p>
+                `;
                 if (historyContainer) {
-                    historyContainer.innerHTML = `
-                        <div style="padding: 40px; text-align: center; color: #666;">
-                            <p style="font-size: 16px; margin-bottom: 10px;">📊 此時間範圍內沒有數據</p>
-                            <p style="font-size: 14px;">日期範圍：${startDate} 至 ${endDate}</p>
-                        </div>
-                    `;
+                    historyContainer.appendChild(messageDiv);
+                }
+                // 隱藏 canvas
+                if (historyCanvas) {
+                    historyCanvas.style.display = 'none';
                 }
             }
             
@@ -1845,15 +1905,20 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                             // 對於長時間範圍，確保均勻分佈
                             stepSize: getTimeStepSize(range, historicalData.length),
                             // 確保時間軸使用均勻間距
-                            round: false // 不四捨五入，保持精確時間
+                            round: 'day' // 四捨五入到天，確保標籤對齊到整數天
                         },
                         distribution: 'linear', // 使用線性分佈確保均勻間距
                         bounds: 'ticks', // 使用刻度邊界，確保標籤均勻分佈
                         offset: false, // 不偏移，確保數據點對齊到時間軸
+                        adapters: {
+                            date: {
+                                locale: null // 不使用 locale，避免格式化問題
+                            }
+                        },
                         ticks: {
-                            autoSkip: false, // 禁用自動跳過，使用 stepSize 確保均勻間距
+                            autoSkip: false, // 禁用自動跳過，使用 time.stepSize 確保均勻間距
                             maxTicksLimit: getMaxTicksForRange(range, historicalData.length),
-                            source: 'auto', // 使用自動源，讓 Chart.js 根據 stepSize 均勻分佈標籤
+                            source: 'auto', // 使用自動源，讓 Chart.js 根據 time.stepSize 均勻分佈標籤
                             font: {
                                 size: containerWidth <= 600 ? 8 : 10
                             },
@@ -1994,6 +2059,15 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         const historyCard = document.getElementById('history-chart-container')?.closest('.chart-card');
         if (historyCard) {
             historyCard.style.display = '';
+        }
+        
+        // 移除提示消息（如果存在），並顯示 canvas
+        const historyContainer = document.getElementById('history-chart-container');
+        if (historyContainer) {
+            const noDataMessage = historyContainer.querySelector('.no-data-message');
+            if (noDataMessage) {
+                noDataMessage.remove();
+            }
         }
         
         // 確保圖表正確顯示
