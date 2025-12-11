@@ -1325,7 +1325,6 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             historicalData = historicalData.filter((d, i) => i % sampleRate === 0 || i === 0 || i === lastIndex);
             console.log(`📊 數據抽樣：從 ${originalLength} 個數據點抽樣到 ${historicalData.length} 個（抽樣率：${sampleRate}）`);
         }
-        }
         
         updateLoadingProgress('history', 40);
         const historyCtx = historyCanvas.getContext('2d');
