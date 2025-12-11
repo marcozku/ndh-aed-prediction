@@ -1278,6 +1278,20 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         console.log(`📅 查詢歷史數據：範圍=${range}, pageOffset=${pageOffset}, ${startDate} 至 ${endDate}`);
         let historicalData = await fetchHistoricalData(startDate, endDate);
         
+        // 確保數據被正確過濾到請求的範圍內（防止數據庫返回超出範圍的數據）
+        if (startDate && endDate && historicalData.length > 0) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const originalCount = historicalData.length;
+            historicalData = historicalData.filter(d => {
+                const date = new Date(d.date);
+                return date >= start && date <= end;
+            });
+            if (originalCount !== historicalData.length) {
+                console.log(`📊 數據過濾：從 ${originalCount} 個數據點過濾到 ${historicalData.length} 個（範圍：${startDate} 至 ${endDate}）`);
+            }
+        }
+        
         if (historicalData.length === 0) {
             console.warn(`⚠️ 沒有歷史數據 (範圍=${range}, pageOffset=${pageOffset}, ${startDate} 至 ${endDate})`);
             
@@ -1287,22 +1301,10 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 historyChart = null;
             }
             
-            // 隱藏canvas，顯示錯誤訊息
-            if (historyCanvas) {
-                historyCanvas.style.display = 'none';
-            }
-            const historyLoadingEl = document.getElementById('history-chart-loading');
-            if (historyLoadingEl) {
-                historyLoadingEl.style.display = 'block';
-                historyLoadingEl.innerHTML = `
-                    <div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">
-                        <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">⚠️ 暫無歷史數據</div>
-                        <div style="font-size: 0.875rem; color: var(--text-secondary);">
-                            查詢範圍：${startDate || '全部'} 至 ${endDate || '全部'}<br>
-                            請嘗試選擇其他時間範圍或分頁
-                        </div>
-                    </div>
-                `;
+            // 隱藏整個圖表區域（如果沒有數據就不顯示）
+            const historyContainer = document.getElementById('history-chart-container');
+            if (historyContainer && historyContainer.closest('.chart-card')) {
+                historyContainer.closest('.chart-card').style.display = 'none';
             }
             
             // 更新按鈕狀態，禁用"上一頁"按鈕
@@ -1328,6 +1330,28 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             const maxTicks = getMaxTicksForRange(range, originalLength);
             historicalData = uniformSampleDataByAxis(historicalData, range, maxTicks, originalLength);
             console.log(`📊 智能採樣：從 ${originalLength} 個數據點採樣到 ${historicalData.length} 個（確保連續性）`);
+        }
+        
+        // 如果聚合/採樣後數據為空，隱藏圖表
+        if (historicalData.length === 0) {
+            console.warn(`⚠️ 數據處理後為空 (範圍=${range}, pageOffset=${pageOffset})`);
+            
+            // 銷毀現有圖表（如果存在）
+            if (historyChart) {
+                historyChart.destroy();
+                historyChart = null;
+            }
+            
+            // 隱藏整個圖表區域（如果沒有數據就不顯示）
+            const historyContainer = document.getElementById('history-chart-container');
+            if (historyContainer && historyContainer.closest('.chart-card')) {
+                historyContainer.closest('.chart-card').style.display = 'none';
+            }
+            
+            // 更新按鈕狀態
+            updateHistoryNavigationButtons(range, pageOffset, []);
+            updateLoadingProgress('history', 0);
+            return;
         }
         
         updateLoadingProgress('history', 40);
@@ -1857,6 +1881,12 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         
         updateLoadingProgress('history', 90);
         
+        // 確保圖表卡片是顯示的（如果有數據）
+        const historyCard = document.getElementById('history-chart-container')?.closest('.chart-card');
+        if (historyCard) {
+            historyCard.style.display = '';
+        }
+        
         // 確保圖表正確顯示
         if (historyCanvas) {
             historyCanvas.style.display = 'block';
@@ -1894,7 +1924,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         completeChartLoading('history');
         
         // 更新導航按鈕和日期範圍顯示
-        updateHistoryDateRange(historicalData, range);
+        updateHistoryDateRange(startDate, endDate, range);
         updateHistoryNavigationButtons(range, pageOffset, historicalData);
         
         // 確保圖表正確顯示（使用響應式模式，適應容器寬度）
@@ -3729,21 +3759,28 @@ function getDateRangeStart(range) {
 }
 
 // 更新歷史趨勢圖的日期範圍顯示
-function updateHistoryDateRange(historicalData, range) {
+function updateHistoryDateRange(startDate, endDate, range) {
     const dateRangeEl = document.getElementById('history-date-range');
-    if (!dateRangeEl || historicalData.length === 0) return;
+    if (!dateRangeEl) return;
     
-    const firstDate = new Date(historicalData[0].date);
-    const lastDate = new Date(historicalData[historicalData.length - 1].date);
-    
-    const formatDate = (date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
-    
-    dateRangeEl.textContent = `${formatDate(firstDate)} 至 ${formatDate(lastDate)}`;
+    // 使用計算出的日期範圍，而不是實際數據的日期範圍
+    // 這樣可以確保顯示的日期範圍與選擇的時間範圍一致
+    if (startDate && endDate) {
+        const formatDate = (dateStr) => {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+        
+        dateRangeEl.textContent = `${formatDate(startDate)} 至 ${formatDate(endDate)}`;
+    } else if (range === '全部') {
+        dateRangeEl.textContent = '全部數據';
+    } else {
+        dateRangeEl.textContent = '載入中...';
+    }
 }
 
 // 更新歷史趨勢圖的分頁按鈕狀態
