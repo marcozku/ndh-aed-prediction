@@ -1835,7 +1835,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         grid: {
                             ...professionalOptions.scales.x.grid,
                             display: true
-                        }
+                        },
                         // 注意：不使用 adapters.date.locale，因為 chartjs-adapter-date-fns 需要完整的 locale 對象
                         // 我們使用自定義的 callback 函數來格式化日期標籤
                     },
