@@ -1313,23 +1313,61 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             return;
         }
         
-        // 對於長時間範圍（5年、10年、全部），進行數據聚合和平滑處理
+        // 對於所有時間範圍，使用一致的數據處理邏輯，確保數據連續性和一致性
         const originalLength = historicalData.length;
+        
         if (range === '5年' || range === '10年' || range === '全部') {
-            // 使用按月聚合的方式，平均選取數據點
+            // 長時間範圍：使用按月聚合，確保所有月份都有數據點
             historicalData = aggregateDataByMonth(historicalData);
             console.log(`📊 數據聚合：從 ${originalLength} 個數據點聚合到 ${historicalData.length} 個（按月平均）`);
-        } else if (originalLength > 1000) {
-            // 對於其他長時間範圍，如果數據點超過1000個，使用智能均勻採樣
-            // 確保數據在時間軸上均勻分佈，不會突然缺失某些日期
+        } else {
+            // 對於其他時間範圍，使用智能均勻採樣，確保數據點在時間軸上均勻分佈
+            // 這樣可以確保數據之間的一致性，不會突然缺失某些日期
             const maxTicks = getMaxTicksForRange(range, originalLength);
-            historicalData = uniformSampleDataByAxis(historicalData, range, maxTicks, originalLength);
-            console.log(`📊 智能採樣：從 ${originalLength} 個數據點採樣到 ${historicalData.length} 個（均勻分佈）`);
-        } else if (originalLength > 500 && (range === '1年' || range === '2年' || range === '3月' || range === '6月')) {
-            // 對於中等數據量（500-1000），使用智能採樣確保數據連續性
-            const maxTicks = getMaxTicksForRange(range, originalLength);
-            historicalData = uniformSampleDataByAxis(historicalData, range, maxTicks, originalLength);
-            console.log(`📊 智能採樣：從 ${originalLength} 個數據點採樣到 ${historicalData.length} 個（確保連續性）`);
+            
+            // 根據時間範圍決定是否需要採樣
+            let needsSampling = false;
+            let targetPoints = originalLength;
+            
+            switch (range) {
+                case '1D':
+                case '1週':
+                    // 短時間範圍：如果數據點超過50個，進行採樣
+                    targetPoints = Math.min(50, originalLength);
+                    needsSampling = originalLength > 50;
+                    break;
+                case '1月':
+                    // 1月：如果數據點超過60個，進行採樣
+                    targetPoints = Math.min(60, originalLength);
+                    needsSampling = originalLength > 60;
+                    break;
+                case '3月':
+                case '6月':
+                    // 3-6月：如果數據點超過100個，進行採樣
+                    targetPoints = Math.min(100, originalLength);
+                    needsSampling = originalLength > 100;
+                    break;
+                case '1年':
+                case '2年':
+                    // 1-2年：如果數據點超過200個，進行採樣
+                    targetPoints = Math.min(200, originalLength);
+                    needsSampling = originalLength > 200;
+                    break;
+                default:
+                    // 其他情況：如果數據點超過1000個，進行採樣
+                    needsSampling = originalLength > 1000;
+                    targetPoints = Math.min(1000, originalLength);
+            }
+            
+            if (needsSampling) {
+                historicalData = uniformSampleDataByAxis(historicalData, range, maxTicks, originalLength);
+                console.log(`📊 智能採樣：從 ${originalLength} 個數據點採樣到 ${historicalData.length} 個（範圍：${range}，確保連續性）`);
+            } else {
+                // 即使不需要採樣，也確保數據點之間有連續性
+                // 檢查是否有缺失的日期，如果有則進行插值
+                historicalData = ensureDataConsistency(historicalData, range);
+                console.log(`📊 數據一致性檢查：${historicalData.length} 個數據點（範圍：${range}）`);
+            }
         }
         
         // 如果聚合/採樣後數據為空，隱藏圖表
@@ -2461,12 +2499,40 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
                     sampled.push(closestData);
                     usedDates.add(closestData.date);
                 } else if (closestData === null) {
-                    // 如果這個月沒有數據，使用前一個數據點的值（插值）
+                    // 如果這個月沒有數據，使用線性插值
                     if (sampled.length > 0) {
+                        // 找到下一個有數據的月份
+                        let nextData = null;
+                        for (let checkMonth = 1; checkMonth <= 12; checkMonth++) {
+                            const checkDate = new Date(currentDate1.getFullYear(), currentDate1.getMonth() + checkMonth, 1);
+                            if (checkDate > lastDate) break;
+                            
+                            for (const d of data) {
+                                const date = new Date(d.date);
+                                if (date.getFullYear() === checkDate.getFullYear() && 
+                                    date.getMonth() === checkDate.getMonth()) {
+                                    nextData = d;
+                                    break;
+                                }
+                            }
+                            if (nextData) break;
+                        }
+                        
+                        // 使用前一個和後一個數據點進行線性插值
                         const lastData = sampled[sampled.length - 1];
+                        let interpolatedValue = lastData.attendance;
+                        
+                        if (nextData) {
+                            const lastTime = new Date(lastData.date).getTime();
+                            const nextTime = new Date(nextData.date).getTime();
+                            const currentTime = currentDate1.getTime();
+                            const ratio = (currentTime - lastTime) / (nextTime - lastTime);
+                            interpolatedValue = Math.round(lastData.attendance + (nextData.attendance - lastData.attendance) * ratio);
+                        }
+                        
                         sampled.push({
                             date: currentDate1.toISOString().split('T')[0],
-                            attendance: lastData.attendance
+                            attendance: interpolatedValue
                         });
                         usedDates.add(currentDate1.toISOString().split('T')[0]);
                     }
@@ -2505,13 +2571,41 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
                     sampled.push(closestData);
                     usedDates.add(closestData.date);
                 } else if (closestData === null) {
-                    // 如果這週沒有數據，使用前一個數據點的值（插值）
-                    // 這樣可以保持圖表的連續性
+                    // 如果這週沒有數據，使用線性插值
                     if (sampled.length > 0) {
+                        // 找到下一個有數據的週
+                        let nextData = null;
+                        let checkDate = new Date(currentDate3);
+                        for (let i = 0; i < 8; i++) {
+                            checkDate.setDate(checkDate.getDate() + 7);
+                            if (checkDate > lastDate) break;
+                            
+                            for (const d of data) {
+                                const date = new Date(d.date);
+                                const diff = Math.abs(date.getTime() - checkDate.getTime());
+                                if (diff < 3 * 24 * 60 * 60 * 1000) {
+                                    nextData = d;
+                                    break;
+                                }
+                            }
+                            if (nextData) break;
+                        }
+                        
+                        // 使用前一個和後一個數據點進行線性插值
                         const lastData = sampled[sampled.length - 1];
+                        let interpolatedValue = lastData.attendance;
+                        
+                        if (nextData) {
+                            const lastTime = new Date(lastData.date).getTime();
+                            const nextTime = new Date(nextData.date).getTime();
+                            const currentTime = currentDate3.getTime();
+                            const ratio = (currentTime - lastTime) / (nextTime - lastTime);
+                            interpolatedValue = Math.round(lastData.attendance + (nextData.attendance - lastData.attendance) * ratio);
+                        }
+                        
                         sampled.push({
                             date: currentDate3.toISOString().split('T')[0],
-                            attendance: lastData.attendance
+                            attendance: interpolatedValue
                         });
                         usedDates.add(currentDate3.toISOString().split('T')[0]);
                     }
@@ -2528,7 +2622,8 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
         default:
             // 短時間範圍：保持所有數據或根據標籤數量均勻採樣
             if (data.length <= maxTicks * 3) {
-                return data; // 數據量不大，保持所有數據
+                // 即使數據量不大，也確保數據一致性
+                return ensureDataConsistency(data, range);
             }
             
             // 根據標籤數量均勻採樣
@@ -2553,6 +2648,37 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
                 if (closestData && !usedDates.has(closestData.date)) {
                     sampled.push(closestData);
                     usedDates.add(closestData.date);
+                } else if (closestData === null && sampled.length > 0) {
+                    // 如果沒有找到數據點，使用線性插值
+                    const lastData = sampled[sampled.length - 1];
+                    // 找到下一個數據點
+                    let nextData = null;
+                    for (let j = i + 1; j < maxTicks; j++) {
+                        const nextTargetTime = firstDate.getTime() + (interval * j);
+                        for (const d of data) {
+                            const date = new Date(d.date);
+                            const diff = Math.abs(date.getTime() - nextTargetTime);
+                            if (diff < interval) {
+                                nextData = d;
+                                break;
+                            }
+                        }
+                        if (nextData) break;
+                    }
+                    
+                    let interpolatedValue = lastData.attendance;
+                    if (nextData) {
+                        const lastTime = new Date(lastData.date).getTime();
+                        const nextTime = new Date(nextData.date).getTime();
+                        const ratio = (targetTime - lastTime) / (nextTime - lastTime);
+                        interpolatedValue = Math.round(lastData.attendance + (nextData.attendance - lastData.attendance) * ratio);
+                    }
+                    
+                    sampled.push({
+                        date: new Date(targetTime).toISOString().split('T')[0],
+                        attendance: interpolatedValue
+                    });
+                    usedDates.add(new Date(targetTime).toISOString().split('T')[0]);
                 }
             }
             break;
@@ -2573,7 +2699,96 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
     // 按日期排序
     sampled.sort((a, b) => new Date(a.date) - new Date(b.date));
     
-    return sampled;
+    // 最後進行一致性檢查，確保數據點之間沒有缺失
+    return ensureDataConsistency(sampled, range);
+}
+
+// 確保數據一致性，填充缺失的日期並進行插值
+function ensureDataConsistency(data, range) {
+    if (!data || data.length === 0) return data;
+    if (data.length <= 2) return data; // 數據點太少，不需要處理
+    
+    // 根據時間範圍決定期望的數據點間隔
+    let expectedInterval = 1; // 默認每天一個數據點（毫秒）
+    
+    switch (range) {
+        case '1D':
+            expectedInterval = 1 * 24 * 60 * 60 * 1000; // 1天
+            break;
+        case '1週':
+            expectedInterval = 1 * 24 * 60 * 60 * 1000; // 1天
+            break;
+        case '1月':
+            expectedInterval = 1 * 24 * 60 * 60 * 1000; // 1天
+            break;
+        case '3月':
+            expectedInterval = 2 * 24 * 60 * 60 * 1000; // 2天
+            break;
+        case '6月':
+            expectedInterval = 3 * 24 * 60 * 60 * 1000; // 3天
+            break;
+        case '1年':
+            expectedInterval = 7 * 24 * 60 * 60 * 1000; // 1週
+            break;
+        case '2年':
+            expectedInterval = 14 * 24 * 60 * 60 * 1000; // 2週
+            break;
+        default:
+            expectedInterval = 1 * 24 * 60 * 60 * 1000; // 默認1天
+    }
+    
+    const firstDate = new Date(data[0].date);
+    const lastDate = new Date(data[data.length - 1].date);
+    const filled = [];
+    const dataMap = new Map();
+    
+    // 創建數據映射表以便快速查找
+    data.forEach(d => {
+        const dateKey = new Date(d.date).toISOString().split('T')[0];
+        dataMap.set(dateKey, d);
+    });
+    
+    // 檢查數據點之間的間隔，只在間隔過大時進行填充
+    const maxGap = expectedInterval * 3; // 允許的最大間隔（3倍期望間隔）
+    const filled = [];
+    let lastValidData = data[0];
+    let lastDateProcessed = new Date(data[0].date);
+    
+    for (let i = 0; i < data.length; i++) {
+        const currentData = data[i];
+        const currentDate = new Date(currentData.date);
+        const gap = currentDate.getTime() - lastDateProcessed.getTime();
+        
+        // 如果間隔過大，在之間填充數據點
+        if (gap > maxGap && i > 0) {
+            const numPoints = Math.floor(gap / expectedInterval);
+            const step = gap / (numPoints + 1);
+            
+            for (let j = 1; j <= numPoints; j++) {
+                const fillDate = new Date(lastDateProcessed.getTime() + step * j);
+                const dateKey = fillDate.toISOString().split('T')[0];
+                
+                // 使用線性插值
+                const ratio = (fillDate.getTime() - lastDateProcessed.getTime()) / gap;
+                const interpolatedValue = Math.round(
+                    lastValidData.attendance + 
+                    (currentData.attendance - lastValidData.attendance) * ratio
+                );
+                
+                filled.push({
+                    date: dateKey,
+                    attendance: interpolatedValue
+                });
+            }
+        }
+        
+        // 添加當前數據點
+        filled.push(currentData);
+        lastValidData = currentData;
+        lastDateProcessed = currentDate;
+    }
+    
+    return filled;
 }
 
 // 均勻採樣數據，確保數據點在時間軸上均勻分佈（保留作為備用）
