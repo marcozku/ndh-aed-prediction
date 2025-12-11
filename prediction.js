@@ -2062,7 +2062,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         }
         
         // 移除提示消息（如果存在），並顯示 canvas
-        const historyContainer = document.getElementById('history-chart-container');
+        // historyContainer 已在前面聲明，這裡直接使用
         if (historyContainer) {
             const noDataMessage = historyContainer.querySelector('.no-data-message');
             if (noDataMessage) {
