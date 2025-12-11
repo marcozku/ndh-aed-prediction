@@ -1318,12 +1318,16 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             historicalData = aggregateDataByMonth(historicalData);
             console.log(`📊 數據聚合：從 ${originalLength} 個數據點聚合到 ${historicalData.length} 個（按月平均）`);
         } else if (originalLength > 1000) {
-            // 對於其他長時間範圍，如果數據點超過1000個，進行均勻抽樣
-            const targetPoints = 1000;
-            const sampleRate = Math.ceil(originalLength / targetPoints);
-            const lastIndex = originalLength - 1;
-            historicalData = historicalData.filter((d, i) => i % sampleRate === 0 || i === 0 || i === lastIndex);
-            console.log(`📊 數據抽樣：從 ${originalLength} 個數據點抽樣到 ${historicalData.length} 個（抽樣率：${sampleRate}）`);
+            // 對於其他長時間範圍，如果數據點超過1000個，使用智能均勻採樣
+            // 確保數據在時間軸上均勻分佈，不會突然缺失某些日期
+            const maxTicks = getMaxTicksForRange(range, originalLength);
+            historicalData = uniformSampleDataByAxis(historicalData, range, maxTicks, originalLength);
+            console.log(`📊 智能採樣：從 ${originalLength} 個數據點採樣到 ${historicalData.length} 個（均勻分佈）`);
+        } else if (originalLength > 500 && (range === '1年' || range === '2年' || range === '3月' || range === '6月')) {
+            // 對於中等數據量（500-1000），使用智能採樣確保數據連續性
+            const maxTicks = getMaxTicksForRange(range, originalLength);
+            historicalData = uniformSampleDataByAxis(historicalData, range, maxTicks, originalLength);
+            console.log(`📊 智能採樣：從 ${originalLength} 個數據點採樣到 ${historicalData.length} 個（確保連續性）`);
         }
         
         updateLoadingProgress('history', 40);
@@ -2404,7 +2408,7 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
             
         case '1年':
         case '2年':
-            // 1-2年視圖：每月1日顯示標籤（例如 1月, 2月, 3月...）
+            // 1-2年視圖：每月1日顯示標籤（例如 1月, 2月, 3月...），確保每月都有數據點
             let currentDate1 = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
             
             while (currentDate1 <= lastDate) {
@@ -2415,15 +2419,27 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
                 for (const d of data) {
                     const date = new Date(d.date);
                     const diff = Math.abs(date.getTime() - currentDate1.getTime());
-                    if (diff < minDiff && diff < 7 * 24 * 60 * 60 * 1000) {
+                    // 允許在目標日期前後15天內
+                    if (diff < minDiff && diff < 15 * 24 * 60 * 60 * 1000) {
                         minDiff = diff;
                         closestData = d;
                     }
                 }
                 
+                // 如果找到了數據點，添加它
                 if (closestData && !usedDates.has(closestData.date)) {
                     sampled.push(closestData);
                     usedDates.add(closestData.date);
+                } else if (closestData === null) {
+                    // 如果這個月沒有數據，使用前一個數據點的值（插值）
+                    if (sampled.length > 0) {
+                        const lastData = sampled[sampled.length - 1];
+                        sampled.push({
+                            date: currentDate1.toISOString().split('T')[0],
+                            attendance: lastData.attendance
+                        });
+                        usedDates.add(currentDate1.toISOString().split('T')[0]);
+                    }
                 }
                 
                 // 移動到下一個月1日
@@ -2433,7 +2449,7 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
             
         case '3月':
         case '6月':
-            // 3-6月視圖：每週顯示標籤
+            // 3-6月視圖：每週顯示標籤，確保每週都有數據點
             let currentDate3 = new Date(firstDate);
             // 調整到最近的週日
             const dayOfWeek = currentDate3.getDay();
@@ -2447,15 +2463,28 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
                 for (const d of data) {
                     const date = new Date(d.date);
                     const diff = Math.abs(date.getTime() - currentDate3.getTime());
-                    if (diff < minDiff && diff < 3 * 24 * 60 * 60 * 1000) {
+                    // 允許在目標日期前後7天內
+                    if (diff < minDiff && diff < 7 * 24 * 60 * 60 * 1000) {
                         minDiff = diff;
                         closestData = d;
                     }
                 }
                 
+                // 如果找到了數據點，添加它
                 if (closestData && !usedDates.has(closestData.date)) {
                     sampled.push(closestData);
                     usedDates.add(closestData.date);
+                } else if (closestData === null) {
+                    // 如果這週沒有數據，使用前一個數據點的值（插值）
+                    // 這樣可以保持圖表的連續性
+                    if (sampled.length > 0) {
+                        const lastData = sampled[sampled.length - 1];
+                        sampled.push({
+                            date: currentDate3.toISOString().split('T')[0],
+                            attendance: lastData.attendance
+                        });
+                        usedDates.add(currentDate3.toISOString().split('T')[0]);
+                    }
                 }
                 
                 // 移動到下一個週日
@@ -3458,20 +3487,83 @@ function aggregateDataByMonth(data) {
         });
     });
     
-    // 計算每個月的平均值，使用該月的中間日期
-    const aggregated = Object.keys(monthlyGroups).sort().map(yearMonth => {
+    // 找出數據範圍內的所有月份，確保沒有缺失
+    const firstDate = new Date(data[0].date);
+    const lastDate = new Date(data[data.length - 1].date);
+    const allMonths = [];
+    let currentDate = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+    
+    while (currentDate <= lastDate) {
+        const yearMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+        allMonths.push(yearMonth);
+        // 移動到下一個月
+        currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+    }
+    
+    // 計算全局平均值（用於插值缺失的月份）
+    const globalAvg = Math.round(data.reduce((sum, d) => sum + d.attendance, 0) / data.length);
+    
+    // 計算每個月的平均值，確保所有月份都有數據點
+    const aggregated = allMonths.map(yearMonth => {
         const group = monthlyGroups[yearMonth];
-        const sum = group.reduce((acc, d) => acc + d.attendance, 0);
-        const avg = Math.round(sum / group.length);
         
-        // 使用該月的中間日期（15號）作為時間點
-        const [year, month] = yearMonth.split('-').map(Number);
-        const midDate = new Date(year, month - 1, 15);
-        
-        return {
-            date: midDate.toISOString().split('T')[0],
-            attendance: avg
-        };
+        if (group && group.length > 0) {
+            // 有數據的月份：計算平均值
+            const sum = group.reduce((acc, d) => acc + d.attendance, 0);
+            const avg = Math.round(sum / group.length);
+            
+            // 使用該月的中間日期（15號）作為時間點
+            const [year, month] = yearMonth.split('-').map(Number);
+            const midDate = new Date(year, month - 1, 15);
+            
+            return {
+                date: midDate.toISOString().split('T')[0],
+                attendance: avg
+            };
+        } else {
+            // 沒有數據的月份：使用前後月份的平均值進行插值
+            // 先嘗試找前一個有數據的月份
+            let prevAvg = null;
+            let nextAvg = null;
+            
+            const currentIndex = allMonths.indexOf(yearMonth);
+            // 向前查找
+            for (let i = currentIndex - 1; i >= 0; i--) {
+                const prevGroup = monthlyGroups[allMonths[i]];
+                if (prevGroup && prevGroup.length > 0) {
+                    prevAvg = Math.round(prevGroup.reduce((acc, d) => acc + d.attendance, 0) / prevGroup.length);
+                    break;
+                }
+            }
+            // 向後查找
+            for (let i = currentIndex + 1; i < allMonths.length; i++) {
+                const nextGroup = monthlyGroups[allMonths[i]];
+                if (nextGroup && nextGroup.length > 0) {
+                    nextAvg = Math.round(nextGroup.reduce((acc, d) => acc + d.attendance, 0) / nextGroup.length);
+                    break;
+                }
+            }
+            
+            // 使用前後月份的平均值，如果都沒有則使用全局平均值
+            let interpolatedAvg;
+            if (prevAvg !== null && nextAvg !== null) {
+                interpolatedAvg = Math.round((prevAvg + nextAvg) / 2);
+            } else if (prevAvg !== null) {
+                interpolatedAvg = prevAvg;
+            } else if (nextAvg !== null) {
+                interpolatedAvg = nextAvg;
+            } else {
+                interpolatedAvg = globalAvg;
+            }
+            
+            const [year, month] = yearMonth.split('-').map(Number);
+            const midDate = new Date(year, month - 1, 15);
+            
+            return {
+                date: midDate.toISOString().split('T')[0],
+                attendance: interpolatedAvg
+            };
+        }
     });
     
     return aggregated;
