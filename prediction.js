@@ -1848,12 +1848,12 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                             round: false // 不四捨五入，保持精確時間
                         },
                         distribution: 'linear', // 使用線性分佈確保均勻間距
-                        bounds: 'data', // 使用數據邊界，確保數據點均勻分佈
+                        bounds: 'ticks', // 使用刻度邊界，確保標籤均勻分佈
                         offset: false, // 不偏移，確保數據點對齊到時間軸
                         ticks: {
-                            autoSkip: true, // 啟用自動跳過，配合 time.stepSize 確保均勻間距
+                            autoSkip: false, // 禁用自動跳過，使用 stepSize 確保均勻間距
                             maxTicksLimit: getMaxTicksForRange(range, historicalData.length),
-                            source: 'data', // 使用數據源，確保標籤對齊到實際數據點
+                            source: 'auto', // 使用自動源，讓 Chart.js 根據 stepSize 均勻分佈標籤
                             font: {
                                 size: containerWidth <= 600 ? 8 : 10
                             },
@@ -1969,7 +1969,19 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         max: Math.max(...values) + 50,
                         ticks: {
                             ...professionalOptions.scales.y.ticks,
-                            stepSize: Math.ceil((Math.max(...values) - Math.min(...values)) / 10)
+                            // 計算統一的步長，確保Y軸間隔均勻
+                            stepSize: (() => {
+                                const valueRange = Math.max(...values) - Math.min(...values);
+                                const idealStepSize = valueRange / 10;
+                                // 將步長調整為合適的整數（5, 10, 20, 25, 50, 100等）
+                                if (idealStepSize <= 5) return 5;
+                                if (idealStepSize <= 10) return 10;
+                                if (idealStepSize <= 20) return 20;
+                                if (idealStepSize <= 25) return 25;
+                                if (idealStepSize <= 50) return 50;
+                                if (idealStepSize <= 100) return 100;
+                                return Math.ceil(idealStepSize / 50) * 50; // 向上取整到50的倍數
+                            })()
                         }
                     }
                 }
