@@ -685,9 +685,13 @@ class NDHAttendancePredictor {
             ci95,
             // 新增：預測方法標記
             method: 'enhanced_weighted_rolling_window',
-            version: '2.0.7',
+            version: '2.1.1',
             researchBased: true,
-            worldClassTarget: true
+            worldClassTarget: true,
+            awardWinningTarget: true, // 獲獎級目標
+            targetMAE: 2.0, // 目標 MAE < 2.0
+            targetMAPE: 1.5, // 目標 MAPE < 1.5%
+            roadmap: '6-stage-improvement-plan' // 6階段改進計劃
         };
     }
     
