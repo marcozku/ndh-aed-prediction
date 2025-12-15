@@ -1090,9 +1090,9 @@ section h2 {
     max-width: 100%;
     grid-column: 1 / -1;
     box-sizing: border-box;
-    height: min(65vh, 650px); /* 動態高度：視窗高度的65%，最大650px，確保在屏幕內 */
+    height: auto; /* 使用 auto 讓內容決定高度 */
     min-height: min(50vh, 500px); /* 最小高度：視窗高度的50%，最小500px */
-    overflow: hidden; /* 防止內容溢出容器 */
+    overflow: visible; /* 允許內容完整顯示 */
 }
 
 .chart-card h3 {
@@ -1302,7 +1302,7 @@ section h2 {
     }
     
     .chart-card.full-width {
-        height: min(60vh, 600px);
+        height: auto;
         min-height: min(50vh, 450px);
     }
 }
@@ -1326,7 +1326,7 @@ section h2 {
     }
     
     .chart-card.full-width {
-        height: min(55vh, 500px);
+        height: auto;
         min-height: min(45vh, 400px);
     }
 }
@@ -1350,7 +1350,7 @@ section h2 {
     }
     
     .chart-card.full-width {
-        height: min(50vh, 450px);
+        height: auto;
         min-height: min(40vh, 350px);
     }
 }
@@ -1425,7 +1425,10 @@ section h2 {
 /* 比較表格 */
 .comparison-table-container {
     overflow-x: auto;
+    overflow-y: visible; /* 允許垂直內容完整顯示 */
     margin-top: var(--space-md);
+    max-height: none; /* 移除最大高度限制 */
+    padding-bottom: var(--space-md); /* 為表格底部留出空間 */
 }
 
 .comparison-table {
