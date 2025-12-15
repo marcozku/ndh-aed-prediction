@@ -685,7 +685,9 @@ class NDHAttendancePredictor {
             ci95,
             // 新增：預測方法標記
             method: 'enhanced_weighted_rolling_window',
-            version: '2.0.0'
+            version: '2.0.7',
+            researchBased: true,
+            worldClassTarget: true
         };
     }
     
@@ -2348,6 +2350,26 @@ function calculateAccuracyStats(comparisonData) {
         };
     }
     
+    const mae = parseFloat((totalAbsError / validCount).toFixed(2));
+    const mape = parseFloat((totalErrorRate / validCount).toFixed(2));
+    const ci95Coverage = parseFloat(((ci95Count / validCount) * 100).toFixed(1));
+    
+    // 世界最佳基準對比
+    const worldBestMAE = 2.63; // 法國醫院研究 (2025)
+    const worldBestMAPE = 2.0; // 目標值
+    const worldBestCI95 = 98.0; // 目標值
+    
+    // 計算與世界最佳的差距
+    const maeGap = mae - worldBestMAE;
+    const mapeGap = mape - worldBestMAPE;
+    const ci95Gap = worldBestCI95 - ci95Coverage;
+    
+    // 判斷是否達到世界級水準
+    const isWorldClassMAE = mae <= worldBestMAE;
+    const isWorldClassMAPE = mape <= worldBestMAPE;
+    const isWorldClassCI95 = ci95Coverage >= worldBestCI95;
+    const isWorldClass = isWorldClassMAE && isWorldClassMAPE && isWorldClassCI95;
+    
     return {
         totalCount: validCount,
         avgError: (totalError / validCount).toFixed(2),
@@ -2355,9 +2377,20 @@ function calculateAccuracyStats(comparisonData) {
         avgErrorRate: (totalErrorRate / validCount).toFixed(2),
         avgAccuracy: (100 - (totalErrorRate / validCount)).toFixed(2),
         ci80Coverage: ((ci80Count / validCount) * 100).toFixed(1),
-        ci95Coverage: ((ci95Count / validCount) * 100).toFixed(1),
-        mae: (totalAbsError / validCount).toFixed(2),
-        mape: (totalErrorRate / validCount).toFixed(2)
+        ci95Coverage: ci95Coverage.toFixed(1),
+        mae: mae.toFixed(2),
+        mape: mape.toFixed(2),
+        // 世界級對比
+        worldBestMAE: worldBestMAE,
+        worldBestMAPE: worldBestMAPE,
+        worldBestCI95: worldBestCI95,
+        maeGap: maeGap.toFixed(2),
+        mapeGap: mapeGap.toFixed(2),
+        ci95Gap: ci95Gap.toFixed(1),
+        isWorldClass: isWorldClass,
+        isWorldClassMAE: isWorldClassMAE,
+        isWorldClassMAPE: isWorldClassMAPE,
+        isWorldClassCI95: isWorldClassCI95
     };
 }
 
@@ -2450,10 +2483,29 @@ async function initComparisonChart() {
                     gap: 12px;
                     font-size: 0.85rem;
                 `;
+                // 世界級標記
+                const worldClassBadge = accuracyStats.isWorldClass 
+                    ? '<span style="background: #059669; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; margin-left: 4px;">🏆 世界級</span>'
+                    : '';
+                
                 statsEl.innerHTML = `
                     <div style="text-align: center;">
-                        <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">平均誤差</div>
-                        <div style="color: #1e293b; font-weight: 600; font-size: 1rem;">${accuracyStats.avgAbsError} 人</div>
+                        <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">MAE (平均絕對誤差)</div>
+                        <div style="color: ${accuracyStats.isWorldClassMAE ? '#059669' : '#1e293b'}; font-weight: 600; font-size: 1rem;">
+                            ${accuracyStats.mae} 人 ${accuracyStats.isWorldClassMAE ? '🏆' : ''}
+                        </div>
+                        <div style="color: #94a3b8; font-size: 0.65rem; margin-top: 2px;">
+                            世界最佳: ${accuracyStats.worldBestMAE} ${accuracyStats.maeGap > 0 ? `(+${accuracyStats.maeGap})` : ''}
+                        </div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">MAPE (平均絕對百分比誤差)</div>
+                        <div style="color: ${accuracyStats.isWorldClassMAPE ? '#059669' : '#1e293b'}; font-weight: 600; font-size: 1rem;">
+                            ${accuracyStats.mape}% ${accuracyStats.isWorldClassMAPE ? '🏆' : ''}
+                        </div>
+                        <div style="color: #94a3b8; font-size: 0.65rem; margin-top: 2px;">
+                            目標: ${accuracyStats.worldBestMAPE}% ${accuracyStats.mapeGap > 0 ? `(+${accuracyStats.mapeGap}%)` : ''}
+                        </div>
                     </div>
                     <div style="text-align: center;">
                         <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">平均準確度</div>
@@ -2465,17 +2517,35 @@ async function initComparisonChart() {
                     </div>
                     <div style="text-align: center;">
                         <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">95% CI 覆蓋率</div>
-                        <div style="color: #7c3aed; font-weight: 600; font-size: 1rem;">${accuracyStats.ci95Coverage}%</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">MAPE</div>
-                        <div style="color: #1e293b; font-weight: 600; font-size: 1rem;">${accuracyStats.mape}%</div>
+                        <div style="color: ${accuracyStats.isWorldClassCI95 ? '#059669' : '#7c3aed'}; font-weight: 600; font-size: 1rem;">
+                            ${accuracyStats.ci95Coverage}% ${accuracyStats.isWorldClassCI95 ? '🏆' : ''}
+                        </div>
+                        <div style="color: #94a3b8; font-size: 0.65rem; margin-top: 2px;">
+                            目標: ${accuracyStats.worldBestCI95}% ${accuracyStats.ci95Gap > 0 ? `(-${accuracyStats.ci95Gap}%)` : ''}
+                        </div>
                     </div>
                     <div style="text-align: center;">
                         <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">數據點數</div>
                         <div style="color: #1e293b; font-weight: 600; font-size: 1rem;">${accuracyStats.totalCount}</div>
                     </div>
                 `;
+                
+                // 如果達到世界級水準，添加特殊標記
+                if (accuracyStats.isWorldClass) {
+                    const worldClassBanner = document.createElement('div');
+                    worldClassBanner.style.cssText = `
+                        background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+                        color: white;
+                        padding: 8px 12px;
+                        border-radius: 6px;
+                        margin-top: 8px;
+                        text-align: center;
+                        font-size: 0.8rem;
+                        font-weight: 600;
+                    `;
+                    worldClassBanner.textContent = '🏆 達到世界級準確度水準！';
+                    statsEl.appendChild(worldClassBanner);
+                }
                 chartContainer.insertBefore(statsEl, comparisonCanvas);
             }
         }
