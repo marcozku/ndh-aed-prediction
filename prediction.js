@@ -864,6 +864,20 @@ function getResponsivePadding() {
     }
 }
 
+// 獲取對比圖表的響應式 layout padding（需要更多底部空間容納 X 軸標籤）
+function getComparisonChartPadding() {
+    const width = window.innerWidth;
+    if (width <= 380) {
+        return { top: 10, bottom: 60, left: 5, right: 5 }; // 小屏幕需要更多底部空間
+    } else if (width <= 600) {
+        return { top: 10, bottom: 70, left: 8, right: 8 };
+    } else if (width <= 900) {
+        return { top: 10, bottom: 80, left: 10, right: 10 };
+    } else {
+        return { top: 10, bottom: 90, left: 10, right: 15 }; // 桌面端需要更多底部空間
+    }
+}
+
 // 獲取響應式 maxTicksLimit（根據屏幕寬度）
 function getResponsiveMaxTicksLimit() {
     const width = window.innerWidth;
@@ -2616,12 +2630,7 @@ async function initComparisonChart() {
                 maintainAspectRatio: false, // 不保持寬高比，填充容器
                 aspectRatio: undefined, // 不使用 aspectRatio，使用容器高度
                 layout: {
-                    padding: {
-                        top: 10,
-                        right: 10,
-                        bottom: 50, // 增加底部 padding 以容納 X 軸標籤
-                        left: 10
-                    }
+                    padding: getComparisonChartPadding() // 使用響應式 padding，確保 X 軸標籤完整顯示
                 },
                 plugins: {
                     ...professionalOptions.plugins,
@@ -2705,7 +2714,7 @@ async function initComparisonChart() {
                 const container = document.getElementById('comparison-chart-container');
                 if (container) {
                     // 動態獲取容器高度（優先使用實際容器高度，否則根據視窗大小計算）
-                    const containerHeight = container.offsetHeight || Math.min(window.innerHeight * 0.5, 550);
+                    const containerHeight = container.offsetHeight || Math.min(window.innerHeight * 0.55, 600);
                     // 設置圖表 canvas 的大小
                     const canvas = comparisonChart.canvas;
                     if (canvas) {
@@ -2714,7 +2723,8 @@ async function initComparisonChart() {
                         canvas.style.maxHeight = `${containerHeight}px`;
                     }
                 }
-                comparisonChart.options.layout.padding = getResponsivePadding();
+                // 使用專門為對比圖表設計的 padding
+                comparisonChart.options.layout.padding = getComparisonChartPadding();
                 if (comparisonChart.options.scales && comparisonChart.options.scales.x && comparisonChart.options.scales.x.ticks) {
                     comparisonChart.options.scales.x.ticks.maxTicksLimit = getResponsiveMaxTicksLimit();
                 }

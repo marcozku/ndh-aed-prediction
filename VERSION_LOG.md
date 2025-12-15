@@ -1,5 +1,47 @@
 # 版本更新日誌
 
+## v2.1.7 - 2025-12-15 10:39 HKT
+
+### 📊 進一步優化對比圖表顯示，確保完整可見
+
+**問題**：圖表仍然被部分裁剪，X 軸標籤和圖表內容無法完整顯示。
+
+**解決方案**：
+1. **進一步增加圖表容器高度**：
+   - 桌面端：從 `min(50vh, 550px)` 增加到 `min(55vh, 600px)`
+   - 平板端（≤ 900px）：從 `min(45vh, 500px)` 增加到 `min(50vh, 550px)`
+   - 手機端（≤ 600px）：從 `min(40vh, 400px)` 增加到 `min(45vh, 450px)`
+   - 小屏幕（≤ 380px）：從 `min(35vh, 350px)` 增加到 `min(40vh, 400px)`
+
+2. **改進 chart-card 的 overflow 設置**：
+   - 將 `chart-card.full-width` 的 `overflow` 從 `hidden` 改為 `visible`，允許圖表完整顯示
+
+3. **創建專門的圖表 padding 函數**：
+   - 新增 `getComparisonChartPadding()` 函數
+   - 為對比圖表提供更大的底部 padding（60-90px），確保 X 軸標籤完整顯示
+   - 根據屏幕尺寸動態調整：小屏 60px，手機 70px，平板 80px，桌面 90px
+
+4. **優化底部 padding**：
+   - 增加所有響應式斷點的底部 padding，為旋轉的 X 軸標籤留出足夠空間
+
+5. **更新 JavaScript 容器高度計算**：
+   - 從 `window.innerHeight * 0.5` 改為 `window.innerHeight * 0.55`
+   - 最大高度從 550px 增加到 600px
+
+**影響範圍**：
+- `styles.css`：更新容器高度、overflow 設置和 padding
+- `prediction.js`：新增 `getComparisonChartPadding()` 函數，更新圖表配置和容器高度計算
+
+**技術細節**：
+- 使用更大的 vh 比例（55% vs 50%）充分利用容器空間
+- 專門的 padding 函數確保 X 軸標籤有足夠空間
+- overflow: visible 確保圖表不會被裁剪
+
+**優勢**：
+- 圖表完全可見，包括所有標籤和內容
+- X 軸標籤完整顯示，不會被裁剪
+- 在不同屏幕尺寸下都有充足的顯示空間
+
 ## v2.1.6 - 2025-12-15 10:36 HKT
 
 ### 📊 優化對比圖表容器高度，確保圖表完整顯示
