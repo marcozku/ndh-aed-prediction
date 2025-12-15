@@ -1,5 +1,56 @@
 # 版本更新日誌
 
+## v2.2.9 - 2025-12-15 19:33 HKT
+
+### 📱 優化所有卡片在移動設備上的顯示
+
+**問題**：所有卡片在移動設備上顯示不夠友好，padding 太大，間距不合理，影響用戶體驗。
+
+**解決方案**：
+1. **chart-card 移動端優化**：
+   - 600px 以下：`padding: var(--space-md) !important`（減少 padding）
+   - 380px 以下：`padding: var(--space-sm) !important`（進一步減少 padding）
+   - 標題字體大小：使用 `clamp()` 函數響應式調整
+   - 標題底部間距：減少 `margin-bottom`
+
+2. **forecast-day-card 移動端優化**：
+   - 900px 以下：`padding: var(--space-md) var(--space-sm) !important`
+   - 600px 以下：`padding: var(--space-sm) var(--space-xs) !important`
+   - 380px 以下：`padding: var(--space-xs) 4px !important`
+   - 圓角優化：小屏幕使用更小的圓角
+   - 容器 padding：減少上下 padding
+
+3. **comparison-table 移動端優化**：
+   - 添加 `overflow-x: auto` 和 `-webkit-overflow-scrolling: touch` 支持水平滾動
+   - 600px 以下：減少 padding 和字體大小
+   - 380px 以下：進一步減少 padding
+   - 確保表格在移動端可以水平滾動查看所有內容
+
+4. **charts-section 移動端優化**：
+   - 900px 以下：改為單列布局（`grid-template-columns: 1fr`）
+   - 減少間距（`gap: var(--space-md)`）
+
+5. **統一移動端優化原則**：
+   - 所有卡片使用響應式 padding
+   - 字體大小使用 `clamp()` 函數
+   - 間距使用較小的值
+   - 支持觸摸滾動
+
+**影響範圍**：
+- `styles.css`：優化所有卡片的移動端樣式
+
+**技術細節**：
+- 使用 `!important` 確保移動端樣式優先級
+- 使用 `clamp()` 函數實現響應式字體大小
+- 添加 `-webkit-overflow-scrolling: touch` 支持 iOS 平滑滾動
+- 統一使用 CSS 變量（`var(--space-*)`）確保一致性
+
+**優勢**：
+- 所有卡片在移動設備上顯示更友好
+- 減少不必要的空白空間
+- 更好的觸摸體驗
+- 統一的響應式設計
+
 ## v2.2.8 - 2025-12-15 19:30 HKT
 
 ### 🎨 重新設計所有圖表大小，符合世界級標準
