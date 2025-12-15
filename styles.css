@@ -1117,17 +1117,30 @@ section h2 {
     padding: 0 0 min(6vh, 40px) 0; /* 動態底部 padding */
 }
 
+/* 對比圖容器特殊處理 - 允許內容決定高度 */
+#comparison-chart-container.chart-container {
+    height: auto !important;
+    min-height: 500px !important;
+    overflow: visible !important;
+}
+
 /* 實際 vs 預測對比圖容器需要更多空間 - 動態適應 */
 #comparison-chart-container {
     width: 100% !important;
     max-width: 100% !important;
-    height: min(50vh, 500px) !important; /* 使用視窗高度的50%，最大500px，確保在屏幕內 */
-    min-height: min(40vh, 400px) !important; /* 最小高度：視窗高度的40%，最小400px */
-    max-height: 500px !important;
+    height: auto !important; /* 使用 auto 讓內容決定高度 */
+    min-height: 500px !important; /* 最小高度：500px，確保圖表可見 */
+    max-height: none !important; /* 移除最大高度限制 */
     padding-bottom: min(8vh, 60px) !important; /* 動態底部 padding，為 X 軸標籤留出空間 */
-    overflow: hidden !important; /* 防止圖表水平溢出 */
+    overflow: visible !important; /* 允許內容完整顯示 */
     position: relative;
     box-sizing: border-box;
+    display: block !important;
+}
+
+/* 確保圖表 canvas 有足夠的高度 */
+#comparison-chart-container canvas {
+    min-height: 400px !important; /* 確保圖表至少有 400px 高度 */
 }
 
 /* 歷史趨勢圖容器：不再需要滾動 */
@@ -1214,9 +1227,13 @@ section h2 {
     height: 100% !important;
     max-height: 100% !important;
     display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     box-sizing: border-box !important;
     margin: 0 !important;
     padding: 0 !important;
+    position: relative !important;
+    z-index: 1 !important;
 }
 
 /* 準確度統計響應式布局 */

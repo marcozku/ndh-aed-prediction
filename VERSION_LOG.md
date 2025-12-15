@@ -1,5 +1,50 @@
 # 版本更新日誌
 
+## v2.2.0 - 2025-12-15 10:49 HKT
+
+### 🔧 修復圖表不顯示問題，確保圖表可見
+
+**問題**：圖表無法顯示，用戶看不到圖表內容。
+
+**解決方案**：
+1. **修改圖表容器高度設置**：
+   - 將 `#comparison-chart-container` 的高度從固定值改為 `auto`
+   - 設置 `min-height: 500px` 確保圖表有足夠空間
+   - 移除 `max-height` 限制，允許內容完整顯示
+   - 將 `overflow` 從 `hidden` 改為 `visible`
+
+2. **確保 canvas 元素正確顯示**：
+   - 添加 `visibility: visible` 和 `opacity: 1` 確保圖表可見
+   - 設置 `min-height: 400px` 確保圖表有足夠高度
+   - 添加 `position: relative` 和 `z-index: 1` 確保圖表在正確層級
+
+3. **優化圖表初始化流程**：
+   - 在 `resizeChart` 函數中確保容器有足夠高度（至少 300px）
+   - 添加多個延遲調用（100ms, 300ms, 500ms）確保容器完全渲染
+   - 在完成載入後立即調用 `completeChartLoading` 顯示圖表
+
+4. **優化 accuracy-stats 布局**：
+   - 限制統計信息最大高度為 120px
+   - 確保統計信息不會佔用太多空間，為圖表留出足夠空間
+
+5. **添加特殊 CSS 規則**：
+   - 為 `#comparison-chart-container.chart-container` 添加特殊處理
+   - 確保對比圖容器使用 `auto` 高度和 `visible` overflow
+
+**影響範圍**：
+- `styles.css`：修改圖表容器高度設置，確保圖表可見
+- `prediction.js`：優化圖表初始化流程，確保正確顯示
+
+**技術細節**：
+- 使用 `height: auto` 讓內容決定容器高度
+- 設置足夠的 `min-height` 確保圖表可見
+- 確保所有顯示相關的 CSS 屬性都正確設置
+
+**優勢**：
+- 圖表現在可以正確顯示
+- 容器有足夠的空間容納圖表
+- 圖表不會被隱藏或裁剪
+
 ## v2.1.9 - 2025-12-15 10:46 HKT
 
 ### 📱 確保所有卡片都在屏幕內，優化響應式布局

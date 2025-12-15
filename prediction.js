@@ -2591,7 +2591,13 @@ async function initComparisonChart() {
                     worldClassBanner.textContent = '🏆 達到世界級準確度水準！';
                     statsEl.appendChild(worldClassBanner);
                 }
+                // 將統計信息插入到 canvas 之前
                 chartContainer.insertBefore(statsEl, comparisonCanvas);
+                
+                // 確保統計信息不會佔用太多空間，為圖表留出足夠空間
+                statsEl.style.marginBottom = '16px';
+                statsEl.style.maxHeight = '120px';
+                statsEl.style.overflow = 'hidden';
             }
         }
         
@@ -2729,13 +2735,14 @@ async function initComparisonChart() {
         
         updateLoadingProgress('comparison', 90);
         updateLoadingProgress('comparison', 100);
-        completeChartLoading('comparison');
         
         // 確保圖表正確適應容器大小（動態適應）
         const resizeChart = () => {
             if (comparisonChart) {
                 const container = document.getElementById('comparison-chart-container');
-                if (container) {
+                const canvas = comparisonChart.canvas;
+                
+                if (container && canvas) {
                     // 確保容器有明確的寬度限制
                     container.style.width = '100%';
                     container.style.maxWidth = '100%';
@@ -2747,15 +2754,21 @@ async function initComparisonChart() {
                     const containerWidth = containerRect.width || container.offsetWidth || container.clientWidth;
                     const containerHeight = containerRect.height || container.offsetHeight || Math.min(window.innerHeight * 0.5, 500);
                     
+                    // 確保容器有足夠的高度
+                    if (containerHeight < 300) {
+                        container.style.height = `${Math.max(containerHeight, 300)}px`;
+                    }
+                    
                     // 設置圖表 canvas 的大小，確保不超出容器
-                    const canvas = comparisonChart.canvas;
-                    if (canvas && containerWidth > 0 && containerHeight > 0) {
+                    if (containerWidth > 0 && containerHeight > 0) {
                         // 設置 CSS 尺寸（Chart.js 會自動處理 canvas 的實際像素尺寸）
                         canvas.style.width = '100%';
                         canvas.style.maxWidth = '100%';
                         canvas.style.height = `${containerHeight}px`;
                         canvas.style.maxHeight = `${containerHeight}px`;
                         canvas.style.display = 'block';
+                        canvas.style.visibility = 'visible';
+                        canvas.style.opacity = '1';
                         canvas.style.boxSizing = 'border-box';
                     }
                     
@@ -2774,9 +2787,13 @@ async function initComparisonChart() {
             }
         };
         
+        // 完成載入並顯示圖表
+        completeChartLoading('comparison');
+        
         // 初始調整（使用多個延遲確保容器已完全渲染）
         setTimeout(resizeChart, 100);
         setTimeout(resizeChart, 300);
+        setTimeout(resizeChart, 500);
         
         // 監聽窗口大小變化，動態調整
         let resizeTimeout;
