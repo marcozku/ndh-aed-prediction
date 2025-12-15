@@ -421,53 +421,140 @@ class NDHAttendancePredictor {
         this.stdDev = 0;
         this.dowFactors = {};
         this.monthFactors = {};
+        this.monthDowFactors = {}; // 月份-星期交互因子（基於研究）
         this.fluSeasonFactor = 1.004;
+        this.rollingWindowDays = 180; // 滾動窗口：180天（基於LSTM研究）
+        this.recentWindowDays = 30; // 近期窗口：30天（用於趨勢計算）
         
         this._calculateFactors();
     }
     
+    // 計算加權平均（基於時間序列研究：指數衰減權重）
+    _weightedMean(values, weights) {
+        if (values.length === 0) return 0;
+        if (values.length !== weights.length) {
+            // 如果權重數量不匹配，使用均勻權重
+            return values.reduce((a, b) => a + b, 0) / values.length;
+        }
+        const weightedSum = values.reduce((sum, val, i) => sum + val * weights[i], 0);
+        const weightSum = weights.reduce((a, b) => a + b, 0);
+        return weightSum > 0 ? weightedSum / weightSum : 0;
+    }
+    
+    // 計算加權標準差
+    _weightedStdDev(values, mean, weights) {
+        if (values.length === 0) return 0;
+        const squaredDiffs = values.map((v, i) => {
+            const weight = weights && weights[i] ? weights[i] : 1;
+            return weight * Math.pow(v - mean, 2);
+        });
+        const weightedVariance = squaredDiffs.reduce((a, b) => a + b, 0) / 
+            (weights ? weights.reduce((a, b) => a + b, 0) : values.length);
+        return Math.sqrt(Math.max(0, weightedVariance));
+    }
+    
+    // 計算趨勢（基於Prophet研究）
+    _calculateTrend(recentData) {
+        if (recentData.length < 7) return 0;
+        
+        // 計算7天和30天移動平均
+        const last7Days = recentData.slice(-7).map(d => d.attendance);
+        const last30Days = recentData.slice(-30).map(d => d.attendance);
+        
+        const avg7 = last7Days.reduce((a, b) => a + b, 0) / last7Days.length;
+        const avg30 = last30Days.length > 0 ? 
+            last30Days.reduce((a, b) => a + b, 0) / last30Days.length : avg7;
+        
+        // 趨勢 = (短期平均 - 長期平均) / 長期平均
+        return avg30 > 0 ? (avg7 - avg30) / avg30 : 0;
+    }
+    
     _calculateFactors() {
-        // 計算全局平均
-        const attendances = this.data.map(d => d.attendance);
-        this.globalMean = attendances.reduce((a, b) => a + b, 0) / attendances.length;
+        // 使用滾動窗口（基於LSTM研究：適應數據分佈變化）
+        const recentData = this.data.length > this.rollingWindowDays 
+            ? this.data.slice(-this.rollingWindowDays)
+            : this.data;
         
-        // 計算標準差
-        const squaredDiffs = attendances.map(a => Math.pow(a - this.globalMean, 2));
-        this.stdDev = Math.sqrt(squaredDiffs.reduce((a, b) => a + b, 0) / attendances.length);
+        const attendances = recentData.map(d => d.attendance);
         
-        // 計算星期因子
+        // 計算加權平均（最近數據權重更高，基於時間序列研究）
+        const weights = recentData.map((_, i) => {
+            // 指數衰減權重：最近數據權重 = e^(-decay * days_ago)
+            const daysAgo = recentData.length - i - 1;
+            const decay = 0.02; // 衰減率
+            return Math.exp(-decay * daysAgo);
+        });
+        
+        this.globalMean = this._weightedMean(attendances, weights);
+        
+        // 計算加權標準差（更準確反映當前波動性）
+        this.stdDev = this._weightedStdDev(attendances, this.globalMean, weights);
+        
+        // 保守估計：確保標準差至少為25（基於實際數據分析）
+        this.stdDev = Math.max(this.stdDev, 25);
+        
+        // 計算星期因子（使用加權平均）
         const dowData = {};
-        this.data.forEach(d => {
+        recentData.forEach((d, i) => {
             const date = new Date(d.date);
-            const dow = date.getDay(); // 0=Sunday
-            if (!dowData[dow]) dowData[dow] = [];
-            dowData[dow].push(d.attendance);
+            const dow = date.getDay();
+            if (!dowData[dow]) dowData[dow] = { values: [], weights: [] };
+            dowData[dow].values.push(d.attendance);
+            dowData[dow].weights.push(weights[i]);
         });
         
         for (let dow = 0; dow < 7; dow++) {
-            if (dowData[dow]) {
-                const mean = dowData[dow].reduce((a, b) => a + b, 0) / dowData[dow].length;
-                this.dowFactors[dow] = mean / this.globalMean;
+            if (dowData[dow] && dowData[dow].values.length > 0) {
+                const mean = this._weightedMean(dowData[dow].values, dowData[dow].weights);
+                this.dowFactors[dow] = this.globalMean > 0 ? mean / this.globalMean : 1.0;
             } else {
                 this.dowFactors[dow] = 1.0;
             }
         }
         
-        // 計算月份因子
+        // 計算月份因子（使用加權平均）
         const monthData = {};
-        this.data.forEach(d => {
+        recentData.forEach((d, i) => {
             const date = new Date(d.date);
             const month = date.getMonth() + 1;
-            if (!monthData[month]) monthData[month] = [];
-            monthData[month].push(d.attendance);
+            if (!monthData[month]) monthData[month] = { values: [], weights: [] };
+            monthData[month].values.push(d.attendance);
+            monthData[month].weights.push(weights[i]);
         });
         
         for (let month = 1; month <= 12; month++) {
-            if (monthData[month]) {
-                const mean = monthData[month].reduce((a, b) => a + b, 0) / monthData[month].length;
-                this.monthFactors[month] = mean / this.globalMean;
+            if (monthData[month] && monthData[month].values.length > 0) {
+                const mean = this._weightedMean(monthData[month].values, monthData[month].weights);
+                this.monthFactors[month] = this.globalMean > 0 ? mean / this.globalMean : 1.0;
             } else {
                 this.monthFactors[month] = 1.0;
+            }
+        }
+        
+        // 計算月份-星期交互因子（基於研究：不同月份的星期模式不同）
+        const monthDowData = {};
+        recentData.forEach((d, i) => {
+            const date = new Date(d.date);
+            const month = date.getMonth() + 1;
+            const dow = date.getDay();
+            const key = `${month}-${dow}`;
+            if (!monthDowData[key]) monthDowData[key] = { values: [], weights: [] };
+            monthDowData[key].values.push(d.attendance);
+            monthDowData[key].weights.push(weights[i]);
+        });
+        
+        for (let month = 1; month <= 12; month++) {
+            this.monthDowFactors[month] = {};
+            for (let dow = 0; dow < 7; dow++) {
+                const key = `${month}-${dow}`;
+                if (monthDowData[key] && monthDowData[key].values.length > 0) {
+                    const mean = this._weightedMean(monthDowData[key].values, monthDowData[key].weights);
+                    const monthMean = this.monthFactors[month] * this.globalMean;
+                    this.monthDowFactors[month][dow] = monthMean > 0 ? mean / monthMean : this.dowFactors[dow];
+                } else {
+                    // 如果沒有足夠數據，使用月份因子 × 星期因子
+                    this.monthDowFactors[month][dow] = this.dowFactors[dow];
+                }
             }
         }
     }
@@ -486,8 +573,14 @@ class NDHAttendancePredictor {
         // 基準值 (月份效應)
         let baseline = this.globalMean * (this.monthFactors[month] || 1.0);
         
-        // 星期效應
-        let value = baseline * (this.dowFactors[dow] || 1.0);
+        // 星期效應（優先使用月份-星期交互因子，基於研究）
+        let dowFactor = 1.0;
+        if (this.monthDowFactors[month] && this.monthDowFactors[month][dow] !== undefined) {
+            dowFactor = this.monthDowFactors[month][dow];
+        } else {
+            dowFactor = this.dowFactors[dow] || 1.0;
+        }
+        let value = baseline * dowFactor;
         
         // 假期效應
         if (isHoliday) {
@@ -499,39 +592,71 @@ class NDHAttendancePredictor {
             value *= this.fluSeasonFactor;
         }
         
-        // 天氣效應
+        // 天氣效應（改進：使用相對溫度，基於研究）
         let weatherFactor = 1.0;
         let weatherImpacts = [];
         if (weatherData) {
-            const weatherImpact = calculateWeatherImpact(weatherData);
+            // 傳遞歷史數據以計算相對溫度
+            const recentData = this.data.length > this.rollingWindowDays 
+                ? this.data.slice(-this.rollingWindowDays)
+                : this.data;
+            const weatherImpact = calculateWeatherImpact(weatherData, recentData);
             weatherFactor = weatherImpact.factor;
             weatherImpacts = weatherImpact.impacts;
         }
         value *= weatherFactor;
         
-        // AI 分析因素效應
+        // AI 分析因素效應（限制影響範圍，避免過度調整）
         let aiFactorValue = 1.0;
         let aiFactorDesc = null;
         if (aiFactor) {
-            aiFactorValue = aiFactor.impactFactor || 1.0;
+            // 限制AI因子在合理範圍內（0.85 - 1.15）
+            aiFactorValue = Math.max(0.85, Math.min(1.15, aiFactor.impactFactor || 1.0));
             aiFactorDesc = aiFactor.description || null;
             value *= aiFactorValue;
         } else if (aiFactors[dateStr]) {
-            // 使用全局 AI 因素緩存
-            aiFactorValue = aiFactors[dateStr].impactFactor || 1.0;
+            aiFactorValue = Math.max(0.85, Math.min(1.15, aiFactors[dateStr].impactFactor || 1.0));
             aiFactorDesc = aiFactors[dateStr].description || null;
             value *= aiFactorValue;
         }
         
-        // 信賴區間
+        // 趨勢調整（基於Prophet研究：使用短期趨勢）
+        const recentData = this.data.length > this.recentWindowDays 
+            ? this.data.slice(-this.recentWindowDays)
+            : this.data;
+        const trend = this._calculateTrend(recentData);
+        const trendAdjustment = value * trend * 0.3; // 趨勢權重30%（保守）
+        value += trendAdjustment;
+        
+        // 異常檢測和調整（基於異常檢測研究）
+        // 計算歷史分位數
+        const attendances = this.data.map(d => d.attendance);
+        attendances.sort((a, b) => a - b);
+        const p5 = attendances[Math.floor(attendances.length * 0.05)];
+        const p95 = attendances[Math.floor(attendances.length * 0.95)];
+        const minReasonable = Math.max(p5 || 150, 150); // 至少150
+        const maxReasonable = Math.min(p95 || 350, 350); // 最多350
+        
+        // 如果預測值異常，調整到合理範圍
+        if (value < minReasonable) {
+            value = minReasonable + (value - minReasonable) * 0.5; // 部分調整
+        } else if (value > maxReasonable) {
+            value = maxReasonable + (value - maxReasonable) * 0.5; // 部分調整
+        }
+        
+        // 改進的信賴區間（基於統計研究：更保守的估計）
+        // 考慮預測不確定性，使用更大的乘數
+        const uncertaintyFactor = 1.2; // 20%的不確定性調整
+        const adjustedStdDev = this.stdDev * uncertaintyFactor;
+        
         const ci80 = {
-            lower: Math.max(0, Math.round(value - 1.28 * this.stdDev)),
-            upper: Math.round(value + 1.28 * this.stdDev)
+            lower: Math.max(0, Math.round(value - 1.5 * adjustedStdDev)), // 從1.28改為1.5
+            upper: Math.round(value + 1.5 * adjustedStdDev)
         };
         
         const ci95 = {
-            lower: Math.max(0, Math.round(value - 1.96 * this.stdDev)),
-            upper: Math.round(value + 1.96 * this.stdDev)
+            lower: Math.max(0, Math.round(value - 2.5 * adjustedStdDev)), // 從1.96改為2.5
+            upper: Math.round(value + 2.5 * adjustedStdDev)
         };
         
         const dayNames = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
@@ -543,7 +668,10 @@ class NDHAttendancePredictor {
             baseline: Math.round(baseline),
             globalMean: Math.round(this.globalMean),
             monthFactor: this.monthFactors[month] || 1.0,
-            dowFactor: this.dowFactors[dow] || 1.0,
+            dowFactor: dowFactor,
+            monthDowFactor: this.monthDowFactors[month] && this.monthDowFactors[month][dow] ? this.monthDowFactors[month][dow] : null,
+            trend: trend,
+            trendAdjustment: Math.round(trendAdjustment),
             weatherFactor: weatherFactor,
             weatherImpacts: weatherImpacts,
             aiFactor: aiFactorValue,
@@ -554,7 +682,10 @@ class NDHAttendancePredictor {
             holidayFactor: isHoliday ? holidayInfo.factor : 1.0,
             isFluSeason,
             ci80,
-            ci95
+            ci95,
+            // 新增：預測方法標記
+            method: 'enhanced_weighted_rolling_window',
+            version: '2.0.0'
         };
     }
     
@@ -3780,28 +3911,78 @@ async function fetchWeatherForecast() {
 }
 
 // 計算天氣影響因子
-function calculateWeatherImpact(weather) {
+function calculateWeatherImpact(weather, historicalData = null) {
     if (!weather) return { factor: 1.0, impacts: [] };
-    
+
     let totalFactor = 1.0;
     const impacts = [];
     const factors = WEATHER_CONFIG.weatherImpactFactors;
-    
-    // 溫度影響
+
+    // 溫度影響（改進：使用相對溫度，基於研究發現）
     if (weather.temperature !== null) {
         const temp = weather.temperature;
-        if (temp >= factors.temperature.veryHot.threshold) {
-            totalFactor *= factors.temperature.veryHot.factor;
-            impacts.push({ type: 'temp', desc: factors.temperature.veryHot.desc, factor: factors.temperature.veryHot.factor, icon: '🥵' });
-        } else if (temp >= factors.temperature.hot.threshold) {
-            totalFactor *= factors.temperature.hot.factor;
-            impacts.push({ type: 'temp', desc: factors.temperature.hot.desc, factor: factors.temperature.hot.factor, icon: '☀️' });
-        } else if (temp < factors.temperature.veryCold.threshold) {
-            totalFactor *= factors.temperature.veryCold.factor;
-            impacts.push({ type: 'temp', desc: factors.temperature.veryCold.desc, factor: factors.temperature.veryCold.factor, icon: '🥶' });
-        } else if (temp < factors.temperature.cold.threshold) {
-            totalFactor *= factors.temperature.cold.factor;
-            impacts.push({ type: 'temp', desc: factors.temperature.cold.desc, factor: factors.temperature.cold.factor, icon: '❄️' });
+        let tempFactor = 1.0;
+        let tempDesc = '';
+        let tempIcon = '';
+        
+        // 計算歷史平均溫度（如果提供歷史數據）
+        let historicalAvgTemp = null;
+        if (historicalData && historicalData.length > 0) {
+            // 獲取同月份的歷史溫度平均值（簡化：使用固定值，實際應從天氣數據庫獲取）
+            // 這裡使用季節性估計：12月平均約18°C，1月約16°C等
+            const month = new Date().getMonth() + 1;
+            const seasonalAvgTemps = {
+                1: 16, 2: 17, 3: 19, 4: 23, 5: 26, 6: 28,
+                7: 29, 8: 29, 9: 28, 10: 25, 11: 21, 12: 18
+            };
+            historicalAvgTemp = seasonalAvgTemps[month] || 22;
+        }
+        
+        // 使用相對溫度（與歷史平均比較）
+        if (historicalAvgTemp !== null) {
+            const tempDiff = temp - historicalAvgTemp;
+            // 相對高溫增加就診（基於研究）
+            if (tempDiff > 5) {
+                tempFactor = 1.06; // 比歷史平均高5度以上，增加6%
+                tempDesc = `比歷史平均高${tempDiff.toFixed(1)}°C`;
+                tempIcon = '🥵';
+            } else if (tempDiff > 2) {
+                tempFactor = 1.03;
+                tempDesc = `比歷史平均高${tempDiff.toFixed(1)}°C`;
+                tempIcon = '☀️';
+            } else if (tempDiff < -5) {
+                tempFactor = 1.10; // 比歷史平均低5度以上，增加10%（寒冷增加就診）
+                tempDesc = `比歷史平均低${Math.abs(tempDiff).toFixed(1)}°C`;
+                tempIcon = '🥶';
+            } else if (tempDiff < -2) {
+                tempFactor = 1.05;
+                tempDesc = `比歷史平均低${Math.abs(tempDiff).toFixed(1)}°C`;
+                tempIcon = '❄️';
+            }
+        } else {
+            // 回退到絕對溫度
+            if (temp >= factors.temperature.veryHot.threshold) {
+                tempFactor = factors.temperature.veryHot.factor;
+                tempDesc = factors.temperature.veryHot.desc;
+                tempIcon = '🥵';
+            } else if (temp >= factors.temperature.hot.threshold) {
+                tempFactor = factors.temperature.hot.factor;
+                tempDesc = factors.temperature.hot.desc;
+                tempIcon = '☀️';
+            } else if (temp < factors.temperature.veryCold.threshold) {
+                tempFactor = factors.temperature.veryCold.factor;
+                tempDesc = factors.temperature.veryCold.desc;
+                tempIcon = '🥶';
+            } else if (temp < factors.temperature.cold.threshold) {
+                tempFactor = factors.temperature.cold.factor;
+                tempDesc = factors.temperature.cold.desc;
+                tempIcon = '❄️';
+            }
+        }
+        
+        if (tempFactor !== 1.0) {
+            totalFactor *= tempFactor;
+            impacts.push({ type: 'temp', desc: tempDesc, factor: tempFactor, icon: tempIcon });
         }
     }
     
