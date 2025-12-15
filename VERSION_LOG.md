@@ -1,5 +1,47 @@
 # 版本更新日誌
 
+## v2.2.1 - 2025-12-15 10:52 HKT
+
+### 🔧 修復歷史趨勢圖底部被遮擋問題
+
+**問題**：歷史趨勢圖的底部（包括 X 軸標籤）被容器邊界遮擋，無法完整顯示。
+
+**解決方案**：
+1. **修改歷史趨勢圖容器設置**：
+   - 將 `#history-chart-container` 的 `overflow` 從 `hidden` 改為 `visible`，允許底部內容顯示
+   - 添加 `padding-bottom: min(8vh, 60px)` 為 X 軸標籤留出空間
+   - 添加 `box-sizing: border-box` 確保正確計算尺寸
+
+2. **優化 chart-container.large 設置**：
+   - 為 `.chart-container.large` 添加 `padding-bottom: min(8vh, 60px)` 確保底部有足夠空間
+
+3. **增加圖表 layout padding**：
+   - 更新 `getResponsivePadding()` 函數，增加底部 padding：
+     - 小屏幕（≤ 380px）：從 8px 增加到 50px
+     - 手機（≤ 600px）：從 8px 增加到 60px
+     - 平板（≤ 900px）：從 10px 增加到 70px
+     - 桌面（> 900px）：從 10px 增加到 80px
+
+4. **優化歷史趨勢圖初始化**：
+   - 在 JavaScript 中確保底部 padding 至少為 60px
+   - 為 X 軸標籤添加 `padding: 10px` 確保標籤有足夠空間
+   - 將容器的 `overflow` 從 `hidden` 改為 `visible`
+   - 動態設置容器的 `paddingBottom` 為 60px
+
+**影響範圍**：
+- `styles.css`：修改歷史趨勢圖容器和 chart-container.large 的設置
+- `prediction.js`：更新 getResponsivePadding 函數和歷史趨勢圖初始化邏輯
+
+**技術細節**：
+- 使用 `overflow: visible` 允許內容完整顯示
+- 增加底部 padding 為 X 軸標籤留出足夠空間
+- 確保所有圖表都有足夠的底部空間
+
+**優勢**：
+- 歷史趨勢圖底部完整可見
+- X 軸標籤不再被遮擋
+- 圖表內容完整顯示
+
 ## v2.2.0 - 2025-12-15 10:49 HKT
 
 ### 🔧 修復圖表不顯示問題，確保圖表可見

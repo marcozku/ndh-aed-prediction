@@ -854,13 +854,13 @@ const chartColors = {
 function getResponsivePadding() {
     const width = window.innerWidth;
     if (width <= 380) {
-        return { top: 8, bottom: 8, left: 0, right: 0 };
+        return { top: 8, bottom: 50, left: 0, right: 0 }; // 增加底部 padding 為 X 軸標籤留出空間
     } else if (width <= 600) {
-        return { top: 8, bottom: 8, left: 2, right: 2 };
+        return { top: 8, bottom: 60, left: 2, right: 2 };
     } else if (width <= 900) {
-        return { top: 10, bottom: 10, left: 5, right: 5 };
+        return { top: 10, bottom: 70, left: 5, right: 5 };
     } else {
-        return { top: 10, bottom: 10, left: 5, right: 15 };
+        return { top: 10, bottom: 80, left: 5, right: 15 }; // 桌面端需要更多底部空間
     }
 }
 
@@ -2264,13 +2264,18 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         // 確保圖表正確顯示（使用響應式模式，適應容器寬度）
         setTimeout(() => {
             if (historyChart && historyCanvas && historyContainer) {
-                // 確保容器和canvas使用響應式寬度（不滾動）
-                historyContainer.style.overflow = 'hidden';
+                // 確保容器和canvas使用響應式寬度，允許底部內容顯示
+                historyContainer.style.overflow = 'visible';
+                historyContainer.style.paddingBottom = '60px'; // 為 X 軸標籤留出空間
                 historyCanvas.style.width = '100%';
                 historyCanvas.style.maxWidth = '100%';
                 
                 // 更新圖表選項，特別是時間軸配置
-                historyChart.options.layout.padding = getResponsivePadding();
+                const responsivePadding = getResponsivePadding();
+                historyChart.options.layout.padding = {
+                    ...responsivePadding,
+                    bottom: Math.max(responsivePadding.bottom, 60) // 確保底部至少有 60px 空間
+                };
                 if (historyChart.options.scales && historyChart.options.scales.x) {
                     // 更新時間軸配置
                     historyChart.options.scales.x.time.unit = getTimeUnit(range);
@@ -2280,6 +2285,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         historyChart.options.scales.x.ticks.autoSkip = true;
                         historyChart.options.scales.x.ticks.maxTicksLimit = getMaxTicksForRange(range, historicalData.length);
                         historyChart.options.scales.x.ticks.maxRotation = 0;
+                        historyChart.options.scales.x.ticks.padding = 10; // X 軸標籤的 padding
                     }
                 }
                 
