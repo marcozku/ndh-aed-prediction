@@ -3813,9 +3813,12 @@ function updateUI(predictor) {
         if (p.isHoliday) badges += `<span class="forecast-badge holiday-badge">${p.holidayName}</span>`;
         if (p.isFluSeason) badges += '<span class="forecast-badge flu-badge">流感季</span>';
         
+        // 如果是今天（第一個卡片），顯示完整日期以與今日預測卡片一致
+        const dateFormat = i === 0 ? formatDateDDMM(p.date, true) : formatDateDDMM(p.date);
+        
         return `
             <div class="${cardClass}">
-                <div class="forecast-date">${formatDateDDMM(p.date)}</div>
+                <div class="forecast-date">${dateFormat}</div>
                 <div class="forecast-day">${p.dayName}</div>
                 <div class="forecast-value">${p.predicted}</div>
                 <div class="forecast-ci">${p.ci80.lower}-${p.ci80.upper}</div>
