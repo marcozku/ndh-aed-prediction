@@ -1113,10 +1113,10 @@ section h2 {
 
 /* 實際 vs 預測對比圖容器需要更多空間 */
 #comparison-chart-container {
-    height: 400px !important; /* 固定高度，防止圖表過大 */
-    max-height: 400px !important;
-    min-height: 400px !important;
-    padding-bottom: 60px; /* 更多空間給 X 軸標籤 */
+    height: 380px !important; /* 稍微減小高度，更緊湊 */
+    max-height: 380px !important;
+    min-height: 380px !important;
+    padding-bottom: 50px; /* 減少底部 padding */
     overflow: hidden; /* 防止內容溢出 */
     position: relative;
 }
@@ -1209,19 +1209,29 @@ section h2 {
 /* 準確度統計響應式布局 */
 .accuracy-stats {
     display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+    grid-template-columns: repeat(3, 1fr) !important; /* 桌面：3列 */
     gap: 12px !important;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
     .accuracy-stats {
-        grid-template-columns: repeat(2, 1fr) !important; /* 移動端改為 2 列 */
+        grid-template-columns: repeat(3, 1fr) !important; /* 平板：保持3列 */
+    }
+}
+
+@media (max-width: 600px) {
+    .accuracy-stats {
+        grid-template-columns: repeat(2, 1fr) !important; /* 手機：2列 */
+        gap: 10px !important;
+        padding: 12px !important;
     }
 }
 
 @media (max-width: 480px) {
     .accuracy-stats {
-        grid-template-columns: 1fr !important; /* 小屏幕改為單列 */
+        grid-template-columns: repeat(2, 1fr) !important; /* 小屏幕：2列 */
+        gap: 8px !important;
+        padding: 10px !important;
     }
 }
 
@@ -1238,9 +1248,7 @@ section h2 {
     }
     
     #comparison-chart-container {
-        height: 350px !important;
-        max-height: 350px !important;
-        min-height: 350px !important;
+        min-height: 350px;
         padding-bottom: 70px;
     }
 }
@@ -1257,8 +1265,10 @@ section h2 {
     }
     
     #comparison-chart-container {
-        min-height: 320px;
-        padding-bottom: 80px; /* 移動端需要更多空間 */
+        height: 280px !important;
+        max-height: 280px !important;
+        min-height: 280px !important;
+        padding-bottom: 70px; /* 移動端需要更多空間 */
     }
 }
 
@@ -1274,8 +1284,10 @@ section h2 {
     }
     
     #comparison-chart-container {
-        min-height: 300px;
-        padding-bottom: 90px; /* 小屏幕需要更多空間 */
+        height: 260px !important;
+        max-height: 260px !important;
+        min-height: 260px !important;
+        padding-bottom: 80px; /* 小屏幕需要更多空間 */
     }
 }
 

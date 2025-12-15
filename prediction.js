@@ -2480,11 +2480,11 @@ async function initComparisonChart() {
                 statsEl.style.cssText = `
                     background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%);
                     border-radius: 8px;
-                    padding: 12px 16px;
+                    padding: 16px;
                     margin-bottom: 16px;
                     display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-                    gap: 12px;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 16px;
                     font-size: 0.85rem;
                     width: 100%;
                     max-width: 100%;
@@ -2496,44 +2496,47 @@ async function initComparisonChart() {
                     : '';
                 
                 statsEl.innerHTML = `
-                    <div style="text-align: center;">
-                        <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">MAE (平均絕對誤差)</div>
-                        <div style="color: ${accuracyStats.isWorldClassMAE ? '#059669' : '#1e293b'}; font-weight: 600; font-size: 1rem;">
+                    <div style="text-align: center; padding: 8px; background: rgba(255, 255, 255, 0.5); border-radius: 6px;">
+                        <div style="color: #64748b; font-size: 0.7rem; margin-bottom: 6px; font-weight: 500;">MAE</div>
+                        <div style="color: ${accuracyStats.isWorldClassMAE ? '#059669' : '#dc2626'}; font-weight: 700; font-size: 1.1rem; margin-bottom: 4px;">
                             ${accuracyStats.mae} 人 ${accuracyStats.isWorldClassMAE ? '🏆' : ''}
                         </div>
-                        <div style="color: #94a3b8; font-size: 0.65rem; margin-top: 2px;">
-                            世界最佳: ${accuracyStats.worldBestMAE} ${accuracyStats.maeGap > 0 ? `(+${accuracyStats.maeGap})` : ''}
+                        <div style="color: #94a3b8; font-size: 0.6rem; line-height: 1.3;">
+                            世界最佳: ${accuracyStats.worldBestMAE}<br>
+                            ${accuracyStats.maeGap > 0 ? `<span style="color: #dc2626;">+${accuracyStats.maeGap}</span>` : '<span style="color: #059669;">已超越</span>'}
                         </div>
                     </div>
-                    <div style="text-align: center;">
-                        <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">MAPE (平均絕對百分比誤差)</div>
-                        <div style="color: ${accuracyStats.isWorldClassMAPE ? '#059669' : '#1e293b'}; font-weight: 600; font-size: 1rem;">
+                    <div style="text-align: center; padding: 8px; background: rgba(255, 255, 255, 0.5); border-radius: 6px;">
+                        <div style="color: #64748b; font-size: 0.7rem; margin-bottom: 6px; font-weight: 500;">MAPE</div>
+                        <div style="color: ${accuracyStats.isWorldClassMAPE ? '#059669' : '#dc2626'}; font-weight: 700; font-size: 1.1rem; margin-bottom: 4px;">
                             ${accuracyStats.mape}% ${accuracyStats.isWorldClassMAPE ? '🏆' : ''}
                         </div>
-                        <div style="color: #94a3b8; font-size: 0.65rem; margin-top: 2px;">
-                            目標: ${accuracyStats.worldBestMAPE}% ${accuracyStats.mapeGap > 0 ? `(+${accuracyStats.mapeGap}%)` : ''}
+                        <div style="color: #94a3b8; font-size: 0.6rem; line-height: 1.3;">
+                            目標: ${accuracyStats.worldBestMAPE}%<br>
+                            ${accuracyStats.mapeGap > 0 ? `<span style="color: #dc2626;">+${accuracyStats.mapeGap}%</span>` : '<span style="color: #059669;">已達標</span>'}
                         </div>
                     </div>
-                    <div style="text-align: center;">
-                        <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">平均準確度</div>
-                        <div style="color: #059669; font-weight: 600; font-size: 1rem;">${accuracyStats.avgAccuracy}%</div>
+                    <div style="text-align: center; padding: 8px; background: rgba(255, 255, 255, 0.5); border-radius: 6px;">
+                        <div style="color: #64748b; font-size: 0.7rem; margin-bottom: 6px; font-weight: 500;">平均準確度</div>
+                        <div style="color: #059669; font-weight: 700; font-size: 1.1rem;">${accuracyStats.avgAccuracy}%</div>
                     </div>
-                    <div style="text-align: center;">
-                        <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">80% CI 覆蓋率</div>
-                        <div style="color: #2563eb; font-weight: 600; font-size: 1rem;">${accuracyStats.ci80Coverage}%</div>
+                    <div style="text-align: center; padding: 8px; background: rgba(255, 255, 255, 0.5); border-radius: 6px;">
+                        <div style="color: #64748b; font-size: 0.7rem; margin-bottom: 6px; font-weight: 500;">80% CI</div>
+                        <div style="color: #2563eb; font-weight: 700; font-size: 1.1rem;">${accuracyStats.ci80Coverage}%</div>
                     </div>
-                    <div style="text-align: center;">
-                        <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">95% CI 覆蓋率</div>
-                        <div style="color: ${accuracyStats.isWorldClassCI95 ? '#059669' : '#7c3aed'}; font-weight: 600; font-size: 1rem;">
+                    <div style="text-align: center; padding: 8px; background: rgba(255, 255, 255, 0.5); border-radius: 6px;">
+                        <div style="color: #64748b; font-size: 0.7rem; margin-bottom: 6px; font-weight: 500;">95% CI</div>
+                        <div style="color: ${accuracyStats.isWorldClassCI95 ? '#059669' : '#7c3aed'}; font-weight: 700; font-size: 1.1rem; margin-bottom: 4px;">
                             ${accuracyStats.ci95Coverage}% ${accuracyStats.isWorldClassCI95 ? '🏆' : ''}
                         </div>
-                        <div style="color: #94a3b8; font-size: 0.65rem; margin-top: 2px;">
-                            目標: ${accuracyStats.worldBestCI95}% ${accuracyStats.ci95Gap > 0 ? `(-${accuracyStats.ci95Gap}%)` : ''}
+                        <div style="color: #94a3b8; font-size: 0.6rem; line-height: 1.3;">
+                            目標: ${accuracyStats.worldBestCI95}%<br>
+                            ${accuracyStats.ci95Gap > 0 ? `<span style="color: #dc2626;">-${accuracyStats.ci95Gap}%</span>` : '<span style="color: #059669;">已達標</span>'}
                         </div>
                     </div>
-                    <div style="text-align: center;">
-                        <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">數據點數</div>
-                        <div style="color: #1e293b; font-weight: 600; font-size: 1rem;">${accuracyStats.totalCount}</div>
+                    <div style="text-align: center; padding: 8px; background: rgba(255, 255, 255, 0.5); border-radius: 6px;">
+                        <div style="color: #64748b; font-size: 0.7rem; margin-bottom: 6px; font-weight: 500;">數據點數</div>
+                        <div style="color: #1e293b; font-weight: 700; font-size: 1.1rem;">${accuracyStats.totalCount}</div>
                     </div>
                 `;
                 
