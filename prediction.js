@@ -2704,8 +2704,8 @@ async function initComparisonChart() {
             if (comparisonChart) {
                 const container = document.getElementById('comparison-chart-container');
                 if (container) {
-                    // 動態獲取容器高度（基於視窗大小）
-                    const containerHeight = container.offsetHeight || Math.min(window.innerHeight * 0.35, 400);
+                    // 動態獲取容器高度（優先使用實際容器高度，否則根據視窗大小計算）
+                    const containerHeight = container.offsetHeight || Math.min(window.innerHeight * 0.5, 550);
                     // 設置圖表 canvas 的大小
                     const canvas = comparisonChart.canvas;
                     if (canvas) {

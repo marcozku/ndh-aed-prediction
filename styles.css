@@ -1116,11 +1116,11 @@ section h2 {
 
 /* 實際 vs 預測對比圖容器需要更多空間 - 動態適應 */
 #comparison-chart-container {
-    height: min(35vh, 400px) !important; /* 使用視窗高度的35%，最大400px */
-    min-height: min(30vh, 280px) !important; /* 最小高度：視窗高度的30%，最小280px */
-    max-height: 400px !important;
+    height: min(50vh, 550px) !important; /* 使用視窗高度的50%，最大550px */
+    min-height: min(40vh, 400px) !important; /* 最小高度：視窗高度的40%，最小400px */
+    max-height: 550px !important;
     padding-bottom: min(8vh, 60px) !important; /* 動態底部 padding */
-    overflow: hidden; /* 防止內容溢出 */
+    overflow: visible; /* 允許圖表完整顯示 */
     position: relative;
     box-sizing: border-box;
 }
@@ -1253,8 +1253,10 @@ section h2 {
     }
     
     #comparison-chart-container {
-        min-height: 350px;
-        padding-bottom: 70px;
+        height: min(45vh, 500px) !important;
+        min-height: min(35vh, 350px) !important;
+        max-height: 500px !important;
+        padding-bottom: min(7vh, 60px) !important;
     }
     
     .chart-card.full-width {
@@ -1275,9 +1277,9 @@ section h2 {
     }
     
     #comparison-chart-container {
-        height: min(30vh, 300px) !important;
-        min-height: min(25vh, 240px) !important;
-        max-height: 300px !important;
+        height: min(40vh, 400px) !important;
+        min-height: min(30vh, 280px) !important;
+        max-height: 400px !important;
         padding-bottom: min(10vh, 80px) !important; /* 移動端需要更多空間 */
     }
     
@@ -1299,9 +1301,9 @@ section h2 {
     }
     
     #comparison-chart-container {
-        height: min(28vh, 280px) !important;
-        min-height: min(22vh, 220px) !important;
-        max-height: 280px !important;
+        height: min(35vh, 350px) !important;
+        min-height: min(28vh, 250px) !important;
+        max-height: 350px !important;
         padding-bottom: min(12vh, 90px) !important; /* 小屏幕需要更多空間 */
     }
     

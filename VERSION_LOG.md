@@ -1,5 +1,39 @@
 # 版本更新日誌
 
+## v2.1.6 - 2025-12-15 10:36 HKT
+
+### 📊 優化對比圖表容器高度，確保圖表完整顯示
+
+**問題**：`#comparison-chart-container` 高度太小（35vh/400px），圖表無法完整顯示在容器內，特別是在較大屏幕上。
+
+**解決方案**：
+1. **增加圖表容器高度**：
+   - 桌面端：從 `min(35vh, 400px)` 增加到 `min(50vh, 550px)`
+   - 平板端（≤ 900px）：`min(45vh, 500px)`
+   - 手機端（≤ 600px）：從 `min(30vh, 300px)` 增加到 `min(40vh, 400px)`
+   - 小屏幕（≤ 380px）：從 `min(28vh, 280px)` 增加到 `min(35vh, 350px)`
+
+2. **改進 overflow 設置**：
+   - 從 `overflow: hidden` 改為 `overflow: visible`，確保圖表完整顯示
+
+3. **更新 JavaScript 動態調整**：
+   - 更新容器高度計算邏輯，從 `window.innerHeight * 0.35` 改為 `window.innerHeight * 0.5`
+   - 最大高度從 400px 增加到 550px
+
+**影響範圍**：
+- `styles.css`：更新 `#comparison-chart-container` 高度和 overflow 設置
+- `prediction.js`：更新圖表容器高度計算邏輯
+
+**技術細節**：
+- 使用更大的 vh 比例（50% vs 35%）充分利用容器空間
+- 保持響應式設計，在不同屏幕尺寸下都有適當的高度
+- 確保圖表不會被裁剪，完整顯示在容器內
+
+**優勢**：
+- 圖表能夠完整顯示，不會被裁剪
+- 更好地利用 `chart-card.full-width` 的空間
+- 在不同屏幕尺寸下都有良好的顯示效果
+
 ## v2.1.5 - 2025-12-15 10:18 HKT
 
 ### 📱 優化 chart-card.full-width 響應式高度
