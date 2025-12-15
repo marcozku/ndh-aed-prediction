@@ -1,5 +1,43 @@
 # 版本更新日誌
 
+## v2.2.3 - 2025-12-15 10:58 HKT
+
+### 🔧 修復其他圖表向上浮動問題
+
+**問題**：將 `.chart-card.full-width` 的 `height` 改為 `auto` 後，導致所有圖表都受到影響，其他圖表向上浮動，內容被截斷。
+
+**解決方案**：
+1. **恢復其他圖表的固定高度**：
+   - 將 `.chart-card.full-width` 的 `height` 恢復為 `min(65vh, 650px)`
+   - 將 `overflow` 恢復為 `hidden`，防止內容溢出
+
+2. **為「實際 vs 預測對比」添加特殊類**：
+   - 在 HTML 中為「實際 vs 預測對比」圖表和「詳細比較數據」表格的卡片添加 `comparison-section` 類
+   - 為 `.chart-card.full-width.comparison-section` 添加特殊規則，使用 `height: auto` 和 `overflow: visible`
+
+3. **更新所有響應式斷點**：
+   - 平板（≤ 900px）：其他圖表 `height: min(60vh, 600px)`，comparison-section 使用 `auto`
+   - 手機（≤ 600px）：其他圖表 `height: min(55vh, 500px)`，comparison-section 使用 `auto`
+   - 小屏幕（≤ 380px）：其他圖表 `height: min(50vh, 450px)`，comparison-section 使用 `auto`
+
+4. **優化間距設置**：
+   - 減少 `section` 的 `margin-bottom` 從 `var(--space-3xl)` 到 `var(--space-2xl)`，防止圖表向上浮動
+   - 為 `.charts-section` 添加 `margin: 0` 和 `padding: 0`，確保沒有額外的間距
+
+**影響範圍**：
+- `styles.css`：恢復其他圖表的固定高度，為 comparison-section 添加特殊規則
+- `index.html`：為「實際 vs 預測對比」相關卡片添加 comparison-section 類
+
+**技術細節**：
+- 使用特定的類名（comparison-section）來區分需要 auto 高度的卡片
+- 其他圖表保持固定高度，確保布局穩定
+- 減少間距防止圖表向上浮動
+
+**優勢**：
+- 其他圖表保持固定高度，不會向上浮動
+- 「實際 vs 預測對比」部分仍然可以完整顯示
+- 布局更加穩定和可預測
+
 ## v2.2.2 - 2025-12-15 10:54 HKT
 
 ### 🔧 修復「實際 vs 預測對比」兩個部分被截斷問題

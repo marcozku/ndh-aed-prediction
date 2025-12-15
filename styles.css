@@ -354,7 +354,7 @@ body::before {
 section {
     width: 100%;
     max-width: 100%;
-    margin-bottom: var(--space-3xl);
+    margin-bottom: var(--space-2xl); /* 減少間距，防止圖表向上浮動 */
     box-sizing: border-box;
 }
 
@@ -1055,6 +1055,8 @@ section h2 {
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-xl);
     box-sizing: border-box;
+    margin: 0; /* 確保沒有額外的 margin */
+    padding: 0; /* 確保沒有額外的 padding */
 }
 
 .charts-section h2 {
@@ -1090,9 +1092,15 @@ section h2 {
     max-width: 100%;
     grid-column: 1 / -1;
     box-sizing: border-box;
-    height: auto; /* 使用 auto 讓內容決定高度 */
+    height: min(65vh, 650px); /* 動態高度：視窗高度的65%，最大650px */
     min-height: min(50vh, 500px); /* 最小高度：視窗高度的50%，最小500px */
-    overflow: visible; /* 允許內容完整顯示 */
+    overflow: hidden; /* 防止內容溢出容器 */
+}
+
+/* 只對「實際 vs 預測對比」相關的卡片使用 auto 高度 */
+.chart-card.full-width.comparison-section {
+    height: auto !important; /* 使用 auto 讓內容決定高度 */
+    overflow: visible !important; /* 允許內容完整顯示 */
 }
 
 .chart-card h3 {
@@ -1302,8 +1310,14 @@ section h2 {
     }
     
     .chart-card.full-width {
-        height: auto;
+        height: min(60vh, 600px);
         min-height: min(50vh, 450px);
+    }
+    
+    /* 只對「實際 vs 預測對比」相關的卡片使用 auto 高度 */
+    .chart-card.full-width.comparison-section {
+        height: auto !important;
+        overflow: visible !important;
     }
 }
 
@@ -1326,8 +1340,14 @@ section h2 {
     }
     
     .chart-card.full-width {
-        height: auto;
+        height: min(55vh, 500px);
         min-height: min(45vh, 400px);
+    }
+    
+    /* 只對「實際 vs 預測對比」相關的卡片使用 auto 高度 */
+    .chart-card.full-width.comparison-section {
+        height: auto !important;
+        overflow: visible !important;
     }
 }
 
@@ -1350,8 +1370,14 @@ section h2 {
     }
     
     .chart-card.full-width {
-        height: auto;
+        height: min(50vh, 450px);
         min-height: min(40vh, 350px);
+    }
+    
+    /* 只對「實際 vs 預測對比」相關的卡片使用 auto 高度 */
+    .chart-card.full-width.comparison-section {
+        height: auto !important;
+        overflow: visible !important;
     }
 }
 
