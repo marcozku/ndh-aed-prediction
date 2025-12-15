@@ -55,6 +55,14 @@ if (process.env.DATABASE_URL) {
                 console.error('❌ 自動導入 CSV 時出錯:', err.message);
             }
         }
+        
+        // 自動添加 1/12 到 12/12 的實際數據（如果不存在）
+        try {
+            const { autoAddData } = require('./auto-add-data-on-deploy');
+            await autoAddData();
+        } catch (err) {
+            console.warn('⚠️ 自動添加實際數據時出錯（可能模組不存在）:', err.message);
+        }
     }).catch(err => {
         console.error('Failed to initialize database:', err.message);
     });

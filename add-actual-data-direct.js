@@ -231,6 +231,25 @@ async function addActualDataDirect() {
         if (errorCount > 0) {
             console.log(`⚠️  ${errorCount} 筆數據添加失敗`);
         }
+        console.log('');
+        console.log('📊 比較結果摘要：');
+        for (const data of actualData) {
+            try {
+                const accuracyResult = await client.query(
+                    'SELECT * FROM prediction_accuracy WHERE target_date = $1',
+                    [data.date]
+                );
+                if (accuracyResult.rows.length > 0) {
+                    const acc = accuracyResult.rows[0];
+                    const inCI80 = acc.within_ci80 ? '✅' : '❌';
+                    const inCI95 = acc.within_ci95 ? '✅' : '❌';
+                    console.log(`  ${data.date}: 實際 ${data.patient_count} 人, 預測 ${acc.predicted_count} 人, 誤差 ${acc.error > 0 ? '+' : ''}${acc.error} (${acc.error_percentage}%), CI80: ${inCI80}, CI95: ${inCI95}`);
+                }
+            } catch (err) {
+                // 忽略錯誤
+            }
+        }
+        console.log('');
         console.log('💡 數據已添加並自動計算準確度');
         console.log('💡 你可以在網頁上查看「實際 vs 預測對比」圖表和「詳細比較數據」表格');
 
