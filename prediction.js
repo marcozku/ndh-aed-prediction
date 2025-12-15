@@ -2572,6 +2572,18 @@ async function initComparisonChart() {
                     padding = '12px';
                 }
                 
+                // 根據屏幕寬度設置最大高度
+                let maxHeight = '180px'; // 默認桌面：3列
+                if (screenWidth <= 480) {
+                    maxHeight = '220px'; // 小屏幕：2列需要更多高度
+                } else if (screenWidth <= 700) {
+                    maxHeight = '200px'; // 2列布局需要更多高度
+                } else if (screenWidth <= 900) {
+                    maxHeight = '160px'; // 平板：3列
+                } else if (screenWidth <= 1200) {
+                    maxHeight = '170px'; // 中等屏幕：3列
+                }
+                
                 statsEl.style.cssText = `
                     background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%);
                     border-radius: 8px;
@@ -2584,7 +2596,10 @@ async function initComparisonChart() {
                     width: 100%;
                     max-width: 100%;
                     box-sizing: border-box;
-                    overflow: visible; /* 允許所有內容顯示 */
+                    overflow: visible;
+                    max-height: ${maxHeight};
+                    position: relative;
+                    z-index: 10;
                 `;
                 // 世界級標記
                 const worldClassBadge = accuracyStats.isWorldClass 
@@ -2887,9 +2902,24 @@ async function initComparisonChart() {
                         padding = '12px';
                     }
                     
+                    // 根據屏幕寬度設置最大高度
+                    let maxHeight = '180px'; // 默認桌面：3列
+                    if (screenWidth <= 480) {
+                        maxHeight = '220px'; // 小屏幕：2列需要更多高度
+                    } else if (screenWidth <= 700) {
+                        maxHeight = '200px'; // 2列布局需要更多高度
+                    } else if (screenWidth <= 900) {
+                        maxHeight = '160px'; // 平板：3列
+                    } else if (screenWidth <= 1200) {
+                        maxHeight = '170px'; // 中等屏幕：3列
+                    }
+                    
                     statsEl.style.gridTemplateColumns = gridColumns;
                     statsEl.style.gap = gap;
                     statsEl.style.padding = padding;
+                    statsEl.style.maxHeight = maxHeight;
+                    statsEl.style.position = 'relative';
+                    statsEl.style.zIndex = '10';
                 }
             }, 150);
         };

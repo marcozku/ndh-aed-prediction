@@ -1,5 +1,44 @@
 # 版本更新日誌
 
+## v2.2.7 - 2025-12-15 19:26 HKT
+
+### 🔧 修復 accuracy-stats 無限增長和被 canvas 遮擋問題
+
+**問題**：
+1. 當屏幕寬度大於 900px 時，`accuracy-stats` 的高度會無限增長
+2. `div.accuracy-stats` 被 `canvas#comparison-chart` 遮擋
+
+**解決方案**：
+1. **限制 accuracy-stats 最大高度**：
+   - 桌面（> 1200px）：`max-height: 180px`
+   - 中等屏幕（≤ 1200px）：`max-height: 170px`
+   - 平板（≤ 900px）：`max-height: 160px`
+   - 2列布局（≤ 700px）：`max-height: 200px`
+   - 小屏幕（≤ 480px）：`max-height: 220px`
+
+2. **修復 z-index 層級問題**：
+   - 為 `.accuracy-stats` 設置 `position: relative` 和 `z-index: 10`
+   - 將 `#comparison-chart-container canvas` 的 `z-index` 從 `1` 降低到 `0`
+   - 確保 accuracy-stats 始終在 canvas 上方顯示
+
+3. **在 JavaScript 中同步設置**：
+   - 在 `initComparisonChart` 中根據屏幕寬度動態設置 `max-height`
+   - 在 `handleResize` 中同步更新 `max-height`、`position` 和 `z-index`
+
+**影響範圍**：
+- `styles.css`：為 `.accuracy-stats` 添加 `max-height` 和 z-index 設置，降低 canvas 的 z-index
+- `prediction.js`：在創建和調整 accuracy-stats 時動態設置 `max-height`、`position` 和 `z-index`
+
+**技術細節**：
+- 使用響應式 `max-height` 確保不同屏幕尺寸下都有適當的高度限制
+- 2列布局需要更多高度（200-220px），3列布局需要較少高度（160-180px）
+- 使用 `z-index: 10` 確保 accuracy-stats 在 canvas（`z-index: 0`）上方
+
+**優勢**：
+- 防止 accuracy-stats 無限增長
+- 確保 accuracy-stats 始終可見，不被 canvas 遮擋
+- 在不同屏幕尺寸下都有適當的高度限制
+
 ## v2.2.6 - 2025-12-15 19:23 HKT
 
 ### 📐 統一所有圖表大小，確保在任何設備尺寸下都保持一致

@@ -1262,7 +1262,7 @@ section h2 {
     margin: 0 !important;
     padding: 0 !important;
     position: relative !important;
-    z-index: 1 !important;
+    z-index: 0 !important; /* 降低 z-index，確保在 accuracy-stats 下方 */
 }
 
 /* 準確度統計響應式布局 */
@@ -1276,6 +1276,9 @@ section h2 {
     padding: 16px !important;
     overflow: visible !important; /* 允許所有內容顯示 */
     min-height: auto !important; /* 讓內容決定高度 */
+    max-height: 180px !important; /* 限制最大高度，防止無限增長 */
+    position: relative !important; /* 確保 z-index 生效 */
+    z-index: 10 !important; /* 確保在 canvas 上方 */
 }
 
 @media (max-width: 1200px) {
@@ -1283,6 +1286,7 @@ section h2 {
         grid-template-columns: repeat(3, 1fr) !important;
         gap: 10px !important;
         padding: 12px !important;
+        max-height: 170px !important; /* 限制最大高度 */
     }
 }
 
@@ -1291,6 +1295,7 @@ section h2 {
         grid-template-columns: repeat(3, 1fr) !important; /* 平板：保持3列 */
         gap: 8px !important;
         padding: 10px !important;
+        max-height: 160px !important; /* 限制最大高度 */
     }
 }
 
@@ -1299,6 +1304,7 @@ section h2 {
         grid-template-columns: repeat(2, 1fr) !important; /* 小於700px：改為2列 */
         gap: 8px !important;
         padding: 10px !important;
+        max-height: 200px !important; /* 2列布局需要更多高度 */
     }
 }
 
@@ -1307,6 +1313,7 @@ section h2 {
         grid-template-columns: repeat(2, 1fr) !important; /* 手機：2列 */
         gap: 8px !important;
         padding: 10px !important;
+        max-height: 200px !important; /* 2列布局需要更多高度 */
     }
 }
 
@@ -1315,6 +1322,7 @@ section h2 {
         grid-template-columns: repeat(2, 1fr) !important; /* 小屏幕：2列 */
         gap: 6px !important;
         padding: 8px !important;
+        max-height: 220px !important; /* 小屏幕2列布局需要更多高度 */
     }
 }
 
