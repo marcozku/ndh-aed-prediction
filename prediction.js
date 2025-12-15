@@ -2629,6 +2629,7 @@ async function initComparisonChart() {
                 responsive: true,
                 maintainAspectRatio: false, // 不保持寬高比，填充容器
                 aspectRatio: undefined, // 不使用 aspectRatio，使用容器高度
+                resizeDelay: 0, // 立即響應尺寸變化
                 layout: {
                     padding: getComparisonChartPadding() // 使用響應式 padding，確保 X 軸標籤完整顯示
                 },
@@ -2708,33 +2709,53 @@ async function initComparisonChart() {
         updateLoadingProgress('comparison', 90);
         updateLoadingProgress('comparison', 100);
         completeChartLoading('comparison');
+        
         // 確保圖表正確適應容器大小（動態適應）
         const resizeChart = () => {
             if (comparisonChart) {
                 const container = document.getElementById('comparison-chart-container');
                 if (container) {
-                    // 動態獲取容器高度（優先使用實際容器高度，否則根據視窗大小計算）
-                    const containerHeight = container.offsetHeight || Math.min(window.innerHeight * 0.55, 600);
-                    // 設置圖表 canvas 的大小
+                    // 確保容器有明確的寬度限制
+                    container.style.width = '100%';
+                    container.style.maxWidth = '100%';
+                    container.style.overflow = 'hidden';
+                    container.style.boxSizing = 'border-box';
+                    
+                    // 獲取容器的實際尺寸（使用 getBoundingClientRect 獲取精確尺寸）
+                    const containerRect = container.getBoundingClientRect();
+                    const containerWidth = containerRect.width || container.offsetWidth || container.clientWidth;
+                    const containerHeight = containerRect.height || container.offsetHeight || Math.min(window.innerHeight * 0.55, 600);
+                    
+                    // 設置圖表 canvas 的大小，確保不超出容器
                     const canvas = comparisonChart.canvas;
-                    if (canvas) {
+                    if (canvas && containerWidth > 0 && containerHeight > 0) {
+                        // 設置 CSS 尺寸（Chart.js 會自動處理 canvas 的實際像素尺寸）
                         canvas.style.width = '100%';
+                        canvas.style.maxWidth = '100%';
                         canvas.style.height = `${containerHeight}px`;
                         canvas.style.maxHeight = `${containerHeight}px`;
+                        canvas.style.display = 'block';
+                        canvas.style.boxSizing = 'border-box';
                     }
+                    
+                    // 確保圖表選項正確設置
+                    comparisonChart.options.responsive = true;
+                    comparisonChart.options.maintainAspectRatio = false;
                 }
                 // 使用專門為對比圖表設計的 padding
                 comparisonChart.options.layout.padding = getComparisonChartPadding();
                 if (comparisonChart.options.scales && comparisonChart.options.scales.x && comparisonChart.options.scales.x.ticks) {
                     comparisonChart.options.scales.x.ticks.maxTicksLimit = getResponsiveMaxTicksLimit();
                 }
+                // 強制重新計算尺寸（Chart.js 會自動使用容器尺寸）
                 comparisonChart.resize();
                 comparisonChart.update('none');
             }
         };
         
-        // 初始調整
+        // 初始調整（使用多個延遲確保容器已完全渲染）
         setTimeout(resizeChart, 100);
+        setTimeout(resizeChart, 300);
         
         // 監聽窗口大小變化，動態調整
         let resizeTimeout;

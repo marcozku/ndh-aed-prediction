@@ -1,5 +1,49 @@
 # 版本更新日誌
 
+## v2.1.8 - 2025-12-15 10:43 HKT
+
+### 🔧 修復圖表水平溢出容器問題
+
+**問題**：圖表水平溢出容器，右側數據點和 X 軸標籤被裁剪，無法完整顯示。
+
+**解決方案**：
+1. **修復容器 overflow 設置**：
+   - 將 `#comparison-chart-container` 的 `overflow` 從 `visible` 改為 `hidden`，防止水平溢出
+   - 將 `.chart-card.full-width` 的 `overflow` 從 `visible` 改為 `hidden`，確保內容不超出容器
+
+2. **明確設置容器寬度**：
+   - 為 `#comparison-chart-container` 添加明確的 `width: 100%` 和 `max-width: 100%`
+   - 確保容器有明確的寬度限制
+
+3. **優化 canvas 元素設置**：
+   - 確保 canvas 使用 `width: 100%` 和 `max-width: 100%`，而不是固定像素值
+   - 添加 `box-sizing: border-box` 確保正確計算尺寸
+
+4. **改進 JavaScript resize 邏輯**：
+   - 使用 `getBoundingClientRect()` 獲取精確的容器尺寸
+   - 在 resize 函數中明確設置容器的寬度限制
+   - 確保 canvas 正確適應容器寬度
+   - 添加多個延遲調用以確保容器完全渲染
+
+5. **優化 Chart.js 配置**：
+   - 添加 `resizeDelay: 0` 確保立即響應尺寸變化
+   - 確保 `responsive: true` 和 `maintainAspectRatio: false` 正確設置
+
+**影響範圍**：
+- `styles.css`：修復容器 overflow 設置，明確設置寬度限制
+- `prediction.js`：優化 resize 邏輯，確保圖表正確適應容器寬度
+
+**技術細節**：
+- 使用 `overflow: hidden` 防止內容溢出
+- 使用百分比寬度而非固定像素值
+- 確保 Chart.js 的 responsive 模式正確工作
+
+**優勢**：
+- 圖表完全包含在容器內，不會水平溢出
+- X 軸標籤完整顯示
+- 所有數據點都可見
+- 在不同屏幕尺寸下都能正確顯示
+
 ## v2.1.7 - 2025-12-15 10:39 HKT
 
 ### 📊 進一步優化對比圖表顯示，確保完整可見
