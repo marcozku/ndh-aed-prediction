@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.0.6';
+const MODEL_VERSION = '2.0.7';
 
 // AI 服務（僅在服務器端使用）
 let aiService = null;
@@ -787,6 +787,53 @@ const apiHandlers = {
     },
 
     // 更新 AI 因素緩存（保存到數據庫）
+    'POST /api/convert-to-traditional': async (req, res) => {
+        try {
+            const { text } = req.body;
+            
+            if (!text || typeof text !== 'string') {
+                return res.status(400).json({
+                    success: false,
+                    error: '請提供有效的文本'
+                });
+            }
+            
+            // 使用 ai-service 的轉換函數
+            const aiService = require('./ai-service');
+            // 由於 convertToTraditional 不是導出的，我們需要直接使用 chinese-conv
+            let chineseConv = null;
+            try {
+                chineseConv = require('chinese-conv');
+            } catch (e) {
+                return res.status(500).json({
+                    success: false,
+                    error: 'chinese-conv 未安裝'
+                });
+            }
+            
+            try {
+                const converted = chineseConv.sify(text);
+                res.json({
+                    success: true,
+                    original: text,
+                    converted: converted
+                });
+            } catch (e) {
+                console.error('轉換失敗:', e);
+                res.status(500).json({
+                    success: false,
+                    error: '轉換失敗: ' + e.message
+                });
+            }
+        } catch (error) {
+            console.error('❌ 轉換 API 錯誤:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    },
+    
     'POST /api/ai-factors-cache': async (req, res) => {
         if (!db || !db.pool) {
             return sendJson(res, { 

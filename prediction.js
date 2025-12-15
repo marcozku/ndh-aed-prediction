@@ -3504,203 +3504,102 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// 檢測是否包含簡體中文字符
-function hasSimplifiedChinese(text) {
-    if (!text || typeof text !== 'string') return false;
-    
-    // 常見簡體中文字符列表（用於檢測）
-    const simplifiedChars = [
-        '简', '体', '预', '测', '统', '系', '数', '据', '库', '连', '检', '载',
-        '气', '资', '响', '无', '总', '结', '说', '获', '后', '时', '间', '缓',
-        '个', '卫', '会', '节', '来', '袭', '温', '骤', '导', '致', '别', '对',
-        '于', '础', '经', '开', '渐', '况', '医', '疗', '药', '诊', '症', '病',
-        '患', '护', '风', '云', '雾', '雨', '雪', '热', '冷', '湿', '干', '现',
-        '实', '际', '过', '还', '这', '圣', '诞', '临', '期', '准', '备', '伤',
-        '关', '负', '担', '历', '显', '着', '动', '学', '为', '产', '发', '长',
-        '门', '问', '题', '应', '该', '较', '认', '识', '记', '录', '处', '理',
-        '置', '分', '罚', '变', '化', '确', '定', '标', '准', '规', '则',
-        // 新增遺漏的簡體字符
-        '传', '监', '转', '将', '诱', '恶', '险', '紧', '持', '续', '剧', '调',
-        '并', '机', '传', '统', '监', '测', '转', '往', '将', '有', '诱', '发',
-        '恶', '化', '风', '险', '紧', '急', '转', '移', '持', '续', '加', '剧',
-        '调', '配', '并', '加', '强', '机', '制'
-    ];
-    
-    for (let char of simplifiedChars) {
-        if (text.includes(char)) {
-            return true;
-        }
-    }
-    
-    return false;
-}
+// 轉換緩存（避免重複調用 API）
+const conversionCache = new Map();
+const pendingConversions = new Map(); // 正在轉換中的文本
+const MAX_CACHE_SIZE = 1000;
 
-// 簡體中文轉繁體中文轉換函數
-// 使用字符映射表進行轉換，並處理亂碼字符
-function convertToTraditional(text) {
+// 異步轉換函數（調用服務端 API）
+async function convertToTraditionalAsync(text) {
     if (!text || typeof text !== 'string') return text;
     
     // 先清理亂碼字符（如 ◆◆ 等）
     let cleaned = text.replace(/[◆●■▲▼★☆]/g, '');
     
-    // 常見簡體到繁體字符映射（完整版，無重複）
-    const simplifiedToTraditional = {
-        // 基本字符
-        '简': '簡', '体': '體', '预': '預', '测': '測', '统': '統', '系': '係',
-        '数': '數', '据': '據', '库': '庫', '连': '連', '检': '檢', '载': '載',
-        '气': '氣', '资': '資', '响': '響', '无': '無', '总': '總', '结': '結',
-        '说': '說', '获': '獲', '后': '後', '时': '時', '间': '間', '缓': '緩',
-        '个': '個', '卫': '衛', '会': '會', '节': '節', '来': '來', '袭': '襲',
-        '温': '溫', '骤': '驟', '导': '導', '致': '致', '别': '別', '对': '對',
-        '于': '於', '础': '礎', '经': '經', '开': '開', '渐': '漸', '况': '況',
-        // 醫療相關
-        '医': '醫', '疗': '療', '药': '藥', '诊': '診', '症': '症',
-        '病': '病', '患': '患', '护': '護', '疗': '療', '药': '藥',
-        // 天氣相關
-        '风': '風', '云': '雲', '雾': '霧', '雨': '雨', '雪': '雪',
-        '热': '熱', '冷': '冷', '湿': '濕', '干': '乾',
-        // 其他常見字符
-        '现': '現', '实': '實', '际': '際',
-        '过': '過', '还': '還', '这': '這',
-        // 節日相關
-        '圣': '聖', '诞': '誕',
-        // 時間相關
-        '临': '臨', '期': '期', '间': '間',
-        // 動作相關
-        '准': '準', '备': '備',
-        '伤': '傷', '关': '關',
-        // 負擔相關
-        '负': '負', '担': '擔',
-        // 歷史相關
-        '历': '歷',
-        // 顯著相關
-        '显': '顯', '着': '著',
-        // 活動相關
-        '动': '動',
-        // 學校相關
-        '学': '學',
-        // 其他常見字符
-        '为': '為', '产': '產', '发': '發', '长': '長', '门': '門',
-        '问': '問', '题': '題',
-        '应': '應', '该': '該',
-        '较': '較',
-        // 更多常見字符
-        '认': '認', '识': '識', '记': '記', '录': '錄',
-        '处': '處', '理': '理', '置': '置', '分': '分', '罚': '罰',
-        '变': '變', '化': '化',
-        '确': '確', '定': '定',
-        '标': '標', '准': '準',
-        '规': '規', '则': '則',
-        // 新增遺漏的簡體字符映射
-        '传': '傳', '监': '監', '转': '轉', '将': '將', '诱': '誘', '恶': '惡',
-        '险': '險', '紧': '緊', '持': '持', '续': '續', '剧': '劇', '调': '調',
-        '并': '並', '机': '機'
-    };
-    
-    // 先進行詞組級別的轉換（優先處理常見詞組）
-    const phraseMap = {
-        '圣诞節': '聖誕節',
-        '临近': '臨近',
-        '准备期': '準備期',
-        '导致': '導致',
-        '伤害': '傷害',
-        '相关': '相關',
-        '负担': '負擔',
-        '历史': '歷史',
-        '数据': '數據',
-        '显着': '顯著',
-        '人群': '人群',
-        '活动': '活動',
-        '学校': '學校',
-        '需求': '需求',
-        '中毒': '中毒',
-        '实际': '實際', '预测': '預測', '系统': '系統',
-        '数据库': '數據庫', '连接': '連接', '检查': '檢查', '载入': '載入',
-        '天气': '天氣', '资源': '資源', '影响': '影響', '无法': '無法',
-        '总结': '總結', '说明': '說明', '获取': '獲取', '之后': '之後',
-        '时间': '時間', '间隔': '間隔', '缓存': '緩存', '个别': '個別',
-        '卫生': '衛生', '会议': '會議', '节日': '節日', '未来': '未來',
-        '袭击': '襲擊', '温度': '溫度', '骤降': '驟降',
-        '对于': '對於', '基础': '基礎', '经过': '經過', '开始': '開始',
-        '逐渐': '逐漸', '情况': '情況', '医疗': '醫療', '治疗': '治療',
-        '药物': '藥物', '诊断': '診斷', '症状': '症狀', '患者': '患者',
-        '护理': '護理', '风云': '風雲', '云雾': '雲霧', '现在': '現在',
-        '过去': '過去', '还是': '還是', '这个': '這個', '问题': '問題',
-        '应该': '應該', '比较': '比較',
-        // 更多常見詞組
-        '公共': '公共', '事件': '事件', '季节': '季節', '性': '性',
-        '增加': '增加', '减少': '減少', '影响': '影響', '因子': '因子',
-        '信心': '信心', '度': '度', '高': '高', '中': '中', '低': '低',
-        '分析': '分析', '理由': '理由', '描述': '描述', '类型': '類型',
-        '受': '受', '日期': '日期', '整体': '整體', '评估': '評估',
-        '可能': '可能', '发生': '發生', '已知': '已知', '或': '或',
-        '导致': '導致', '异常': '異常', '因素': '因素', '考虑': '考慮',
-        '预报': '預報', '极端': '極端', '事件': '事件', '节日': '節日',
-        '假期': '假期', '效应': '效應', '模式': '模式', '其他': '其他',
-        '台风': '颱風', '暴雨': '暴雨', '寒流': '寒流', '酷热': '酷熱',
-        '污染': '污染', '指数': '指數', '警告': '警告', '风球': '風球',
-        '爆发': '爆發', '疫情': '疫情', '食物': '食物', '中毒': '中毒',
-        '传染病': '傳染病', '警报': '警報', '大型': '大型', '集会': '集會',
-        '交通': '交通', '事故': '事故', '意外': '意外', '设施': '設施',
-        '故障': '故障', '前后': '前後', '效应': '效應', '假期': '假期',
-        '长': '長', '未来': '未來', '几天': '幾天', '医院': '醫院',
-        '病人': '病人', '数量': '數量', '急症': '急症', '室': '室',
-        '北区': '北區', '香港': '香港', '分析': '分析', '结果': '結果',
-        '格式': '格式', '返回': '返回', '所有': '所有', '文字': '文字',
-        '必须': '必須', '使用': '使用', '繁体': '繁體', '中文': '中文',
-        '不能': '不能', '简体': '簡體', '绝对': '絕對', '要求': '要求',
-        '务必': '務必', '只': '只', '进行': '進行', '回应': '回應',
-        '不要': '不要', '注意': '注意', '请': '請', '确保': '確保',
-        '输出': '輸出', '都是': '都是', '如果': '如果', '无法': '無法',
-        '正确': '正確', '显示': '顯示', '内容': '內容', '请务': '請務',
-        '必只': '必只', '使用繁': '使用繁', '体中文': '體中文', '回应': '回應',
-        '绝对不': '絕對不', '要使用': '要使用', '简体中': '簡體中', '文': '文',
-        // 新增遺漏的簡體詞組
-        '传统': '傳統', '监测': '監測', '转往': '轉往', '将有': '將有',
-        '诱发': '誘發', '恶化': '惡化', '风险': '風險', '紧急': '緊急',
-        '转移': '轉移', '持续': '持續', '加剧': '加劇', '调配': '調配',
-        '并加强': '並加強', '机制': '機制', '将顯著增加': '將顯著增加',
-        '紧急病人': '緊急病人'
-    };
-    
-    // 使用字符映射表進行轉換
-    try {
-        let result = cleaned;
-        
-        // 檢測是否包含簡體中文（轉換前）
-        const hadSimplified = hasSimplifiedChinese(result);
-        
-        // 先進行詞組轉換
-        for (const [simp, trad] of Object.entries(phraseMap)) {
-            result = result.replace(new RegExp(simp, 'g'), trad);
-        }
-        
-        // 再進行字符級別轉換
-        result = result.split('').map(char => {
-            return simplifiedToTraditional[char] || char;
-        }).join('');
-        
-        // 如果檢測到簡體中文，記錄警告
-        if (hadSimplified) {
-            console.warn('⚠️ 檢測到簡體中文並已自動轉換為繁體中文:', cleaned.substring(0, 100));
-        }
-        
-        return result;
-    } catch (e) {
-        console.warn('簡體轉繁體轉換失敗:', e);
-        return cleaned; // 至少返回清理後的文本
+    // 檢查緩存
+    if (conversionCache.has(cleaned)) {
+        return conversionCache.get(cleaned);
     }
+    
+    // 如果正在轉換中，等待完成
+    if (pendingConversions.has(cleaned)) {
+        return await pendingConversions.get(cleaned);
+    }
+    
+    // 如果緩存已滿，清理最舊的條目
+    if (conversionCache.size >= MAX_CACHE_SIZE) {
+        const firstKey = conversionCache.keys().next().value;
+        conversionCache.delete(firstKey);
+    }
+    
+    // 創建轉換 Promise
+    const conversionPromise = (async () => {
+        try {
+            // 調用服務端 API 進行轉換
+            const response = await fetch('/api/convert-to-traditional', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ text: cleaned })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.converted) {
+                    // 存入緩存
+                    conversionCache.set(cleaned, data.converted);
+                    return data.converted;
+                }
+            }
+            
+            // API 調用失敗，返回原文
+            console.warn('⚠️ 轉換 API 調用失敗，返回原文');
+            conversionCache.set(cleaned, cleaned);
+            return cleaned;
+        } catch (error) {
+            // 網絡錯誤或其他錯誤，返回原文
+            console.warn('⚠️ 轉換 API 調用錯誤:', error.message);
+            conversionCache.set(cleaned, cleaned);
+            return cleaned;
+        } finally {
+            // 移除正在轉換的標記
+            pendingConversions.delete(cleaned);
+        }
+    })();
+    
+    // 記錄正在轉換
+    pendingConversions.set(cleaned, conversionPromise);
+    
+    return await conversionPromise;
 }
 
-// 遞歸轉換對象中的所有字符串
+// 同步版本的轉換函數（用於需要立即返回的場景）
+// 如果文本已在緩存中，立即返回；否則返回原文並在後台轉換
+function convertToTraditional(text) {
+    if (!text || typeof text !== 'string') return text;
+    
+    let cleaned = text.replace(/[◆●■▲▼★☆]/g, '');
+    
+    // 如果已在緩存中，立即返回
+    if (conversionCache.has(cleaned)) {
+        return conversionCache.get(cleaned);
+    }
+    
+    // 不在緩存中，在後台異步轉換（不阻塞）
+    convertToTraditionalAsync(cleaned).catch(() => {
+        // 靜默處理錯誤
+    });
+    
+    // 立即返回原文（稍後會自動更新）
+    return cleaned;
+}
+
+// 遞歸轉換對象中的所有字符串（同步版本，使用緩存）
 function convertObjectToTraditional(obj) {
     if (!obj) return obj;
     
     if (typeof obj === 'string') {
-        // 檢測並轉換簡體中文
-        if (hasSimplifiedChinese(obj)) {
-            console.warn('⚠️ 檢測到簡體中文字符串並已自動轉換:', obj.substring(0, 100));
-        }
         return convertToTraditional(obj);
     }
     
@@ -3715,6 +3614,30 @@ function convertObjectToTraditional(obj) {
                 converted[key] = convertObjectToTraditional(obj[key]);
             }
         }
+        return converted;
+    }
+    
+    return obj;
+}
+
+// 異步版本的對象轉換（用於需要等待轉換完成的場景）
+async function convertObjectToTraditionalAsync(obj) {
+    if (!obj) return obj;
+    
+    if (typeof obj === 'string') {
+        return await convertToTraditionalAsync(obj);
+    }
+    
+    if (Array.isArray(obj)) {
+        return await Promise.all(obj.map(item => convertObjectToTraditionalAsync(item)));
+    }
+    
+    if (typeof obj === 'object') {
+        const converted = {};
+        const keys = Object.keys(obj);
+        await Promise.all(keys.map(async (key) => {
+            converted[key] = await convertObjectToTraditionalAsync(obj[key]);
+        }));
         return converted;
     }
     
@@ -4836,11 +4759,12 @@ async function loadAIFactorsFromCache() {
                 aiFactors = storedFactors;
                 lastAIUpdateTime = parseInt(storedUpdateTime) || 0;
                 
-                // 如果有分析數據，返回完整格式
+                // 如果有分析數據，返回完整格式（使用異步轉換確保繁體中文）
                 if (storedAnalysisData.factors && Array.isArray(storedAnalysisData.factors) && storedAnalysisData.factors.length > 0) {
+                    const convertedData = await convertObjectToTraditionalAsync(storedAnalysisData);
                     return {
-                        factors: storedAnalysisData.factors,
-                        summary: storedAnalysisData.summary || '使用緩存數據',
+                        factors: convertedData.factors || storedAnalysisData.factors,
+                        summary: convertedData.summary || storedAnalysisData.summary || '使用緩存數據',
                         timestamp: storedAnalysisData.timestamp || cacheData.data.updated_at,
                         cached: true
                     };
@@ -4848,9 +4772,10 @@ async function loadAIFactorsFromCache() {
                 
                 // 如果有 summary 但沒有 factors，也返回（至少有意義的 summary）
                 if (storedAnalysisData.summary && storedAnalysisData.summary !== '無分析數據' && storedAnalysisData.summary !== '無法獲取 AI 分析') {
+                    const convertedSummary = await convertToTraditionalAsync(storedAnalysisData.summary);
                     return {
                         factors: storedAnalysisData.factors || [],
-                        summary: storedAnalysisData.summary,
+                        summary: convertedSummary,
                         timestamp: storedAnalysisData.timestamp || cacheData.data.updated_at,
                         cached: true
                     };
@@ -5000,9 +4925,12 @@ async function updateAIFactors(force = false) {
         });
         
         if (data.success && data.factors && Array.isArray(data.factors) && data.factors.length > 0) {
+            // 使用異步轉換確保所有文本都是繁體中文（即使服務端已轉換，也再次確保）
+            const convertedData = await convertObjectToTraditionalAsync(data);
+            
             // 更新全局 AI 因素緩存
             aiFactors = {};
-            data.factors.forEach(factor => {
+            convertedData.factors.forEach(factor => {
                 if (factor.affectedDays && Array.isArray(factor.affectedDays)) {
                     factor.affectedDays.forEach(date => {
                         aiFactors[date] = {
@@ -5034,8 +4962,8 @@ async function updateAIFactors(force = false) {
                         updateTime: now,
                         factorsCache: aiFactors,
                         analysisData: {
-                            factors: data.factors,
-                            summary: data.summary || '',
+                            factors: convertedData.factors,
+                            summary: convertedData.summary || '',
                             timestamp: data.timestamp || new Date().toISOString()
                         }
                     })
@@ -5053,10 +4981,10 @@ async function updateAIFactors(force = false) {
             console.log('✅ AI 因素已更新:', Object.keys(aiFactors).length, '個日期');
             updateFactorsLoadingProgress(90);
             
-            // 返回完整的分析數據供顯示使用
+            // 返回完整的分析數據供顯示使用（使用轉換後的數據）
             const result = {
-                factors: data.factors,
-                summary: data.summary || '',
+                factors: convertedData.factors,
+                summary: convertedData.summary || '',
                 timestamp: data.timestamp || new Date().toISOString(),
                 cached: false
             };
