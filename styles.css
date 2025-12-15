@@ -1113,9 +1113,12 @@ section h2 {
 
 /* 實際 vs 預測對比圖容器需要更多空間 */
 #comparison-chart-container {
-    min-height: 400px;
-    height: auto;
+    height: 400px !important; /* 固定高度，防止圖表過大 */
+    max-height: 400px !important;
+    min-height: 400px !important;
     padding-bottom: 60px; /* 更多空間給 X 軸標籤 */
+    overflow: hidden; /* 防止內容溢出 */
+    position: relative;
 }
 
 /* 歷史趨勢圖容器：不再需要滾動 */
@@ -1187,10 +1190,20 @@ section h2 {
     width: 100% !important;
     max-width: 100% !important;
     height: 100% !important;
+    max-height: 100% !important;
     display: block;
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+}
+
+/* 確保對比圖的 canvas 不會超出容器 */
+#comparison-chart-container canvas {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    display: block !important;
 }
 
 /* 準確度統計響應式布局 */
@@ -1225,7 +1238,9 @@ section h2 {
     }
     
     #comparison-chart-container {
-        min-height: 350px;
+        height: 350px !important;
+        max-height: 350px !important;
+        min-height: 350px !important;
         padding-bottom: 70px;
     }
 }

@@ -2610,7 +2610,8 @@ async function initComparisonChart() {
             options: {
                 ...professionalOptions,
                 responsive: true,
-                maintainAspectRatio: false,
+                maintainAspectRatio: false, // 不保持寬高比，填充容器
+                aspectRatio: undefined, // 不使用 aspectRatio，使用容器高度
                 layout: {
                     padding: {
                         top: 10,
@@ -2695,9 +2696,21 @@ async function initComparisonChart() {
         updateLoadingProgress('comparison', 90);
         updateLoadingProgress('comparison', 100);
         completeChartLoading('comparison');
-        // 確保圖表正確適應
+        // 確保圖表正確適應容器大小
         setTimeout(() => {
             if (comparisonChart) {
+                const container = document.getElementById('comparison-chart-container');
+                if (container) {
+                    // 確保容器有固定高度
+                    const containerHeight = container.offsetHeight || 400;
+                    // 設置圖表 canvas 的大小
+                    const canvas = comparisonChart.canvas;
+                    if (canvas) {
+                        canvas.style.width = '100%';
+                        canvas.style.height = `${containerHeight}px`;
+                        canvas.style.maxHeight = `${containerHeight}px`;
+                    }
+                }
                 comparisonChart.options.layout.padding = getResponsivePadding();
                 if (comparisonChart.options.scales && comparisonChart.options.scales.x && comparisonChart.options.scales.x.ticks) {
                     comparisonChart.options.scales.x.ticks.maxTicksLimit = getResponsiveMaxTicksLimit();
@@ -2705,7 +2718,7 @@ async function initComparisonChart() {
                 comparisonChart.resize();
                 comparisonChart.update('none');
             }
-        }, 50);
+        }, 100);
         console.log(`✅ 實際vs預測對比圖已載入 (${validComparisonData.length} 筆有效數據，總共 ${comparisonData.length} 筆)`);
     } catch (error) {
         console.error('❌ 實際vs預測對比圖載入失敗:', error);
