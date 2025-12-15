@@ -2491,18 +2491,39 @@ async function initComparisonChart() {
             if (accuracyStats.totalCount > 0) {
                 const statsEl = document.createElement('div');
                 statsEl.className = 'accuracy-stats';
+                // 根據屏幕寬度動態設置列數
+                const screenWidth = window.innerWidth;
+                let gridColumns = 'repeat(3, 1fr)';
+                let gap = '12px';
+                let padding = '16px';
+                
+                if (screenWidth <= 600) {
+                    gridColumns = 'repeat(2, 1fr)';
+                    gap = '8px';
+                    padding = '12px';
+                } else if (screenWidth <= 900) {
+                    gridColumns = 'repeat(3, 1fr)';
+                    gap = '10px';
+                    padding = '12px';
+                } else if (screenWidth <= 1200) {
+                    gridColumns = 'repeat(3, 1fr)';
+                    gap = '10px';
+                    padding = '14px';
+                }
+                
                 statsEl.style.cssText = `
                     background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%);
                     border-radius: 8px;
-                    padding: 16px;
+                    padding: ${padding};
                     margin-bottom: 16px;
                     display: grid;
-                    grid-template-columns: repeat(3, 1fr);
-                    gap: 16px;
+                    grid-template-columns: ${gridColumns};
+                    gap: ${gap};
                     font-size: 0.85rem;
                     width: 100%;
                     max-width: 100%;
                     box-sizing: border-box;
+                    overflow: hidden;
                 `;
                 // 世界級標記
                 const worldClassBadge = accuracyStats.isWorldClass 
@@ -2724,7 +2745,7 @@ async function initComparisonChart() {
                     // 獲取容器的實際尺寸（使用 getBoundingClientRect 獲取精確尺寸）
                     const containerRect = container.getBoundingClientRect();
                     const containerWidth = containerRect.width || container.offsetWidth || container.clientWidth;
-                    const containerHeight = containerRect.height || container.offsetHeight || Math.min(window.innerHeight * 0.55, 600);
+                    const containerHeight = containerRect.height || container.offsetHeight || Math.min(window.innerHeight * 0.5, 500);
                     
                     // 設置圖表 canvas 的大小，確保不超出容器
                     const canvas = comparisonChart.canvas;
@@ -2759,10 +2780,39 @@ async function initComparisonChart() {
         
         // 監聽窗口大小變化，動態調整
         let resizeTimeout;
-        window.addEventListener('resize', () => {
+        const handleResize = () => {
             clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(resizeChart, 150);
-        });
+            resizeTimeout = setTimeout(() => {
+                resizeChart();
+                // 同時更新 accuracy-stats 的布局
+                const statsEl = document.querySelector('#comparison-chart-container .accuracy-stats');
+                if (statsEl) {
+                    const screenWidth = window.innerWidth;
+                    let gridColumns = 'repeat(3, 1fr)';
+                    let gap = '12px';
+                    let padding = '16px';
+                    
+                    if (screenWidth <= 600) {
+                        gridColumns = 'repeat(2, 1fr)';
+                        gap = '8px';
+                        padding = '12px';
+                    } else if (screenWidth <= 900) {
+                        gridColumns = 'repeat(3, 1fr)';
+                        gap = '10px';
+                        padding = '12px';
+                    } else if (screenWidth <= 1200) {
+                        gridColumns = 'repeat(3, 1fr)';
+                        gap = '10px';
+                        padding = '14px';
+                    }
+                    
+                    statsEl.style.gridTemplateColumns = gridColumns;
+                    statsEl.style.gap = gap;
+                    statsEl.style.padding = padding;
+                }
+            }, 150);
+        };
+        window.addEventListener('resize', handleResize);
         console.log(`✅ 實際vs預測對比圖已載入 (${validComparisonData.length} 筆有效數據，總共 ${comparisonData.length} 筆)`);
     } catch (error) {
         console.error('❌ 實際vs預測對比圖載入失敗:', error);
