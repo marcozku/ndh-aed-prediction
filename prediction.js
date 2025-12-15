@@ -2290,6 +2290,77 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
     }
 }
 
+// 計算準確度統計
+function calculateAccuracyStats(comparisonData) {
+    if (!comparisonData || comparisonData.length === 0) {
+        return {
+            totalCount: 0,
+            avgError: 0,
+            avgAbsError: 0,
+            avgErrorRate: 0,
+            avgAccuracy: 0,
+            ci80Coverage: 0,
+            ci95Coverage: 0,
+            mae: 0,
+            mape: 0
+        };
+    }
+    
+    let totalError = 0;
+    let totalAbsError = 0;
+    let totalErrorRate = 0;
+    let ci80Count = 0;
+    let ci95Count = 0;
+    let validCount = 0;
+    
+    comparisonData.forEach(d => {
+        if (d.actual && d.predicted) {
+            const error = d.error || (d.predicted - d.actual);
+            const absError = Math.abs(error);
+            const errorRate = d.error_percentage || ((error / d.actual) * 100);
+            
+            totalError += error;
+            totalAbsError += absError;
+            totalErrorRate += Math.abs(errorRate);
+            validCount++;
+            
+            const inCI80 = d.within_ci80 !== undefined ? d.within_ci80 :
+                (d.ci80_low && d.ci80_high && d.actual >= d.ci80_low && d.actual <= d.ci80_high);
+            const inCI95 = d.within_ci95 !== undefined ? d.within_ci95 :
+                (d.ci95_low && d.ci95_high && d.actual >= d.ci95_low && d.actual <= d.ci95_high);
+            
+            if (inCI80) ci80Count++;
+            if (inCI95) ci95Count++;
+        }
+    });
+    
+    if (validCount === 0) {
+        return {
+            totalCount: 0,
+            avgError: 0,
+            avgAbsError: 0,
+            avgErrorRate: 0,
+            avgAccuracy: 0,
+            ci80Coverage: 0,
+            ci95Coverage: 0,
+            mae: 0,
+            mape: 0
+        };
+    }
+    
+    return {
+        totalCount: validCount,
+        avgError: (totalError / validCount).toFixed(2),
+        avgAbsError: (totalAbsError / validCount).toFixed(2),
+        avgErrorRate: (totalErrorRate / validCount).toFixed(2),
+        avgAccuracy: (100 - (totalErrorRate / validCount)).toFixed(2),
+        ci80Coverage: ((ci80Count / validCount) * 100).toFixed(1),
+        ci95Coverage: ((ci95Count / validCount) * 100).toFixed(1),
+        mae: (totalAbsError / validCount).toFixed(2),
+        mape: (totalErrorRate / validCount).toFixed(2)
+    };
+}
+
 // 初始化實際vs預測對比圖
 async function initComparisonChart() {
     try {
@@ -2355,6 +2426,60 @@ async function initComparisonChart() {
             comparisonChart.destroy();
         }
         
+        // 計算整體準確度統計
+        const accuracyStats = calculateAccuracyStats(validComparisonData);
+        
+        // 在圖表容器上方顯示準確度統計
+        const chartContainer = document.getElementById('comparison-chart-container');
+        if (chartContainer) {
+            // 移除舊的統計顯示（如果存在）
+            const oldStats = chartContainer.querySelector('.accuracy-stats');
+            if (oldStats) oldStats.remove();
+            
+            // 創建新的統計顯示
+            if (accuracyStats.totalCount > 0) {
+                const statsEl = document.createElement('div');
+                statsEl.className = 'accuracy-stats';
+                statsEl.style.cssText = `
+                    background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%);
+                    border-radius: 8px;
+                    padding: 12px 16px;
+                    margin-bottom: 16px;
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                    gap: 12px;
+                    font-size: 0.85rem;
+                `;
+                statsEl.innerHTML = `
+                    <div style="text-align: center;">
+                        <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">平均誤差</div>
+                        <div style="color: #1e293b; font-weight: 600; font-size: 1rem;">${accuracyStats.avgAbsError} 人</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">平均準確度</div>
+                        <div style="color: #059669; font-weight: 600; font-size: 1rem;">${accuracyStats.avgAccuracy}%</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">80% CI 覆蓋率</div>
+                        <div style="color: #2563eb; font-weight: 600; font-size: 1rem;">${accuracyStats.ci80Coverage}%</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">95% CI 覆蓋率</div>
+                        <div style="color: #7c3aed; font-weight: 600; font-size: 1rem;">${accuracyStats.ci95Coverage}%</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">MAPE</div>
+                        <div style="color: #1e293b; font-weight: 600; font-size: 1rem;">${accuracyStats.mape}%</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 4px;">數據點數</div>
+                        <div style="color: #1e293b; font-weight: 600; font-size: 1rem;">${accuracyStats.totalCount}</div>
+                    </div>
+                `;
+                chartContainer.insertBefore(statsEl, comparisonCanvas);
+            }
+        }
+        
         comparisonChart = new Chart(comparisonCtx, {
             type: 'line',
             data: {
@@ -2417,7 +2542,40 @@ async function initComparisonChart() {
                             title: function(items) {
                                 const idx = items[0].dataIndex;
                                 return formatDateDDMM(validComparisonData[idx].date, true);
+                            },
+                            afterBody: function(items) {
+                                const idx = items[0].dataIndex;
+                                const data = validComparisonData[idx];
+                                
+                                if (!data.actual || !data.predicted) return '';
+                                
+                                const error = data.error || (data.predicted - data.actual);
+                                const errorRate = data.error_percentage || ((error / data.actual) * 100).toFixed(2);
+                                const accuracy = (100 - Math.abs(parseFloat(errorRate))).toFixed(2);
+                                const inCI80 = data.within_ci80 !== undefined ? data.within_ci80 : 
+                                    (data.ci80_low && data.ci80_high && data.actual >= data.ci80_low && data.actual <= data.ci80_high);
+                                const inCI95 = data.within_ci95 !== undefined ? data.within_ci95 :
+                                    (data.ci95_low && data.ci95_high && data.actual >= data.ci95_low && data.actual <= data.ci95_high);
+                                
+                                let tooltipText = '\n━━━━━━━━━━━━━━━━━━━━\n';
+                                tooltipText += '📊 準確度資訊：\n';
+                                tooltipText += `誤差：${error > 0 ? '+' : ''}${error} 人\n`;
+                                tooltipText += `誤差率：${errorRate > 0 ? '+' : ''}${errorRate}%\n`;
+                                tooltipText += `準確度：${accuracy}%\n`;
+                                tooltipText += `80% CI：${inCI80 ? '✅ 在範圍內' : '❌ 超出範圍'}\n`;
+                                tooltipText += `95% CI：${inCI95 ? '✅ 在範圍內' : '❌ 超出範圍'}`;
+                                
+                                return tooltipText;
                             }
+                        }
+                    },
+                    legend: {
+                        ...professionalOptions.plugins.legend,
+                        onHover: function(e) {
+                            e.native.target.style.cursor = 'pointer';
+                        },
+                        onLeave: function(e) {
+                            e.native.target.style.cursor = 'default';
                         }
                     }
                 },
