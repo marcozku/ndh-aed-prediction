@@ -2176,13 +2176,23 @@ async function initComparisonChart() {
         
         if (comparisonData.length === 0) {
             console.warn('⚠️ 沒有比較數據');
-            // 顯示錯誤訊息而不是直接返回
+            // 顯示錯誤訊息和添加數據按鈕
             const loadingEl = document.getElementById('comparison-chart-loading');
+            const addBtn = document.getElementById('add-actual-data-btn');
             if (loadingEl) {
-                loadingEl.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">暫無比較數據</div>';
+                loadingEl.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">暫無比較數據<br><small>點擊上方按鈕添加 1/12 到 12/12 的實際數據</small></div>';
+            }
+            if (addBtn) {
+                addBtn.style.display = 'block';
             }
             updateLoadingProgress('comparison', 0);
             return;
+        }
+        
+        // 如果有數據，隱藏按鈕
+        const addBtn = document.getElementById('add-actual-data-btn');
+        if (addBtn) {
+            addBtn.style.display = 'none';
         }
         
         updateLoadingProgress('comparison', 40);
@@ -5233,4 +5243,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     console.log('✅ NDH AED 預測系統就緒');
 });
+
+// 觸發添加實際數據
+async function triggerAddActualData() {
+    const btn = document.getElementById('add-actual-data-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ 添加中...';
+    }
+    
+    try {
+        const response = await fetch('/api/auto-add-actual-data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ 實際數據已成功添加！\n\n正在刷新比較數據...');
+            // 重新載入比較圖表和表格
+            await initComparisonChart();
+            await initComparisonTable();
+        } else {
+            alert('❌ 添加數據失敗：' + (result.error || '未知錯誤'));
+        }
+    } catch (error) {
+        console.error('添加實際數據失敗:', error);
+        alert('❌ 添加數據時發生錯誤：' + error.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '📊 添加實際數據';
+        }
+    }
+}
 

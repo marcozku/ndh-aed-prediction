@@ -3,7 +3,12 @@
  * 檢查數據庫中是否已有 1/12 到 12/12 的實際數據，如果沒有則添加
  */
 
-require('dotenv').config();
+// 嘗試加載 .env 文件（如果存在）
+try {
+    require('dotenv').config();
+} catch (e) {
+    // dotenv 不可用，使用環境變數
+}
 
 // 直接初始化數據庫連接池
 function initPool() {

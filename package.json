@@ -23,9 +23,8 @@
     "sharp": "^0.34.5"
   },
   "dependencies": {
-    "pg": "^8.16.3",
-    "chinese-conv": "^1.0.2"
+    "chinese-conv": "^1.0.2",
+    "dotenv": "^17.2.3",
+    "pg": "^8.16.3"
   }
 }
-
-

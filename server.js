@@ -271,6 +271,21 @@ const apiHandlers = {
         }
     },
 
+    // Auto-add actual data (manual trigger)
+    'POST /api/auto-add-actual-data': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        try {
+            const { autoAddData } = require('./auto-add-data-on-deploy');
+            await autoAddData();
+            sendJson(res, { success: true, message: '實際數據已自動添加' });
+        } catch (err) {
+            console.error('自動添加實際數據失敗:', err);
+            sendJson(res, { success: false, error: err.message }, 500);
+        }
+    },
+
     // Database status
     'GET /api/db-status': async (req, res) => {
         if (!db || !db.pool) {

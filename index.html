@@ -221,7 +221,12 @@
 
             <!-- 實際 vs 預測對比圖 -->
             <div class="chart-card full-width">
-                <h3>實際 vs 預測對比</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md);">
+                    <h3 style="margin: 0;">實際 vs 預測對比</h3>
+                    <button id="add-actual-data-btn" class="add-data-btn" style="display: none; padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; white-space: nowrap;" onclick="triggerAddActualData()">
+                        📊 添加實際數據
+                    </button>
+                </div>
                 <div class="chart-container" id="comparison-chart-container">
                     <div class="chart-loading" id="comparison-chart-loading">
                         <div class="loading-spinner"></div>
