@@ -1025,6 +1025,16 @@ function setupHistoryTimeRangeButtons() {
 }
 
 async function initCharts(predictor) {
+    // 檢查 Chart.js 是否已載入
+    if (typeof Chart === 'undefined') {
+        console.error('❌ Chart.js 未載入，無法初始化圖表');
+        // 顯示錯誤信息給所有圖表
+        ['forecast', 'dow', 'month', 'history', 'comparison'].forEach(chartId => {
+            handleChartLoadingError(chartId, new Error('Chart.js 未載入'));
+        });
+        return;
+    }
+    
     // 獲取今天日期 (香港時間 HKT UTC+8)
     const hk = getHKTime();
     const today = hk.dateStr;
@@ -1043,9 +1053,8 @@ async function initCharts(predictor) {
         const forecastCanvas = document.getElementById('forecast-chart');
         if (!forecastCanvas) {
             console.error('❌ 找不到 forecast-chart canvas');
-            updateLoadingProgress('forecast', 0);
-            return;
-        }
+            handleChartLoadingError('forecast', new Error('找不到 forecast-chart canvas'));
+        } else {
         const forecastCtx = forecastCanvas.getContext('2d');
         updateLoadingProgress('forecast', 50);
     
@@ -1189,11 +1198,11 @@ async function initCharts(predictor) {
         }
     }, 100);
     
-    totalProgress += 25;
-    console.log('✅ 預測趨勢圖已載入');
+        totalProgress += 25;
+        console.log('✅ 預測趨勢圖已載入');
+        }
     } catch (error) {
-        console.error('❌ 預測趨勢圖載入失敗:', error);
-        updateLoadingProgress('forecast', 0);
+        handleChartLoadingError('forecast', error);
     }
     
     // 2. 星期效應圖 - 專業條形圖
@@ -1207,9 +1216,8 @@ async function initCharts(predictor) {
         const dowCanvas = document.getElementById('dow-chart');
         if (!dowCanvas) {
             console.error('❌ 找不到 dow-chart canvas');
-            updateLoadingProgress('dow', 0);
-            return;
-        }
+            handleChartLoadingError('dow', new Error('找不到 dow-chart canvas'));
+        } else {
         const dowCtx = dowCanvas.getContext('2d');
         updateLoadingProgress('dow', 50);
         
@@ -1309,9 +1317,9 @@ async function initCharts(predictor) {
         
         totalProgress += 25;
         console.log('✅ 星期效應圖已載入');
+        }
     } catch (error) {
-        console.error('❌ 星期效應圖載入失敗:', error);
-        updateLoadingProgress('dow', 0);
+        handleChartLoadingError('dow', error);
     }
     
     // 3. 月份分佈圖 - 專業條形圖
@@ -1323,9 +1331,8 @@ async function initCharts(predictor) {
         const monthCanvas = document.getElementById('month-chart');
         if (!monthCanvas) {
             console.error('❌ 找不到 month-chart canvas');
-            updateLoadingProgress('month', 0);
-            return;
-        }
+            handleChartLoadingError('month', new Error('找不到 month-chart canvas'));
+        } else {
         const monthCtx = monthCanvas.getContext('2d');
         updateLoadingProgress('month', 50);
     
@@ -1422,9 +1429,9 @@ async function initCharts(predictor) {
         
         totalProgress += 25;
         console.log('✅ 月份分佈圖已載入');
+        }
     } catch (error) {
-        console.error('❌ 月份分佈圖載入失敗:', error);
-        updateLoadingProgress('month', 0);
+        handleChartLoadingError('month', error);
     }
     
     // 4. 歷史趨勢圖 - 從數據庫獲取數據
@@ -1470,6 +1477,17 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         const historyCanvas = document.getElementById('history-chart');
         if (!historyCanvas) {
             console.error('❌ 找不到 history-chart canvas');
+            const loadingEl = document.getElementById('history-chart-loading');
+            if (loadingEl) {
+                loadingEl.innerHTML = `
+                    <div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">
+                        <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">⚠️ 找不到歷史趨勢圖元素</div>
+                        <div style="font-size: 0.875rem; color: var(--text-secondary);">
+                            請刷新頁面重試
+                        </div>
+                    </div>
+                `;
+            }
             updateLoadingProgress('history', 0);
             return;
         }
@@ -1879,8 +1897,8 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         
         console.log(`📊 準備繪製圖表: ${dataPoints.length} 個數據點`);
         if (dataPoints.length > 0) {
-            console.log('📊 第一個數據點:', dataPoints[0]);
-            console.log('📊 最後一個數據點:', dataPoints[dataPoints.length - 1]);
+            console.log('📊 第一個數據點:', JSON.stringify(dataPoints[0], null, 2));
+            console.log('📊 最後一個數據點:', JSON.stringify(dataPoints[dataPoints.length - 1], null, 2));
         } else {
             console.error('❌ 沒有有效的數據點！');
         }
@@ -2363,6 +2381,22 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         console.log(`✅ 歷史趨勢圖已載入 (${historicalData.length} 筆數據, 範圍: ${range}, 分頁偏移: ${pageOffset})`);
     } catch (error) {
         console.error('❌ 歷史趨勢圖載入失敗:', error);
+        const loadingEl = document.getElementById('history-chart-loading');
+        const canvasEl = document.getElementById('history-chart');
+        
+        if (loadingEl) {
+            loadingEl.innerHTML = `
+                <div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">
+                    <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">⚠️ 歷史趨勢圖載入失敗</div>
+                    <div style="font-size: 0.875rem; color: var(--text-secondary);">
+                        請刷新頁面重試
+                    </div>
+                </div>
+            `;
+        }
+        if (canvasEl) {
+            canvasEl.style.display = 'none';
+        }
         updateLoadingProgress('history', 0);
     }
 }
@@ -2476,7 +2510,7 @@ async function initComparisonChart() {
         const comparisonCanvas = document.getElementById('comparison-chart');
         if (!comparisonCanvas) {
             console.error('❌ 找不到 comparison-chart canvas');
-            updateLoadingProgress('comparison', 0);
+            handleChartLoadingError('comparison', new Error('找不到 comparison-chart canvas'));
             return;
         }
         
@@ -2811,71 +2845,83 @@ async function initComparisonChart() {
         updateLoadingProgress('comparison', 90);
         updateLoadingProgress('comparison', 100);
         
-        // 確保圖表正確適應容器大小（動態適應）
-        const resizeChart = () => {
-            if (comparisonChart) {
-                const container = document.getElementById('comparison-chart-container');
-                const canvas = comparisonChart.canvas;
-                
-                if (container && canvas) {
-                    // 確保容器有明確的寬度限制
-                    container.style.width = '100%';
-                    container.style.maxWidth = '100%';
-                    container.style.overflow = 'hidden';
-                    container.style.boxSizing = 'border-box';
-                    
-                    // 獲取容器的實際尺寸（使用 getBoundingClientRect 獲取精確尺寸）
-                    const containerRect = container.getBoundingClientRect();
-                    const containerWidth = containerRect.width || container.offsetWidth || container.clientWidth;
-                    const containerHeight = containerRect.height || container.offsetHeight || Math.min(window.innerHeight * 0.5, 500);
-                    
-                    // 確保容器有足夠的高度
-                    if (containerHeight < 300) {
-                        container.style.height = `${Math.max(containerHeight, 300)}px`;
-                    }
-                    
-                    // 設置圖表 canvas 的大小，確保不超出容器
-                    if (containerWidth > 0 && containerHeight > 0) {
-                        // 設置 CSS 尺寸（Chart.js 會自動處理 canvas 的實際像素尺寸）
-                        canvas.style.width = '100%';
-                        canvas.style.maxWidth = '100%';
-                        canvas.style.height = `${containerHeight}px`;
-                        canvas.style.maxHeight = `${containerHeight}px`;
-                        canvas.style.display = 'block';
-                        canvas.style.visibility = 'visible';
-                        canvas.style.opacity = '1';
-                        canvas.style.boxSizing = 'border-box';
-                    }
-                    
-                    // 確保圖表選項正確設置
-                    comparisonChart.options.responsive = true;
-                    comparisonChart.options.maintainAspectRatio = false;
-                }
-                // 使用專門為對比圖表設計的 padding
-                comparisonChart.options.layout.padding = getComparisonChartPadding();
-                if (comparisonChart.options.scales && comparisonChart.options.scales.x && comparisonChart.options.scales.x.ticks) {
-                    comparisonChart.options.scales.x.ticks.maxTicksLimit = getResponsiveMaxTicksLimit();
-                }
-                // 強制重新計算尺寸（Chart.js 會自動使用容器尺寸）
-                comparisonChart.resize();
-                comparisonChart.update('none');
-            }
-        };
-        
         // 完成載入並顯示圖表
         completeChartLoading('comparison');
         
-        // 初始調整（使用多個延遲確保容器已完全渲染）
-        setTimeout(resizeChart, 100);
-        setTimeout(resizeChart, 300);
-        setTimeout(resizeChart, 500);
+        // 防止重複 resize 的標誌
+        let isResizing = false;
+        let lastResizeWidth = 0;
+        let lastResizeHeight = 0;
         
-        // 監聽窗口大小變化，動態調整
+        // 確保圖表正確適應容器大小（動態適應，但防止無限循環）
+        const resizeChart = () => {
+            if (isResizing || !comparisonChart) return;
+            
+            const container = document.getElementById('comparison-chart-container');
+            const canvas = comparisonChart.canvas;
+            
+            if (!container || !canvas) return;
+            
+            // 獲取當前容器尺寸
+            const containerRect = container.getBoundingClientRect();
+            const currentWidth = containerRect.width || container.offsetWidth || container.clientWidth;
+            const currentHeight = containerRect.height || container.offsetHeight || container.clientHeight;
+            
+            // 如果尺寸沒有變化，跳過 resize（防止無限循環）
+            if (Math.abs(currentWidth - lastResizeWidth) < 1 && 
+                Math.abs(currentHeight - lastResizeHeight) < 1) {
+                return;
+            }
+            
+            isResizing = true;
+            lastResizeWidth = currentWidth;
+            lastResizeHeight = currentHeight;
+            
+            try {
+                // 只設置必要的樣式，不設置高度（讓 CSS 控制）
+                container.style.width = '100%';
+                container.style.maxWidth = '100%';
+                container.style.boxSizing = 'border-box';
+                
+                // 設置 canvas 樣式（不設置固定高度，讓 CSS 控制）
+                canvas.style.width = '100%';
+                canvas.style.maxWidth = '100%';
+                canvas.style.display = 'block';
+                canvas.style.visibility = 'visible';
+                canvas.style.opacity = '1';
+                canvas.style.boxSizing = 'border-box';
+                
+                // 確保圖表選項正確設置
+                comparisonChart.options.responsive = true;
+                comparisonChart.options.maintainAspectRatio = false;
+                comparisonChart.options.layout.padding = getComparisonChartPadding();
+                
+                if (comparisonChart.options.scales && comparisonChart.options.scales.x && comparisonChart.options.scales.x.ticks) {
+                    comparisonChart.options.scales.x.ticks.maxTicksLimit = getResponsiveMaxTicksLimit();
+                }
+                
+                // 只在尺寸真正變化時才調用 resize
+                comparisonChart.resize();
+            } finally {
+                // 使用 setTimeout 確保在下一個事件循環中重置標誌
+                setTimeout(() => {
+                    isResizing = false;
+                }, 100);
+            }
+        };
+        
+        // 初始調整（只調用一次，使用較長延遲確保容器已完全渲染）
+        setTimeout(() => {
+            resizeChart();
+        }, 300);
+        
+        // 監聽窗口大小變化，動態調整（使用防抖）
         let resizeTimeout;
         const handleResize = () => {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => {
                 resizeChart();
+                
                 // 同時更新 accuracy-stats 的布局
                 const statsEl = document.querySelector('#comparison-chart-container .accuracy-stats');
                 if (statsEl) {
@@ -2889,7 +2935,7 @@ async function initComparisonChart() {
                         gap = '8px';
                         padding = '10px';
                     } else if (screenWidth <= 700) {
-                        gridColumns = 'repeat(2, 1fr)'; // 小於700px改為2列
+                        gridColumns = 'repeat(2, 1fr)';
                         gap = '8px';
                         padding = '10px';
                     } else if (screenWidth <= 900) {
@@ -2903,15 +2949,15 @@ async function initComparisonChart() {
                     }
                     
                     // 根據屏幕寬度設置最大高度
-                    let maxHeight = '180px'; // 默認桌面：3列
+                    let maxHeight = '180px';
                     if (screenWidth <= 480) {
-                        maxHeight = '220px'; // 小屏幕：2列需要更多高度
+                        maxHeight = '220px';
                     } else if (screenWidth <= 700) {
-                        maxHeight = '200px'; // 2列布局需要更多高度
+                        maxHeight = '200px';
                     } else if (screenWidth <= 900) {
-                        maxHeight = '160px'; // 平板：3列
+                        maxHeight = '160px';
                     } else if (screenWidth <= 1200) {
-                        maxHeight = '170px'; // 中等屏幕：3列
+                        maxHeight = '170px';
                     }
                     
                     statsEl.style.gridTemplateColumns = gridColumns;
@@ -2921,13 +2967,14 @@ async function initComparisonChart() {
                     statsEl.style.position = 'relative';
                     statsEl.style.zIndex = '10';
                 }
-            }, 150);
+            }, 200); // 增加防抖延遲到 200ms
         };
-        window.addEventListener('resize', handleResize);
+        
+        // 只在窗口真正 resize 時監聽（不監聽容器內部變化）
+        window.addEventListener('resize', handleResize, { passive: true });
         console.log(`✅ 實際vs預測對比圖已載入 (${validComparisonData.length} 筆有效數據，總共 ${comparisonData.length} 筆)`);
     } catch (error) {
-        console.error('❌ 實際vs預測對比圖載入失敗:', error);
-        updateLoadingProgress('comparison', 0);
+        handleChartLoadingError('comparison', error);
     }
 }
 
@@ -3863,13 +3910,11 @@ async function convertToTraditionalAsync(text) {
                 }
             }
             
-            // API 調用失敗，返回原文
-            console.warn('⚠️ 轉換 API 調用失敗，返回原文');
+            // API 調用失敗，返回原文（靜默處理，不顯示錯誤）
             conversionCache.set(cleaned, cleaned);
             return cleaned;
         } catch (error) {
-            // 網絡錯誤或其他錯誤，返回原文
-            console.warn('⚠️ 轉換 API 調用錯誤:', error.message);
+            // 網絡錯誤或其他錯誤，返回原文（靜默處理，不顯示錯誤）
             conversionCache.set(cleaned, cleaned);
             return cleaned;
         } finally {
@@ -4333,7 +4378,7 @@ async function fetchCurrentWeather() {
             updateTime: data.updateTime || new Date().toISOString()
         };
         
-        console.log('🌤️ 天氣數據已更新:', currentWeatherData);
+        console.log('🌤️ 天氣數據已更新:', JSON.stringify(currentWeatherData, null, 2));
         return currentWeatherData;
     } catch (error) {
         console.error('❌ 獲取天氣失敗:', error);
@@ -4521,7 +4566,7 @@ async function checkAIStatus() {
             `;
         }
         
-        console.log('🤖 AI 狀態:', data);
+        console.log('🤖 AI 狀態:', JSON.stringify(data, null, 2));
         return data;
     } catch (error) {
         aiStatusEl.className = 'ai-status disconnected';
@@ -4567,7 +4612,7 @@ async function checkDatabaseStatus() {
             `;
         }
         
-        console.log('🗄️ 數據庫狀態:', data);
+        console.log('🗄️ 數據庫狀態:', JSON.stringify(data, null, 2));
         return data;
     } catch (error) {
         dbStatusEl.className = 'db-status disconnected';
@@ -5415,7 +5460,7 @@ function updateRealtimeFactors(aiAnalysisData = null) {
     updateSectionProgress('realtime-factors', 20);
     
     // 檢查 AI 分析數據
-    console.log('📊 AI 分析數據:', aiAnalysisData);
+    console.log('📊 AI 分析數據:', JSON.stringify(aiAnalysisData, null, 2));
     
     // 如果沒有 AI 分析數據，顯示載入狀態或空狀態
     // 檢查是否有有效的數據（factors 或有意義的 summary）
