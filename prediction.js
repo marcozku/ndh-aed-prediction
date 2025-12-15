@@ -2609,23 +2609,23 @@ async function initComparisonChart() {
                     padding = '12px';
                 }
                 
-                // 根據屏幕寬度設置最大高度
-                let maxHeight = '180px'; // 默認桌面：3列
-                if (screenWidth <= 480) {
-                    maxHeight = '220px'; // 小屏幕：2列需要更多高度
-                } else if (screenWidth <= 700) {
-                    maxHeight = '200px'; // 2列布局需要更多高度
-                } else if (screenWidth <= 900) {
-                    maxHeight = '160px'; // 平板：3列
-                } else if (screenWidth <= 1200) {
-                    maxHeight = '170px'; // 中等屏幕：3列
-                }
+                    // 根據屏幕寬度設置最大高度（減少高度以節省空間）
+                    let maxHeight = '160px'; // 默認桌面：3列
+                    if (screenWidth <= 480) {
+                        maxHeight = '200px'; // 小屏幕：2列
+                    } else if (screenWidth <= 700) {
+                        maxHeight = '180px'; // 2列布局
+                    } else if (screenWidth <= 900) {
+                        maxHeight = '140px'; // 平板：3列
+                    } else if (screenWidth <= 1200) {
+                        maxHeight = '150px'; // 中等屏幕：3列
+                    }
                 
                 statsEl.style.cssText = `
                     background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%);
                     border-radius: 8px;
                     padding: ${padding};
-                    margin-bottom: 16px;
+                    margin-bottom: 12px;
                     display: grid;
                     grid-template-columns: ${gridColumns};
                     gap: ${gap};
@@ -2636,7 +2636,7 @@ async function initComparisonChart() {
                     overflow: visible;
                     max-height: ${maxHeight};
                     position: relative;
-                    z-index: 10;
+                    z-index: 1;
                 `;
                 // 世界級標記
                 const worldClassBadge = accuracyStats.isWorldClass 
@@ -2962,16 +2962,16 @@ async function initComparisonChart() {
                         padding = '12px';
                     }
                     
-                    // 根據屏幕寬度設置最大高度
-                    let maxHeight = '180px';
+                    // 根據屏幕寬度設置最大高度（減少高度以節省空間）
+                    let maxHeight = '160px';
                     if (screenWidth <= 480) {
-                        maxHeight = '220px';
-                    } else if (screenWidth <= 700) {
                         maxHeight = '200px';
+                    } else if (screenWidth <= 700) {
+                        maxHeight = '180px';
                     } else if (screenWidth <= 900) {
-                        maxHeight = '160px';
+                        maxHeight = '140px';
                     } else if (screenWidth <= 1200) {
-                        maxHeight = '170px';
+                        maxHeight = '150px';
                     }
                     
                     statsEl.style.gridTemplateColumns = gridColumns;
