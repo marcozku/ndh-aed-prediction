@@ -2883,13 +2883,16 @@ async function initComparisonChart() {
                 container.style.maxWidth = '100%';
                 container.style.boxSizing = 'border-box';
                 
-                // 設置 canvas 樣式（不設置固定高度，讓 CSS 控制）
+                // 設置 canvas 樣式（使用固定高度，防止無限增長）
                 canvas.style.width = '100%';
                 canvas.style.maxWidth = '100%';
+                // 不設置 height，讓 CSS 的固定高度控制
                 canvas.style.display = 'block';
                 canvas.style.visibility = 'visible';
                 canvas.style.opacity = '1';
                 canvas.style.boxSizing = 'border-box';
+                // 確保不會觸發額外的 resize
+                canvas.style.overflow = 'hidden';
                 
                 // 確保圖表選項正確設置
                 comparisonChart.options.responsive = true;
@@ -2915,14 +2918,14 @@ async function initComparisonChart() {
             resizeChart();
         }, 300);
         
-        // 監聽窗口大小變化，動態調整（使用防抖）
+        // 移除 resize 監聽器，防止無限循環
+        // CSS 已經設置了固定高度，不需要動態調整
+        // 只在窗口真正 resize 時更新 accuracy-stats 的布局（不觸發圖表 resize）
         let resizeTimeout;
         const handleResize = () => {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => {
-                resizeChart();
-                
-                // 同時更新 accuracy-stats 的布局
+                // 只更新 accuracy-stats 的布局，不觸發圖表 resize
                 const statsEl = document.querySelector('#comparison-chart-container .accuracy-stats');
                 if (statsEl) {
                     const screenWidth = window.innerWidth;
@@ -2967,10 +2970,10 @@ async function initComparisonChart() {
                     statsEl.style.position = 'relative';
                     statsEl.style.zIndex = '10';
                 }
-            }, 200); // 增加防抖延遲到 200ms
+            }, 200);
         };
         
-        // 只在窗口真正 resize 時監聽（不監聽容器內部變化）
+        // 只在窗口真正 resize 時監聽（不觸發圖表 resize，只更新 stats 布局）
         window.addEventListener('resize', handleResize, { passive: true });
         console.log(`✅ 實際vs預測對比圖已載入 (${validComparisonData.length} 筆有效數據，總共 ${comparisonData.length} 筆)`);
     } catch (error) {
