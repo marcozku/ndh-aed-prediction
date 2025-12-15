@@ -1121,13 +1121,13 @@ section h2 {
     position: relative;
     width: 100%;
     max-width: 100%;
-    height: min(30vh, 300px); /* 動態高度：視窗高度的30%，最大300px */
-    min-height: min(25vh, 250px); /* 最小高度：視窗高度的25%，最小250px */
+    height: min(30vh, 300px); /* 統一高度：視窗高度的30%，最大300px */
+    min-height: min(25vh, 250px); /* 統一最小高度：視窗高度的25%，最小250px */
     box-sizing: border-box;
     overflow: hidden; /* 防止圖表內容溢出 */
     overflow-x: hidden; /* 明確防止水平溢出 */
     margin: 0;
-    padding: 0 0 min(6vh, 40px) 0; /* 動態底部 padding */
+    padding: 0 0 min(6vh, 40px) 0; /* 統一底部 padding：視窗高度的6%，最大40px */
 }
 
 /* 對比圖容器特殊處理 - 允許內容決定高度 */
@@ -1142,9 +1142,9 @@ section h2 {
     width: 100% !important;
     max-width: 100% !important;
     height: auto !important; /* 使用 auto 讓內容決定高度 */
-    min-height: 500px !important; /* 最小高度：500px，確保圖表可見 */
+    min-height: min(45vh, 450px) !important; /* 統一最小高度：視窗高度的45%，最小450px */
     max-height: none !important; /* 移除最大高度限制 */
-    padding-bottom: min(8vh, 60px) !important; /* 動態底部 padding，為 X 軸標籤留出空間 */
+    padding-bottom: min(8vh, 60px) !important; /* 統一底部 padding：視窗高度的8%，最大60px */
     overflow: visible !important; /* 允許內容完整顯示 */
     position: relative;
     box-sizing: border-box;
@@ -1153,7 +1153,7 @@ section h2 {
 
 /* 確保圖表 canvas 有足夠的高度 */
 #comparison-chart-container canvas {
-    min-height: 400px !important; /* 確保圖表至少有 400px 高度 */
+    min-height: min(40vh, 400px) !important; /* 統一最小高度：視窗高度的40%，最小400px */
 }
 
 /* 歷史趨勢圖容器：不再需要滾動 */
@@ -1162,7 +1162,7 @@ section h2 {
     overflow: visible; /* 允許底部內容顯示 */
     width: 100%;
     max-width: 100%;
-    padding-bottom: min(8vh, 60px) !important; /* 為 X 軸標籤留出空間 */
+    padding-bottom: min(8vh, 60px) !important; /* 統一底部 padding：視窗高度的8%，最大60px */
     box-sizing: border-box;
 }
 
@@ -1220,9 +1220,9 @@ section h2 {
 }
 
 .chart-container.large {
-    height: min(38vh, 380px); /* 動態高度：視窗高度的38%，最大380px */
-    min-height: min(32vh, 320px); /* 最小高度：視窗高度的32%，最小320px */
-    padding-bottom: min(8vh, 60px) !important; /* 為 X 軸標籤留出空間 */
+    height: min(38vh, 380px); /* 統一高度：視窗高度的38%，最大380px */
+    min-height: min(32vh, 320px); /* 統一最小高度：視窗高度的32%，最小320px */
+    padding-bottom: min(8vh, 60px) !important; /* 統一底部 padding：視窗高度的8%，最大60px */
 }
 
 .chart-container canvas {
@@ -1318,23 +1318,25 @@ section h2 {
     }
 }
 
-/* 圖表響應式高度 */
+/* 圖表響應式高度 - 統一使用 vh 單位確保一致性 */
 @media (max-width: 900px) {
     .chart-container {
-        height: 250px;
-        padding-bottom: 50px;
+        height: min(28vh, 280px); /* 統一：視窗高度的28%，最大280px */
+        min-height: min(24vh, 240px); /* 統一最小高度：視窗高度的24%，最小240px */
+        padding-bottom: min(6vh, 50px); /* 統一底部 padding */
     }
     
     .chart-container.large {
-        height: 300px;
-        padding-bottom: 50px;
+        height: min(32vh, 320px); /* 統一：視窗高度的32%，最大320px */
+        min-height: min(28vh, 280px); /* 統一最小高度：視窗高度的28%，最小280px */
+        padding-bottom: min(8vh, 60px); /* 統一底部 padding */
     }
     
     #comparison-chart-container {
-        height: min(45vh, 450px) !important;
-        min-height: min(35vh, 350px) !important;
-        max-height: 450px !important;
-        padding-bottom: min(8vh, 60px) !important;
+        height: auto !important;
+        min-height: min(40vh, 400px) !important; /* 統一最小高度：視窗高度的40%，最小400px */
+        max-height: none !important;
+        padding-bottom: min(8vh, 60px) !important; /* 統一底部 padding */
     }
     
     .chart-card.full-width {
@@ -1351,20 +1353,22 @@ section h2 {
 
 @media (max-width: 600px) {
     .chart-container {
-        height: min(28vh, 220px);
-        padding-bottom: min(7vh, 50px);
+        height: min(26vh, 240px); /* 統一：視窗高度的26%，最大240px */
+        min-height: min(22vh, 200px); /* 統一最小高度：視窗高度的22%，最小200px */
+        padding-bottom: min(7vh, 50px); /* 統一底部 padding */
     }
     
     .chart-container.large {
-        height: min(32vh, 260px);
-        padding-bottom: min(7vh, 50px);
+        height: min(30vh, 280px); /* 統一：視窗高度的30%，最大280px */
+        min-height: min(26vh, 240px); /* 統一最小高度：視窗高度的26%，最小240px */
+        padding-bottom: min(8vh, 60px); /* 統一底部 padding */
     }
     
     #comparison-chart-container {
-        height: min(40vh, 400px) !important;
-        min-height: min(30vh, 280px) !important;
-        max-height: 400px !important;
-        padding-bottom: min(10vh, 70px) !important; /* 移動端需要更多空間 */
+        height: auto !important;
+        min-height: min(35vh, 350px) !important; /* 統一最小高度：視窗高度的35%，最小350px */
+        max-height: none !important;
+        padding-bottom: min(9vh, 70px) !important; /* 統一底部 padding */
     }
     
     .chart-card.full-width {
@@ -1381,20 +1385,22 @@ section h2 {
 
 @media (max-width: 380px) {
     .chart-container {
-        height: 200px;
-        padding-bottom: 60px;
+        height: min(24vh, 220px); /* 統一：視窗高度的24%，最大220px */
+        min-height: min(20vh, 180px); /* 統一最小高度：視窗高度的20%，最小180px */
+        padding-bottom: min(8vh, 60px); /* 統一底部 padding */
     }
     
     .chart-container.large {
-        height: 240px;
-        padding-bottom: 60px;
+        height: min(28vh, 260px); /* 統一：視窗高度的28%，最大260px */
+        min-height: min(24vh, 220px); /* 統一最小高度：視窗高度的24%，最小220px */
+        padding-bottom: min(9vh, 70px); /* 統一底部 padding */
     }
     
     #comparison-chart-container {
-        height: min(35vh, 350px) !important;
-        min-height: min(28vh, 250px) !important;
-        max-height: 350px !important;
-        padding-bottom: min(12vh, 80px) !important; /* 小屏幕需要更多空間 */
+        height: auto !important;
+        min-height: min(30vh, 300px) !important; /* 統一最小高度：視窗高度的30%，最小300px */
+        max-height: none !important;
+        padding-bottom: min(10vh, 80px) !important; /* 統一底部 padding */
     }
     
     .chart-card.full-width {
@@ -1951,13 +1957,15 @@ section h2 {
     }
     
     .chart-container {
-        height: 280px;
+        height: min(30vh, 300px); /* 統一：視窗高度的30%，最大300px */
+        min-height: min(25vh, 250px); /* 統一最小高度 */
         width: 100%;
         max-width: 100%;
     }
     
     .chart-container.large {
-        height: 320px;
+        height: min(38vh, 380px); /* 統一：視窗高度的38%，最大380px */
+        min-height: min(32vh, 320px); /* 統一最小高度 */
     }
     
     .chart-container canvas {
@@ -2194,13 +2202,15 @@ section h2 {
     }
     
     .chart-container {
-        height: 180px;
+        height: min(22vh, 200px); /* 統一：視窗高度的22%，最大200px */
+        min-height: min(18vh, 160px); /* 統一最小高度 */
         width: 100%;
         max-width: 100%;
     }
     
     .chart-container.large {
-        height: 220px;
+        height: min(26vh, 240px); /* 統一：視窗高度的26%，最大240px */
+        min-height: min(22vh, 200px); /* 統一最小高度 */
     }
     
     .chart-container canvas {

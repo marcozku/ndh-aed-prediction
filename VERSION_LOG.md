@@ -1,5 +1,53 @@
 # 版本更新日誌
 
+## v2.2.6 - 2025-12-15 19:23 HKT
+
+### 📐 統一所有圖表大小，確保在任何設備尺寸下都保持一致
+
+**問題**：不同圖表使用不同的高度設置（有些用固定像素，有些用 vh），導致在不同設備上大小不一致。
+
+**解決方案**：
+1. **統一標準圖表容器（.chart-container）高度**：
+   - 桌面：`height: min(30vh, 300px)`, `min-height: min(25vh, 250px)`
+   - 平板（≤ 900px）：`height: min(28vh, 280px)`, `min-height: min(24vh, 240px)`
+   - 手機（≤ 600px）：`height: min(26vh, 240px)`, `min-height: min(22vh, 200px)`
+   - 小屏幕（≤ 380px）：`height: min(24vh, 220px)`, `min-height: min(20vh, 180px)`
+
+2. **統一大型圖表容器（.chart-container.large）高度**：
+   - 桌面：`height: min(38vh, 380px)`, `min-height: min(32vh, 320px)`
+   - 平板（≤ 900px）：`height: min(32vh, 320px)`, `min-height: min(28vh, 280px)`
+   - 手機（≤ 600px）：`height: min(30vh, 280px)`, `min-height: min(26vh, 240px)`
+   - 小屏幕（≤ 380px）：`height: min(28vh, 260px)`, `min-height: min(24vh, 220px)`
+
+3. **統一對比圖容器（#comparison-chart-container）高度**：
+   - 桌面：`min-height: min(45vh, 450px)`
+   - 平板（≤ 900px）：`min-height: min(40vh, 400px)`
+   - 手機（≤ 600px）：`min-height: min(35vh, 350px)`
+   - 小屏幕（≤ 380px）：`min-height: min(30vh, 300px)`
+
+4. **統一底部 padding**：
+   - 所有圖表容器使用 `min(Xvh, Ypx)` 格式
+   - 標準圖表：`min(6vh, 40px)` 到 `min(8vh, 60px)`
+   - 大型圖表：`min(8vh, 60px)` 到 `min(9vh, 70px)`
+
+5. **移除所有固定像素高度**：
+   - 將所有固定像素值（如 250px, 300px, 200px, 240px）改為使用 vh 單位
+   - 確保所有圖表都使用相對視窗高度的單位
+
+**影響範圍**：
+- `styles.css`：統一所有圖表容器的高度設置，使用一致的 vh 比例
+
+**技術細節**：
+- 使用 `min(vh, px)` 格式確保響應式且有一致性
+- 所有圖表使用相同的 vh 比例範圍（20%-45%）
+- 統一所有響應式斷點的高度設置
+
+**優勢**：
+- 所有圖表在任何設備尺寸下都有一致的相對大小
+- 使用 vh 單位確保真正的響應式設計
+- 圖表之間的大小比例保持一致
+- 在不同屏幕尺寸下都有良好的視覺一致性
+
 ## v2.2.5 - 2025-12-15 19:21 HKT
 
 ### 🔧 修復小於700px時卡片不調整大小和內容不完整顯示問題
