@@ -2195,11 +2195,27 @@ async function initComparisonChart() {
             addBtn.style.display = 'none';
         }
         
+        // 過濾出有效的比較數據（必須同時有實際和預測）
+        const validComparisonData = comparisonData.filter(d => d.actual != null && d.predicted != null);
+        
+        if (validComparisonData.length === 0) {
+            console.warn('⚠️ 沒有有效的比較數據（需要同時有實際和預測數據）');
+            const loadingEl = document.getElementById('comparison-chart-loading');
+            if (loadingEl) {
+                loadingEl.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">暫無有效的比較數據<br><small>需要同時有實際數據和預測數據</small></div>';
+            }
+            if (addBtn) {
+                addBtn.style.display = 'block';
+            }
+            updateLoadingProgress('comparison', 0);
+            return;
+        }
+        
         updateLoadingProgress('comparison', 40);
         const comparisonCtx = comparisonCanvas.getContext('2d');
         
         // 日期標籤
-        const labels = comparisonData.map(d => formatDateDDMM(d.date, false));
+        const labels = validComparisonData.map(d => formatDateDDMM(d.date, false));
         
         updateLoadingProgress('comparison', 60);
         
