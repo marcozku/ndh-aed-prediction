@@ -1108,11 +1108,15 @@ section h2 {
     overflow-x: hidden; /* 明確防止水平溢出 */
 }
 
-/* 只對「實際 vs 預測對比」相關的卡片使用 auto 高度 */
+/* 只對「實際 vs 預測對比」相關的卡片使用 auto 高度，但限制最大高度 */
 .chart-card.full-width.comparison-section {
     height: auto !important; /* 使用 auto 讓內容決定高度 */
+    max-height: none !important; /* 移除最大高度限制，讓內容決定 */
     overflow: visible !important; /* 允許內容完整顯示 */
     overflow-x: hidden !important; /* 防止水平溢出 */
+    width: 100% !important; /* 確保響應式寬度 */
+    max-width: 100% !important; /* 確保響應式寬度 */
+    box-sizing: border-box !important; /* 確保 padding 包含在寬度內 */
 }
 
 .chart-card h3 {
@@ -1279,7 +1283,7 @@ section h2 {
     overflow: hidden !important; /* 隱藏溢出內容 */
 }
 
-/* 準確度統計響應式布局 */
+/* 準確度統計響應式布局 - 移到容器外部，避免與圖表重疊 */
 .accuracy-stats {
     display: grid !important;
     grid-template-columns: repeat(3, 1fr) !important; /* 桌面：3列 */
@@ -1288,11 +1292,12 @@ section h2 {
     max-width: 100% !important;
     box-sizing: border-box !important;
     padding: 16px !important;
+    margin-bottom: 16px !important; /* 與圖表容器保持間距 */
     overflow: visible !important; /* 允許所有內容顯示 */
     min-height: auto !important; /* 讓內容決定高度 */
     max-height: 180px !important; /* 限制最大高度，防止無限增長 */
-    position: relative !important; /* 確保 z-index 生效 */
-    z-index: 10 !important; /* 確保在 canvas 上方 */
+    position: relative !important;
+    z-index: 1 !important; /* 降低 z-index，不再需要覆蓋圖表 */
 }
 
 @media (max-width: 1200px) {

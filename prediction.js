@@ -2571,12 +2571,15 @@ async function initComparisonChart() {
         // 計算整體準確度統計
         const accuracyStats = calculateAccuracyStats(validComparisonData);
         
-        // 在圖表容器上方顯示準確度統計
+        // 在圖表容器外部（chart-card 內部）顯示準確度統計，避免與圖表重疊
+        const chartCard = document.querySelector('.comparison-section');
         const chartContainer = document.getElementById('comparison-chart-container');
-        if (chartContainer) {
-            // 移除舊的統計顯示（如果存在）
-            const oldStats = chartContainer.querySelector('.accuracy-stats');
-            if (oldStats) oldStats.remove();
+        if (chartCard && chartContainer) {
+            // 移除舊的統計顯示（如果存在，可能在容器內或容器外）
+            const oldStatsInContainer = chartContainer.querySelector('.accuracy-stats');
+            const oldStatsInCard = chartCard.querySelector('.accuracy-stats');
+            if (oldStatsInContainer) oldStatsInContainer.remove();
+            if (oldStatsInCard) oldStatsInCard.remove();
             
             // 創建新的統計顯示
             if (accuracyStats.totalCount > 0) {
@@ -2701,8 +2704,16 @@ async function initComparisonChart() {
                     worldClassBanner.textContent = '🏆 達到世界級準確度水準！';
                     statsEl.appendChild(worldClassBanner);
                 }
-                // 將統計信息插入到 canvas 之前
-                chartContainer.insertBefore(statsEl, comparisonCanvas);
+                // 將統計信息插入到 chart-card 內部，但在 chart-container 之前，避免與圖表重疊
+                // 確保 stats 在標題之後，圖表容器之前
+                const titleElement = chartCard.querySelector('h3');
+                if (titleElement && titleElement.nextSibling) {
+                    // 插入到標題之後
+                    titleElement.parentNode.insertBefore(statsEl, titleElement.nextSibling);
+                } else {
+                    // 如果找不到標題，插入到容器之前
+                    chartCard.insertBefore(statsEl, chartContainer);
+                }
                 
                 // 確保統計信息有足夠空間顯示所有內容
                 statsEl.style.marginBottom = '16px';
