@@ -1849,7 +1849,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         }
         if (historyCanvas) {
             historyCanvas.style.width = '100%';
-            historyCanvas.style.height = '380px';
+            historyCanvas.style.height = '550px'; /* 世界級標準高度 */
             historyCanvas.style.maxWidth = '100%';
         }
         
