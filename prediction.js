@@ -2482,6 +2482,9 @@ async function initComparisonChart() {
                     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
                     gap: 12px;
                     font-size: 0.85rem;
+                    width: 100%;
+                    max-width: 100%;
+                    box-sizing: border-box;
                 `;
                 // 世界級標記
                 const worldClassBadge = accuracyStats.isWorldClass 
@@ -2604,6 +2607,14 @@ async function initComparisonChart() {
                 ...professionalOptions,
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        top: 10,
+                        right: 10,
+                        bottom: 50, // 增加底部 padding 以容納 X 軸標籤
+                        left: 10
+                    }
+                },
                 plugins: {
                     ...professionalOptions.plugins,
                     tooltip: {
@@ -2655,7 +2666,14 @@ async function initComparisonChart() {
                         ticks: {
                             ...professionalOptions.scales.x.ticks,
                             autoSkip: true,
-                            maxTicksLimit: getResponsiveMaxTicksLimit()
+                            maxTicksLimit: getResponsiveMaxTicksLimit(),
+                            maxRotation: 45, // 旋轉標籤以避免重疊
+                            minRotation: 0,
+                            padding: 10 // X 軸標籤的 padding
+                        },
+                        grid: {
+                            ...professionalOptions.scales.x.grid,
+                            drawOnChartArea: true
                         }
                     },
                     y: {

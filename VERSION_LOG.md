@@ -1,5 +1,45 @@
 # 版本更新日誌
 
+## v2.1.1 - 2025-12-15 10:00 HKT
+
+### 📱 容器大小與移動端優化
+
+**問題**：
+- 實際 vs 預測對比圖的容器高度不夠，X 軸標籤被截斷
+- 統計數據在移動端布局不友好（3x2 網格）
+- 圖表在移動設備上顯示不完整
+
+**解決方案**：
+1. **增加容器高度**：
+   - `#comparison-chart-container` 設置 `min-height: 400px`（桌面）和 `padding-bottom: 60px`
+   - 移動端（< 900px）：`min-height: 350px`，`padding-bottom: 70px`
+   - 小屏幕（< 600px）：`min-height: 320px`，`padding-bottom: 80px`
+   - 超小屏幕（< 380px）：`min-height: 300px`，`padding-bottom: 90px`
+
+2. **圖表配置優化**：
+   - 增加圖表 `layout.padding.bottom: 50` 以容納 X 軸標籤
+   - X 軸標籤設置 `maxRotation: 45` 和 `padding: 10` 以避免重疊
+   - 所有圖表容器添加底部 padding
+
+3. **統計數據響應式布局**：
+   - 桌面：`grid-template-columns: repeat(auto-fit, minmax(140px, 1fr))`（自動適應）
+   - 平板（< 768px）：`grid-template-columns: repeat(2, 1fr)`（2 列）
+   - 手機（< 480px）：`grid-template-columns: 1fr`（單列）
+   - 添加 `width: 100%` 和 `box-sizing: border-box` 確保響應式
+
+4. **容器 overflow 調整**：
+   - 將 `.chart-container` 的 `overflow: hidden` 改為 `overflow: visible` 以顯示完整標籤
+   - 保持圖表內容不溢出，但允許標籤顯示
+
+**影響範圍**：
+- `styles.css`：容器高度、padding、響應式布局
+- `prediction.js`：圖表配置、統計數據樣式
+
+**技術細節**：
+- 使用 `min-height` 而非固定 `height` 以適應內容
+- 響應式 breakpoints：900px、600px、480px、380px
+- 統計數據使用 CSS Grid 自動適應列數
+
 ## v2.1.0 - 2025-12-15 09:55 HKT
 
 ### 🏆 世界級算法目標與持續改進框架

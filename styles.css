@@ -1106,9 +1106,16 @@ section h2 {
     max-width: 100%;
     height: 300px;
     box-sizing: border-box;
-    overflow: hidden;
+    overflow: visible;
     margin: 0;
-    padding: 0;
+    padding: 0 0 40px 0; /* 底部 padding 以容納 X 軸標籤 */
+}
+
+/* 實際 vs 預測對比圖容器需要更多空間 */
+#comparison-chart-container {
+    min-height: 400px;
+    height: auto;
+    padding-bottom: 60px; /* 更多空間給 X 軸標籤 */
 }
 
 /* 歷史趨勢圖容器：不再需要滾動 */
@@ -1186,34 +1193,74 @@ section h2 {
     padding: 0;
 }
 
+/* 準確度統計響應式布局 */
+.accuracy-stats {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+    gap: 12px !important;
+}
+
+@media (max-width: 768px) {
+    .accuracy-stats {
+        grid-template-columns: repeat(2, 1fr) !important; /* 移動端改為 2 列 */
+    }
+}
+
+@media (max-width: 480px) {
+    .accuracy-stats {
+        grid-template-columns: 1fr !important; /* 小屏幕改為單列 */
+    }
+}
+
 /* 圖表響應式高度 */
 @media (max-width: 900px) {
     .chart-container {
         height: 250px;
+        padding-bottom: 50px;
     }
     
     .chart-container.large {
         height: 300px;
+        padding-bottom: 50px;
+    }
+    
+    #comparison-chart-container {
+        min-height: 350px;
+        padding-bottom: 70px;
     }
 }
 
 @media (max-width: 600px) {
     .chart-container {
         height: 220px;
+        padding-bottom: 50px;
     }
     
     .chart-container.large {
         height: 260px;
+        padding-bottom: 50px;
+    }
+    
+    #comparison-chart-container {
+        min-height: 320px;
+        padding-bottom: 80px; /* 移動端需要更多空間 */
     }
 }
 
 @media (max-width: 380px) {
     .chart-container {
         height: 200px;
+        padding-bottom: 60px;
     }
     
     .chart-container.large {
         height: 240px;
+        padding-bottom: 60px;
+    }
+    
+    #comparison-chart-container {
+        min-height: 300px;
+        padding-bottom: 90px; /* 小屏幕需要更多空間 */
     }
 }
 
