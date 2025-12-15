@@ -1182,20 +1182,9 @@ async function initCharts(predictor) {
     updateLoadingProgress('forecast', 100);
     completeChartLoading('forecast');
     
-    // 確保圖表正確適應容器寬度
+    // 使用統一的簡單 resize 邏輯
     setTimeout(() => {
-        if (forecastChart) {
-            const container = document.getElementById('forecast-chart-container');
-            const canvas = forecastChart.canvas;
-            if (container && canvas) {
-                container.style.width = '100%';
-                container.style.maxWidth = '100%';
-                container.style.overflow = 'hidden';
-                canvas.style.width = '100%';
-                canvas.style.maxWidth = '100%';
-                forecastChart.resize();
-            }
-        }
+        setupChartResize(forecastChart, 'forecast-chart-container');
     }, 100);
     
         totalProgress += 25;
@@ -1299,20 +1288,9 @@ async function initCharts(predictor) {
         updateLoadingProgress('dow', 100);
         completeChartLoading('dow');
         
-        // 確保圖表正確適應容器寬度
+        // 使用統一的簡單 resize 邏輯
         setTimeout(() => {
-            if (dowChart) {
-                const container = document.getElementById('dow-chart-container');
-                const canvas = dowChart.canvas;
-                if (container && canvas) {
-                    container.style.width = '100%';
-                    container.style.maxWidth = '100%';
-                    container.style.overflow = 'hidden';
-                    canvas.style.width = '100%';
-                    canvas.style.maxWidth = '100%';
-                    dowChart.resize();
-                }
-            }
+            setupChartResize(dowChart, 'dow-chart-container');
         }, 100);
         
         totalProgress += 25;
@@ -1411,20 +1389,9 @@ async function initCharts(predictor) {
         updateLoadingProgress('month', 100);
         completeChartLoading('month');
         
-        // 確保圖表正確適應容器寬度
+        // 使用統一的簡單 resize 邏輯
         setTimeout(() => {
-            if (monthChart) {
-                const container = document.getElementById('month-chart-container');
-                const canvas = monthChart.canvas;
-                if (container && canvas) {
-                    container.style.width = '100%';
-                    container.style.maxWidth = '100%';
-                    container.style.overflow = 'hidden';
-                    canvas.style.width = '100%';
-                    canvas.style.maxWidth = '100%';
-                    monthChart.resize();
-                }
-            }
+            setupChartResize(monthChart, 'month-chart-container');
         }, 100);
         
         totalProgress += 25;
@@ -1451,23 +1418,58 @@ async function initCharts(predictor) {
     console.log('✅ 所有圖表載入完成');
 }
 
-// 強制所有圖表重新計算尺寸
+// 統一的簡單 resize 邏輯（類似 factors-container）
+function setupChartResize(chart, containerId) {
+    if (!chart || !containerId) return;
+    
+    const container = document.getElementById(containerId);
+    const canvas = chart.canvas;
+    
+    if (!container || !canvas) return;
+    
+    // 簡單的樣式設置（類似 factors-container）
+    container.style.width = '100%';
+    container.style.maxWidth = '100%';
+    container.style.boxSizing = 'border-box';
+    
+    canvas.style.width = '100%';
+    canvas.style.maxWidth = '100%';
+    canvas.style.boxSizing = 'border-box';
+    canvas.style.display = 'block';
+    
+    // 確保圖表選項正確設置
+    chart.options.responsive = true;
+    chart.options.maintainAspectRatio = false;
+    
+    // 讓 Chart.js 自動處理 resize（類似 factors-container 的自然適應）
+    chart.resize();
+}
+
+// 統一的窗口 resize 處理（簡單邏輯，類似 factors-container）
+let globalResizeTimeout;
+function setupGlobalChartResize() {
+    if (globalResizeTimeout) return; // 避免重複設置
+    
+    window.addEventListener('resize', () => {
+        clearTimeout(globalResizeTimeout);
+        globalResizeTimeout = setTimeout(() => {
+            // 簡單地調用所有圖表的 resize（讓 Chart.js 自動處理）
+            if (forecastChart) forecastChart.resize();
+            if (dowChart) dowChart.resize();
+            if (monthChart) monthChart.resize();
+            if (historyChart) historyChart.resize();
+            if (comparisonChart) comparisonChart.resize();
+        }, 200);
+    }, { passive: true });
+}
+
+// 強制所有圖表重新計算尺寸（使用簡單邏輯）
 function forceChartsResize() {
-    const charts = [forecastChart, dowChart, monthChart, historyChart, comparisonChart];
-    charts.forEach(chart => {
-        if (chart) {
-            // 更新響應式設置
-            chart.options.layout.padding = getResponsivePadding();
-            if (chart.options.scales && chart.options.scales.x && chart.options.scales.x.ticks) {
-                chart.options.scales.x.ticks.maxTicksLimit = getResponsiveMaxTicksLimit();
-                chart.options.scales.x.ticks.font.size = window.innerWidth <= 600 ? 9 : 11;
-                chart.options.scales.x.ticks.padding = window.innerWidth <= 600 ? 4 : 8;
-            }
-            // 強制重新計算尺寸
-            chart.resize();
-            chart.update('none');
-        }
-    });
+    if (forecastChart) setupChartResize(forecastChart, 'forecast-chart-container');
+    if (dowChart) setupChartResize(dowChart, 'dow-chart-container');
+    if (monthChart) setupChartResize(monthChart, 'month-chart-container');
+    if (historyChart) setupChartResize(historyChart, 'history-chart-container');
+    if (comparisonChart) setupChartResize(comparisonChart, 'comparison-chart-container');
 }
 
 // 初始化歷史趨勢圖
@@ -2330,23 +2332,14 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         updateHistoryDateRange(startDate, endDate, range);
         updateHistoryNavigationButtons(range, pageOffset, historicalData);
         
-        // 確保圖表正確顯示（使用響應式模式，適應容器寬度）
+        // 使用統一的簡單 resize 邏輯
         setTimeout(() => {
             if (historyChart && historyCanvas && historyContainer) {
-                // 確保容器和canvas使用響應式寬度，允許底部內容顯示
-                historyContainer.style.overflow = 'visible';
-                historyContainer.style.paddingBottom = '60px'; // 為 X 軸標籤留出空間
-                historyCanvas.style.width = '100%';
-                historyCanvas.style.maxWidth = '100%';
+                // 使用統一的簡單 resize 邏輯
+                setupChartResize(historyChart, 'history-chart-container');
                 
                 // 更新圖表選項，特別是時間軸配置
-                const responsivePadding = getResponsivePadding();
-                historyChart.options.layout.padding = {
-                    ...responsivePadding,
-                    bottom: Math.max(responsivePadding.bottom, 60) // 確保底部至少有 60px 空間
-                };
                 if (historyChart.options.scales && historyChart.options.scales.x) {
-                    // 更新時間軸配置
                     historyChart.options.scales.x.time.unit = getTimeUnit(range);
                     historyChart.options.scales.x.time.displayFormats = getTimeDisplayFormats(range);
                     
@@ -2354,28 +2347,12 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         historyChart.options.scales.x.ticks.autoSkip = true;
                         historyChart.options.scales.x.ticks.maxTicksLimit = getMaxTicksForRange(range, historicalData.length);
                         historyChart.options.scales.x.ticks.maxRotation = 0;
-                        historyChart.options.scales.x.ticks.padding = 10; // X 軸標籤的 padding
+                        historyChart.options.scales.x.ticks.padding = 10;
                     }
                 }
                 
-                // 讓圖表自動適應容器寬度（響應式）
-                historyChart.resize();
-                // 使用 'none' 模式更新，然後強制重新渲染以確保 X 軸更新
+                // 讓 Chart.js 自動處理 resize
                 historyChart.update('none');
-                
-                // 確保canvas可見
-                historyCanvas.style.display = 'block';
-                historyCanvas.style.visibility = 'visible';
-                
-                // 再次強制更新，確保 X 軸時間線正確顯示
-                setTimeout(() => {
-                    if (historyChart) {
-                        // 強制重新計算和渲染圖表
-                        historyChart.update('active');
-                        // 觸發 resize 以確保時間軸正確更新
-                        historyChart.resize();
-                    }
-                }, 200);
             }
         }, 100);
         console.log(`✅ 歷史趨勢圖已載入 (${historicalData.length} 筆數據, 範圍: ${range}, 分頁偏移: ${pageOffset})`);
@@ -2859,90 +2836,30 @@ async function initComparisonChart() {
         // 完成載入並顯示圖表
         completeChartLoading('comparison');
         
-        // 防止重複 resize 的標誌
-        let isResizing = false;
-        let lastResizeWidth = 0;
-        let lastResizeHeight = 0;
-        
-        // 確保圖表正確適應容器大小（動態適應，但防止無限循環）
-        const resizeChart = () => {
-            if (isResizing || !comparisonChart) return;
-            
-            const container = document.getElementById('comparison-chart-container');
-            const canvas = comparisonChart.canvas;
-            
-            if (!container || !canvas) return;
-            
-            // 獲取當前容器尺寸
-            const containerRect = container.getBoundingClientRect();
-            const currentWidth = containerRect.width || container.offsetWidth || container.clientWidth;
-            const currentHeight = containerRect.height || container.offsetHeight || container.clientHeight;
-            
-            // 如果尺寸沒有變化，跳過 resize（防止無限循環）
-            if (Math.abs(currentWidth - lastResizeWidth) < 1 && 
-                Math.abs(currentHeight - lastResizeHeight) < 1) {
-                return;
-            }
-            
-            isResizing = true;
-            lastResizeWidth = currentWidth;
-            lastResizeHeight = currentHeight;
-            
-            try {
-                // 只設置必要的樣式，不設置高度（讓 CSS 控制）
-                container.style.width = '100%';
-                container.style.maxWidth = '100%';
-                container.style.boxSizing = 'border-box';
-                
-                // 設置 canvas 樣式（使用固定高度，防止無限增長）
-                canvas.style.width = '100%';
-                canvas.style.maxWidth = '100%';
-                // 不設置 height，讓 CSS 的固定高度控制
-                canvas.style.display = 'block';
-                canvas.style.visibility = 'visible';
-                canvas.style.opacity = '1';
-                canvas.style.boxSizing = 'border-box';
-                // 確保不會觸發額外的 resize
-                canvas.style.overflow = 'hidden';
-                
-                // 確保圖表選項正確設置
-                comparisonChart.options.responsive = true;
-                comparisonChart.options.maintainAspectRatio = false;
+        // 使用統一的簡單 resize 邏輯（類似 factors-container）
+        setTimeout(() => {
+            setupChartResize(comparisonChart, 'comparison-chart-container');
+            // 設置對比圖表的特殊 padding
+            if (comparisonChart) {
                 comparisonChart.options.layout.padding = getComparisonChartPadding();
-                
                 if (comparisonChart.options.scales && comparisonChart.options.scales.x && comparisonChart.options.scales.x.ticks) {
                     comparisonChart.options.scales.x.ticks.maxTicksLimit = getResponsiveMaxTicksLimit();
                 }
-                
-                // 只在尺寸真正變化時才調用 resize
-                comparisonChart.resize();
-            } finally {
-                // 使用 setTimeout 確保在下一個事件循環中重置標誌
-                setTimeout(() => {
-                    isResizing = false;
-                }, 100);
             }
-        };
+        }, 100);
         
-        // 初始調整（只調用一次，使用較長延遲確保容器已完全渲染）
-        setTimeout(() => {
-            resizeChart();
-        }, 300);
-        
-        // 移除 resize 監聽器，防止無限循環
-        // CSS 已經設置了固定高度，不需要動態調整
-        // 只在窗口真正 resize 時更新 accuracy-stats 的布局（不觸發圖表 resize）
+        // 只在窗口 resize 時更新 accuracy-stats 的布局（不觸發圖表 resize）
         let resizeTimeout;
         const handleResize = () => {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => {
-                // 只更新 accuracy-stats 的布局，不觸發圖表 resize
+                // 只更新 accuracy-stats 的布局
                 const statsEl = document.querySelector('#comparison-chart-container .accuracy-stats');
                 if (statsEl) {
                     const screenWidth = window.innerWidth;
                     let gridColumns = 'repeat(3, 1fr)';
-                    let gap = '12px';
-                    let padding = '16px';
+                    let gap = '10px';
+                    let padding = '12px';
                     
                     if (screenWidth <= 600) {
                         gridColumns = 'repeat(2, 1fr)';
@@ -2962,7 +2879,7 @@ async function initComparisonChart() {
                         padding = '12px';
                     }
                     
-                    // 根據屏幕寬度設置最大高度（減少高度以節省空間）
+                    // 根據屏幕寬度設置最大高度
                     let maxHeight = '160px';
                     if (screenWidth <= 480) {
                         maxHeight = '200px';
@@ -2979,7 +2896,7 @@ async function initComparisonChart() {
                     statsEl.style.padding = padding;
                     statsEl.style.maxHeight = maxHeight;
                     statsEl.style.position = 'relative';
-                    statsEl.style.zIndex = '10';
+                    statsEl.style.zIndex = '1';
                 }
             }, 200);
         };
@@ -6047,6 +5964,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // 設置歷史趨勢時間範圍選擇按鈕
     setupHistoryTimeRangeButtons();
+    
+    // 設置統一的窗口 resize 處理（簡單邏輯，類似 factors-container）
+    setupGlobalChartResize();
     
     // 初始化圖表（使用緩存的 AI 因素）
     await initCharts(predictor);
