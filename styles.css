@@ -1057,6 +1057,7 @@ section h2 {
     box-sizing: border-box;
     margin: 0; /* 確保沒有額外的 margin */
     padding: 0; /* 確保沒有額外的 padding */
+    overflow-x: hidden; /* 防止水平溢出 */
 }
 
 .charts-section h2 {
@@ -1078,7 +1079,8 @@ section h2 {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 20px rgba(0, 0, 0, 0.03);
     transition: var(--transition-base);
     position: relative;
-    overflow: hidden;
+    overflow: hidden; /* 防止內容溢出 */
+    overflow-x: hidden; /* 明確防止水平溢出 */
     box-sizing: border-box;
 }
 
@@ -1095,12 +1097,14 @@ section h2 {
     height: min(65vh, 650px); /* 動態高度：視窗高度的65%，最大650px */
     min-height: min(50vh, 500px); /* 最小高度：視窗高度的50%，最小500px */
     overflow: hidden; /* 防止內容溢出容器 */
+    overflow-x: hidden; /* 明確防止水平溢出 */
 }
 
 /* 只對「實際 vs 預測對比」相關的卡片使用 auto 高度 */
 .chart-card.full-width.comparison-section {
     height: auto !important; /* 使用 auto 讓內容決定高度 */
     overflow: visible !important; /* 允許內容完整顯示 */
+    overflow-x: hidden !important; /* 防止水平溢出 */
 }
 
 .chart-card h3 {
@@ -1120,7 +1124,8 @@ section h2 {
     height: min(30vh, 300px); /* 動態高度：視窗高度的30%，最大300px */
     min-height: min(25vh, 250px); /* 最小高度：視窗高度的25%，最小250px */
     box-sizing: border-box;
-    overflow: visible;
+    overflow: hidden; /* 防止圖表內容溢出 */
+    overflow-x: hidden; /* 明確防止水平溢出 */
     margin: 0;
     padding: 0 0 min(6vh, 40px) 0; /* 動態底部 padding */
 }
@@ -1229,6 +1234,19 @@ section h2 {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+    position: relative;
+}
+
+/* 確保所有圖表容器正確約束寬度 */
+#forecast-chart-container,
+#dow-chart-container,
+#month-chart-container,
+#history-chart-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
 }
 
 /* 確保對比圖的 canvas 不會超出容器 */
@@ -1256,6 +1274,8 @@ section h2 {
     max-width: 100% !important;
     box-sizing: border-box !important;
     padding: 16px !important;
+    overflow: visible !important; /* 允許所有內容顯示 */
+    min-height: auto !important; /* 讓內容決定高度 */
 }
 
 @media (max-width: 1200px) {
@@ -1269,6 +1289,14 @@ section h2 {
 @media (max-width: 900px) {
     .accuracy-stats {
         grid-template-columns: repeat(3, 1fr) !important; /* 平板：保持3列 */
+        gap: 8px !important;
+        padding: 10px !important;
+    }
+}
+
+@media (max-width: 700px) {
+    .accuracy-stats {
+        grid-template-columns: repeat(2, 1fr) !important; /* 小於700px：改為2列 */
         gap: 8px !important;
         padding: 10px !important;
     }

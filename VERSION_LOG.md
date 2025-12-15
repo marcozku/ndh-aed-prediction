@@ -1,5 +1,85 @@
 # 版本更新日誌
 
+## v2.2.5 - 2025-12-15 19:21 HKT
+
+### 🔧 修復小於700px時卡片不調整大小和內容不完整顯示問題
+
+**問題**：當屏幕寬度小於 700px 時，accuracy-stats 卡片沒有正確調整為 2 列布局，導致內容（80% CI、95% CI、數據點數）無法完全顯示。
+
+**解決方案**：
+1. **添加 700px 響應式斷點**：
+   - 在 CSS 中添加 `@media (max-width: 700px)` 斷點
+   - 將 `grid-template-columns` 改為 `repeat(2, 1fr)`，確保小於 700px 時使用 2 列布局
+
+2. **更新 JavaScript 動態布局邏輯**：
+   - 在 `initComparisonChart` 中添加 `screenWidth <= 700` 的判斷
+   - 當屏幕寬度 ≤ 700px 時，設置 `gridColumns = 'repeat(2, 1fr)'`
+   - 在 `handleResize` 函數中也添加相同的邏輯
+
+3. **優化 accuracy-stats 容器設置**：
+   - 添加 `overflow: visible` 確保所有內容可以顯示
+   - 添加 `min-height: auto` 讓內容決定高度
+   - 為 comparison-section 添加 `overflow-x: hidden` 防止水平溢出
+
+4. **調整間距設置**：
+   - 在 700px 以下使用更小的 gap 和 padding，確保內容緊湊顯示
+
+**影響範圍**：
+- `styles.css`：添加 700px 響應式斷點，優化 accuracy-stats 容器設置
+- `prediction.js`：更新動態布局邏輯，添加 700px 判斷
+
+**技術細節**：
+- 使用 `@media (max-width: 700px)` 斷點
+- 在 JavaScript 中動態檢測屏幕寬度並調整布局
+- 確保所有 6 個統計項目都能完整顯示
+
+**優勢**：
+- 小於 700px 時正確調整為 2 列布局
+- 所有內容（包括 80% CI、95% CI、數據點數）都能完整顯示
+- 在不同屏幕尺寸下都有良好的顯示效果
+
+## v2.2.4 - 2025-12-15 11:01 HKT
+
+### 🔧 修復所有卡片超出屏幕問題，確保圖表正確適應容器
+
+**問題**：所有圖表卡片都超出屏幕，圖表內容被水平截斷，右側數據點和標籤被裁剪。
+
+**解決方案**：
+1. **加強容器 overflow 設置**：
+   - 為 `.chart-card` 添加 `overflow-x: hidden` 明確防止水平溢出
+   - 為 `.chart-card.full-width` 添加 `overflow-x: hidden`
+   - 將 `.chart-container` 的 `overflow` 從 `visible` 改為 `hidden`，防止圖表內容溢出
+   - 為 `.charts-section` 添加 `overflow-x: hidden`
+
+2. **為所有圖表容器添加明確的寬度約束**：
+   - 為 `#forecast-chart-container`、`#dow-chart-container`、`#month-chart-container`、`#history-chart-container` 添加明確的寬度約束
+   - 設置 `width: 100%`、`max-width: 100%`、`overflow: hidden`、`overflow-x: hidden`
+
+3. **為所有圖表添加 resize 邏輯**：
+   - 為預測趨勢圖（forecast-chart）添加容器寬度設置和 resize 調用
+   - 為星期效應圖（dow-chart）添加容器寬度設置和 resize 調用
+   - 為月份分佈圖（month-chart）添加容器寬度設置和 resize 調用
+   - 確保所有圖表的 canvas 元素正確設置寬度為 100%
+
+4. **優化 canvas 元素設置**：
+   - 為所有 `.chart-container canvas` 添加 `position: relative`
+   - 確保所有 canvas 元素都使用 `width: 100%` 和 `max-width: 100%`
+
+**影響範圍**：
+- `styles.css`：加強所有容器的 overflow 設置，為圖表容器添加明確的寬度約束
+- `prediction.js`：為所有圖表添加 resize 邏輯，確保正確適應容器寬度
+
+**技術細節**：
+- 使用 `overflow-x: hidden` 明確防止水平溢出
+- 為所有圖表容器設置明確的寬度約束
+- 在圖表初始化後調用 resize 確保正確適應
+
+**優勢**：
+- 所有卡片都在屏幕內，不會超出視窗
+- 圖表內容不會被水平截斷
+- 所有數據點和標籤完整顯示
+- 在不同屏幕尺寸下都能正確顯示
+
 ## v2.2.3 - 2025-12-15 10:58 HKT
 
 ### 🔧 修復其他圖表向上浮動問題

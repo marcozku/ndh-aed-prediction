@@ -1172,6 +1172,23 @@ async function initCharts(predictor) {
     updateLoadingProgress('forecast', 90);
     updateLoadingProgress('forecast', 100);
     completeChartLoading('forecast');
+    
+    // 確保圖表正確適應容器寬度
+    setTimeout(() => {
+        if (forecastChart) {
+            const container = document.getElementById('forecast-chart-container');
+            const canvas = forecastChart.canvas;
+            if (container && canvas) {
+                container.style.width = '100%';
+                container.style.maxWidth = '100%';
+                container.style.overflow = 'hidden';
+                canvas.style.width = '100%';
+                canvas.style.maxWidth = '100%';
+                forecastChart.resize();
+            }
+        }
+    }, 100);
+    
     totalProgress += 25;
     console.log('✅ 預測趨勢圖已載入');
     } catch (error) {
@@ -1273,6 +1290,23 @@ async function initCharts(predictor) {
         updateLoadingProgress('dow', 90);
         updateLoadingProgress('dow', 100);
         completeChartLoading('dow');
+        
+        // 確保圖表正確適應容器寬度
+        setTimeout(() => {
+            if (dowChart) {
+                const container = document.getElementById('dow-chart-container');
+                const canvas = dowChart.canvas;
+                if (container && canvas) {
+                    container.style.width = '100%';
+                    container.style.maxWidth = '100%';
+                    container.style.overflow = 'hidden';
+                    canvas.style.width = '100%';
+                    canvas.style.maxWidth = '100%';
+                    dowChart.resize();
+                }
+            }
+        }, 100);
+        
         totalProgress += 25;
         console.log('✅ 星期效應圖已載入');
     } catch (error) {
@@ -1369,6 +1403,23 @@ async function initCharts(predictor) {
         updateLoadingProgress('month', 90);
         updateLoadingProgress('month', 100);
         completeChartLoading('month');
+        
+        // 確保圖表正確適應容器寬度
+        setTimeout(() => {
+            if (monthChart) {
+                const container = document.getElementById('month-chart-container');
+                const canvas = monthChart.canvas;
+                if (container && canvas) {
+                    container.style.width = '100%';
+                    container.style.maxWidth = '100%';
+                    container.style.overflow = 'hidden';
+                    canvas.style.width = '100%';
+                    canvas.style.maxWidth = '100%';
+                    monthChart.resize();
+                }
+            }
+        }, 100);
+        
         totalProgress += 25;
         console.log('✅ 月份分佈圖已載入');
     } catch (error) {
@@ -2506,15 +2557,19 @@ async function initComparisonChart() {
                 if (screenWidth <= 600) {
                     gridColumns = 'repeat(2, 1fr)';
                     gap = '8px';
-                    padding = '12px';
+                    padding = '10px';
+                } else if (screenWidth <= 700) {
+                    gridColumns = 'repeat(2, 1fr)'; // 小於700px改為2列
+                    gap = '8px';
+                    padding = '10px';
                 } else if (screenWidth <= 900) {
                     gridColumns = 'repeat(3, 1fr)';
-                    gap = '10px';
-                    padding = '12px';
+                    gap = '8px';
+                    padding = '10px';
                 } else if (screenWidth <= 1200) {
                     gridColumns = 'repeat(3, 1fr)';
                     gap = '10px';
-                    padding = '14px';
+                    padding = '12px';
                 }
                 
                 statsEl.style.cssText = `
@@ -2529,7 +2584,7 @@ async function initComparisonChart() {
                     width: 100%;
                     max-width: 100%;
                     box-sizing: border-box;
-                    overflow: hidden;
+                    overflow: visible; /* 允許所有內容顯示 */
                 `;
                 // 世界級標記
                 const worldClassBadge = accuracyStats.isWorldClass 
@@ -2600,10 +2655,9 @@ async function initComparisonChart() {
                 // 將統計信息插入到 canvas 之前
                 chartContainer.insertBefore(statsEl, comparisonCanvas);
                 
-                // 確保統計信息不會佔用太多空間，為圖表留出足夠空間
+                // 確保統計信息有足夠空間顯示所有內容
                 statsEl.style.marginBottom = '16px';
-                statsEl.style.maxHeight = '120px';
-                statsEl.style.overflow = 'hidden';
+                statsEl.style.overflow = 'visible'; // 允許所有內容顯示
             }
         }
         
@@ -2818,15 +2872,19 @@ async function initComparisonChart() {
                     if (screenWidth <= 600) {
                         gridColumns = 'repeat(2, 1fr)';
                         gap = '8px';
-                        padding = '12px';
+                        padding = '10px';
+                    } else if (screenWidth <= 700) {
+                        gridColumns = 'repeat(2, 1fr)'; // 小於700px改為2列
+                        gap = '8px';
+                        padding = '10px';
                     } else if (screenWidth <= 900) {
                         gridColumns = 'repeat(3, 1fr)';
-                        gap = '10px';
-                        padding = '12px';
+                        gap = '8px';
+                        padding = '10px';
                     } else if (screenWidth <= 1200) {
                         gridColumns = 'repeat(3, 1fr)';
                         gap = '10px';
-                        padding = '14px';
+                        padding = '12px';
                     }
                     
                     statsEl.style.gridTemplateColumns = gridColumns;
