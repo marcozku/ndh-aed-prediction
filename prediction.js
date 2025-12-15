@@ -2699,13 +2699,13 @@ async function initComparisonChart() {
         updateLoadingProgress('comparison', 90);
         updateLoadingProgress('comparison', 100);
         completeChartLoading('comparison');
-        // 確保圖表正確適應容器大小
-        setTimeout(() => {
+        // 確保圖表正確適應容器大小（動態適應）
+        const resizeChart = () => {
             if (comparisonChart) {
                 const container = document.getElementById('comparison-chart-container');
                 if (container) {
-                    // 確保容器有固定高度
-                    const containerHeight = container.offsetHeight || 400;
+                    // 動態獲取容器高度（基於視窗大小）
+                    const containerHeight = container.offsetHeight || Math.min(window.innerHeight * 0.35, 400);
                     // 設置圖表 canvas 的大小
                     const canvas = comparisonChart.canvas;
                     if (canvas) {
@@ -2721,7 +2721,17 @@ async function initComparisonChart() {
                 comparisonChart.resize();
                 comparisonChart.update('none');
             }
-        }, 100);
+        };
+        
+        // 初始調整
+        setTimeout(resizeChart, 100);
+        
+        // 監聽窗口大小變化，動態調整
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(resizeChart, 150);
+        });
         console.log(`✅ 實際vs預測對比圖已載入 (${validComparisonData.length} 筆有效數據，總共 ${comparisonData.length} 筆)`);
     } catch (error) {
         console.error('❌ 實際vs預測對比圖載入失敗:', error);
