@@ -1439,6 +1439,13 @@ section h2 {
 .factors-table td {
     color: var(--text-primary);
     font-size: 0.9rem;
+    vertical-align: top;
+}
+
+.factors-table td:last-child {
+    max-width: 300px;
+    word-wrap: break-word;
+    line-height: 1.5;
 }
 
 .factors-table tr:hover td {
@@ -1453,6 +1460,22 @@ section h2 {
 .factors-table td.negative {
     color: var(--accent-danger);
     font-weight: 700;
+}
+
+/* 動態因子表格效應樣式 */
+.effect-positive {
+    color: var(--accent-success);
+    font-weight: 600;
+}
+
+.effect-negative {
+    color: var(--accent-danger);
+    font-weight: 600;
+}
+
+.effect-neutral {
+    color: var(--text-tertiary);
+    font-weight: 500;
 }
 
 .considerations {
@@ -1479,6 +1502,20 @@ section h2 {
 .considerations li {
     margin-bottom: var(--space-sm);
     line-height: 1.6;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-sm);
+}
+
+.consideration-icon {
+    flex-shrink: 0;
+    font-size: 1.1rem;
+    margin-top: 2px;
+}
+
+.consideration-text {
+    flex: 1;
+    color: var(--text-secondary);
 }
 
 /* ============================================
@@ -1830,7 +1867,11 @@ section h2 {
     }
     
     .factors-table table {
-        min-width: 450px;
+        min-width: 600px;
+    }
+    
+    .factors-table td:last-child {
+        max-width: 250px;
     }
     
     .factors-grid {

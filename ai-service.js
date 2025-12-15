@@ -14,16 +14,61 @@ try {
     console.warn('⚠️ chinese-conv 未安裝，將無法自動轉換簡體中文到繁體中文');
 }
 
+// 檢測是否包含簡體中文字符
+function hasSimplifiedChinese(text) {
+    if (!text || typeof text !== 'string') return false;
+    
+    // 常見簡體中文字符列表（用於檢測）
+    const simplifiedChars = [
+        '简', '体', '预', '测', '统', '系', '数', '据', '库', '连', '检', '载',
+        '气', '资', '响', '无', '总', '结', '说', '获', '后', '时', '间', '缓',
+        '个', '卫', '会', '节', '来', '袭', '温', '骤', '导', '致', '别', '对',
+        '于', '础', '经', '开', '渐', '况', '医', '疗', '药', '诊', '症', '病',
+        '患', '护', '风', '云', '雾', '雨', '雪', '热', '冷', '湿', '干', '现',
+        '实', '际', '过', '还', '这', '圣', '诞', '临', '期', '准', '备', '伤',
+        '关', '负', '担', '历', '显', '着', '动', '学', '为', '产', '发', '长',
+        '门', '问', '题', '应', '该', '较', '认', '识', '记', '录', '处', '理',
+        '置', '分', '罚', '变', '化', '确', '定', '标', '准', '规', '则'
+    ];
+    
+    for (let char of simplifiedChars) {
+        if (text.includes(char)) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
 // 轉換簡體中文到繁體中文的輔助函數
 function convertToTraditional(text) {
     if (!text || typeof text !== 'string') return text;
-    if (!chineseConv) return text; // 如果沒有轉換器，直接返回
+    
+    // 檢測是否包含簡體中文（轉換前）
+    const hadSimplified = hasSimplifiedChinese(text);
+    
+    if (!chineseConv) {
+        if (hadSimplified) {
+            console.warn('⚠️ 檢測到簡體中文，但 chinese-conv 未安裝，無法自動轉換:', text.substring(0, 100));
+        }
+        return text; // 如果沒有轉換器，直接返回
+    }
     
     try {
         // chinese-conv 使用 sify() 方法將簡體轉換為繁體
-        return chineseConv.sify(text);
+        const converted = chineseConv.sify(text);
+        
+        // 如果檢測到簡體中文，記錄警告
+        if (hadSimplified) {
+            console.warn('⚠️ 檢測到簡體中文並已自動轉換為繁體中文:', text.substring(0, 100));
+        }
+        
+        return converted;
     } catch (e) {
         console.warn('⚠️ 轉換簡體中文失敗:', e.message);
+        if (hadSimplified) {
+            console.warn('⚠️ 原始文本包含簡體中文但轉換失敗，返回原文:', text.substring(0, 100));
+        }
         return text; // 轉換失敗時返回原文
     }
 }
@@ -33,6 +78,10 @@ function convertObjectToTraditional(obj) {
     if (!obj) return obj;
     
     if (typeof obj === 'string') {
+        // 檢測並轉換簡體中文
+        if (hasSimplifiedChinese(obj)) {
+            console.warn('⚠️ 檢測到簡體中文字符串並已自動轉換:', obj.substring(0, 100));
+        }
         return convertToTraditional(obj);
     } else if (Array.isArray(obj)) {
         return obj.map(item => convertObjectToTraditional(item));
@@ -230,11 +279,68 @@ async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord
                 messages: [
                     {
                         role: 'system',
-                        content: '你是一個專業的醫療數據分析助手，專門分析可能影響香港北區醫院急症室病人數量的各種因素。\n\n**嚴格要求：你必須只使用繁體中文（Traditional Chinese）進行回應，絕對不能使用簡體中文（Simplified Chinese）。**\n\n所有文字、描述、分析、JSON 內容都必須使用繁體中文。包括：\n- 所有描述性文字\n- JSON 中的字段值\n- 分析理由和說明\n- 任何輸出的文本內容\n\n如果使用簡體中文，系統將無法正確顯示內容。請務必確保所有輸出都是繁體中文。'
+                        content: `你是一個專業的醫療數據分析助手，專門分析可能影響香港北區醫院急症室病人數量的各種因素。
+
+**極其嚴格的要求 - 必須遵守：**
+
+1. **語言要求（最高優先級）**：
+   - 你必須只使用繁體中文（Traditional Chinese / 正體中文）進行回應
+   - 絕對不能使用簡體中文（Simplified Chinese / 簡體中文）
+   - 絕對不能使用簡體字，包括：实际、预测、分析、影响、因素、说明、描述、理由、总结 等
+   - 必須使用繁體字：實際、預測、分析、影響、因素、說明、描述、理由、總結 等
+
+2. **適用範圍**：
+   - 所有描述性文字
+   - JSON 中的所有字段值（type, description, reasoning, summary 等）
+   - 所有分析理由和說明
+   - 任何輸出的文本內容
+   - 數字和標點符號後的文字
+
+3. **違規後果**：
+   - 如果使用簡體中文，系統將無法正確顯示內容
+   - 這是一個硬性要求，沒有任何例外
+   - 請在生成任何文字前，先確認使用的是繁體中文
+
+4. **常見簡體字對照（必須使用繁體）**：
+   - 实际 → 實際
+   - 预测 → 預測
+   - 分析 → 分析（相同）
+   - 影响 → 影響
+   - 因素 → 因素（相同）
+   - 说明 → 說明
+   - 描述 → 描述（相同）
+   - 理由 → 理由（相同）
+   - 总结 → 總結
+   - 天气 → 天氣
+   - 温度 → 溫度
+   - 湿度 → 濕度
+   - 降雨 → 降雨（相同）
+
+請務必確保所有輸出都是繁體中文，沒有任何簡體中文。`
                     },
                     {
                         role: 'user',
-                        content: prompt + '\n\n**重要提醒：請務必只使用繁體中文（Traditional Chinese）回應，絕對不要使用簡體中文（Simplified Chinese）。所有文字內容都必須是繁體中文，包括 JSON 中的所有字段值。**'
+                        content: prompt + `\n\n**極其重要的語言要求（必須遵守）：**
+
+⚠️ 你必須只使用繁體中文（Traditional Chinese / 正體中文）回應，絕對不能使用簡體中文（Simplified Chinese / 簡體中文）。
+
+**嚴格禁止使用簡體字，包括但不限於：**
+- 实际、预测、影响、说明、描述、总结
+- 天气、温度、湿度、降雨
+- 任何簡體中文字符
+
+**必須使用繁體字：**
+- 實際、預測、影響、說明、描述、總結
+- 天氣、溫度、濕度、降雨
+- 所有文字都必須是繁體中文
+
+**檢查清單（生成回應前必須確認）：**
+1. ✅ 所有文字都是繁體中文
+2. ✅ JSON 中的所有字段值都是繁體中文
+3. ✅ 沒有任何簡體中文字符
+4. ✅ 所有描述、分析、理由都是繁體中文
+
+如果發現任何簡體中文，請立即轉換為繁體中文後再輸出。`
                     }
                 ],
                 temperature: temperature,
@@ -455,7 +561,22 @@ async function searchRelevantNewsAndEvents() {
 
 請基於當前日期（${today}，香港時間 ${hkTime}）和一般知識，分析是否有任何已知或可能發生的因素會影響未來幾天北區醫院的病人數量。
 
-**重要要求：請務必只使用繁體中文（Traditional Chinese）進行回應，絕對不能使用簡體中文（Simplified Chinese）。所有文字、描述、分析都必須使用繁體中文。**
+**⚠️ 極其重要的語言要求（最高優先級）：**
+
+你必須只使用繁體中文（Traditional Chinese / 正體中文）進行回應，絕對不能使用簡體中文（Simplified Chinese / 簡體中文）。
+
+**嚴格禁止的簡體字（必須使用繁體）：**
+- 实际 → 實際
+- 预测 → 預測
+- 影响 → 影響
+- 说明 → 說明
+- 描述 → 描述
+- 总结 → 總結
+- 天气 → 天氣
+- 温度 → 溫度
+- 湿度 → 濕度
+
+**所有文字、描述、分析、JSON 字段值都必須是繁體中文。生成回應前請確認沒有任何簡體中文字符。**
 
 請以 JSON 格式返回分析結果（所有文字必須是繁體中文）：
 {
@@ -538,7 +659,22 @@ ${weatherData ? `當前天氣狀況：
 4. 季節性模式
 5. 其他可能導致急症室病人數量異常的因素
 
-**重要要求：請務必只使用繁體中文（Traditional Chinese）進行回應，絕對不能使用簡體中文（Simplified Chinese）。所有文字、描述、分析都必須使用繁體中文。**
+**⚠️ 極其重要的語言要求（最高優先級）：**
+
+你必須只使用繁體中文（Traditional Chinese / 正體中文）進行回應，絕對不能使用簡體中文（Simplified Chinese / 簡體中文）。
+
+**嚴格禁止的簡體字（必須使用繁體）：**
+- 实际 → 實際
+- 预测 → 預測
+- 影响 → 影響
+- 说明 → 說明
+- 描述 → 描述
+- 总结 → 總結
+- 天气 → 天氣
+- 温度 → 溫度
+- 湿度 → 濕度
+
+**所有文字、描述、分析、JSON 字段值都必須是繁體中文。生成回應前請確認沒有任何簡體中文字符。**
 
 請以 JSON 格式返回（所有文字必須是繁體中文）：
 {
