@@ -69,6 +69,10 @@
 
 html {
     scroll-behavior: smooth;
+    overflow-x: hidden; /* 防止水平滾動 */
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 body {
@@ -76,7 +80,10 @@ body {
     background: var(--bg-primary);
     color: var(--text-primary);
     min-height: 100vh;
-    overflow-x: hidden;
+    overflow-x: hidden; /* 防止水平滾動 */
+    width: 100%;
+    max-width: 100vw; /* 確保不超過視窗寬度 */
+    box-sizing: border-box;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -103,14 +110,13 @@ body::before {
    ============================================ */
 .prediction-container {
     width: 100%;
-    max-width: 100%;
+    max-width: 100vw; /* 確保不超過視窗寬度 */
     margin: 0 auto;
     padding: var(--space-xl);
     position: relative;
     box-sizing: border-box;
     overflow-x: hidden; /* 防止水平溢出 */
     z-index: 1;
-    box-sizing: border-box;
 }
 
 /* ============================================
@@ -1080,6 +1086,7 @@ section h2 {
 .chart-card {
     width: 100%;
     max-width: 100%;
+    min-width: 0; /* 允許 flex/grid 子元素收縮 */
     background: var(--bg-secondary);
     border-radius: var(--radius-xl);
     padding: var(--space-xl);
@@ -1547,17 +1554,21 @@ section h2 {
 
 /* 比較表格 */
 .comparison-table-container {
-    overflow-x: auto;
+    overflow-x: auto; /* 允許表格水平滾動 */
     overflow-y: visible; /* 允許垂直內容完整顯示 */
     margin-top: var(--space-md);
     max-height: none; /* 移除最大高度限制 */
     padding-bottom: var(--space-md); /* 為表格底部留出空間 */
+    width: 100%;
+    max-width: 100%; /* 確保容器不超出父元素 */
+    box-sizing: border-box;
+    -webkit-overflow-scrolling: touch; /* iOS 平滑滾動 */
 }
 
 .comparison-table {
     width: 100%;
     max-width: 100%;
-    min-width: 600px;
+    min-width: 600px; /* 最小寬度，但會在容器內滾動 */
     border-collapse: collapse;
     font-size: clamp(0.7rem, 1.5vw, 0.875rem);
     box-sizing: border-box;
@@ -1824,7 +1835,8 @@ section h2 {
     .prediction-container {
         padding: var(--space-lg);
         width: 100%;
-        max-width: 100%;
+        max-width: 100vw; /* 確保不超過視窗寬度 */
+        box-sizing: border-box;
     }
     
     .prediction-header {
@@ -1867,7 +1879,8 @@ section h2 {
     .prediction-container {
         padding: var(--space-md);
         width: 100%;
-        max-width: 100%;
+        max-width: 100vw; /* 確保不超過視窗寬度 */
+        box-sizing: border-box;
     }
     
     .today-prediction {
@@ -1937,6 +1950,7 @@ section h2 {
         width: 100%;
         max-width: 100%;
         box-sizing: border-box;
+        overflow-x: hidden !important; /* 防止水平溢出 */
     }
     
     .algorithm-content {
