@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.1.6';
+const MODEL_VERSION = '2.1.7';
 
 // AI 服務（僅在服務器端使用）
 let aiService = null;
@@ -873,48 +873,64 @@ const apiHandlers = {
     // 更新 AI 因素緩存（保存到數據庫）
     'POST /api/convert-to-traditional': async (req, res) => {
         try {
-            const { text } = req.body;
-            
+            // 使用 parseBody 解析請求體
+            const body = await parseBody(req);
+            const { text } = body;
+
             if (!text || typeof text !== 'string') {
-                return res.status(400).json({
+                return sendJson(res, {
                     success: false,
                     error: '請提供有效的文本'
-                });
+                }, 400);
             }
-            
-            // 使用 ai-service 的轉換函數
-            const aiService = require('./ai-service');
-            // 由於 convertToTraditional 不是導出的，我們需要直接使用 chinese-conv
+
+            // 嘗試使用 chinese-conv 進行轉換
             let chineseConv = null;
             try {
                 chineseConv = require('chinese-conv');
             } catch (e) {
-                return res.status(500).json({
-                    success: false,
-                    error: 'chinese-conv 未安裝'
-                });
-            }
-            
-            try {
-                const converted = chineseConv.sify(text);
-                res.json({
+                // 如果 chinese-conv 未安裝，返回原文
+                console.warn('⚠️ chinese-conv 未安裝，返回原文');
+                return sendJson(res, {
                     success: true,
                     original: text,
-                    converted: converted
+                    converted: text // 返回原文
+                });
+            }
+
+            try {
+                // 檢查是否有 sify 方法
+                if (typeof chineseConv.sify !== 'function') {
+                    console.warn('⚠️ chinese-conv.sify 不是函數，返回原文');
+                    return sendJson(res, {
+                        success: true,
+                        original: text,
+                        converted: text // 返回原文
+                    });
+                }
+
+                const converted = chineseConv.sify(text);
+                return sendJson(res, {
+                    success: true,
+                    original: text,
+                    converted: converted || text // 如果轉換結果為空，返回原文
                 });
             } catch (e) {
-                console.error('轉換失敗:', e);
-                res.status(500).json({
-                    success: false,
-                    error: '轉換失敗: ' + e.message
+                console.error('⚠️ 轉換失敗:', e.message);
+                // 轉換失敗時返回原文，而不是錯誤
+                return sendJson(res, {
+                    success: true,
+                    original: text,
+                    converted: text // 返回原文作為降級方案
                 });
             }
         } catch (error) {
             console.error('❌ 轉換 API 錯誤:', error);
-            res.status(500).json({
+            // 即使解析失敗，也嘗試返回一個合理的響應
+            return sendJson(res, {
                 success: false,
-                error: error.message
-            });
+                error: error.message || '未知錯誤'
+            }, 500);
         }
     },
     
