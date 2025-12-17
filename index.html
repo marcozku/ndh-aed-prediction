@@ -10,148 +10,146 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="北區醫院預測">
     
-    <!-- Icons - v4 -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=4">
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=4">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180.png?v=4">
-    <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon-152.png?v=4">
-    <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon-120.png?v=4">
-    <link rel="manifest" href="/manifest.json?v=4">
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=5">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=5">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180.png?v=5">
+    <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon-152.png?v=5">
+    <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon-120.png?v=5">
+    <link rel="manifest" href="/manifest.json?v=5">
     
     <title>NDH AED 預測系統</title>
-    <link rel="stylesheet" href="styles.css?v=4">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <link rel="stylesheet" href="styles.css?v=5">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
 <body>
-    <!-- 主內容 -->
-    <div class="prediction-container">
+    <!-- 主容器 -->
+    <div class="app-container" id="app-container">
         <!-- 標題區 -->
-        <header class="prediction-header">
-            <h1>NDH AED 病人數量預測系統</h1>
-            <p class="subtitle">North District Hospital A&E Attendance Prediction</p>
-            <div class="current-datetime" id="current-datetime">
-                <span>⏱️</span>
-                <span>載入中...</span>
-            </div>
-            <div class="weather-display" id="weather-display">
-                <span class="weather-loading">載入天氣資料...</span>
-            </div>
-            <div class="db-status loading" id="db-status">
-                <span>檢查數據庫連接...</span>
-            </div>
-            <div class="ai-status loading" id="ai-status">
-                <span>檢查 AI 連接...</span>
+        <header class="app-header" id="app-header">
+            <div class="header-content">
+                <h1 class="header-title">NDH AED 病人數量預測系統</h1>
+                <p class="header-subtitle">North District Hospital A&E Attendance Prediction</p>
+                <div class="header-info">
+                    <div class="current-datetime" id="current-datetime">
+                        <span class="datetime-icon">⏱️</span>
+                        <span class="datetime-text">載入中...</span>
+                    </div>
+                    <div class="weather-display" id="weather-display">
+                        <span class="weather-loading">載入天氣資料...</span>
+                    </div>
+                    <div class="status-badges">
+                        <div class="status-badge db-status loading" id="db-status">
+                            <span class="status-icon">📊</span>
+                            <span class="status-text">檢查數據庫連接...</span>
+                        </div>
+                        <div class="status-badge ai-status loading" id="ai-status">
+                            <span class="status-icon">🤖</span>
+                            <span class="status-text">檢查 AI 連接...</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </header>
 
-        <!-- 今日預測卡片 -->
-        <section class="today-prediction">
-            <div class="section-loading" id="today-prediction-loading">
+        <!-- 今日預測區塊 -->
+        <section class="prediction-section today-section" id="today-section">
+            <div class="section-loading" id="today-loading">
                 <div class="loading-spinner"></div>
-                <div class="loading-text">載入中... <span class="loading-percent" id="today-prediction-percent">0%</span></div>
+                <div class="loading-text">載入中... <span class="loading-percent" id="today-percent">0%</span></div>
                 <div class="loading-progress-bar">
-                    <div class="loading-progress-fill" id="today-prediction-progress"></div>
+                    <div class="loading-progress-fill" id="today-progress"></div>
                 </div>
             </div>
-            <div class="prediction-card main-card" id="today-prediction-card" style="display: none;">
-                <div class="card-header">
-                    <h2>今日預測</h2>
-                    <span class="date-badge" id="today-date">--</span>
-                </div>
-                <div class="prediction-value">
-                    <span class="big-number" id="today-predicted">--</span>
-                    <span class="unit">人</span>
-                </div>
-                <div class="confidence-interval">
-                    <div class="ci-row">
-                        <span class="ci-label">80% 信賴區間</span>
-                        <span class="ci-value" id="today-ci80">-- - -- 人</span>
+            <div class="prediction-grid" id="today-prediction-grid" style="display: none;">
+                <!-- 主預測卡片 -->
+                <div class="prediction-card main-prediction-card">
+                    <div class="card-header">
+                        <h2 class="card-title">今日預測</h2>
+                        <span class="date-badge" id="today-date">--</span>
                     </div>
-                    <div class="ci-row">
-                        <span class="ci-label">95% 信賴區間</span>
-                        <span class="ci-value" id="today-ci95">-- - -- 人</span>
+                    <div class="prediction-value-container">
+                        <div class="prediction-value">
+                            <span class="big-number" id="today-predicted">--</span>
+                            <span class="unit">人</span>
+                        </div>
                     </div>
+                    <div class="confidence-intervals">
+                        <div class="ci-item">
+                            <span class="ci-label">80% 信賴區間</span>
+                            <span class="ci-value" id="today-ci80">-- - -- 人</span>
+                        </div>
+                        <div class="ci-item">
+                            <span class="ci-label">95% 信賴區間</span>
+                            <span class="ci-value" id="today-ci95">-- - -- 人</span>
+                        </div>
+                    </div>
+                    <div class="factors-breakdown" id="factors-breakdown"></div>
                 </div>
-                <div class="factors-breakdown" id="factors-breakdown">
-                    <!-- 動態生成 -->
-                </div>
-            </div>
 
-            <!-- 統計摘要卡片 -->
-            <div class="prediction-card stats-card" id="stats-card" style="display: none;">
-                <div class="card-header">
-                    <h2>歷史統計</h2>
-                </div>
-                <div class="stats-grid">
-                    <div class="stat-item">
-                        <span class="stat-value" id="stat-mean">--</span>
-                        <span class="stat-label">日均人數</span>
+                <!-- 統計摘要卡片 -->
+                <div class="prediction-card stats-card">
+                    <div class="card-header">
+                        <h2 class="card-title">歷史統計</h2>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-value" id="stat-max">--</span>
-                        <span class="stat-label">最高峰</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value" id="stat-min">--</span>
-                        <span class="stat-label">最低谷</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value" id="stat-std">--</span>
-                        <span class="stat-label">標準差</span>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-value" id="stat-mean">--</span>
+                            <span class="stat-label">日均人數</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="stat-max">--</span>
+                            <span class="stat-label">最高峰</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="stat-min">--</span>
+                            <span class="stat-label">最低谷</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="stat-std">--</span>
+                            <span class="stat-label">標準差</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </section>
 
         <!-- 實時影響因素 -->
-        <section class="realtime-factors-section">
-            <h2>實時影響因素</h2>
-            <div class="section-loading" id="realtime-factors-loading">
+        <section class="factors-section" id="factors-section">
+            <h2 class="section-title">實時影響因素</h2>
+            <div class="section-loading" id="factors-loading">
                 <div class="loading-spinner"></div>
-                <div class="loading-text">載入中... <span class="loading-percent" id="realtime-factors-percent">0%</span></div>
+                <div class="loading-text">載入中... <span class="loading-percent" id="factors-percent">0%</span></div>
                 <div class="loading-progress-bar">
-                    <div class="loading-progress-fill" id="realtime-factors-progress"></div>
+                    <div class="loading-progress-fill" id="factors-progress"></div>
                 </div>
             </div>
-            <div class="factors-container" id="realtime-factors" style="display: none;">
-                <div class="factors-loading" id="factors-loading">
-                    <div class="loading-spinner"></div>
-                    <div class="loading-text">⏳ 載入 AI 分析中... <span class="loading-percent" id="factors-loading-percent">0%</span></div>
-                    <div class="loading-progress-bar">
-                        <div class="loading-progress-fill" id="factors-loading-progress"></div>
-                    </div>
-                </div>
-            </div>
+            <div class="factors-container" id="realtime-factors" style="display: none;"></div>
         </section>
 
         <!-- 未來7天預測 -->
-        <section class="forecast-section">
-            <h2>未來 7 天預測</h2>
-            <div class="section-loading" id="forecast-cards-loading">
+        <section class="forecast-section" id="forecast-section">
+            <h2 class="section-title">未來 7 天預測</h2>
+            <div class="section-loading" id="forecast-loading">
                 <div class="loading-spinner"></div>
-                <div class="loading-text">載入中... <span class="loading-percent" id="forecast-cards-percent">0%</span></div>
+                <div class="loading-text">載入中... <span class="loading-percent" id="forecast-percent">0%</span></div>
                 <div class="loading-progress-bar">
-                    <div class="loading-progress-fill" id="forecast-cards-progress"></div>
+                    <div class="loading-progress-fill" id="forecast-progress"></div>
                 </div>
             </div>
-            <div class="forecast-cards" id="forecast-cards" style="display: none;">
-                <!-- 動態生成 -->
-            </div>
+            <div class="forecast-cards" id="forecast-cards" style="display: none;"></div>
         </section>
 
         <!-- 圖表區域 -->
-        <section class="charts-section">
+        <section class="charts-section" id="charts-section">
             <!-- 未來30天預測圖 -->
             <div class="chart-card full-width">
-                <h3>未來 30 天預測趨勢</h3>
+                <h3 class="chart-title">未來 30 天預測趨勢</h3>
                 <div class="chart-container" id="forecast-chart-container">
                     <div class="chart-loading" id="forecast-chart-loading">
                         <div class="loading-spinner"></div>
-                        <div class="loading-text">載入中... <span class="loading-percent" id="forecast-loading-percent">0%</span></div>
-                        <div class="loading-progress-bar">
-                            <div class="loading-progress-fill" id="forecast-progress-fill"></div>
-                        </div>
+                        <div class="loading-text">載入中...</div>
                     </div>
                     <canvas id="forecast-chart" style="display: none;"></canvas>
                 </div>
@@ -159,14 +157,11 @@
 
             <!-- 星期效應圖 -->
             <div class="chart-card">
-                <h3>星期效應分析</h3>
+                <h3 class="chart-title">星期效應分析</h3>
                 <div class="chart-container" id="dow-chart-container">
                     <div class="chart-loading" id="dow-chart-loading">
                         <div class="loading-spinner"></div>
-                        <div class="loading-text">載入中... <span class="loading-percent" id="dow-loading-percent">0%</span></div>
-                        <div class="loading-progress-bar">
-                            <div class="loading-progress-fill" id="dow-progress-fill"></div>
-                        </div>
+                        <div class="loading-text">載入中...</div>
                     </div>
                     <canvas id="dow-chart" style="display: none;"></canvas>
                 </div>
@@ -174,14 +169,11 @@
 
             <!-- 月份分佈圖 -->
             <div class="chart-card">
-                <h3>月份分佈統計</h3>
+                <h3 class="chart-title">月份分佈統計</h3>
                 <div class="chart-container" id="month-chart-container">
                     <div class="chart-loading" id="month-chart-loading">
                         <div class="loading-spinner"></div>
-                        <div class="loading-text">載入中... <span class="loading-percent" id="month-loading-percent">0%</span></div>
-                        <div class="loading-progress-bar">
-                            <div class="loading-progress-fill" id="month-progress-fill"></div>
-                        </div>
+                        <div class="loading-text">載入中...</div>
                     </div>
                     <canvas id="month-chart" style="display: none;"></canvas>
                 </div>
@@ -189,7 +181,7 @@
 
             <!-- 歷史趨勢圖 -->
             <div class="chart-card full-width">
-                <h3>歷史趨勢</h3>
+                <h3 class="chart-title">歷史趨勢</h3>
                 <div class="time-range-selector" id="history-time-range">
                     <button class="time-range-btn" data-range="1D">1D</button>
                     <button class="time-range-btn" data-range="1週">1週</button>
@@ -210,10 +202,7 @@
                 <div class="chart-container large" id="history-chart-container">
                     <div class="chart-loading" id="history-chart-loading">
                         <div class="loading-spinner"></div>
-                        <div class="loading-text">載入中... <span class="loading-percent" id="history-loading-percent">0%</span></div>
-                        <div class="loading-progress-bar">
-                            <div class="loading-progress-fill" id="history-progress-fill"></div>
-                        </div>
+                        <div class="loading-text">載入中...</div>
                     </div>
                     <canvas id="history-chart" style="display: none;"></canvas>
                 </div>
@@ -221,19 +210,16 @@
 
             <!-- 實際 vs 預測對比圖 -->
             <div class="chart-card full-width comparison-section">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md);">
-                    <h3 style="margin: 0;">實際 vs 預測對比</h3>
-                    <button id="add-actual-data-btn" class="add-data-btn" style="display: none; padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; white-space: nowrap;" onclick="triggerAddActualData()">
+                <div class="comparison-header">
+                    <h3 class="chart-title">實際 vs 預測對比</h3>
+                    <button id="add-actual-data-btn" class="add-data-btn" style="display: none;" onclick="triggerAddActualData()">
                         📊 添加實際數據
                     </button>
                 </div>
                 <div class="chart-container" id="comparison-chart-container">
                     <div class="chart-loading" id="comparison-chart-loading">
                         <div class="loading-spinner"></div>
-                        <div class="loading-text">載入中... <span class="loading-percent" id="comparison-loading-percent">0%</span></div>
-                        <div class="loading-progress-bar">
-                            <div class="loading-progress-fill" id="comparison-progress-fill"></div>
-                        </div>
+                        <div class="loading-text">載入中...</div>
                     </div>
                     <canvas id="comparison-chart" style="display: none;"></canvas>
                 </div>
@@ -241,7 +227,7 @@
 
             <!-- 詳細比較數據表格 -->
             <div class="chart-card full-width comparison-section">
-                <h3>詳細比較數據</h3>
+                <h3 class="chart-title">詳細比較數據</h3>
                 <div class="comparison-table-container" id="comparison-table-container">
                     <div class="chart-loading" id="comparison-table-loading">
                         <div class="loading-spinner"></div>
@@ -260,160 +246,30 @@
                                 <th>準確度</th>
                             </tr>
                         </thead>
-                        <tbody id="comparison-table-body">
-                            <!-- 動態生成 -->
-                        </tbody>
+                        <tbody id="comparison-table-body"></tbody>
                     </table>
                 </div>
             </div>
         </section>
 
         <!-- 算法說明 -->
-        <section class="algorithm-section">
-            <h2>預測算法說明（基於真實研究）</h2>
-            <div class="algorithm-content">
-                <div class="research-badge" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: 600;">
-                    🏆 世界級 AI 驅動急診室就診預測算法 - 基於最新研究證據，持續改進以達到世界最佳準確度
-                </div>
-                
-                <div class="algorithm-formula">
-                    <h4>預測公式（v2.0.7 - 世界級增強版）</h4>
-                    <code style="font-size: 14px; line-height: 1.6;">
-                        預測值 = (全局平均<sub>加權</sub> × 月份因子 × 月份-星期交互因子 × 假期因子 × 流感季節因子 × 天氣因子<sub>相對溫度</sub> × AI因子<sub>限制</sub>) + 趨勢調整<sub>30%</sub>
-                    </code>
-                    <p style="margin-top: 10px; color: #64748b; font-size: 13px;">
-                        <strong>改進方法：</strong>滾動窗口（180天） + 加權平均（指數衰減） + 趨勢調整 + 異常檢測
-                    </p>
-                </div>
-                
-                <div class="research-references" style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
-                    <h4 style="margin-top: 0; color: #1e293b;">📖 研究基礎與參考文獻</h4>
-                    <div style="margin-top: 15px;">
-                        <div style="margin-bottom: 15px; padding: 12px; background: white; border-radius: 6px;">
-                            <strong style="color: #667eea;">1. XGBoost 機器學習研究（法國醫院，2025年1月）</strong>
-                            <p style="margin: 8px 0 0 0; color: #64748b; font-size: 13px;">
-                                使用 XGBoost 算法預測急診室就診量，達到 MAE 2.63-2.64 病人的世界級準確度。分析兩個法國急診室十年數據。
-                                <br><em>來源：BMC Emergency Medicine (2025) - "Predicting Emergency Department Admissions Using a Machine-Learning Algorithm"</em>
-                                <br><em>DOI: 10.1186/s12873-024-01141-4</em>
-                            </p>
-                        </div>
-                        
-                        <div style="margin-bottom: 15px; padding: 12px; background: white; border-radius: 6px;">
-                            <strong style="color: #667eea;">2. LSTM 自適應框架研究（2024）</strong>
-                            <p style="margin: 8px 0 0 0; color: #64748b; font-size: 13px;">
-                                長短期記憶網絡優於傳統 ARIMA 和 Prophet 模型，特別是在數據分佈變化時。
-                                <br><em>來源：PubMed (2024) - 適應性 LSTM 框架</em>
-                            </p>
-                        </div>
-                        
-                        <div style="margin-bottom: 15px; padding: 12px; background: white; border-radius: 6px;">
-                            <strong style="color: #667eea;">3. Prophet 時間序列預測（Facebook Research）</strong>
-                            <p style="margin: 8px 0 0 0; color: #64748b; font-size: 13px;">
-                                專為強季節性模式設計，使用趨勢和季節性分解提高預測準確度。
-                                <br><em>來源：Facebook Research - Prophet 模型</em>
-                            </p>
-                        </div>
-                        
-                        <div style="margin-bottom: 15px; padding: 12px; background: white; border-radius: 6px;">
-                            <strong style="color: #667eea;">4. 天氣影響研究（美國東北部醫院，2024）</strong>
-                            <p style="margin: 8px 0 0 0; color: #64748b; font-size: 13px;">
-                                相對溫度（與歷史平均比較）比絕對溫度更重要。高溫和低溫都增加就診量。
-                                <br><em>來源：PubMed (2024) - 天氣變量對急診室就診的影響</em>
-                            </p>
-                        </div>
-                        
-                        <div style="margin-bottom: 15px; padding: 12px; background: white; border-radius: 6px;">
-                            <strong style="color: #667eea;">5. 星期效應研究（以色列，2024）</strong>
-                            <p style="margin: 8px 0 0 0; color: #64748b; font-size: 13px;">
-                                週一就診量為平均值的 124%，週末降至 70%。不同月份的星期模式不同。
-                                <br><em>來源：PubMed (2024) - 急診室就診的星期模式</em>
-                            </p>
-                        </div>
-                        
-                        <div style="margin-bottom: 15px; padding: 12px; background: white; border-radius: 6px;">
-                            <strong style="color: #667eea;">6. 特徵工程增強預測研究（2024年12月）</strong>
-                            <p style="margin: 8px 0 0 0; color: #64748b; font-size: 13px;">
-                                使用特徵工程和機器學習，測試11個急診室（三個國家），日曆和氣象預測因子顯著提高準確度。
-                                <br><em>來源：BMC Medical Informatics and Decision Making (2024) - "Enhanced Forecasting of Emergency Department Patient Arrivals"</em>
-                                <br><em>DOI: 10.1186/s12911-024-02788-6</em>
-                            </p>
-                        </div>
-                        
-                        <div style="margin-bottom: 15px; padding: 12px; background: white; border-radius: 6px;">
-                            <strong style="color: #667eea;">7. 深度學習登機預測（2025年5月）</strong>
-                            <p style="margin: 8px 0 0 0; color: #64748b; font-size: 13px;">
-                                深度學習模型提前6小時預測登機患者數量，整合多數據源（急診室追蹤、住院數據、天氣、事件），達到高準確度。
-                                <br><em>來源：arXiv (2025) - "Deep Learning-Based Forecasting of Boarding Patient Counts"</em>
-                                <br><em>arXiv: 2505.14765</em>
-                            </p>
-                        </div>
-                        
-                        <div style="margin-bottom: 15px; padding: 12px; background: white; border-radius: 6px;">
-                            <strong style="color: #667eea;">8. AI 框架擁擠預測（2025年）</strong>
-                            <p style="margin: 8px 0 0 0; color: #64748b; font-size: 13px;">
-                                AI 框架預測急診室擁擠，使用多數據集整合，提供實時6小時預測，增強決策制定和資源分配。
-                                <br><em>來源：JMIR Medical Informatics (2025) - "An Artificial Intelligence–Based Framework for Predicting Emergency Department Overcrowding"</em>
-                                <br><em>DOI: 10.2196/73960</em>
-                            </p>
-                        </div>
-                        
-                        <div style="margin-bottom: 15px; padding: 12px; background: linear-gradient(135deg, rgba(5, 150, 105, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%); border-radius: 6px; border-left: 4px solid #059669;">
-                            <strong style="color: #059669; font-size: 14px;">🏆 獲獎級世界最佳準確度目標</strong>
-                            <p style="margin: 8px 0 0 0; color: #64748b; font-size: 13px;">
-                                <strong>MAE</strong>: &lt; 2.0 病人（超越當前世界最佳 2.63-2.64）<br>
-                                <strong>MAPE</strong>: &lt; 1.5%<br>
-                                <strong>95% CI 覆蓋率</strong>: &gt; 99%<br>
-                                <strong>R²</strong>: &gt; 0.98<br>
-                                <strong>路線圖</strong>: 6階段改進計劃，集成學習 + 深度學習 + 持續優化<br>
-                                <strong>目標</strong>: 獲得國際認可，成為行業標準，供全球使用
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="factors-table">
-                    <h4>關鍵影響因子 <span style="font-size: 12px; color: #64748b; font-weight: normal;">(根據 AI 分析動態更新)</span></h4>
-                    <div id="dynamic-factors-loading" style="text-align: center; padding: 20px; color: #64748b;">
-                        <div class="loading-spinner" style="margin: 0 auto 10px;"></div>
-                        <div>載入 AI 分析中...</div>
-                    </div>
-                    <table id="dynamic-factors-table" style="display: none;">
-                        <thead>
-                            <tr>
-                                <th>因子</th>
-                                <th>效應</th>
-                                <th>說明</th>
-                                <th>信心度</th>
-                                <th>研究證據</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dynamic-factors-tbody">
-                            <!-- 動態生成 -->
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="considerations">
-                    <h4>預測考量因素 <span style="font-size: 12px; color: #64748b; font-weight: normal;">(根據 AI 分析動態更新)</span></h4>
-                    <div id="dynamic-considerations-loading" style="text-align: center; padding: 20px; color: #64748b;">
-                        <div class="loading-spinner" style="margin: 0 auto 10px;"></div>
-                        <div>載入 AI 分析中...</div>
-                    </div>
-                    <ul id="dynamic-considerations-list" style="display: none;">
-                        <!-- 動態生成 -->
-                    </ul>
-                </div>
+        <section class="algorithm-section" id="algorithm-section">
+            <h2 class="section-title">預測算法說明（基於真實研究）</h2>
+            <div class="algorithm-content" id="algorithm-content">
+                <!-- 動態生成內容 -->
             </div>
         </section>
 
         <!-- 頁腳 -->
-        <footer class="prediction-footer">
+        <footer class="app-footer">
             <p id="data-source-info">數據來源：載入中...</p>
             <p>預測模型版本 2.3.0 · 🏆 獲獎級世界最佳算法開發中 · 香港時間 HKT</p>
         </footer>
     </div>
 
-    <script src="prediction.js?v=4"></script>
+    <!-- 原始預測邏輯（保留所有功能） -->
+    <script src="prediction.js?v=5"></script>
+    <!-- 模組化包裝層 -->
+    <script type="module" src="app.js?v=5"></script>
 </body>
 </html>
-
