@@ -58,8 +58,9 @@ function convertToTraditional(text) {
     }
     
     try {
-        // chinese-conv 使用 sify() 方法將簡體轉換為繁體
-        const converted = chineseConv.sify(text);
+        // chinese-conv 使用 tify() 方法將簡體轉換為繁體（Traditional）
+        // sify() 是簡體化（Simplified），tify() 是繁體化（Traditional）
+        const converted = chineseConv.tify(text);
         
         // 如果檢測到簡體中文，記錄警告
         if (hadSimplified) {

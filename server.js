@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.1.7';
+const MODEL_VERSION = '2.1.8';
 
 // AI 服務（僅在服務器端使用）
 let aiService = null;
@@ -899,30 +899,35 @@ const apiHandlers = {
             }
 
             try {
-                // 檢查是否有 sify 方法
-                if (typeof chineseConv.sify !== 'function') {
-                    console.warn('⚠️ chinese-conv.sify 不是函數，返回原文');
+                // 使用 tify 方法將簡體轉換為繁體（Traditional）
+                // sify 是簡體化（Simplified），tify 是繁體化（Traditional）
+                if (typeof chineseConv.tify !== 'function') {
+                    console.error('❌ chinese-conv.tify 不是函數，無法轉換');
                     return sendJson(res, {
-                        success: true,
-                        original: text,
-                        converted: text // 返回原文
-                    });
+                        success: false,
+                        error: '轉換功能不可用：tify 方法不存在'
+                    }, 500);
                 }
 
-                const converted = chineseConv.sify(text);
+                const converted = chineseConv.tify(text);
+                
+                if (!converted || converted === text) {
+                    // 如果轉換結果為空或與原文相同，可能是已經是繁體或轉換失敗
+                    console.warn('⚠️ 轉換結果與原文相同，可能已經是繁體中文');
+                }
+                
                 return sendJson(res, {
                     success: true,
                     original: text,
-                    converted: converted || text // 如果轉換結果為空，返回原文
+                    converted: converted || text
                 });
             } catch (e) {
-                console.error('⚠️ 轉換失敗:', e.message);
-                // 轉換失敗時返回原文，而不是錯誤
+                console.error('❌ 轉換失敗:', e.message, e.stack);
                 return sendJson(res, {
-                    success: true,
-                    original: text,
-                    converted: text // 返回原文作為降級方案
-                });
+                    success: false,
+                    error: `轉換失敗: ${e.message}`,
+                    original: text
+                }, 500);
             }
         } catch (error) {
             console.error('❌ 轉換 API 錯誤:', error);
