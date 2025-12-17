@@ -29,7 +29,11 @@ function initPool() {
             password: pgPassword,
             host: pgHost,
             port: parseInt(pgPort),
-            database: pgDatabase
+            database: pgDatabase,
+            // 連接池配置
+            max: 20, // 最大連接數
+            idleTimeoutMillis: 30000, // 空閒連接超時（30秒）
+            connectionTimeoutMillis: 20000 // 連接超時（20秒，增加以應對網絡延遲）
         };
 
         // Only enable SSL for external connections
@@ -38,7 +42,14 @@ function initPool() {
         }
         
         console.log(`📍 Connecting to ${poolConfig.host}:${poolConfig.port}/${poolConfig.database}`);
-        return new Pool(poolConfig);
+        const pool = new Pool(poolConfig);
+        
+        // 添加連接錯誤處理
+        pool.on('error', (err) => {
+            console.error('❌ 數據庫連接池錯誤:', err.message);
+        });
+        
+        return pool;
     }
     
     if (dbUrl && !dbUrl.includes('${{')) {
@@ -50,7 +61,11 @@ function initPool() {
                 password: decodeURIComponent(url.password),
                 host: url.hostname,
                 port: parseInt(url.port) || 5432,
-                database: url.pathname.slice(1)
+                database: url.pathname.slice(1),
+                // 連接池配置
+                max: 20, // 最大連接數
+                idleTimeoutMillis: 30000, // 空閒連接超時（30秒）
+                connectionTimeoutMillis: 20000 // 連接超時（20秒，增加以應對網絡延遲）
             };
 
             if (!url.hostname.includes('.railway.internal')) {
@@ -58,7 +73,14 @@ function initPool() {
             }
             
             console.log(`📍 Connecting to ${poolConfig.host}:${poolConfig.port}/${poolConfig.database}`);
-            return new Pool(poolConfig);
+            const pool = new Pool(poolConfig);
+            
+            // 添加連接錯誤處理
+            pool.on('error', (err) => {
+                console.error('❌ 數據庫連接池錯誤:', err.message);
+            });
+            
+            return pool;
         } catch (err) {
             console.error('❌ Failed to parse DATABASE_URL:', err.message);
         }
@@ -70,6 +92,35 @@ function initPool() {
 }
 
 pool = initPool();
+
+// 帶重試的查詢函數
+async function queryWithRetry(query, params = [], maxRetries = 3) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+    
+    let lastError;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const result = await pool.query(query, params);
+            return result;
+        } catch (error) {
+            lastError = error;
+            // 如果是連接錯誤，等待後重試
+            if (error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+                if (attempt < maxRetries) {
+                    const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // 指數退避，最多5秒
+                    console.warn(`⚠️ 數據庫連接失敗 (嘗試 ${attempt}/${maxRetries})，${delay}ms 後重試...`, error.message);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    continue;
+                }
+            }
+            // 其他錯誤或已達最大重試次數，直接拋出
+            throw error;
+        }
+    }
+    throw lastError;
+}
 
 // Initialize database tables
 async function initDatabase() {
@@ -270,12 +321,15 @@ async function insertBulkActualData(dataArray) {
 
 // Insert prediction
 async function insertPrediction(predictionDate, targetDate, predictedCount, ci80, ci95, modelVersion = '1.0.0') {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
     const query = `
         INSERT INTO predictions (prediction_date, target_date, predicted_count, ci80_low, ci80_high, ci95_low, ci95_high, model_version)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
     `;
-    const result = await pool.query(query, [
+    const result = await queryWithRetry(query, [
         predictionDate,
         targetDate,
         predictedCount,
@@ -290,6 +344,23 @@ async function insertPrediction(predictionDate, targetDate, predictedCount, ci80
 
 // Get all actual data
 async function getActualData(startDate = null, endDate = null) {
+    // #region agent log
+    const fs = require('fs');
+    const logPath = '/Users/yoyoau/Documents/GitHub/ndh-aed-prediction/.cursor/debug.log';
+    try {
+        fs.appendFileSync(logPath, JSON.stringify({location:'database.js:292',message:'getActualData entry',data:{hasPool:!!pool,startDate,endDate},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})+'\n');
+    } catch(e) {}
+    // #endregion
+    
+    if (!pool) {
+        // #region agent log
+        try {
+            fs.appendFileSync(logPath, JSON.stringify({location:'database.js:295',message:'getActualData pool null',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})+'\n');
+        } catch(e) {}
+        // #endregion
+        throw new Error('Database pool not initialized');
+    }
+    
     let query = 'SELECT * FROM actual_data';
     const params = [];
     
@@ -305,8 +376,28 @@ async function getActualData(startDate = null, endDate = null) {
     }
     
     query += ' ORDER BY date DESC';
-    const result = await pool.query(query, params);
-    return result.rows;
+    // #region agent log
+    try {
+        fs.appendFileSync(logPath, JSON.stringify({location:'database.js:314',message:'getActualData before query',data:{query,params},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})+'\n');
+    } catch(e) {}
+    // #endregion
+    try {
+        const result = await queryWithRetry(query, params);
+        // #region agent log
+        try {
+            fs.appendFileSync(logPath, JSON.stringify({location:'database.js:317',message:'getActualData after query',data:{rowCount:result.rows.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})+'\n');
+        } catch(e) {}
+        // #endregion
+        return result.rows;
+    } catch (error) {
+        // #region agent log
+        try {
+            fs.appendFileSync(logPath, JSON.stringify({location:'database.js:320',message:'getActualData query error',data:{error:error.message,code:error.code},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})+'\n');
+        } catch(e) {}
+        // #endregion
+        console.error('❌ getActualData 查詢失敗:', error);
+        throw error;
+    }
 }
 
 // Get predictions
@@ -494,7 +585,7 @@ async function getComparisonData(limit = 100) {
     `;
     
     try {
-        const result = await pool.query(query, [limit]);
+        const result = await queryWithRetry(query, [limit]);
         console.log(`📊 比較數據查詢: 找到 ${result.rows.length} 筆有效數據`);
         return result.rows;
     } catch (error) {
@@ -505,30 +596,70 @@ async function getComparisonData(limit = 100) {
 
 // Get AI factors cache
 async function getAIFactorsCache() {
+    // #region agent log
+    const fs = require('fs');
+    const logPath = '/Users/yoyoau/Documents/GitHub/ndh-aed-prediction/.cursor/debug.log';
+    try {
+        fs.appendFileSync(logPath, JSON.stringify({location:'database.js:507',message:'getAIFactorsCache entry',data:{hasPool:!!pool},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'I'})+'\n');
+    } catch(e) {}
+    // #endregion
+    
+    if (!pool) {
+        // #region agent log
+        try {
+            fs.appendFileSync(logPath, JSON.stringify({location:'database.js:512',message:'getAIFactorsCache pool null',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'I'})+'\n');
+        } catch(e) {}
+        // #endregion
+        throw new Error('Database pool not initialized');
+    }
+    
     const query = `
         SELECT last_update_time, factors_cache, analysis_data, updated_at
         FROM ai_factors_cache
         WHERE id = 1
     `;
-    const result = await pool.query(query);
-    if (result.rows.length === 0) {
+    // #region agent log
+    try {
+        fs.appendFileSync(logPath, JSON.stringify({location:'database.js:521',message:'getAIFactorsCache before query',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'I'})+'\n');
+    } catch(e) {}
+    // #endregion
+    try {
+        const result = await queryWithRetry(query);
+        // #region agent log
+        try {
+            fs.appendFileSync(logPath, JSON.stringify({location:'database.js:524',message:'getAIFactorsCache after query',data:{rowCount:result.rows.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'I'})+'\n');
+        } catch(e) {}
+        // #endregion
+        if (result.rows.length === 0) {
+            return {
+                last_update_time: 0,
+                factors_cache: {},
+                analysis_data: {},
+                updated_at: null
+            };
+        }
         return {
-            last_update_time: 0,
-            factors_cache: {},
-            analysis_data: {},
-            updated_at: null
+            last_update_time: parseInt(result.rows[0].last_update_time) || 0,
+            factors_cache: result.rows[0].factors_cache || {},
+            analysis_data: result.rows[0].analysis_data || {},
+            updated_at: result.rows[0].updated_at
         };
+    } catch (error) {
+        // #region agent log
+        try {
+            fs.appendFileSync(logPath, JSON.stringify({location:'database.js:538',message:'getAIFactorsCache query error',data:{error:error.message,code:error.code},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'I'})+'\n');
+        } catch(e) {}
+        // #endregion
+        console.error('❌ getAIFactorsCache 查詢失敗:', error);
+        throw error;
     }
-    return {
-        last_update_time: parseInt(result.rows[0].last_update_time) || 0,
-        factors_cache: result.rows[0].factors_cache || {},
-        analysis_data: result.rows[0].analysis_data || {},
-        updated_at: result.rows[0].updated_at
-    };
 }
 
 // Update AI factors cache
 async function updateAIFactorsCache(updateTime, factorsCache, analysisData = null) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
     const query = `
         UPDATE ai_factors_cache
         SET last_update_time = $1,
@@ -538,7 +669,7 @@ async function updateAIFactorsCache(updateTime, factorsCache, analysisData = nul
         WHERE id = 1
         RETURNING *
     `;
-    const result = await pool.query(query, [
+    const result = await queryWithRetry(query, [
         updateTime.toString(),
         JSON.stringify(factorsCache),
         analysisData ? JSON.stringify(analysisData) : null
@@ -548,12 +679,15 @@ async function updateAIFactorsCache(updateTime, factorsCache, analysisData = nul
 
 // Insert daily prediction (each update throughout the day)
 async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, modelVersion = '1.0.0', weatherData = null, aiFactors = null) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
     const query = `
         INSERT INTO daily_predictions (target_date, predicted_count, ci80_low, ci80_high, ci95_low, ci95_high, model_version, weather_data, ai_factors)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *
     `;
-    const result = await pool.query(query, [
+    const result = await queryWithRetry(query, [
         targetDate,
         predictedCount,
         ci80?.low,

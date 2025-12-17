@@ -1498,6 +1498,9 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         // 從數據庫獲取數據（根據時間範圍和分頁偏移量）
         const { startDate, endDate } = getDateRangeWithOffset(range, pageOffset);
         console.log(`📅 查詢歷史數據：範圍=${range}, pageOffset=${pageOffset}, ${startDate} 至 ${endDate}`);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:1499',message:'initHistoryChart before fetch',data:{range,pageOffset,startDate,endDate},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
         
         // 如果日期範圍為 null（表示過早，超出數據庫範圍），顯示提示並禁用導航
         if (!startDate || !endDate) {
@@ -1554,6 +1557,9 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         }
         
         let historicalData = await fetchHistoricalData(startDate, endDate);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:1556',message:'initHistoryChart after fetch',data:{dataLength:historicalData.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
         
         // 確保數據被正確過濾到請求的範圍內（防止數據庫返回超出範圍的數據）
         if (startDate && endDate && historicalData.length > 0) {
@@ -4698,6 +4704,9 @@ function aggregateDataByMonth(data) {
 
 // 從數據庫獲取歷史數據
 async function fetchHistoricalData(startDate = null, endDate = null) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4700',message:'fetchHistoricalData entry',data:{startDate,endDate},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     try {
         let url = '/api/actual-data';
         const params = new URLSearchParams();
@@ -4706,14 +4715,26 @@ async function fetchHistoricalData(startDate = null, endDate = null) {
         if (params.toString()) url += '?' + params.toString();
         
         console.log(`🔍 查詢歷史數據 API: ${url}`);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4709',message:'before fetch',data:{url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         const response = await fetch(url);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4712',message:'after fetch',data:{ok:response.ok,status:response.status,statusText:response.statusText},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         
         if (!response.ok) {
             console.error(`❌ API 請求失敗: ${response.status} ${response.statusText}`);
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4715',message:'response not ok',data:{status:response.status,statusText:response.statusText},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
             return [];
         }
         
         const data = await response.json();
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4720',message:'response json parsed',data:{success:data.success,hasData:!!data.data,dataLength:data.data?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         console.log(`📊 API 響應: success=${data.success}, data.length=${data.data ? data.data.length : 0}`);
         
         if (data.success && data.data && Array.isArray(data.data)) {
@@ -4725,30 +4746,62 @@ async function fetchHistoricalData(startDate = null, endDate = null) {
                 }))
                 .sort((a, b) => new Date(a.date) - new Date(b.date));
             console.log(`✅ 成功獲取 ${result.length} 筆歷史數據`);
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4730',message:'fetchHistoricalData success',data:{resultLength:result.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
             return result;
         } else {
             console.warn(`⚠️ API 返回無效數據:`, data);
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4733',message:'invalid data format',data:{success:data.success,hasData:!!data.data,isArray:Array.isArray(data.data)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
             return [];
         }
     } catch (error) {
         console.error('❌ 獲取歷史數據失敗:', error);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4737',message:'fetchHistoricalData error',data:{error:error.message,stack:error.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         return [];
     }
 }
 
 // 從數據庫獲取比較數據（實際vs預測）
 async function fetchComparisonData(limit = 100) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4740',message:'fetchComparisonData entry',data:{limit},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     try {
-        const response = await fetch(`/api/comparison?limit=${limit}`);
+        const url = `/api/comparison?limit=${limit}`;
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4742',message:'before comparison fetch',data:{url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
+        const response = await fetch(url);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4743',message:'after comparison fetch',data:{ok:response.ok,status:response.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         const data = await response.json();
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4745',message:'comparison json parsed',data:{success:data.success,hasData:!!data.data,dataLength:data.data?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         
         if (data.success && data.data) {
             // 按日期升序排列
-            return data.data.sort((a, b) => new Date(a.date) - new Date(b.date));
+            const result = data.data.sort((a, b) => new Date(a.date) - new Date(b.date));
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4748',message:'fetchComparisonData success',data:{resultLength:result.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
+            return result;
         }
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4751',message:'comparison data invalid',data:{success:data.success,hasData:!!data.data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         return [];
     } catch (error) {
         console.error('❌ 獲取比較數據失敗:', error);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4753',message:'fetchComparisonData error',data:{error:error.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         return [];
     }
 }
@@ -5032,10 +5085,22 @@ function updateWeatherDisplay() {
 // 從數據庫載入緩存的 AI 因素（快速載入）
 // ============================================
 async function loadAIFactorsFromCache() {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:5034',message:'loadAIFactorsFromCache entry',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     try {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:5036',message:'before ai-factors-cache fetch',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         const cacheResponse = await fetch('/api/ai-factors-cache');
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:5037',message:'after ai-factors-cache fetch',data:{ok:cacheResponse.ok,status:cacheResponse.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         if (cacheResponse.ok) {
             const cacheData = await cacheResponse.json();
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:5039',message:'ai-factors-cache json parsed',data:{success:cacheData.success,hasData:!!cacheData.data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
             if (cacheData.success && cacheData.data) {
                 const storedFactors = cacheData.data.factors_cache || {};
                 const storedAnalysisData = cacheData.data.analysis_data || {};
@@ -5095,8 +5160,14 @@ async function loadAIFactorsFromCache() {
         }
     } catch (e) {
         console.warn('⚠️ 無法從數據庫載入 AI 緩存:', e);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:5097',message:'loadAIFactorsFromCache error',data:{error:e.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
     }
     
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:5100',message:'loadAIFactorsFromCache return empty',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     return { factors: [], summary: '無緩存數據', cached: false };
 }
 
