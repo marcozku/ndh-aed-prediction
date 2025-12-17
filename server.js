@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.1.5';
+const MODEL_VERSION = '2.1.6';
 
 // AI 服務（僅在服務器端使用）
 let aiService = null;
@@ -14,10 +14,16 @@ try {
     console.warn('⚠️ AI 服務模組載入失敗（客戶端環境）:', err.message);
 }
 
-// Database connection (only if DATABASE_URL is set)
+// Database connection (嘗試初始化，database.js 會檢查所有可用的環境變數)
 let db = null;
-if (process.env.DATABASE_URL) {
-    db = require('./database');
+// 檢查是否有任何數據庫環境變數
+const hasDbConfig = process.env.DATABASE_URL || 
+                   (process.env.PGHOST && process.env.PGUSER && process.env.PGPASSWORD && process.env.PGDATABASE);
+
+// 總是嘗試初始化數據庫模組（即使沒有環境變數，也會返回 null pool）
+db = require('./database');
+
+if (hasDbConfig) {
     db.initDatabase().then(async () => {
         // 數據庫初始化完成後，自動導入 CSV 數據
         const defaultCsvPath = '/Users/yoyoau/Library/Containers/net.whatsapp.WhatsApp/Data/tmp/documents/86448351-FEDA-406E-B465-B7D0B0753234/NDH_AED_Attendance_Minimal.csv';
@@ -64,7 +70,14 @@ if (process.env.DATABASE_URL) {
             console.warn('⚠️ 自動添加實際數據時出錯（可能模組不存在）:', err.message);
         }
     }).catch(err => {
-        console.error('Failed to initialize database:', err.message);
+        console.error('❌ 數據庫初始化失敗:', err.message);
+        console.error('錯誤詳情:', err.stack);
+        // 即使初始化失敗，也保留 db 對象（pool 會是 null）
+    });
+} else {
+    // 即使沒有環境變數，也嘗試初始化（database.js 會處理）
+    db.initDatabase().catch(err => {
+        console.warn('⚠️ 數據庫環境變數未設置，數據庫功能將不可用');
     });
 }
 
@@ -108,7 +121,7 @@ function sendJson(res, data, statusCode = 200) {
 const apiHandlers = {
     // Upload actual data
     'POST /api/actual-data': async (req, res) => {
-        if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         const data = await parseBody(req);
         if (Array.isArray(data)) {
@@ -150,10 +163,10 @@ const apiHandlers = {
         const fs = require('fs');
         const logPath = '/Users/yoyoau/Documents/GitHub/ndh-aed-prediction/.cursor/debug.log';
         try {
-            fs.appendFileSync(logPath, JSON.stringify({location:'server.js:148',message:'GET /api/actual-data entry',data:{hasDb:!!db},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})+'\n');
+            fs.appendFileSync(logPath, JSON.stringify({location:'server.js:148',message:'GET /api/actual-data entry',data:{hasDb:!!db,hasPool:!!(db&&db.pool)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})+'\n');
         } catch(e) {}
         // #endregion
-        if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         try {
             const parsedUrl = url.parse(req.url, true);
@@ -183,7 +196,7 @@ const apiHandlers = {
 
     // Store prediction (called internally when predictions are made)
     'POST /api/predictions': async (req, res) => {
-        if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         const data = await parseBody(req);
         const today = new Date().toISOString().split('T')[0];
@@ -200,7 +213,7 @@ const apiHandlers = {
 
     // Store daily prediction (each update throughout the day)
     'POST /api/daily-predictions': async (req, res) => {
-        if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         const data = await parseBody(req);
         const result = await db.insertDailyPrediction(
@@ -217,7 +230,7 @@ const apiHandlers = {
 
     // Calculate final daily prediction (average of all predictions for a day)
     'POST /api/calculate-final-prediction': async (req, res) => {
-        if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         const data = await parseBody(req);
         const targetDate = data.target_date || new Date().toISOString().split('T')[0];
@@ -232,7 +245,7 @@ const apiHandlers = {
 
     // Get predictions
     'GET /api/predictions': async (req, res) => {
-        if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         const parsedUrl = url.parse(req.url, true);
         const { start, end } = parsedUrl.query;
@@ -242,7 +255,7 @@ const apiHandlers = {
 
     // Get accuracy statistics
     'GET /api/accuracy': async (req, res) => {
-        if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         const stats = await db.getAccuracyStats();
         sendJson(res, { success: true, data: stats });
@@ -254,10 +267,10 @@ const apiHandlers = {
         const fs = require('fs');
         const logPath = '/Users/yoyoau/Documents/GitHub/ndh-aed-prediction/.cursor/debug.log';
         try {
-            fs.appendFileSync(logPath, JSON.stringify({location:'server.js:225',message:'GET /api/comparison entry',data:{hasDb:!!db},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})+'\n');
+            fs.appendFileSync(logPath, JSON.stringify({location:'server.js:225',message:'GET /api/comparison entry',data:{hasDb:!!db,hasPool:!!(db&&db.pool)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})+'\n');
         } catch(e) {}
         // #endregion
-        if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         try {
             const parsedUrl = url.parse(req.url, true);
@@ -1094,12 +1107,12 @@ function scheduleDailyFinalPrediction() {
 server.listen(PORT, () => {
     console.log(`🏥 NDH AED 預測系統運行於 http://localhost:${PORT}`);
     console.log(`📊 預測模型版本 ${MODEL_VERSION}`);
-    if (process.env.DATABASE_URL) {
+    if (db && db.pool) {
         console.log(`🗄️ PostgreSQL 數據庫已連接`);
         // 啟動定時任務
         scheduleDailyFinalPrediction();
     } else {
-        console.log(`⚠️ 數據庫未配置 (設置 DATABASE_URL 環境變數以啟用)`);
+        console.log(`⚠️ 數據庫未配置 (設置 DATABASE_URL 或 PGHOST/PGUSER/PGPASSWORD/PGDATABASE 環境變數以啟用)`);
     }
 });
 
