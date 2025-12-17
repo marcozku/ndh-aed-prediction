@@ -344,20 +344,7 @@ async function insertPrediction(predictionDate, targetDate, predictedCount, ci80
 
 // Get all actual data
 async function getActualData(startDate = null, endDate = null) {
-    // #region agent log
-    const fs = require('fs');
-    const logPath = '/Users/yoyoau/Documents/GitHub/ndh-aed-prediction/.cursor/debug.log';
-    try {
-        fs.appendFileSync(logPath, JSON.stringify({location:'database.js:292',message:'getActualData entry',data:{hasPool:!!pool,startDate,endDate},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})+'\n');
-    } catch(e) {}
-    // #endregion
-    
     if (!pool) {
-        // #region agent log
-        try {
-            fs.appendFileSync(logPath, JSON.stringify({location:'database.js:295',message:'getActualData pool null',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})+'\n');
-        } catch(e) {}
-        // #endregion
         throw new Error('Database pool not initialized');
     }
     
@@ -376,25 +363,10 @@ async function getActualData(startDate = null, endDate = null) {
     }
     
     query += ' ORDER BY date DESC';
-    // #region agent log
-    try {
-        fs.appendFileSync(logPath, JSON.stringify({location:'database.js:314',message:'getActualData before query',data:{query,params},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})+'\n');
-    } catch(e) {}
-    // #endregion
     try {
         const result = await queryWithRetry(query, params);
-        // #region agent log
-        try {
-            fs.appendFileSync(logPath, JSON.stringify({location:'database.js:317',message:'getActualData after query',data:{rowCount:result.rows.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})+'\n');
-        } catch(e) {}
-        // #endregion
         return result.rows;
     } catch (error) {
-        // #region agent log
-        try {
-            fs.appendFileSync(logPath, JSON.stringify({location:'database.js:320',message:'getActualData query error',data:{error:error.message,code:error.code},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})+'\n');
-        } catch(e) {}
-        // #endregion
         console.error('❌ getActualData 查詢失敗:', error);
         throw error;
     }
@@ -596,20 +568,7 @@ async function getComparisonData(limit = 100) {
 
 // Get AI factors cache
 async function getAIFactorsCache() {
-    // #region agent log
-    const fs = require('fs');
-    const logPath = '/Users/yoyoau/Documents/GitHub/ndh-aed-prediction/.cursor/debug.log';
-    try {
-        fs.appendFileSync(logPath, JSON.stringify({location:'database.js:507',message:'getAIFactorsCache entry',data:{hasPool:!!pool},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'I'})+'\n');
-    } catch(e) {}
-    // #endregion
-    
     if (!pool) {
-        // #region agent log
-        try {
-            fs.appendFileSync(logPath, JSON.stringify({location:'database.js:512',message:'getAIFactorsCache pool null',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'I'})+'\n');
-        } catch(e) {}
-        // #endregion
         throw new Error('Database pool not initialized');
     }
     
@@ -618,18 +577,8 @@ async function getAIFactorsCache() {
         FROM ai_factors_cache
         WHERE id = 1
     `;
-    // #region agent log
-    try {
-        fs.appendFileSync(logPath, JSON.stringify({location:'database.js:521',message:'getAIFactorsCache before query',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'I'})+'\n');
-    } catch(e) {}
-    // #endregion
     try {
         const result = await queryWithRetry(query);
-        // #region agent log
-        try {
-            fs.appendFileSync(logPath, JSON.stringify({location:'database.js:524',message:'getAIFactorsCache after query',data:{rowCount:result.rows.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'I'})+'\n');
-        } catch(e) {}
-        // #endregion
         if (result.rows.length === 0) {
             return {
                 last_update_time: 0,
@@ -645,11 +594,6 @@ async function getAIFactorsCache() {
             updated_at: result.rows[0].updated_at
         };
     } catch (error) {
-        // #region agent log
-        try {
-            fs.appendFileSync(logPath, JSON.stringify({location:'database.js:538',message:'getAIFactorsCache query error',data:{error:error.message,code:error.code},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'I'})+'\n');
-        } catch(e) {}
-        // #endregion
         console.error('❌ getAIFactorsCache 查詢失敗:', error);
         throw error;
     }

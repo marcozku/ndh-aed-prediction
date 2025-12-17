@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.1.8';
+const MODEL_VERSION = '2.1.9';
 
 // AI 服務（僅在服務器端使用）
 let aiService = null;
@@ -159,36 +159,14 @@ const apiHandlers = {
 
     // Get actual data
     'GET /api/actual-data': async (req, res) => {
-        // #region agent log
-        const fs = require('fs');
-        const logPath = '/Users/yoyoau/Documents/GitHub/ndh-aed-prediction/.cursor/debug.log';
-        try {
-            fs.appendFileSync(logPath, JSON.stringify({location:'server.js:148',message:'GET /api/actual-data entry',data:{hasDb:!!db,hasPool:!!(db&&db.pool)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})+'\n');
-        } catch(e) {}
-        // #endregion
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         try {
             const parsedUrl = url.parse(req.url, true);
             const { start, end } = parsedUrl.query;
-            // #region agent log
-            try {
-                fs.appendFileSync(logPath, JSON.stringify({location:'server.js:153',message:'before getActualData',data:{start,end},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})+'\n');
-            } catch(e) {}
-            // #endregion
             const data = await db.getActualData(start, end);
-            // #region agent log
-            try {
-                fs.appendFileSync(logPath, JSON.stringify({location:'server.js:157',message:'after getActualData',data:{dataLength:data?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})+'\n');
-            } catch(e) {}
-            // #endregion
             sendJson(res, { success: true, data });
         } catch (error) {
-            // #region agent log
-            try {
-                fs.appendFileSync(logPath, JSON.stringify({location:'server.js:161',message:'GET /api/actual-data error',data:{error:error.message,stack:error.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})+'\n');
-            } catch(e) {}
-            // #endregion
             console.error('❌ 獲取實際數據失敗:', error);
             sendJson(res, { success: false, error: error.message }, 500);
         }
@@ -263,39 +241,17 @@ const apiHandlers = {
 
     // Get comparison data (actual vs predicted)
     'GET /api/comparison': async (req, res) => {
-        // #region agent log
-        const fs = require('fs');
-        const logPath = '/Users/yoyoau/Documents/GitHub/ndh-aed-prediction/.cursor/debug.log';
-        try {
-            fs.appendFileSync(logPath, JSON.stringify({location:'server.js:225',message:'GET /api/comparison entry',data:{hasDb:!!db,hasPool:!!(db&&db.pool)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})+'\n');
-        } catch(e) {}
-        // #endregion
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         try {
             const parsedUrl = url.parse(req.url, true);
             const limit = parseInt(parsedUrl.query.limit) || 100;
-            // #region agent log
-            try {
-                fs.appendFileSync(logPath, JSON.stringify({location:'server.js:231',message:'before getComparisonData',data:{limit},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})+'\n');
-            } catch(e) {}
-            // #endregion
             const data = await db.getComparisonData(limit);
-            // #region agent log
-            try {
-                fs.appendFileSync(logPath, JSON.stringify({location:'server.js:232',message:'after getComparisonData',data:{dataLength:data?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})+'\n');
-            } catch(e) {}
-            // #endregion
             console.log(`📊 比較數據查詢結果: ${data.length} 筆數據`);
             sendJson(res, { success: true, data });
         } catch (error) {
             console.error('❌ 獲取比較數據失敗:', error);
             console.error('錯誤詳情:', error.stack);
-            // #region agent log
-            try {
-                fs.appendFileSync(logPath, JSON.stringify({location:'server.js:236',message:'getComparisonData error',data:{error:error.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})+'\n');
-            } catch(e) {}
-            // #endregion
             sendJson(res, { error: error.message, stack: error.stack }, 500);
         }
     },
@@ -826,13 +782,6 @@ const apiHandlers = {
 
     // 獲取 AI 因素緩存（從數據庫）
     'GET /api/ai-factors-cache': async (req, res) => {
-        // #region agent log
-        const fs = require('fs');
-        const logPath = '/Users/yoyoau/Documents/GitHub/ndh-aed-prediction/.cursor/debug.log';
-        try {
-            fs.appendFileSync(logPath, JSON.stringify({location:'server.js:766',message:'GET /api/ai-factors-cache entry',data:{hasDb:!!db,hasPool:!!(db&&db.pool)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})+'\n');
-        } catch(e) {}
-        // #endregion
         if (!db || !db.pool) {
             return sendJson(res, { 
                 success: false, 
@@ -841,28 +790,13 @@ const apiHandlers = {
         }
         
         try {
-            // #region agent log
-            try {
-                fs.appendFileSync(logPath, JSON.stringify({location:'server.js:775',message:'before getAIFactorsCache',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})+'\n');
-            } catch(e) {}
-            // #endregion
             const cache = await db.getAIFactorsCache();
-            // #region agent log
-            try {
-                fs.appendFileSync(logPath, JSON.stringify({location:'server.js:777',message:'after getAIFactorsCache',data:{hasCache:!!cache,hasFactors:!!(cache&&cache.factors_cache),hasAnalysis:!!(cache&&cache.analysis_data)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})+'\n');
-            } catch(e) {}
-            // #endregion
             sendJson(res, { 
                 success: true, 
                 data: cache 
             });
         } catch (err) {
             console.error('獲取 AI 因素緩存失敗:', err);
-            // #region agent log
-            try {
-                fs.appendFileSync(logPath, JSON.stringify({location:'server.js:785',message:'getAIFactorsCache error',data:{error:err.message,stack:err.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})+'\n');
-            } catch(e) {}
-            // #endregion
             sendJson(res, { 
                 success: false, 
                 error: err.message 

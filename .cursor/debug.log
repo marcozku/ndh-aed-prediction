@@ -1,0 +1,315 @@
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962117834,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962117835,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962117897,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962117901,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962117901,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962117897,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962117963,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962117964,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962129542,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962129542,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962129599,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962129600,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962129603,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962129603,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962129677,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962129677,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962131766,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962131767,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962131824,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962131826,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962131833,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962131835,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962131901,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962131902,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962132967,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962132968,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962133037,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962133038,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962133050,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962133050,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962133110,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962133112,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962134183,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962134183,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962134254,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962134255,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962134264,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962134265,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962134362,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962134363,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962141753,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962141754,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962141814,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962141815,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962141829,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962141830,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962141892,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962141892,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962142696,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962142696,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962142759,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962142760,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962142766,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962142766,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962142823,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962142824,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:1499","message":"initHistoryChart before fetch","data":{"range":"1月","pageOffset":0,"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962155060,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4700","message":"fetchHistoricalData entry","data":{"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962155062,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4709","message":"before fetch","data":{"url":"/api/actual-data?start=2025-11-16&end=2025-12-16"},"timestamp":1765962155068,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4712","message":"after fetch","data":{"ok":false,"status":500,"statusText":""},"timestamp":1765962155225,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4715","message":"response not ok","data":{"status":500,"statusText":""},"timestamp":1765962155229,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:1556","message":"initHistoryChart after fetch","data":{"dataLength":0},"timestamp":1765962155230,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962155243,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962155246,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":false,"status":500},"timestamp":1765962155417,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"hasData":false},"timestamp":1765962155435,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4751","message":"comparison data invalid","data":{"hasData":false},"timestamp":1765962155436,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962155437,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962155437,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":false,"status":500},"timestamp":1765962155595,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"hasData":false},"timestamp":1765962155604,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4751","message":"comparison data invalid","data":{"hasData":false},"timestamp":1765962155605,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962156609,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962156609,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962156668,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962156669,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962182888,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962182890,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962182967,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962182968,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962182972,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962182972,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962183048,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962183051,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:1499","message":"initHistoryChart before fetch","data":{"range":"1月","pageOffset":0,"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962195952,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4700","message":"fetchHistoricalData entry","data":{"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962195955,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4709","message":"before fetch","data":{"url":"/api/actual-data?start=2025-11-16&end=2025-12-16"},"timestamp":1765962195957,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4712","message":"after fetch","data":{"ok":false,"status":500,"statusText":""},"timestamp":1765962196268,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4715","message":"response not ok","data":{"status":500,"statusText":""},"timestamp":1765962196269,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:1556","message":"initHistoryChart after fetch","data":{"dataLength":0},"timestamp":1765962196271,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962196278,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962196276,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":false,"status":500},"timestamp":1765962196705,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"hasData":false},"timestamp":1765962196741,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4751","message":"comparison data invalid","data":{"hasData":false},"timestamp":1765962196742,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962196746,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962196749,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":false,"status":500},"timestamp":1765962196865,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"hasData":false},"timestamp":1765962196884,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4751","message":"comparison data invalid","data":{"hasData":false},"timestamp":1765962197020,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962198035,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962198036,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962198202,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962198203,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962257109,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962257110,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962257168,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962257168,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:1499","message":"initHistoryChart before fetch","data":{"range":"1月","pageOffset":0,"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962257254,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4700","message":"fetchHistoricalData entry","data":{"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962257255,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4709","message":"before fetch","data":{"url":"/api/actual-data?start=2025-11-16&end=2025-12-16"},"timestamp":1765962257256,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4712","message":"after fetch","data":{"ok":false,"status":500,"statusText":""},"timestamp":1765962257409,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4715","message":"response not ok","data":{"status":500,"statusText":""},"timestamp":1765962257417,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:1556","message":"initHistoryChart after fetch","data":{"dataLength":0},"timestamp":1765962257419,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962257423,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962257424,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":false,"status":500},"timestamp":1765962257668,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"hasData":false},"timestamp":1765962257687,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4751","message":"comparison data invalid","data":{"hasData":false},"timestamp":1765962257696,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962257701,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962257707,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":false,"status":500},"timestamp":1765962257772,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"hasData":false},"timestamp":1765962257782,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4751","message":"comparison data invalid","data":{"hasData":false},"timestamp":1765962257782,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962386725,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962386725,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962386899,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962386901,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962386911,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962386911,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962387110,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962387110,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:1499","message":"initHistoryChart before fetch","data":{"range":"1月","pageOffset":0,"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962404577,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4700","message":"fetchHistoricalData entry","data":{"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962404579,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4709","message":"before fetch","data":{"url":"/api/actual-data?start=2025-11-16&end=2025-12-16"},"timestamp":1765962404583,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4712","message":"after fetch","data":{"ok":false,"status":500,"statusText":""},"timestamp":1765962404780,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4715","message":"response not ok","data":{"status":500,"statusText":""},"timestamp":1765962404782,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:1556","message":"initHistoryChart after fetch","data":{"dataLength":0},"timestamp":1765962404782,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962404787,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962404788,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":false,"status":500},"timestamp":1765962405016,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"hasData":false},"timestamp":1765962405057,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4751","message":"comparison data invalid","data":{"hasData":false},"timestamp":1765962405059,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962405063,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962405065,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":false,"status":500},"timestamp":1765962405244,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"hasData":false},"timestamp":1765962405253,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4751","message":"comparison data invalid","data":{"hasData":false},"timestamp":1765962405254,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962406258,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962406258,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":false,"status":503},"timestamp":1765962406319,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5100","message":"loadAIFactorsFromCache return empty","data":{},"timestamp":1765962406319,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962521549,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962521552,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":true,"status":200},"timestamp":1765962521618,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5039","message":"ai-factors-cache json parsed","data":{"success":true,"hasData":true},"timestamp":1765962521620,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:1499","message":"initHistoryChart before fetch","data":{"range":"1月","pageOffset":0,"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962522007,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4700","message":"fetchHistoricalData entry","data":{"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962522008,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4709","message":"before fetch","data":{"url":"/api/actual-data?start=2025-11-16&end=2025-12-16"},"timestamp":1765962522009,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4712","message":"after fetch","data":{"ok":true,"status":200,"statusText":""},"timestamp":1765962522092,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4720","message":"response json parsed","data":{"success":true,"hasData":true,"dataLength":27},"timestamp":1765962522102,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4730","message":"fetchHistoricalData success","data":{"resultLength":27},"timestamp":1765962522106,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:1556","message":"initHistoryChart after fetch","data":{"dataLength":27},"timestamp":1765962522107,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962522158,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962522159,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":true,"status":200},"timestamp":1765962522295,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"success":true,"hasData":true,"dataLength":9},"timestamp":1765962522300,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4748","message":"fetchComparisonData success","data":{"resultLength":9},"timestamp":1765962522300,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962522334,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962522336,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":true,"status":200},"timestamp":1765962522429,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"success":true,"hasData":true,"dataLength":9},"timestamp":1765962522430,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4748","message":"fetchComparisonData success","data":{"resultLength":9},"timestamp":1765962522430,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:1499","message":"initHistoryChart before fetch","data":{"range":"1月","pageOffset":0,"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962533625,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4700","message":"fetchHistoricalData entry","data":{"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962533626,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4709","message":"before fetch","data":{"url":"/api/actual-data?start=2025-11-16&end=2025-12-16"},"timestamp":1765962533629,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4712","message":"after fetch","data":{"ok":true,"status":200,"statusText":""},"timestamp":1765962533739,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4720","message":"response json parsed","data":{"success":true,"hasData":true,"dataLength":27},"timestamp":1765962533837,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4730","message":"fetchHistoricalData success","data":{"resultLength":27},"timestamp":1765962533863,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:1556","message":"initHistoryChart after fetch","data":{"dataLength":27},"timestamp":1765962533876,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962533992,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962533995,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":true,"status":200},"timestamp":1765962534079,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"success":true,"hasData":true,"dataLength":9},"timestamp":1765962534082,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4748","message":"fetchComparisonData success","data":{"resultLength":9},"timestamp":1765962534086,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962534100,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962534102,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":true,"status":200},"timestamp":1765962534196,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"success":true,"hasData":true,"dataLength":9},"timestamp":1765962534197,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4748","message":"fetchComparisonData success","data":{"resultLength":9},"timestamp":1765962534198,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962682164,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962682164,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":true,"status":200},"timestamp":1765962682257,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5039","message":"ai-factors-cache json parsed","data":{"success":true,"hasData":true},"timestamp":1765962682264,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:1499","message":"initHistoryChart before fetch","data":{"range":"1月","pageOffset":0,"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962682621,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4700","message":"fetchHistoricalData entry","data":{"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962682624,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4709","message":"before fetch","data":{"url":"/api/actual-data?start=2025-11-16&end=2025-12-16"},"timestamp":1765962682626,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4712","message":"after fetch","data":{"ok":true,"status":200,"statusText":""},"timestamp":1765962682831,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4720","message":"response json parsed","data":{"success":true,"hasData":true,"dataLength":27},"timestamp":1765962682890,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4730","message":"fetchHistoricalData success","data":{"resultLength":27},"timestamp":1765962682894,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:1556","message":"initHistoryChart after fetch","data":{"dataLength":27},"timestamp":1765962682895,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962682944,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962682944,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":true,"status":200},"timestamp":1765962683034,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"success":true,"hasData":true,"dataLength":9},"timestamp":1765962683043,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4748","message":"fetchComparisonData success","data":{"resultLength":9},"timestamp":1765962683044,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962683099,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962683101,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":true,"status":200},"timestamp":1765962683205,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"success":true,"hasData":true,"dataLength":9},"timestamp":1765962683212,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4748","message":"fetchComparisonData success","data":{"resultLength":9},"timestamp":1765962683213,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962684222,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962684222,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":true,"status":200},"timestamp":1765962684445,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5039","message":"ai-factors-cache json parsed","data":{"success":true,"hasData":true},"timestamp":1765962684445,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962703946,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962703947,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":true,"status":200},"timestamp":1765962704013,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5039","message":"ai-factors-cache json parsed","data":{"success":true,"hasData":true},"timestamp":1765962704014,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:1499","message":"initHistoryChart before fetch","data":{"range":"1月","pageOffset":0,"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962704349,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4700","message":"fetchHistoricalData entry","data":{"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962704350,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4709","message":"before fetch","data":{"url":"/api/actual-data?start=2025-11-16&end=2025-12-16"},"timestamp":1765962704354,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4712","message":"after fetch","data":{"ok":true,"status":200,"statusText":""},"timestamp":1765962704439,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4720","message":"response json parsed","data":{"success":true,"hasData":true,"dataLength":27},"timestamp":1765962704475,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4730","message":"fetchHistoricalData success","data":{"resultLength":27},"timestamp":1765962704483,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:1556","message":"initHistoryChart after fetch","data":{"dataLength":27},"timestamp":1765962704484,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962704562,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962704563,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":true,"status":200},"timestamp":1765962704685,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"success":true,"hasData":true,"dataLength":9},"timestamp":1765962704695,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4748","message":"fetchComparisonData success","data":{"resultLength":9},"timestamp":1765962704696,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962704759,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962704760,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":true,"status":200},"timestamp":1765962704869,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"success":true,"hasData":true,"dataLength":9},"timestamp":1765962704878,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4748","message":"fetchComparisonData success","data":{"resultLength":9},"timestamp":1765962704882,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962705895,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962705896,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":true,"status":200},"timestamp":1765962705955,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5039","message":"ai-factors-cache json parsed","data":{"success":true,"hasData":true},"timestamp":1765962705955,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962716351,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962716351,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":true,"status":200},"timestamp":1765962716411,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5039","message":"ai-factors-cache json parsed","data":{"success":true,"hasData":true},"timestamp":1765962716411,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:1499","message":"initHistoryChart before fetch","data":{"range":"1月","pageOffset":0,"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962716596,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4700","message":"fetchHistoricalData entry","data":{"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962716597,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4709","message":"before fetch","data":{"url":"/api/actual-data?start=2025-11-16&end=2025-12-16"},"timestamp":1765962716597,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4712","message":"after fetch","data":{"ok":true,"status":200,"statusText":""},"timestamp":1765962716669,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4720","message":"response json parsed","data":{"success":true,"hasData":true,"dataLength":27},"timestamp":1765962716672,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4730","message":"fetchHistoricalData success","data":{"resultLength":27},"timestamp":1765962716672,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:1556","message":"initHistoryChart after fetch","data":{"dataLength":27},"timestamp":1765962716673,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962716701,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962716702,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":true,"status":200},"timestamp":1765962716785,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"success":true,"hasData":true,"dataLength":9},"timestamp":1765962716786,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4748","message":"fetchComparisonData success","data":{"resultLength":9},"timestamp":1765962716787,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962716798,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962716799,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":true,"status":200},"timestamp":1765962716880,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"success":true,"hasData":true,"dataLength":9},"timestamp":1765962716881,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4748","message":"fetchComparisonData success","data":{"resultLength":9},"timestamp":1765962716881,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962717884,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962717885,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":true,"status":200},"timestamp":1765962717947,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5039","message":"ai-factors-cache json parsed","data":{"success":true,"hasData":true},"timestamp":1765962717948,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962857646,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962857647,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":true,"status":200},"timestamp":1765962857710,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5039","message":"ai-factors-cache json parsed","data":{"success":true,"hasData":true},"timestamp":1765962857721,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:1499","message":"initHistoryChart before fetch","data":{"range":"1月","pageOffset":0,"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962858375,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4700","message":"fetchHistoricalData entry","data":{"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962858376,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4709","message":"before fetch","data":{"url":"/api/actual-data?start=2025-11-16&end=2025-12-16"},"timestamp":1765962858377,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4712","message":"after fetch","data":{"ok":true,"status":200,"statusText":""},"timestamp":1765962858639,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4720","message":"response json parsed","data":{"success":true,"hasData":true,"dataLength":27},"timestamp":1765962858673,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4730","message":"fetchHistoricalData success","data":{"resultLength":27},"timestamp":1765962858678,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:1556","message":"initHistoryChart after fetch","data":{"dataLength":27},"timestamp":1765962858680,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962858875,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962858876,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":true,"status":200},"timestamp":1765962858976,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"success":true,"hasData":true,"dataLength":9},"timestamp":1765962858997,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4748","message":"fetchComparisonData success","data":{"resultLength":9},"timestamp":1765962858997,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962859011,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962859011,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":true,"status":200},"timestamp":1765962859098,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"success":true,"hasData":true,"dataLength":9},"timestamp":1765962859099,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4748","message":"fetchComparisonData success","data":{"resultLength":9},"timestamp":1765962859099,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962860102,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962860103,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":true,"status":200},"timestamp":1765962860187,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5039","message":"ai-factors-cache json parsed","data":{"success":true,"hasData":true},"timestamp":1765962860188,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962932756,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962932755,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":true,"status":200},"timestamp":1765962932833,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5039","message":"ai-factors-cache json parsed","data":{"success":true,"hasData":true},"timestamp":1765962932834,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:1499","message":"initHistoryChart before fetch","data":{"range":"1月","pageOffset":0,"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962933392,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4700","message":"fetchHistoricalData entry","data":{"startDate":"2025-11-16","endDate":"2025-12-16"},"timestamp":1765962933393,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4709","message":"before fetch","data":{"url":"/api/actual-data?start=2025-11-16&end=2025-12-16"},"timestamp":1765962933396,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4712","message":"after fetch","data":{"ok":true,"status":200,"statusText":""},"timestamp":1765962933553,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4720","message":"response json parsed","data":{"success":true,"hasData":true,"dataLength":27},"timestamp":1765962933589,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:4730","message":"fetchHistoricalData success","data":{"resultLength":27},"timestamp":1765962933597,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"prediction.js:1556","message":"initHistoryChart after fetch","data":{"dataLength":27},"timestamp":1765962933599,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962933721,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962933725,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":true,"status":200},"timestamp":1765962933872,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"success":true,"hasData":true,"dataLength":9},"timestamp":1765962933903,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4748","message":"fetchComparisonData success","data":{"resultLength":9},"timestamp":1765962933903,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4740","message":"fetchComparisonData entry","data":{"limit":100},"timestamp":1765962933920,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4742","message":"before comparison fetch","data":{"url":"/api/comparison?limit=100"},"timestamp":1765962933921,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4743","message":"after comparison fetch","data":{"ok":true,"status":200},"timestamp":1765962934010,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4745","message":"comparison json parsed","data":{"success":true,"hasData":true,"dataLength":9},"timestamp":1765962934011,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:4748","message":"fetchComparisonData success","data":{"resultLength":9},"timestamp":1765962934012,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"prediction.js:5034","message":"loadAIFactorsFromCache entry","data":{},"timestamp":1765962935017,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5036","message":"before ai-factors-cache fetch","data":{},"timestamp":1765962935017,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5037","message":"after ai-factors-cache fetch","data":{"ok":true,"status":200},"timestamp":1765962935080,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"prediction.js:5039","message":"ai-factors-cache json parsed","data":{"success":true,"hasData":true},"timestamp":1765962935081,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}

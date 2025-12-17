@@ -415,8 +415,9 @@ const HISTORICAL_DATA = [
 // 預測類
 // ============================================
 class NDHAttendancePredictor {
-    constructor() {
-        this.data = HISTORICAL_DATA;
+    constructor(historicalData = null) {
+        // 如果提供了歷史數據，使用它；否則使用硬編碼的數據
+        this.data = historicalData || HISTORICAL_DATA;
         this.globalMean = 0;
         this.stdDev = 0;
         this.dowFactors = {};
@@ -427,6 +428,20 @@ class NDHAttendancePredictor {
         this.recentWindowDays = 30; // 近期窗口：30天（用於趨勢計算）
         
         this._calculateFactors();
+    }
+    
+    // 更新歷史數據並重新計算因子
+    updateData(newData) {
+        if (newData && Array.isArray(newData) && newData.length > 0) {
+            // 轉換數據格式（如果需要的話）
+            this.data = newData.map(d => ({
+                date: d.date || d.Date,
+                attendance: d.attendance || d.patient_count || d.Attendance
+            })).filter(d => d.date && d.attendance != null);
+            
+            // 重新計算因子
+            this._calculateFactors();
+        }
     }
     
     // 計算加權平均（基於時間序列研究：指數衰減權重）
@@ -1109,7 +1124,7 @@ async function initCharts(predictor) {
                     tension: 0.35
                 },
                 {
-                    label: '平均線',
+                    label: `平均線 (${Math.round(predictor.globalMean)})`,
                     data: predictions.map(() => predictor.globalMean),
                     borderColor: '#ef4444',
                     borderWidth: 2,
@@ -1498,9 +1513,6 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         // 從數據庫獲取數據（根據時間範圍和分頁偏移量）
         const { startDate, endDate } = getDateRangeWithOffset(range, pageOffset);
         console.log(`📅 查詢歷史數據：範圍=${range}, pageOffset=${pageOffset}, ${startDate} 至 ${endDate}`);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:1499',message:'initHistoryChart before fetch',data:{range,pageOffset,startDate,endDate},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
         
         // 如果日期範圍為 null（表示過早，超出數據庫範圍），顯示提示並禁用導航
         if (!startDate || !endDate) {
@@ -1557,9 +1569,6 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         }
         
         let historicalData = await fetchHistoricalData(startDate, endDate);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:1556',message:'initHistoryChart after fetch',data:{dataLength:historicalData.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
         
         // 確保數據被正確過濾到請求的範圍內（防止數據庫返回超出範圍的數據）
         if (startDate && endDate && historicalData.length > 0) {
@@ -1750,11 +1759,20 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         
         updateLoadingProgress('history', 50);
         
-        // 計算統計數據
+        // 計算統計數據（使用樣本標準差，分母為 N-1）
         const values = historicalData.map(d => d.attendance);
         const mean = values.reduce((a, b) => a + b, 0) / values.length;
-        const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+        // 使用樣本標準差（N-1），而不是總體標準差（N）
+        // 這對於樣本數據更準確，特別是當樣本量較小時
+        const n = values.length;
+        const variance = n > 1 
+            ? values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (n - 1)
+            : 0;
         const stdDev = Math.sqrt(variance);
+        
+        // 確保標準差至少為合理的最小值（避免過小的標準差導致範圍太窄）
+        const minStdDev = Math.max(15, mean * 0.08); // 至少15，或平均值的8%
+        const adjustedStdDev = Math.max(stdDev, minStdDev);
         
         // 根據選擇的時間範圍動態生成日期標籤（類似股票圖表）
         const labels = historicalData.map((d, i) => {
@@ -1976,7 +1994,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                             if (isNaN(date.getTime())) return null;
                             return {
                                 x: date.getTime(),
-                                y: mean + stdDev
+                                y: mean + adjustedStdDev
                             };
                         }).filter(d => d !== null),
                         borderColor: 'rgba(239, 68, 68, 0.25)',
@@ -2000,7 +2018,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                             if (isNaN(date.getTime())) return null;
                             return {
                                 x: date.getTime(),
-                                y: mean - stdDev
+                                y: mean - adjustedStdDev
                             };
                         }).filter(d => d !== null),
                         borderColor: 'rgba(239, 68, 68, 0.25)',
@@ -2258,19 +2276,34 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                     },
                     y: {
                         ...professionalOptions.scales.y,
-                        min: Math.max(0, Math.min(...values) - 50),
-                        max: Math.max(...values) + 50,
+                        // 計算合理的 Y 軸範圍，確保包含所有數據點和 ±1σ 範圍
+                        min: (() => {
+                            const dataMin = Math.min(...values);
+                            const sigmaMin = mean - adjustedStdDev;
+                            return Math.max(0, Math.floor(Math.min(dataMin, sigmaMin) - 20));
+                        })(),
+                        max: (() => {
+                            const dataMax = Math.max(...values);
+                            const sigmaMax = mean + adjustedStdDev;
+                            return Math.ceil(Math.max(dataMax, sigmaMax) + 20);
+                        })(),
                         ticks: {
                             ...professionalOptions.scales.y.ticks,
                             // 計算統一的步長，確保Y軸間隔均勻
                             stepSize: (() => {
-                                const valueRange = Math.max(...values) - Math.min(...values);
-                                const idealStepSize = valueRange / 10;
-                                // 將步長調整為合適的整數（5, 10, 20, 25, 50, 100等）
-                                if (idealStepSize <= 5) return 5;
+                                const dataMin = Math.min(...values);
+                                const dataMax = Math.max(...values);
+                                const sigmaMin = mean - adjustedStdDev;
+                                const sigmaMax = mean + adjustedStdDev;
+                                const yMin = Math.max(0, Math.floor(Math.min(dataMin, sigmaMin) - 20));
+                                const yMax = Math.ceil(Math.max(dataMax, sigmaMax) + 20);
+                                const valueRange = yMax - yMin;
+                                const idealStepSize = valueRange / 8; // 使用8個間隔而不是10個，更清晰
+                                // 將步長調整為合適的整數（10, 20, 25, 30, 50, 100等）
                                 if (idealStepSize <= 10) return 10;
                                 if (idealStepSize <= 20) return 20;
                                 if (idealStepSize <= 25) return 25;
+                                if (idealStepSize <= 30) return 30;
                                 if (idealStepSize <= 50) return 50;
                                 if (idealStepSize <= 100) return 100;
                                 return Math.ceil(idealStepSize / 50) * 50; // 向上取整到50的倍數
@@ -4704,9 +4737,6 @@ function aggregateDataByMonth(data) {
 
 // 從數據庫獲取歷史數據
 async function fetchHistoricalData(startDate = null, endDate = null) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4700',message:'fetchHistoricalData entry',data:{startDate,endDate},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     try {
         let url = '/api/actual-data';
         const params = new URLSearchParams();
@@ -4715,26 +4745,14 @@ async function fetchHistoricalData(startDate = null, endDate = null) {
         if (params.toString()) url += '?' + params.toString();
         
         console.log(`🔍 查詢歷史數據 API: ${url}`);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4709',message:'before fetch',data:{url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         const response = await fetch(url);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4712',message:'after fetch',data:{ok:response.ok,status:response.status,statusText:response.statusText},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         
         if (!response.ok) {
             console.error(`❌ API 請求失敗: ${response.status} ${response.statusText}`);
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4715',message:'response not ok',data:{status:response.status,statusText:response.statusText},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-            // #endregion
             return [];
         }
         
         const data = await response.json();
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4720',message:'response json parsed',data:{success:data.success,hasData:!!data.data,dataLength:data.data?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         console.log(`📊 API 響應: success=${data.success}, data.length=${data.data ? data.data.length : 0}`);
         
         if (data.success && data.data && Array.isArray(data.data)) {
@@ -4746,62 +4764,32 @@ async function fetchHistoricalData(startDate = null, endDate = null) {
                 }))
                 .sort((a, b) => new Date(a.date) - new Date(b.date));
             console.log(`✅ 成功獲取 ${result.length} 筆歷史數據`);
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4730',message:'fetchHistoricalData success',data:{resultLength:result.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-            // #endregion
             return result;
         } else {
             console.warn(`⚠️ API 返回無效數據:`, data);
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4733',message:'invalid data format',data:{success:data.success,hasData:!!data.data,isArray:Array.isArray(data.data)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-            // #endregion
             return [];
         }
     } catch (error) {
         console.error('❌ 獲取歷史數據失敗:', error);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4737',message:'fetchHistoricalData error',data:{error:error.message,stack:error.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         return [];
     }
 }
 
 // 從數據庫獲取比較數據（實際vs預測）
 async function fetchComparisonData(limit = 100) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4740',message:'fetchComparisonData entry',data:{limit},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
     try {
         const url = `/api/comparison?limit=${limit}`;
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4742',message:'before comparison fetch',data:{url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
         const response = await fetch(url);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4743',message:'after comparison fetch',data:{ok:response.ok,status:response.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
         const data = await response.json();
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4745',message:'comparison json parsed',data:{success:data.success,hasData:!!data.data,dataLength:data.data?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
         
         if (data.success && data.data) {
             // 按日期升序排列
             const result = data.data.sort((a, b) => new Date(a.date) - new Date(b.date));
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4748',message:'fetchComparisonData success',data:{resultLength:result.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-            // #endregion
             return result;
         }
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4751',message:'comparison data invalid',data:{success:data.success,hasData:!!data.data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
         return [];
     } catch (error) {
         console.error('❌ 獲取比較數據失敗:', error);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:4753',message:'fetchComparisonData error',data:{error:error.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
         return [];
     }
 }
@@ -5085,22 +5073,10 @@ function updateWeatherDisplay() {
 // 從數據庫載入緩存的 AI 因素（快速載入）
 // ============================================
 async function loadAIFactorsFromCache() {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:5034',message:'loadAIFactorsFromCache entry',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     try {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:5036',message:'before ai-factors-cache fetch',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         const cacheResponse = await fetch('/api/ai-factors-cache');
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:5037',message:'after ai-factors-cache fetch',data:{ok:cacheResponse.ok,status:cacheResponse.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         if (cacheResponse.ok) {
             const cacheData = await cacheResponse.json();
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:5039',message:'ai-factors-cache json parsed',data:{success:cacheData.success,hasData:!!cacheData.data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-            // #endregion
             if (cacheData.success && cacheData.data) {
                 const storedFactors = cacheData.data.factors_cache || {};
                 const storedAnalysisData = cacheData.data.analysis_data || {};
@@ -5160,14 +5136,8 @@ async function loadAIFactorsFromCache() {
         }
     } catch (e) {
         console.warn('⚠️ 無法從數據庫載入 AI 緩存:', e);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:5097',message:'loadAIFactorsFromCache error',data:{error:e.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
     }
     
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/0bbe46b8-4318-456f-a6ad-979801e043c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prediction.js:5100',message:'loadAIFactorsFromCache return empty',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     return { factors: [], summary: '無緩存數據', cached: false };
 }
 
@@ -5952,11 +5922,28 @@ async function refreshPredictions(predictor) {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🏥 NDH AED 預測系統初始化...');
     
+    // 先創建預測器（使用硬編碼數據作為初始值）
     const predictor = new NDHAttendancePredictor();
     
     // 檢查數據庫狀態
     updateSectionProgress('today-prediction', 5);
     await checkDatabaseStatus();
+    
+    // 從數據庫載入最新歷史數據並更新預測器
+    try {
+        const latestHistoricalData = await fetchHistoricalData();
+        if (latestHistoricalData && latestHistoricalData.length > 0) {
+            // 轉換為預測器需要的格式
+            const formattedData = latestHistoricalData.map(d => ({
+                date: d.date,
+                attendance: d.attendance
+            }));
+            predictor.updateData(formattedData);
+            console.log(`✅ 已從數據庫載入 ${formattedData.length} 筆歷史數據並更新預測器`);
+        }
+    } catch (error) {
+        console.warn('⚠️ 無法從數據庫載入歷史數據，使用硬編碼數據:', error.message);
+    }
     
     // 檢查 AI 狀態
     updateSectionProgress('today-prediction', 8);
