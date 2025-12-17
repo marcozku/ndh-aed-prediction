@@ -866,30 +866,37 @@ const chartColors = {
 };
 
 // 獲取響應式 layout padding（根據屏幕寬度）
+// 確保所有圖表元素（圖例、標籤、工具提示）都有足夠空間顯示
 function getResponsivePadding() {
     const width = window.innerWidth;
     if (width <= 380) {
-        return { top: 8, bottom: 50, left: 0, right: 0 }; // 增加底部 padding 為 X 軸標籤留出空間
+        // 小屏幕：更多頂部和底部空間，為圖例和 X 軸標籤留出空間
+        return { top: 12, bottom: 55, left: 5, right: 5 };
     } else if (width <= 600) {
-        return { top: 8, bottom: 60, left: 2, right: 2 };
+        // 中等屏幕：平衡的 padding
+        return { top: 12, bottom: 65, left: 8, right: 8 };
     } else if (width <= 900) {
-        return { top: 10, bottom: 70, left: 5, right: 5 };
+        // 平板：更多空間
+        return { top: 15, bottom: 75, left: 10, right: 10 };
     } else {
-        return { top: 10, bottom: 80, left: 5, right: 15 }; // 桌面端需要更多底部空間
+        // 桌面端：最大空間，確保所有細節清晰可見
+        return { top: 15, bottom: 85, left: 10, right: 20 };
     }
 }
 
-// 獲取對比圖表的響應式 layout padding（需要更多底部空間容納 X 軸標籤）
+// 獲取對比圖表的響應式 layout padding（需要更多底部空間容納 X 軸標籤和統計信息）
 function getComparisonChartPadding() {
     const width = window.innerWidth;
     if (width <= 380) {
-        return { top: 10, bottom: 60, left: 5, right: 5 }; // 小屏幕需要更多底部空間
+        // 小屏幕：更多底部空間，為統計信息和 X 軸標籤留出空間
+        return { top: 12, bottom: 65, left: 5, right: 5 };
     } else if (width <= 600) {
-        return { top: 10, bottom: 70, left: 8, right: 8 };
+        return { top: 12, bottom: 75, left: 8, right: 8 };
     } else if (width <= 900) {
-        return { top: 10, bottom: 80, left: 10, right: 10 };
+        return { top: 15, bottom: 85, left: 10, right: 10 };
     } else {
-        return { top: 10, bottom: 90, left: 10, right: 15 }; // 桌面端需要更多底部空間
+        // 桌面端：最大空間，確保統計信息和圖表都清晰可見
+        return { top: 15, bottom: 95, left: 10, right: 20 };
     }
 }
 
@@ -907,7 +914,7 @@ function getResponsiveMaxTicksLimit() {
     }
 }
 
-// 專業圖表選項 - 手機友好
+// 專業圖表選項 - 手機友好，確保所有元素清晰可見
 const professionalOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -917,74 +924,104 @@ const professionalOptions = {
     },
     layout: {
         padding: getResponsivePadding(),
-        autoPadding: false
+        autoPadding: true // 啟用自動 padding，確保圖表元素不被裁剪
     },
     plugins: {
         legend: {
             display: true,
             position: 'top',
             align: 'center',
+            fullSize: true, // 確保圖例有完整空間
             labels: {
                 usePointStyle: true,
                 pointStyle: 'circle',
-                padding: 15,
+                padding: window.innerWidth <= 600 ? 10 : 15, // 響應式 padding
                 color: chartColors.text,
+                font: {
+                    size: window.innerWidth <= 600 ? 11 : 12 // 響應式字體大小
+                },
                 font: { size: 11, weight: 600 },
                 boxWidth: 8,
                 boxHeight: 8
             }
         },
         tooltip: {
-            backgroundColor: '#1e293b',
+            enabled: true,
+            backgroundColor: 'rgba(30, 41, 59, 0.95)',
             titleColor: '#fff',
             bodyColor: 'rgba(255,255,255,0.85)',
-            borderColor: 'transparent',
-            borderWidth: 0,
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            borderWidth: 1,
             cornerRadius: 10,
-            padding: 12,
+            padding: window.innerWidth <= 600 ? 10 : 12, // 響應式 padding
             boxPadding: 4,
             usePointStyle: true,
-            titleFont: { size: 13, weight: 700 },
-            bodyFont: { size: 12, weight: 500 },
-            displayColors: true
+            titleFont: { 
+                size: window.innerWidth <= 600 ? 12 : 13, 
+                weight: 700 
+            },
+            bodyFont: { 
+                size: window.innerWidth <= 600 ? 11 : 12, 
+                weight: 500 
+            },
+            displayColors: true,
+            // 確保工具提示不會被裁剪，自動調整位置
+            position: 'nearest',
+            xAlign: 'center',
+            yAlign: 'bottom',
+            // 確保工具提示在正確的 z-index 層級
+            external: null
         }
     },
-    scales: {
-        x: {
-            ticks: { 
-                color: chartColors.text,
-                font: { size: 11, weight: 600 },
-                padding: 8,
-                maxRotation: 0,
-                autoSkip: true,
-                autoSkipPadding: 10
-            },
-            grid: { 
-                display: false
-            },
-            border: {
-                display: false
-            }
-        },
-        y: {
-            ticks: { 
-                color: chartColors.textSecondary,
-                font: { size: 11, weight: 500 },
-                padding: 10,
-                callback: function(value) {
-                    return value;
+        scales: {
+            x: {
+                ticks: { 
+                    color: chartColors.text,
+                    font: { 
+                        size: window.innerWidth <= 600 ? 10 : 11, 
+                        weight: 600 
+                    },
+                    padding: window.innerWidth <= 600 ? 6 : 8, // 響應式 padding
+                    maxRotation: window.innerWidth <= 600 ? 45 : 0, // 小屏幕允許旋轉
+                    minRotation: 0,
+                    autoSkip: true,
+                    autoSkipPadding: 10,
+                    maxTicksLimit: getResponsiveMaxTicksLimit()
+                },
+                grid: { 
+                    display: false,
+                    drawBorder: true,
+                    borderColor: chartColors.border
+                },
+                border: {
+                    display: false
                 }
             },
-            grid: { 
-                color: 'rgba(0, 0, 0, 0.04)',
-                drawBorder: false,
-                lineWidth: 1
-            },
-            border: {
-                display: false
+            y: {
+                ticks: { 
+                    color: chartColors.textSecondary,
+                    font: { 
+                        size: window.innerWidth <= 600 ? 10 : 11, 
+                        weight: 500 
+                    },
+                    padding: window.innerWidth <= 600 ? 6 : 10, // 響應式 padding
+                    callback: function(value) {
+                        return value;
+                    },
+                    // 確保 Y 軸標籤有足夠空間
+                    maxTicksLimit: window.innerWidth <= 600 ? 6 : 10
+                },
+                grid: { 
+                    color: 'rgba(0, 0, 0, 0.04)',
+                    drawBorder: true,
+                    borderColor: chartColors.border,
+                    lineWidth: 1
+                },
+                border: {
+                    display: false
+                }
             }
         }
-    }
 };
 
 // 更新載入進度

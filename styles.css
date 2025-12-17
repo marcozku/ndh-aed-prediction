@@ -1094,9 +1094,10 @@ section h2 {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 20px rgba(0, 0, 0, 0.03);
     transition: var(--transition-base);
     position: relative;
-    overflow: hidden; /* 防止內容溢出 */
+    overflow: visible; /* 改為 visible，允許工具提示完整顯示 */
     overflow-x: hidden; /* 明確防止水平溢出 */
     box-sizing: border-box;
+    z-index: 1; /* 確保卡片在正確的層級 */
 }
 
 .chart-card:hover {
@@ -1143,10 +1144,11 @@ section h2 {
     height: min(50vh, 500px); /* 增加高度：視窗高度的50%，最大500px */
     min-height: min(45vh, 450px); /* 增加最小高度：視窗高度的45%，最小450px */
     box-sizing: border-box;
-    overflow: hidden; /* 防止圖表內容溢出 */
+    overflow: visible; /* 改為 visible，允許工具提示和圖例完整顯示 */
     overflow-x: hidden; /* 明確防止水平溢出 */
     margin: 0;
-    padding: 0 0 min(6vh, 50px) 0; /* 減少底部 padding：視窗高度的6%，最大50px */
+    padding: 0; /* 移除 padding，由 Chart.js layout.padding 控制 */
+    z-index: 1; /* 確保圖表在正確的層級 */
 }
 
 /* 對比圖容器特殊處理 - 固定高度防止無限增長 */
@@ -1259,18 +1261,21 @@ section h2 {
     margin: 0;
     padding: 0;
     position: relative;
+    z-index: 2; /* 確保 canvas 在正確的層級，但低於工具提示 */
 }
 
-/* 確保所有圖表容器正確約束寬度 */
+/* 確保所有圖表容器正確約束寬度，但允許工具提示顯示 */
 #forecast-chart-container,
 #dow-chart-container,
 #month-chart-container,
 #history-chart-container {
     width: 100% !important;
     max-width: 100% !important;
-    overflow: hidden !important;
-    overflow-x: hidden !important;
+    overflow: visible !important; /* 改為 visible，允許工具提示完整顯示 */
+    overflow-x: hidden !important; /* 明確防止水平溢出 */
     box-sizing: border-box !important;
+    z-index: 1 !important; /* 確保容器在正確的層級 */
+    position: relative !important; /* 確保 z-index 生效 */
 }
 
 /* 確保對比圖的 canvas 不會超出容器，使用固定高度 */
@@ -1299,8 +1304,10 @@ section h2 {
     max-width: 100% !important;
     box-sizing: border-box !important;
     padding: 12px !important; /* 減少 padding */
-    margin-bottom: 12px !important; /* 減少底部間距 */
+    margin-bottom: 16px !important; /* 增加底部間距，確保與圖表分離 */
     overflow: visible !important; /* 允許所有內容顯示 */
+    z-index: 1 !important; /* 確保統計信息在正確的層級 */
+    position: relative !important; /* 確保 z-index 生效 */
     min-height: auto !important; /* 讓內容決定高度 */
     max-height: 160px !important; /* 減少最大高度 */
     position: relative !important;
@@ -2065,21 +2072,51 @@ section h2 {
     }
     
     .chart-container {
-        height: min(42vh, 450px); /* 世界級標準：視窗高度的42%，最大450px */
-        min-height: min(35vh, 380px); /* 世界級標準最小高度 */
-        width: 100%;
-        max-width: 100%;
+        height: min(45vh, 480px) !important; /* 移動端：增加高度，確保圖表清晰 */
+        min-height: min(38vh, 400px) !important; /* 移動端：增加最小高度 */
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: visible !important; /* 允許工具提示顯示 */
+        padding: 0 !important; /* 移除 padding，由 Chart.js 控制 */
     }
     
     .chart-container.large {
-        height: min(50vh, 550px); /* 世界級標準：視窗高度的50%，最大550px */
-        min-height: min(42vh, 480px); /* 世界級標準最小高度 */
+        height: min(55vh, 600px) !important; /* 移動端：增加高度 */
+        min-height: min(45vh, 500px) !important; /* 移動端：增加最小高度 */
     }
     
     .chart-container canvas {
         width: 100% !important;
         max-width: 100% !important;
+        height: 100% !important;
     }
+    
+    /* 確保圖例在移動端有足夠空間 */
+    .chart-card h3 {
+        margin-bottom: var(--space-sm) !important; /* 減少標題底部間距 */
+    }
+
+/* Chart.js 工具提示樣式 - 確保在所有設備上清晰可見 */
+.chartjs-tooltip {
+    z-index: 9999 !important; /* 確保工具提示在最上層 */
+    pointer-events: none !important; /* 不阻擋鼠標事件 */
+    position: absolute !important;
+    background: rgba(30, 41, 59, 0.95) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 10px !important;
+    padding: 10px 12px !important;
+    color: #fff !important;
+    font-size: 12px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    max-width: 90vw !important; /* 確保在小屏幕上不會超出視窗 */
+    word-wrap: break-word !important;
+}
+
+/* 確保圖表容器不會裁剪工具提示 */
+.chart-container,
+.chart-card {
+    overflow: visible !important;
+}
 
 /* 圖表載入狀態 */
 .chart-loading {
