@@ -4,8 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '1.3.1';
-const APP_VERSION = require('./package.json').version;
+const MODEL_VERSION = '2.2.0';
 
 // AI 服務（僅在服務器端使用）
 let aiService = null;
@@ -15,209 +14,71 @@ try {
     console.warn('⚠️ AI 服務模組載入失敗（客戶端環境）:', err.message);
 }
 
-// Database connection (only if DATABASE_URL is set)
+// Database connection (嘗試初始化，database.js 會檢查所有可用的環境變數)
 let db = null;
-if (process.env.DATABASE_URL) {
-    db = require('./database');
+// 檢查是否有任何數據庫環境變數
+const hasDbConfig = process.env.DATABASE_URL || 
+                   (process.env.PGHOST && process.env.PGUSER && process.env.PGPASSWORD && process.env.PGDATABASE);
+
+// 總是嘗試初始化數據庫模組（即使沒有環境變數，也會返回 null pool）
+db = require('./database');
+
+if (hasDbConfig) {
     db.initDatabase().then(async () => {
-        // 數據庫初始化成功後，自動檢查並導入歷史數據
-        await autoImportHistoricalData();
-    }).catch(err => {
-        console.error('Failed to initialize database:', err.message);
-    });
-}
-
-// 自動導入歷史數據（如果尚未導入）
-async function autoImportHistoricalData() {
-    if (!db || !db.pool) {
-        console.log('⚠️ 數據庫未配置，跳過自動導入');
-        return;
-    }
-    
-    try {
-        // 1. 導入 import-historical-data.js 中的數據
-        const checkResult1 = await db.pool.query(
-            "SELECT COUNT(*) as count FROM actual_data WHERE source = 'historical_bulk_import'"
-        );
-        const existingCount1 = parseInt(checkResult1.rows[0].count);
-        
-        if (existingCount1 === 0) {
-            console.log('📊 開始自動導入 import-historical-data.js 中的歷史數據...');
-            const importScript = require('./import-historical-data');
-            // 傳入已初始化的db實例（跳過初始化，因為已經初始化了）
-            await importScript.importHistoricalData(true, db);
-            console.log('✅ import-historical-data.js 數據導入完成');
-        } else {
-            console.log(`✅ import-historical-data.js 數據已存在（${existingCount1}筆），跳過`);
-        }
-        
-        // 2. 導入 prediction.js 中的 HISTORICAL_DATA
-        const checkResult2 = await db.pool.query(
-            "SELECT COUNT(*) as count FROM actual_data WHERE source = 'prediction_js_historical'"
-        );
-        const existingCount2 = parseInt(checkResult2.rows[0].count);
-        
-        if (existingCount2 === 0) {
-            console.log('📊 開始自動導入 prediction.js 中的 HISTORICAL_DATA...');
-            await importPredictionJsHistoricalData();
-            console.log('✅ prediction.js HISTORICAL_DATA 導入完成');
-        } else {
-            console.log(`✅ prediction.js HISTORICAL_DATA 已存在（${existingCount2}筆），跳過`);
-        }
-        
-        // 3. 導入 seed-data.js 中的數據（如果存在）
-        const checkResult3 = await db.pool.query(
-            "SELECT COUNT(*) as count FROM actual_data WHERE source = 'seed_data_historical'"
-        );
-        const existingCount3 = parseInt(checkResult3.rows[0].count);
-        
-        if (existingCount3 === 0) {
+        // 數據庫初始化完成後，自動導入 CSV 數據
+        const defaultCsvPath = '/Users/yoyoau/Library/Containers/net.whatsapp.WhatsApp/Data/tmp/documents/86448351-FEDA-406E-B465-B7D0B0753234/NDH_AED_Attendance_Minimal.csv';
+        if (fs.existsSync(defaultCsvPath)) {
+            console.log('📊 檢測到 CSV 文件，開始自動導入...');
             try {
-                console.log('📊 開始自動導入 seed-data.js 中的歷史數據...');
-                const seedData = require('./seed-data');
-                if (seedData.seedHistoricalData) {
-                    await seedData.seedHistoricalData(db);
-                    console.log('✅ seed-data.js 數據導入完成');
+                const { importCSVData } = require('./import-csv-data');
+            const result = await importCSVData(defaultCsvPath, db);
+            if (result.success) {
+                console.log(`✅ 自動導入完成！成功導入 ${result.count} 筆數據`);
+                // 導入完成後，計算所有導入日期的準確度（如果有預測數據）
+                if (result.count > 0 && result.importedDates && db.calculateAccuracy) {
+                    console.log('📊 開始計算導入數據的準確度...');
+                    let accuracyCount = 0;
+                    for (const date of result.importedDates) {
+                        try {
+                            const accuracy = await db.calculateAccuracy(date);
+                            if (accuracy) {
+                                accuracyCount++;
+                            }
+                        } catch (err) {
+                            console.warn(`⚠️ 計算 ${date} 準確度時出錯:`, err.message);
+                        }
+                    }
+                    if (accuracyCount > 0) {
+                        console.log(`✅ 已計算 ${accuracyCount} 筆數據的準確度`);
+                    } else {
+                        console.log('ℹ️ 沒有找到對應的預測數據，跳過準確度計算');
+                    }
                 }
+            } else {
+                console.error(`❌ 自動導入失敗: ${result.error}`);
+            }
             } catch (err) {
-                console.log('⚠️ seed-data.js 導入跳過（可能已存在或無數據）:', err.message);
+                console.error('❌ 自動導入 CSV 時出錯:', err.message);
             }
-        } else {
-            console.log(`✅ seed-data.js 數據已存在（${existingCount3}筆），跳過`);
         }
         
-        // 顯示總計和按來源統計
-        const totalResult = await db.pool.query("SELECT COUNT(*) as count FROM actual_data");
-        const totalCount = parseInt(totalResult.rows[0].count);
-        
-        const sourceStats = await db.pool.query(`
-            SELECT source, COUNT(*) as count 
-            FROM actual_data 
-            GROUP BY source 
-            ORDER BY count DESC
-        `);
-        
-        console.log(`\n📊 數據庫統計:`);
-        console.log(`   總計: ${totalCount} 筆歷史數據`);
-        sourceStats.rows.forEach(row => {
-            console.log(`   ${row.source}: ${row.count} 筆`);
-        });
-        
-        // 檢查日期範圍
-        const dateRange = await db.pool.query(`
-            SELECT MIN(date) as min_date, MAX(date) as max_date 
-            FROM actual_data
-        `);
-        if (dateRange.rows[0].min_date) {
-            console.log(`   日期範圍: ${dateRange.rows[0].min_date} 至 ${dateRange.rows[0].max_date}`);
-        }
-        
-    } catch (error) {
-        console.error('❌ 自動導入歷史數據失敗:', error.message);
-        console.error('錯誤堆疊:', error.stack);
-        // 不阻止服務器啟動，只記錄錯誤
-    }
-}
-
-// 導入 prediction.js 中的 HISTORICAL_DATA
-async function importPredictionJsHistoricalData() {
-    if (!db || !db.pool) {
-        return;
-    }
-    
-    try {
-        // 使用 vm 模組安全地執行 prediction.js 並提取 HISTORICAL_DATA
-        const fs = require('fs');
-        const path = require('path');
-        const vm = require('vm');
-        
-        const predictionJsPath = path.join(__dirname, 'prediction.js');
-        const predictionJsContent = fs.readFileSync(predictionJsPath, 'utf8');
-        
-        // 提取 HISTORICAL_DATA 數組定義
-        const dataMatch = predictionJsContent.match(/const HISTORICAL_DATA = \[([\s\S]*?)\];/);
-        if (!dataMatch) {
-            console.log('⚠️ 無法在 prediction.js 中找到 HISTORICAL_DATA');
-            return;
-        }
-        
-        // 使用 vm 安全執行來提取數據
-        const context = { HISTORICAL_DATA: null };
+        // 自動添加 1/12 到 12/12 的實際數據（如果不存在）
         try {
-            // 提取數組部分並執行
-            const arrayCode = dataMatch[0].replace('const ', '');
-            const script = new vm.Script(arrayCode);
-            script.runInNewContext(context);
-            
-            if (!context.HISTORICAL_DATA || !Array.isArray(context.HISTORICAL_DATA)) {
-                throw new Error('HISTORICAL_DATA 不是數組');
-            }
-            
-            const dataItems = context.HISTORICAL_DATA.map(d => ({
-                date: d.date,
-                patient_count: d.attendance
-            }));
-            
-            console.log(`📊 從 prediction.js 解析出 ${dataItems.length} 筆歷史數據`);
-            
-            // 轉換為數據庫格式
-            const dataToInsert = dataItems.map(d => ({
-                date: d.date,
-                patient_count: d.patient_count,
-                source: 'prediction_js_historical',
-                notes: `從 prediction.js 自動導入的歷史數據（共 ${dataItems.length} 筆）`
-            }));
-            
-            // 批量插入數據（使用 ON CONFLICT 更新，避免重複）
-            console.log(`💾 準備插入/更新 ${dataToInsert.length} 筆 prediction.js 數據...`);
-            const results = await db.insertBulkActualData(dataToInsert);
-            console.log(`✅ 成功導入/更新 ${results.length} 筆 prediction.js 歷史數據到數據庫`);
-            
-            return results;
-        } catch (vmError) {
-            console.log('⚠️ VM 執行失敗，嘗試正則表達式解析:', vmError.message);
-            
-            // 備用方法：使用正則表達式解析
-            const dataArrayStr = dataMatch[1];
-            const dataItems = [];
-            
-            // 改進的正則匹配：支持多行和各種空白字符
-            const itemRegex = /\{\s*date:\s*['"]([^'"]+)['"],\s*attendance:\s*(\d+)\s*\}/g;
-            let match;
-            while ((match = itemRegex.exec(dataArrayStr)) !== null) {
-                dataItems.push({
-                    date: match[1],
-                    patient_count: parseInt(match[2], 10)
-                });
-            }
-            
-            if (dataItems.length === 0) {
-                console.log('❌ 無法從 prediction.js 中解析出任何歷史數據');
-                return;
-            }
-            
-            console.log(`📊 使用正則表達式解析出 ${dataItems.length} 筆歷史數據`);
-            
-            // 轉換為數據庫格式
-            const dataToInsert = dataItems.map(d => ({
-                date: d.date,
-                patient_count: d.patient_count,
-                source: 'prediction_js_historical',
-                notes: `從 prediction.js 自動導入的歷史數據（共 ${dataItems.length} 筆）`
-            }));
-            
-            // 批量插入數據
-            console.log(`💾 準備插入/更新 ${dataToInsert.length} 筆 prediction.js 數據...`);
-            const results = await db.insertBulkActualData(dataToInsert);
-            console.log(`✅ 成功導入/更新 ${results.length} 筆 prediction.js 歷史數據到數據庫`);
-            
-            return results;
+            const { autoAddData } = require('./auto-add-data-on-deploy');
+            await autoAddData();
+        } catch (err) {
+            console.warn('⚠️ 自動添加實際數據時出錯（可能模組不存在）:', err.message);
         }
-    } catch (error) {
-        console.error('❌ 導入 prediction.js 歷史數據失敗:', error.message);
-        console.error('錯誤堆疊:', error.stack);
-        throw error;
-    }
+    }).catch(err => {
+        console.error('❌ 數據庫初始化失敗:', err.message);
+        console.error('錯誤詳情:', err.stack);
+        // 即使初始化失敗，也保留 db 對象（pool 會是 null）
+    });
+} else {
+    // 即使沒有環境變數，也嘗試初始化（database.js 會處理）
+    db.initDatabase().catch(err => {
+        console.warn('⚠️ 數據庫環境變數未設置，數據庫功能將不可用');
+    });
 }
 
 const mimeTypes = {
@@ -260,7 +121,7 @@ function sendJson(res, data, statusCode = 200) {
 const apiHandlers = {
     // Upload actual data
     'POST /api/actual-data': async (req, res) => {
-        if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         const data = await parseBody(req);
         if (Array.isArray(data)) {
@@ -268,8 +129,16 @@ const apiHandlers = {
             const results = await db.insertBulkActualData(data);
             
             // Calculate accuracy for any dates that now have both prediction and actual
+            // Also calculate final daily predictions for dates that have daily_predictions
             for (const record of results) {
                 await db.calculateAccuracy(record.date);
+                // 如果該日期有 daily_predictions，計算最終預測
+                try {
+                    await db.calculateFinalDailyPrediction(record.date);
+                } catch (err) {
+                    // 如果沒有預測數據，忽略錯誤
+                    console.log(`ℹ️ ${record.date} 沒有預測數據，跳過最終預測計算`);
+                }
             }
             
             sendJson(res, { success: true, inserted: results.length, data: results });
@@ -277,23 +146,35 @@ const apiHandlers = {
             // Single record
             const result = await db.insertActualData(data.date, data.patient_count, data.source, data.notes);
             await db.calculateAccuracy(data.date);
+            // 如果該日期有 daily_predictions，計算最終預測
+            try {
+                await db.calculateFinalDailyPrediction(data.date);
+            } catch (err) {
+                // 如果沒有預測數據，忽略錯誤
+                console.log(`ℹ️ ${data.date} 沒有預測數據，跳過最終預測計算`);
+            }
             sendJson(res, { success: true, data: result });
         }
     },
 
     // Get actual data
     'GET /api/actual-data': async (req, res) => {
-        if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
-        const parsedUrl = url.parse(req.url, true);
-        const { start, end } = parsedUrl.query;
-        const data = await db.getActualData(start, end);
-        sendJson(res, { success: true, data });
+        try {
+            const parsedUrl = url.parse(req.url, true);
+            const { start, end } = parsedUrl.query;
+            const data = await db.getActualData(start, end);
+            sendJson(res, { success: true, data });
+        } catch (error) {
+            console.error('❌ 獲取實際數據失敗:', error);
+            sendJson(res, { success: false, error: error.message }, 500);
+        }
     },
 
     // Store prediction (called internally when predictions are made)
     'POST /api/predictions': async (req, res) => {
-        if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         const data = await parseBody(req);
         const today = new Date().toISOString().split('T')[0];
@@ -310,7 +191,7 @@ const apiHandlers = {
 
     // Store daily prediction (each update throughout the day)
     'POST /api/daily-predictions': async (req, res) => {
-        if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         const data = await parseBody(req);
         const result = await db.insertDailyPrediction(
@@ -327,7 +208,7 @@ const apiHandlers = {
 
     // Calculate final daily prediction (average of all predictions for a day)
     'POST /api/calculate-final-prediction': async (req, res) => {
-        if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         const data = await parseBody(req);
         const targetDate = data.target_date || new Date().toISOString().split('T')[0];
@@ -342,7 +223,7 @@ const apiHandlers = {
 
     // Get predictions
     'GET /api/predictions': async (req, res) => {
-        if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         const parsedUrl = url.parse(req.url, true);
         const { start, end } = parsedUrl.query;
@@ -352,7 +233,7 @@ const apiHandlers = {
 
     // Get accuracy statistics
     'GET /api/accuracy': async (req, res) => {
-        if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         const stats = await db.getAccuracyStats();
         sendJson(res, { success: true, data: stats });
@@ -360,12 +241,67 @@ const apiHandlers = {
 
     // Get comparison data (actual vs predicted)
     'GET /api/comparison': async (req, res) => {
-        if (!db) return sendJson(res, { error: 'Database not configured' }, 503);
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
-        const parsedUrl = url.parse(req.url, true);
-        const limit = parseInt(parsedUrl.query.limit) || 30;
-        const data = await db.getComparisonData(limit);
-        sendJson(res, { success: true, data });
+        try {
+            const parsedUrl = url.parse(req.url, true);
+            const limit = parseInt(parsedUrl.query.limit) || 100;
+            const data = await db.getComparisonData(limit);
+            console.log(`📊 比較數據查詢結果: ${data.length} 筆數據`);
+            sendJson(res, { success: true, data });
+        } catch (error) {
+            console.error('❌ 獲取比較數據失敗:', error);
+            console.error('錯誤詳情:', error.stack);
+            sendJson(res, { error: error.message, stack: error.stack }, 500);
+        }
+    },
+
+    // Debug: Check data for specific dates
+    'GET /api/debug-data': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        try {
+            const parsedUrl = url.parse(req.url, true);
+            const dates = parsedUrl.query.dates ? parsedUrl.query.dates.split(',') : ['2025-12-04', '2025-12-05', '2025-12-06'];
+            
+            const results = [];
+            for (const date of dates) {
+                const actualQuery = await db.pool.query('SELECT * FROM actual_data WHERE date = $1', [date]);
+                const dailyPredQuery = await db.pool.query('SELECT * FROM daily_predictions WHERE target_date = $1 ORDER BY created_at DESC', [date]);
+                const finalPredQuery = await db.pool.query('SELECT * FROM final_daily_predictions WHERE target_date = $1', [date]);
+                const predQuery = await db.pool.query('SELECT * FROM predictions WHERE target_date = $1 ORDER BY created_at DESC', [date]);
+                const accuracyQuery = await db.pool.query('SELECT * FROM prediction_accuracy WHERE date = $1', [date]);
+                
+                results.push({
+                    date,
+                    actual_data: actualQuery.rows[0] || null,
+                    daily_predictions: dailyPredQuery.rows,
+                    final_daily_predictions: finalPredQuery.rows[0] || null,
+                    predictions: predQuery.rows,
+                    prediction_accuracy: accuracyQuery.rows[0] || null
+                });
+            }
+            
+            sendJson(res, { success: true, data: results });
+        } catch (err) {
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+
+    // Auto-add actual data (manual trigger)
+    'POST /api/auto-add-actual-data': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        try {
+            const { autoAddData } = require('./auto-add-data-on-deploy');
+            await autoAddData();
+            sendJson(res, { success: true, message: '實際數據已自動添加' });
+        } catch (err) {
+            console.error('自動添加實際數據失敗:', err);
+            sendJson(res, { success: false, error: err.message }, 500);
+        }
     },
 
     // Database status
@@ -378,12 +314,32 @@ const apiHandlers = {
             const stats = await db.getAccuracyStats();
             const actualCount = await db.pool.query('SELECT COUNT(*) FROM actual_data');
             const predCount = await db.pool.query('SELECT COUNT(*) FROM predictions');
+            
+            // 獲取實際數據的日期範圍
+            const dateRange = await db.pool.query(`
+                SELECT 
+                    MIN(date) as min_date, 
+                    MAX(date) as max_date,
+                    COUNT(*) as total_count
+                FROM actual_data
+            `);
+            
+            const dateRangeData = dateRange.rows[0];
+            const minDate = dateRangeData.min_date;
+            const maxDate = dateRangeData.max_date;
+            const totalDays = dateRangeData.total_count ? parseInt(dateRangeData.total_count) : 0;
+            
             sendJson(res, { 
                 connected: true, 
                 model_version: MODEL_VERSION,
                 actual_data_count: parseInt(actualCount.rows[0].count),
                 predictions_count: parseInt(predCount.rows[0].count),
-                stats 
+                stats,
+                date_range: {
+                    min_date: minDate,
+                    max_date: maxDate,
+                    total_days: totalDays
+                }
             });
         } catch (err) {
             sendJson(res, { connected: false, error: err.message }, 500);
@@ -404,6 +360,196 @@ const apiHandlers = {
                 count: results.length 
             });
         } catch (err) {
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+
+    // Add specific actual data (2025-12-01 to 2025-12-06)
+    'POST /api/add-december-data': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        try {
+            const actualData = [
+                { date: '2025-12-01', patient_count: 276 },
+                { date: '2025-12-02', patient_count: 285 },
+                { date: '2025-12-03', patient_count: 253 },
+                { date: '2025-12-04', patient_count: 234 },
+                { date: '2025-12-05', patient_count: 262 },
+                { date: '2025-12-06', patient_count: 234 }
+            ];
+            
+            const results = await db.insertBulkActualData(actualData.map(d => ({
+                date: d.date,
+                patient_count: d.patient_count,
+                source: 'manual_upload',
+                notes: 'Added via API endpoint'
+            })));
+            
+            // Calculate accuracy for all dates
+            // Also calculate final daily predictions for dates that have daily_predictions
+            for (const record of results) {
+                await db.calculateAccuracy(record.date);
+                // 如果該日期有 daily_predictions，計算最終預測
+                try {
+                    await db.calculateFinalDailyPrediction(record.date);
+                } catch (err) {
+                    // 如果沒有預測數據，忽略錯誤
+                    console.log(`ℹ️ ${record.date} 沒有預測數據，跳過最終預測計算`);
+                }
+            }
+            
+            sendJson(res, { 
+                success: true, 
+                inserted: results.length, 
+                data: results,
+                message: `成功添加 ${results.length} 筆實際數據並計算準確度`
+            });
+        } catch (err) {
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+
+    // Import CSV data
+    'POST /api/import-csv': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        try {
+            const { importCSVData, parseCSV } = require('./import-csv-data');
+            const parsedUrl = url.parse(req.url, true);
+            const csvPath = parsedUrl.query.path || req.body?.path;
+            
+            if (!csvPath) {
+                return sendJson(res, { error: '請提供 CSV 文件路徑' }, 400);
+            }
+            
+            // 傳遞數據庫模塊以使用現有連接
+            const result = await importCSVData(csvPath, db);
+            if (result.success) {
+                // 導入完成後，計算所有導入日期的準確度（如果有預測數據）
+                let accuracyCount = 0;
+                if (result.count > 0 && result.importedDates && db.calculateAccuracy) {
+                    for (const date of result.importedDates) {
+                        try {
+                            const accuracy = await db.calculateAccuracy(date);
+                            if (accuracy) accuracyCount++;
+                        } catch (err) {
+                            // 忽略錯誤，繼續處理下一個
+                        }
+                    }
+                }
+                
+                sendJson(res, {
+                    success: true,
+                    message: `成功導入 ${result.count} 筆數據${accuracyCount > 0 ? `，已計算 ${accuracyCount} 筆準確度` : ''}`,
+                    count: result.count,
+                    errors: result.errors || 0,
+                    accuracyCalculated: accuracyCount
+                });
+            } else {
+                sendJson(res, { error: result.error || '導入失敗' }, 500);
+            }
+        } catch (err) {
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+
+    // Clear all data and reimport CSV
+    'POST /api/clear-and-reimport': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        try {
+            const { importCSVData } = require('./import-csv-data');
+            const parsedUrl = url.parse(req.url, true);
+            const csvPath = parsedUrl.query.path || req.body?.path || '/Users/yoyoau/Library/Containers/net.whatsapp.WhatsApp/Data/tmp/documents/86448351-FEDA-406E-B465-B7D0B0753234/NDH_AED_Attendance_Minimal.csv';
+            
+            if (!fs.existsSync(csvPath)) {
+                return sendJson(res, { error: `CSV 文件不存在: ${csvPath}` }, 404);
+            }
+            
+            console.log('🗑️  開始清除並重新導入數據...');
+            
+            // 1. 清除所有數據
+            await db.clearAllData();
+            console.log('✅ 所有數據已清除');
+            
+            // 2. 重新導入 CSV 數據
+            const result = await importCSVData(csvPath, db);
+            
+            if (result.success) {
+                // 3. 獲取統計信息
+                const actualCount = await db.pool.query('SELECT COUNT(*) FROM actual_data');
+                
+                console.log(`✅ 清除並重新導入完成！成功導入 ${result.count} 筆數據`);
+                sendJson(res, {
+                    success: true,
+                    message: `成功清除並重新導入 ${result.count} 筆數據`,
+                    count: result.count,
+                    errors: result.errors || 0,
+                    totalRecords: parseInt(actualCount.rows[0].count)
+                });
+            } else {
+                console.error(`❌ 重新導入失敗: ${result.error}`);
+                sendJson(res, { error: result.error || '重新導入失敗' }, 500);
+            }
+        } catch (err) {
+            console.error('❌ 清除並重新導入失敗:', err);
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+
+    // Auto import CSV data from default path
+    'POST /api/auto-import-csv': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        try {
+            const { importCSVData } = require('./import-csv-data');
+            // 默認 CSV 文件路徑
+            const defaultCsvPath = '/Users/yoyoau/Library/Containers/net.whatsapp.WhatsApp/Data/tmp/documents/86448351-FEDA-406E-B465-B7D0B0753234/NDH_AED_Attendance_Minimal.csv';
+            
+            if (!fs.existsSync(defaultCsvPath)) {
+                return sendJson(res, { error: `CSV 文件不存在: ${defaultCsvPath}` }, 404);
+            }
+            
+            console.log(`📊 開始自動導入 CSV 數據: ${defaultCsvPath}`);
+            // 傳遞數據庫模塊以使用現有連接
+            const result = await importCSVData(defaultCsvPath, db);
+            
+            if (result.success) {
+                console.log(`✅ 成功導入 ${result.count} 筆數據`);
+                // 導入完成後，計算所有導入日期的準確度（如果有預測數據）
+                let accuracyCount = 0;
+                if (result.count > 0 && result.importedDates && db.calculateAccuracy) {
+                    console.log('📊 開始計算導入數據的準確度...');
+                    for (const date of result.importedDates) {
+                        try {
+                            const accuracy = await db.calculateAccuracy(date);
+                            if (accuracy) accuracyCount++;
+                        } catch (err) {
+                            console.warn(`⚠️ 計算 ${date} 準確度時出錯:`, err.message);
+                        }
+                    }
+                    if (accuracyCount > 0) {
+                        console.log(`✅ 已計算 ${accuracyCount} 筆數據的準確度`);
+                    }
+                }
+                
+                sendJson(res, {
+                    success: true,
+                    message: `成功導入 ${result.count} 筆數據${accuracyCount > 0 ? `，已計算 ${accuracyCount} 筆準確度` : ''}`,
+                    count: result.count,
+                    errors: result.errors || 0,
+                    accuracyCalculated: accuracyCount
+                });
+            } else {
+                console.error(`❌ 導入失敗: ${result.error}`);
+                sendJson(res, { error: result.error || '導入失敗' }, 500);
+            }
+        } catch (err) {
+            console.error('❌ 自動導入 CSV 失敗:', err);
             sendJson(res, { error: err.message }, 500);
         }
     },
@@ -634,15 +780,6 @@ const apiHandlers = {
         }
     },
 
-    // 獲取版本信息
-    'GET /api/version': async (req, res) => {
-        sendJson(res, {
-            success: true,
-            modelVersion: MODEL_VERSION,
-            appVersion: APP_VERSION
-        });
-    },
-
     // 獲取 AI 因素緩存（從數據庫）
     'GET /api/ai-factors-cache': async (req, res) => {
         if (!db || !db.pool) {
@@ -668,6 +805,74 @@ const apiHandlers = {
     },
 
     // 更新 AI 因素緩存（保存到數據庫）
+    'POST /api/convert-to-traditional': async (req, res) => {
+        try {
+            // 使用 parseBody 解析請求體
+            const body = await parseBody(req);
+            const { text } = body;
+
+            if (!text || typeof text !== 'string') {
+                return sendJson(res, {
+                    success: false,
+                    error: '請提供有效的文本'
+                }, 400);
+            }
+
+            // 嘗試使用 chinese-conv 進行轉換
+            let chineseConv = null;
+            try {
+                chineseConv = require('chinese-conv');
+            } catch (e) {
+                // 如果 chinese-conv 未安裝，返回原文
+                console.warn('⚠️ chinese-conv 未安裝，返回原文');
+                return sendJson(res, {
+                    success: true,
+                    original: text,
+                    converted: text // 返回原文
+                });
+            }
+
+            try {
+                // 使用 tify 方法將簡體轉換為繁體（Traditional）
+                // sify 是簡體化（Simplified），tify 是繁體化（Traditional）
+                if (typeof chineseConv.tify !== 'function') {
+                    console.error('❌ chinese-conv.tify 不是函數，無法轉換');
+                    return sendJson(res, {
+                        success: false,
+                        error: '轉換功能不可用：tify 方法不存在'
+                    }, 500);
+                }
+
+                const converted = chineseConv.tify(text);
+                
+                if (!converted || converted === text) {
+                    // 如果轉換結果為空或與原文相同，可能是已經是繁體或轉換失敗
+                    console.warn('⚠️ 轉換結果與原文相同，可能已經是繁體中文');
+                }
+                
+                return sendJson(res, {
+                    success: true,
+                    original: text,
+                    converted: converted || text
+                });
+            } catch (e) {
+                console.error('❌ 轉換失敗:', e.message, e.stack);
+                return sendJson(res, {
+                    success: false,
+                    error: `轉換失敗: ${e.message}`,
+                    original: text
+                }, 500);
+            }
+        } catch (error) {
+            console.error('❌ 轉換 API 錯誤:', error);
+            // 即使解析失敗，也嘗試返回一個合理的響應
+            return sendJson(res, {
+                success: false,
+                error: error.message || '未知錯誤'
+            }, 500);
+        }
+    },
+    
     'POST /api/ai-factors-cache': async (req, res) => {
         if (!db || !db.pool) {
             return sendJson(res, { 
@@ -824,35 +1029,6 @@ async function calculateYesterdayFinalPrediction() {
     }
 }
 
-// 自動導入歷史數據
-async function autoImportHistoricalData() {
-    if (!db || !db.pool) {
-        console.log('⚠️ 數據庫未配置，跳過自動導入');
-        return;
-    }
-    
-    try {
-        // 等待數據庫連接就緒
-        await db.pool.query('SELECT 1');
-        
-        // 檢查是否已經有數據
-        const existingData = await db.getActualData();
-        if (existingData && existingData.length > 0) {
-            console.log(`ℹ️ 數據庫中已有 ${existingData.length} 筆歷史數據，跳過自動導入`);
-            return;
-        }
-        
-        console.log('📊 開始自動導入歷史數據...');
-        const { importHistoricalData } = require('./import-historical-data');
-        // 跳過數據庫初始化，因為已經初始化過了
-        await importHistoricalData(true);
-        console.log('✅ 歷史數據自動導入完成');
-    } catch (error) {
-        console.error('❌ 自動導入歷史數據失敗:', error.message);
-        // 不阻止服務器啟動，只記錄錯誤
-    }
-}
-
 // 設置定時任務：每天00:00 HKT計算前一天的最終預測
 function scheduleDailyFinalPrediction() {
     let lastCalculatedDate = null;
@@ -886,12 +1062,12 @@ function scheduleDailyFinalPrediction() {
 server.listen(PORT, () => {
     console.log(`🏥 NDH AED 預測系統運行於 http://localhost:${PORT}`);
     console.log(`📊 預測模型版本 ${MODEL_VERSION}`);
-    if (process.env.DATABASE_URL) {
+    if (db && db.pool) {
         console.log(`🗄️ PostgreSQL 數據庫已連接`);
         // 啟動定時任務
         scheduleDailyFinalPrediction();
     } else {
-        console.log(`⚠️ 數據庫未配置 (設置 DATABASE_URL 環境變數以啟用)`);
+        console.log(`⚠️ 數據庫未配置 (設置 DATABASE_URL 或 PGHOST/PGUSER/PGPASSWORD/PGDATABASE 環境變數以啟用)`);
     }
 });
 

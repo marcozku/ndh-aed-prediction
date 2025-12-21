@@ -67,27 +67,11 @@
     box-sizing: border-box;
 }
 
-/* 確保所有容器適配所有設備 */
-*,
-*::before,
-*::after {
-    box-sizing: border-box;
-}
-
-/* 通用容器適配規則 */
-.container,
-.wrapper,
-.content {
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-}
-
 html {
     scroll-behavior: smooth;
+    overflow-x: hidden; /* 防止水平滾動 */
     width: 100%;
-    max-width: 100vw;
-    overflow-x: hidden;
+    max-width: 100%;
     box-sizing: border-box;
 }
 
@@ -96,14 +80,13 @@ body {
     background: var(--bg-primary);
     color: var(--text-primary);
     min-height: 100vh;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow-x: hidden; /* 防止水平滾動 */
+    width: 100%;
+    max-width: 100vw; /* 確保不超過視窗寬度 */
+    box-sizing: border-box;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    width: 100%;
-    max-width: 100vw;
-    box-sizing: border-box;
 }
 
 /* Ambient Background Effect - Bright Theme */
@@ -123,31 +106,84 @@ body::before {
 }
 
 /* ============================================
-   Main Container
+   Main Container - Full Width Responsive (World Class)
    ============================================ */
-.prediction-container {
-    max-width: 1400px;
+.app-container {
     width: 100%;
+    max-width: 100vw;
     margin: 0 auto;
-    padding: var(--space-xl);
+    padding: clamp(12px, 2vw, 24px);
     position: relative;
-    z-index: 1;
     box-sizing: border-box;
+    overflow-x: hidden;
+    z-index: 1;
+    min-height: 100vh;
+}
+
+.prediction-container {
+    width: 100%;
+    max-width: 100vw;
+    margin: 0 auto;
+    padding: clamp(12px, 2vw, 24px);
+    position: relative;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    z-index: 1;
 }
 
 /* ============================================
-   Header Section - Hero Style
+   Header Section - Hero Style (World Class)
    ============================================ */
-.prediction-header {
+.app-header {
+    width: 100%;
+    max-width: 100%;
     text-align: center;
-    margin-bottom: var(--space-3xl);
-    padding: var(--space-3xl) var(--space-xl);
+    margin-bottom: clamp(24px, 4vw, 48px);
+    padding: clamp(16px, 3vw, 32px);
     background: var(--bg-secondary);
     border-radius: var(--radius-xl);
     border: 1px solid var(--border-subtle);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 10px 40px rgba(0, 0, 0, 0.03);
     position: relative;
     overflow: hidden;
+    box-sizing: border-box;
+}
+
+.prediction-header {
+    width: 100%;
+    max-width: 100%;
+    text-align: center;
+    margin-bottom: clamp(24px, 4vw, 48px);
+    padding: clamp(16px, 3vw, 32px);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 10px 40px rgba(0, 0, 0, 0.03);
+    position: relative;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.header-content {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.header-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(8px, 1.5vw, 16px);
+    margin-top: clamp(12px, 2vw, 24px);
+    flex-wrap: wrap;
+}
+
+.status-badges {
+    display: flex;
+    gap: clamp(8px, 1.5vw, 12px);
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 .prediction-header::before {
@@ -185,14 +221,23 @@ body::before {
 .current-datetime {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-sm);
-    padding: var(--space-sm) var(--space-lg);
+    gap: clamp(4px, 1vw, 8px);
+    padding: clamp(6px, 1.5vw, 12px) clamp(12px, 3vw, 24px);
     background: linear-gradient(135deg, rgba(5, 150, 105, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
     border: 1px solid rgba(5, 150, 105, 0.2);
     border-radius: var(--radius-full);
-    font-size: 0.9rem;
+    font-size: clamp(0.8rem, 2vw, 0.9rem);
     font-weight: 600;
     color: var(--accent-success);
+    white-space: nowrap;
+}
+
+.datetime-icon {
+    font-size: clamp(0.9rem, 2vw, 1rem);
+}
+
+.datetime-text {
+    font-size: clamp(0.75rem, 1.8vw, 0.9rem);
 }
 
 /* ============================================
@@ -270,16 +315,36 @@ body::before {
 }
 
 /* ============================================
-   Database Status - Minimal Badge
+   Status Badges - World Class Design
    ============================================ */
-.db-status {
-    margin-top: var(--space-md);
-    padding: var(--space-sm) var(--space-md);
+.status-badge {
+    padding: clamp(6px, 1.2vw, 12px) clamp(10px, 2vw, 16px);
     border-radius: var(--radius-full);
     display: inline-flex;
     align-items: center;
-    gap: var(--space-sm);
-    font-size: 0.8rem;
+    gap: clamp(4px, 1vw, 8px);
+    font-size: clamp(0.7rem, 1.5vw, 0.8rem);
+    font-weight: 500;
+    transition: var(--transition-base);
+    white-space: nowrap;
+}
+
+.status-icon {
+    font-size: clamp(0.9rem, 2vw, 1rem);
+}
+
+.status-text {
+    font-size: clamp(0.7rem, 1.5vw, 0.8rem);
+}
+
+.db-status {
+    margin-top: var(--space-md);
+    padding: clamp(6px, 1.2vw, 12px) clamp(10px, 2vw, 16px);
+    border-radius: var(--radius-full);
+    display: inline-flex;
+    align-items: center;
+    gap: clamp(4px, 1vw, 8px);
+    font-size: clamp(0.7rem, 1.5vw, 0.8rem);
     font-weight: 500;
     transition: var(--transition-base);
 }
@@ -352,6 +417,8 @@ body::before {
    區塊載入進度（用於所有區塊）
    ============================================ */
 .section-loading {
+    width: 100%;
+    max-width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -362,74 +429,77 @@ body::before {
     border-radius: 16px;
     border: 1px solid var(--border-subtle);
     margin-bottom: var(--space-lg);
+    box-sizing: border-box;
 }
 
 /* ============================================
-   Section Styles - Unified Design
+   Section Styles - Unified Design (Full Width, World Class)
    ============================================ */
-section {
-    margin-bottom: var(--space-3xl);
+section,
+.prediction-section,
+.factors-section,
+.forecast-section,
+.charts-section,
+.algorithm-section {
     width: 100%;
     max-width: 100%;
-    box-sizing: border-box;
-    position: relative;
-}
-
-/* Section 容器 - 適配所有設備 */
-section > * {
-    width: 100%;
-    max-width: 100%;
+    margin-bottom: clamp(24px, 4vw, 48px);
     box-sizing: border-box;
 }
 
+.section-title,
 section h2 {
     color: var(--text-primary);
-    font-size: 1.5rem;
+    font-size: clamp(1.25rem, 3vw, 1.5rem);
     font-weight: 700;
-    margin-bottom: var(--space-xl);
+    margin-bottom: clamp(16px, 3vw, 32px);
     letter-spacing: -0.01em;
     display: flex;
     align-items: center;
     gap: var(--space-sm);
-    width: 100%;
-    box-sizing: border-box;
-}
-
-/* Section 內容容器 - 可滾動 */
-.section-content {
-    width: 100%;
-    max-width: 100%;
-    overflow-x: auto;
-    overflow-y: visible;
-    -webkit-overflow-scrolling: touch;
-    box-sizing: border-box;
-}
-
-.section-content::-webkit-scrollbar {
-    height: 8px;
-}
-
-.section-content::-webkit-scrollbar-thumb {
-    background: var(--border-medium);
-    border-radius: var(--radius-full);
 }
 
 /* ============================================
-   Today's Prediction Section
+   Today's Prediction Section - Full Width Responsive (World Class)
    ============================================ */
-.today-prediction {
-    display: grid;
-    grid-template-columns: 1.2fr 1fr;
-    gap: var(--space-xl);
+.today-prediction,
+.today-section {
     width: 100%;
     max-width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: clamp(16px, 3vw, 32px);
     box-sizing: border-box;
+}
+
+@media (min-width: 900px) {
+    .today-prediction,
+    .today-section {
+        grid-template-columns: 1.2fr 1fr;
+    }
+}
+
+.prediction-grid {
+    width: 100%;
+    max-width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: clamp(16px, 3vw, 32px);
+    box-sizing: border-box;
+}
+
+@media (min-width: 900px) {
+    .prediction-grid {
+        grid-template-columns: 1.2fr 1fr;
+    }
 }
 
 /* ============================================
    Card Design System
    ============================================ */
 .prediction-card {
+    width: 100%;
+    max-width: 100%;
     background: var(--bg-secondary);
     border-radius: var(--radius-xl);
     padding: var(--space-xl);
@@ -438,26 +508,7 @@ section h2 {
     transition: var(--transition-base);
     position: relative;
     overflow: hidden;
-    width: 100%;
-    max-width: 100%;
     box-sizing: border-box;
-}
-
-/* Card 內容可滾動 */
-.prediction-card .card-content {
-    overflow-y: auto;
-    overflow-x: hidden;
-    max-height: 100%;
-    -webkit-overflow-scrolling: touch;
-}
-
-.prediction-card .card-content::-webkit-scrollbar {
-    width: 6px;
-}
-
-.prediction-card .card-content::-webkit-scrollbar-thumb {
-    background: var(--border-medium);
-    border-radius: var(--radius-full);
 }
 
 .prediction-card::before {
@@ -531,7 +582,7 @@ section h2 {
 .big-number {
     font-size: clamp(4rem, 10vw, 6rem);
     font-weight: 800;
-    letter-spacing: -0.04em;
+    letter-spacing: -0.02em;
     background: var(--gradient-success);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -540,6 +591,11 @@ section h2 {
     position: relative;
     display: inline-block;
     animation: numberPulse 3s ease-in-out infinite;
+    padding: 0 var(--space-xs);
+    box-sizing: border-box;
+    overflow: visible;
+    word-break: keep-all;
+    white-space: nowrap;
 }
 
 @keyframes numberPulse {
@@ -553,6 +609,7 @@ section h2 {
     color: var(--text-tertiary);
     margin-left: var(--space-sm);
     vertical-align: bottom;
+    white-space: nowrap;
 }
 
 /* ============================================
@@ -637,9 +694,12 @@ section h2 {
    Stats Grid - Premium Style
    ============================================ */
 .stats-grid {
+    width: 100%;
+    max-width: 100%;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-md);
+    box-sizing: border-box;
 }
 
 .stat-item {
@@ -694,6 +754,13 @@ section h2 {
 /* ============================================
    實時影響因素區塊
    ============================================ */
+.realtime-factors-section,
+.forecast-section {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
 .realtime-factors-section h2::before {
     content: '📊';
     font-size: 1.5rem;
@@ -705,27 +772,6 @@ section h2 {
     padding: var(--space-lg);
     box-shadow: var(--glow-primary);
     border: 1px solid var(--border-subtle);
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    overflow: hidden;
-}
-
-.factors-container .section-content {
-    overflow-y: auto;
-    overflow-x: hidden;
-    max-height: 600px;
-    -webkit-overflow-scrolling: touch;
-    padding-right: var(--space-sm);
-}
-
-.factors-container .section-content::-webkit-scrollbar {
-    width: 6px;
-}
-
-.factors-container .section-content::-webkit-scrollbar-thumb {
-    background: var(--border-medium);
-    border-radius: var(--radius-full);
 }
 
 .factors-loading {
@@ -804,12 +850,12 @@ section h2 {
 }
 
 .factors-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: var(--space-md);
-    margin-bottom: var(--space-lg);
     width: 100%;
     max-width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
     box-sizing: border-box;
 }
 
@@ -999,25 +1045,14 @@ section h2 {
 }
 
 .forecast-cards {
+    width: 100%;
+    max-width: 100%;
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: var(--space-md);
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
     overflow-x: auto;
-    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    padding-bottom: var(--space-sm);
-}
-
-.forecast-cards::-webkit-scrollbar {
-    height: 6px;
-}
-
-.forecast-cards::-webkit-scrollbar-thumb {
-    background: var(--border-medium);
-    border-radius: var(--radius-full);
+    box-sizing: border-box;
 }
 
 .forecast-day-card {
@@ -1030,10 +1065,6 @@ section h2 {
     transition: var(--transition-base);
     position: relative;
     overflow: hidden;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    min-width: 0;
 }
 
 .forecast-day-card::after {
@@ -1131,12 +1162,23 @@ section h2 {
    Charts Section - Clean & Modern
    ============================================ */
 .charts-section {
+    width: 100%;
+    max-width: 100%;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-xl);
-    width: 100%;
-    max-width: 100%;
     box-sizing: border-box;
+    margin: 0; /* 確保沒有額外的 margin */
+    padding: 0; /* 確保沒有額外的 padding */
+    overflow-x: hidden; /* 防止水平溢出 */
+}
+
+/* 移動端優化：小於 900px 時改為單列布局 */
+@media (max-width: 900px) {
+    .charts-section {
+        grid-template-columns: 1fr !important;
+        gap: var(--space-lg) !important;
+    }
 }
 
 .charts-section h2 {
@@ -1149,16 +1191,20 @@ section h2 {
 }
 
 .chart-card {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0; /* 允許 flex/grid 子元素收縮 */
     background: var(--bg-secondary);
     border-radius: var(--radius-xl);
-    padding: var(--space-xl);
+    padding: var(--space-lg); /* 減少 padding：從 xl 改為 lg */
     border: 1px solid var(--border-subtle);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 20px rgba(0, 0, 0, 0.03);
     transition: var(--transition-base);
-    width: 100%;
-    max-width: 100%;
+    position: relative;
+    overflow: visible; /* 改為 visible，允許工具提示完整顯示 */
+    overflow-x: hidden; /* 明確防止水平溢出 */
     box-sizing: border-box;
-    overflow: hidden;
+    z-index: 1; /* 確保卡片在正確的層級 */
 }
 
 .chart-card:hover {
@@ -1167,141 +1213,568 @@ section h2 {
 }
 
 .chart-card.full-width {
+    width: 100%;
+    max-width: 100%;
     grid-column: 1 / -1;
+    box-sizing: border-box;
+    height: auto; /* 使用 auto 讓內容決定高度 */
+    min-height: min(55vh, 600px); /* 最小高度：視窗高度的55%，最小600px */
+    overflow: visible; /* 允許內容完整顯示 */
+    overflow-x: hidden; /* 明確防止水平溢出 */
+}
+
+/* 只對「實際 vs 預測對比」相關的卡片使用 auto 高度，但限制最大高度 */
+.chart-card.full-width.comparison-section {
+    height: auto !important; /* 使用 auto 讓內容決定高度 */
+    max-height: none !important; /* 移除最大高度限制，讓內容決定 */
+    overflow: visible !important; /* 允許內容完整顯示 */
+    overflow-x: hidden !important; /* 防止水平溢出 */
+    width: 100% !important; /* 確保響應式寬度 */
+    max-width: 100% !important; /* 確保響應式寬度 */
+    box-sizing: border-box !important; /* 確保 padding 包含在寬度內 */
 }
 
 .chart-card h3 {
     color: var(--text-primary);
-    font-size: 1rem;
+    font-size: clamp(0.9rem, 2.5vw, 1rem);
     font-weight: 600;
-    margin-bottom: var(--space-lg);
+    margin-bottom: var(--space-md); /* 減少底部間距 */
     letter-spacing: -0.01em;
-}
-
-/* 圖表標題與控制項容器 */
-.chart-header-with-controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--space-lg);
-    flex-wrap: wrap;
-    gap: var(--space-md);
-}
-
-.chart-header-with-controls h3 {
-    margin-bottom: 0;
-    flex: 1;
-    min-width: 120px;
-}
-
-/* 時間段選擇器 */
-.time-period-selector {
-    display: flex;
-    gap: var(--space-xs);
-    flex-wrap: wrap;
-    align-items: center;
-}
-
-.period-btn {
-    padding: var(--space-xs) var(--space-md);
-    border: 1px solid var(--border-subtle);
-    background: var(--bg-primary);
-    color: var(--text-secondary);
-    border-radius: var(--radius-sm);
-    font-size: 0.75rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: var(--transition-fast);
-    white-space: nowrap;
-    min-width: 40px;
-    text-align: center;
-}
-
-.period-btn:hover {
-    background: var(--bg-secondary);
-    border-color: var(--border-medium);
-    color: var(--text-primary);
-    transform: translateY(-1px);
-}
-
-.period-btn.active {
-    background: var(--accent-primary);
-    color: #ffffff;
-    border-color: var(--accent-primary);
-    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
-}
-
-.period-btn.active:hover {
-    background: var(--accent-secondary);
-    border-color: var(--accent-secondary);
-    transform: translateY(-1px);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .chart-container {
     position: relative;
-    height: 300px;
     width: 100%;
     max-width: 100%;
+    height: min(50vh, 500px); /* 增加高度：視窗高度的50%，最大500px */
+    min-height: min(45vh, 450px); /* 增加最小高度：視窗高度的45%，最小450px */
+    box-sizing: border-box;
+    overflow: visible; /* 改為 visible，允許工具提示和圖例完整顯示 */
+    overflow-x: hidden; /* 明確防止水平溢出 */
+    margin: 0;
+    padding: 0; /* 移除 padding，由 Chart.js layout.padding 控制 */
+    z-index: 1; /* 確保圖表在正確的層級 */
+}
+
+/* 對比圖容器特殊處理 - 固定高度防止無限增長 */
+#comparison-chart-container.chart-container {
+    height: min(55vh, 600px) !important; /* 固定高度 */
+    min-height: min(55vh, 600px) !important; /* 世界級標準最小高度 */
+    max-height: min(55vh, 600px) !important; /* 限制最大高度 */
+    overflow: hidden !important; /* 隱藏溢出內容 */
+}
+
+/* 實際 vs 預測對比圖容器需要更多空間 - 增加高度以容納 MAE MAPE 數據和圖表 */
+#comparison-chart-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: min(70vh, 750px) !important; /* 增加高度：視窗高度的70%，最大750px */
+    min-height: min(65vh, 700px) !important; /* 增加最小高度：視窗高度的65%，最小700px */
+    max-height: min(70vh, 750px) !important; /* 限制最大高度，防止無限增長 */
+    padding-bottom: min(6vh, 50px) !important; /* 減少底部 padding：視窗高度的6%，最大50px */
+    overflow: hidden !important; /* 隱藏溢出內容，防止容器增長 */
+    position: relative;
+    box-sizing: border-box;
+    display: block !important;
+}
+
+/* 確保圖表 canvas 有足夠的高度，容納 MAE MAPE 數據和圖表 */
+#comparison-chart-container canvas {
+    height: min(55vh, 600px) !important; /* 增加高度：視窗高度的55%，最大600px */
+    min-height: min(50vh, 550px) !important; /* 增加最小高度：視窗高度的50%，最小550px */
+    max-height: min(55vh, 600px) !important; /* 限制最大高度，防止無限增長 */
+}
+
+/* 歷史趨勢圖容器：增加高度以完整顯示圖表 */
+#history-chart-container {
+    position: relative;
+    overflow: visible; /* 允許底部內容顯示 */
+    width: 100%;
+    max-width: 100%;
+    height: min(65vh, 700px) !important; /* 增加高度：視窗高度的65%，最大700px */
+    min-height: min(55vh, 600px) !important; /* 增加最小高度：視窗高度的55%，最小600px */
+    padding-bottom: min(6vh, 50px) !important; /* 減少底部 padding：視窗高度的6%，最大50px */
     box-sizing: border-box;
 }
 
-.chart-container.large {
-    height: 380px;
+/* 歷史趨勢圖的 canvas */
+#history-chart {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
 }
 
-/* 可滾動圖表容器 */
-.chart-container.scrollable-chart {
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    width: 100%;
-    max-width: 100%;
+/* 歷史趨勢圖導航按鈕 */
+.history-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin: 0.5rem 0;
+    padding: 0.5rem;
 }
 
-.chart-scroll-wrapper {
-    min-width: 100%;
-    position: relative;
+.nav-btn {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-md);
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: var(--transition-base);
 }
 
-.chart-scroll-hint {
-    text-align: center;
+.nav-btn:hover:not(:disabled) {
+    background: var(--accent-primary);
+    color: white;
+    border-color: var(--accent-primary);
+}
+
+.nav-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#history-date-range {
     color: var(--text-secondary);
     font-size: 0.875rem;
-    padding: 0.5rem;
-    margin-top: 0.5rem;
+    min-width: 200px;
+    text-align: center;
+}
+
+#history-date-range {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    min-width: 200px;
+    text-align: center;
+}
+
+.chart-container.large {
+    height: min(38vh, 380px); /* 統一高度：視窗高度的38%，最大380px */
+    min-height: min(32vh, 320px); /* 統一最小高度：視窗高度的32%，最小320px */
+    padding-bottom: min(8vh, 60px) !important; /* 統一底部 padding：視窗高度的8%，最大60px */
+}
+
+.chart-container canvas {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    display: block;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    position: relative;
+    z-index: 2; /* 確保 canvas 在正確的層級，但低於工具提示 */
+}
+
+/* 確保所有圖表容器正確約束寬度，但允許工具提示顯示 */
+#forecast-chart-container,
+#dow-chart-container,
+#month-chart-container,
+#history-chart-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important; /* 改為 visible，允許工具提示完整顯示 */
+    overflow-x: hidden !important; /* 明確防止水平溢出 */
+    box-sizing: border-box !important;
+    z-index: 1 !important; /* 確保容器在正確的層級 */
+    position: relative !important; /* 確保 z-index 生效 */
+}
+
+/* 確保對比圖的 canvas 不會超出容器，使用固定高度 */
+#comparison-chart-container canvas {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: min(45vh, 500px) !important; /* 固定高度，防止無限增長 */
+    max-height: min(45vh, 500px) !important; /* 限制最大高度 */
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: relative !important;
+    z-index: 0 !important; /* 降低 z-index，確保在 accuracy-stats 下方 */
+    overflow: hidden !important; /* 隱藏溢出內容 */
+}
+
+/* 準確度統計響應式布局 - 移到容器外部，避免與圖表重疊 */
+.accuracy-stats {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important; /* 桌面：3列 */
+    gap: 10px !important; /* 減少間距 */
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 12px !important; /* 減少 padding */
+    margin-bottom: 16px !important; /* 增加底部間距，確保與圖表分離 */
+    overflow: visible !important; /* 允許所有內容顯示 */
+    z-index: 1 !important; /* 確保統計信息在正確的層級 */
+    position: relative !important; /* 確保 z-index 生效 */
+    min-height: auto !important; /* 讓內容決定高度 */
+    max-height: 160px !important; /* 減少最大高度 */
+    position: relative !important;
+    z-index: 1 !important; /* 降低 z-index，不再需要覆蓋圖表 */
+}
+
+@media (max-width: 1200px) {
+    .accuracy-stats {
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 8px !important; /* 減少間距 */
+        padding: 10px !important; /* 減少 padding */
+        max-height: 150px !important; /* 減少最大高度 */
+    }
+}
+
+@media (max-width: 900px) {
+    .accuracy-stats {
+        grid-template-columns: repeat(3, 1fr) !important; /* 平板：保持3列 */
+        gap: 8px !important;
+        padding: 10px !important;
+        max-height: 140px !important; /* 減少最大高度 */
+    }
+}
+
+@media (max-width: 700px) {
+    .accuracy-stats {
+        grid-template-columns: repeat(2, 1fr) !important; /* 小於700px：改為2列 */
+        gap: 8px !important;
+        padding: 10px !important;
+        max-height: 180px !important; /* 減少最大高度 */
+    }
+}
+
+@media (max-width: 600px) {
+    .accuracy-stats {
+        grid-template-columns: repeat(2, 1fr) !important; /* 手機：2列 */
+        gap: 8px !important;
+        padding: 10px !important;
+        max-height: 180px !important; /* 減少最大高度 */
+    }
+}
+
+@media (max-width: 480px) {
+    .accuracy-stats {
+        grid-template-columns: repeat(2, 1fr) !important; /* 小屏幕：2列 */
+        gap: 6px !important;
+        padding: 8px !important;
+        max-height: 220px !important; /* 小屏幕2列布局需要更多高度 */
+    }
+}
+
+/* 圖表響應式高度 - 世界級標準，統一使用 vh 單位確保一致性 */
+@media (max-width: 900px) {
+    .chart-container {
+        height: min(48vh, 500px); /* 增加高度：視窗高度的48%，最大500px */
+        min-height: min(42vh, 450px); /* 增加最小高度：視窗高度的42%，最小450px */
+        padding-bottom: min(6vh, 50px); /* 減少底部 padding */
+    }
+    
+    .chart-container.large {
+        height: min(55vh, 580px); /* 增加高度：視窗高度的55%，最大580px */
+        min-height: min(48vh, 520px); /* 增加最小高度：視窗高度的48%，最小520px */
+        padding-bottom: min(6vh, 50px); /* 減少底部 padding */
+    }
+    
+    #history-chart-container {
+        height: min(60vh, 650px) !important; /* 增加高度：視窗高度的60%，最大650px */
+        min-height: min(55vh, 600px) !important; /* 增加最小高度：視窗高度的55%，最小600px */
+        padding-bottom: min(6vh, 50px) !important; /* 減少底部 padding */
+    }
+    
+    #comparison-chart-container {
+        height: min(65vh, 700px) !important; /* 增加高度：視窗高度的65%，最大700px */
+        min-height: min(60vh, 650px) !important; /* 增加最小高度：視窗高度的60%，最小650px */
+        max-height: min(65vh, 700px) !important; /* 限制最大高度，防止無限增長 */
+        padding-bottom: min(6vh, 50px) !important; /* 減少底部 padding */
+        overflow: hidden !important; /* 隱藏溢出內容 */
+    }
+    
+    #comparison-chart-container canvas {
+        height: min(50vh, 550px) !important; /* 增加高度：視窗高度的50%，最大550px */
+        min-height: min(45vh, 500px) !important; /* 增加最小高度：視窗高度的45%，最小500px */
+        max-height: min(50vh, 550px) !important; /* 限制最大高度 */
+    }
+    
+    .chart-card.full-width {
+        height: min(65vh, 650px);
+        min-height: min(55vh, 550px);
+    }
+    
+    /* 只對「實際 vs 預測對比」相關的卡片使用 auto 高度 */
+    .chart-card.full-width.comparison-section {
+        height: auto !important;
+        overflow: visible !important;
+    }
+}
+
+@media (max-width: 600px) {
+    .chart-container {
+        height: min(45vh, 480px); /* 增加高度：視窗高度的45%，最大480px */
+        min-height: min(40vh, 420px); /* 增加最小高度：視窗高度的40%，最小420px */
+        padding-bottom: min(6vh, 50px); /* 減少底部 padding */
+    }
+    
+    .chart-container.large {
+        height: min(52vh, 550px); /* 增加高度：視窗高度的52%，最大550px */
+        min-height: min(45vh, 500px); /* 增加最小高度：視窗高度的45%，最小500px */
+        padding-bottom: min(6vh, 50px); /* 減少底部 padding */
+    }
+    
+    #history-chart-container {
+        height: min(55vh, 600px) !important; /* 增加高度：視窗高度的55%，最大600px */
+        min-height: min(50vh, 550px) !important; /* 增加最小高度：視窗高度的50%，最小550px */
+        padding-bottom: min(6vh, 50px) !important; /* 減少底部 padding */
+    }
+    
+    #comparison-chart-container {
+        height: min(60vh, 650px) !important; /* 增加高度：視窗高度的60%，最大650px */
+        min-height: min(55vh, 600px) !important; /* 增加最小高度：視窗高度的55%，最小600px */
+        max-height: min(60vh, 650px) !important; /* 限制最大高度，防止無限增長 */
+        padding-bottom: min(6vh, 50px) !important; /* 減少底部 padding */
+        overflow: hidden !important; /* 隱藏溢出內容 */
+    }
+    
+    #comparison-chart-container canvas {
+        height: min(45vh, 500px) !important; /* 增加高度：視窗高度的45%，最大500px */
+        min-height: min(40vh, 450px) !important; /* 增加最小高度：視窗高度的40%，最小450px */
+        max-height: min(45vh, 500px) !important; /* 限制最大高度 */
+    }
+    
+    .chart-card.full-width {
+        height: min(60vh, 600px);
+        min-height: min(50vh, 500px);
+    }
+    
+    /* 只對「實際 vs 預測對比」相關的卡片使用 auto 高度 */
+    .chart-card.full-width.comparison-section {
+        height: auto !important;
+        overflow: visible !important;
+    }
+}
+
+@media (max-width: 380px) {
+    .chart-container {
+        height: min(32vh, 320px); /* 世界級標準：視窗高度的32%，最大320px */
+        min-height: min(28vh, 280px); /* 世界級標準最小高度：視窗高度的28%，最小280px */
+        padding-bottom: min(8vh, 70px); /* 世界級標準底部 padding */
+    }
+    
+    .chart-container.large {
+        height: min(38vh, 400px); /* 世界級標準：視窗高度的38%，最大400px */
+        min-height: min(32vh, 340px); /* 世界級標準最小高度：視窗高度的32%，最小340px */
+        padding-bottom: min(10vh, 80px); /* 世界級標準底部 padding */
+    }
+    
+    #history-chart-container {
+        height: min(38vh, 400px) !important; /* 世界級標準 */
+        min-height: min(32vh, 340px) !important;
+        padding-bottom: min(10vh, 80px) !important;
+    }
+    
+    #comparison-chart-container {
+        height: auto !important;
+        min-height: min(40vh, 400px) !important; /* 世界級標準最小高度：視窗高度的40%，最小400px */
+        max-height: none !important;
+        padding-bottom: min(10vh, 80px) !important; /* 世界級標準底部 padding */
+    }
+    
+    #comparison-chart-container canvas {
+        min-height: min(34vh, 350px) !important; /* 世界級標準最小高度 */
+    }
+    
+    .chart-card.full-width {
+        height: min(55vh, 550px);
+        min-height: min(45vh, 450px);
+    }
+    
+    /* 只對「實際 vs 預測對比」相關的卡片使用 auto 高度 */
+    .chart-card.full-width.comparison-section {
+        height: auto !important;
+        overflow: visible !important;
+    }
+}
+
+/* 時間範圍選擇按鈕 */
+.time-range-selector {
+    width: 100%;
+    max-width: 100%;
+    display: flex;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-lg);
+    flex-wrap: wrap;
+    padding: var(--space-sm);
+    background: rgba(248, 250, 252, 0.5);
+    border-radius: var(--radius-lg);
+    box-sizing: border-box;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+.time-range-btn {
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    font-size: clamp(0.75rem, 2vw, 0.875rem);
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+    box-sizing: border-box;
+}
+
+.time-range-btn:hover {
+    background: var(--bg-elevated);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+.time-range-btn.active {
+    background: var(--accent-primary);
+    color: white;
+    border-color: var(--accent-primary);
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
+}
+
+.chart-hint {
+    width: 100%;
+    max-width: 100%;
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: clamp(0.75rem, 2vw, 0.875rem);
+    margin-top: var(--space-sm);
+    padding: 0 var(--space-sm);
+    box-sizing: border-box;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* 只在歷史趨勢圖容器需要滾動時顯示提示 */
+#history-chart-container:not(:hover) ~ .chart-hint {
     opacity: 0.7;
+}
+
+#history-chart-container:hover ~ .chart-hint {
+    opacity: 1;
+}
+
+/* 比較表格 */
+.comparison-table-container {
+    overflow-x: auto; /* 允許表格水平滾動 */
+    overflow-y: visible; /* 允許垂直內容完整顯示 */
+    margin-top: var(--space-md);
+    max-height: none; /* 移除最大高度限制 */
+    padding-bottom: var(--space-md); /* 為表格底部留出空間 */
+    width: 100%;
+    max-width: 100%; /* 確保容器不超出父元素 */
+    box-sizing: border-box;
+    -webkit-overflow-scrolling: touch; /* iOS 平滑滾動 */
+}
+
+.comparison-table {
+    width: 100%;
+    max-width: 100%;
+    min-width: 600px; /* 最小寬度，但會在容器內滾動 */
+    border-collapse: collapse;
+    font-size: clamp(0.7rem, 1.5vw, 0.875rem);
+    box-sizing: border-box;
+}
+
+.comparison-table th,
+.comparison-table td {
+    padding: clamp(0.5rem, 1vw, var(--space-md));
+    white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+    .comparison-table-container {
+        overflow-x: auto !important; /* 移動端優化：允許水平滾動 */
+        -webkit-overflow-scrolling: touch; /* iOS 平滑滾動 */
+        padding: var(--space-xs) 0; /* 移動端優化：減少上下 padding */
+    }
+    
+    .comparison-table {
+        min-width: 500px;
+        font-size: 0.7rem;
+        width: 100%;
+    }
+
+    .comparison-table th,
+    .comparison-table td {
+        padding: var(--space-xs) var(--space-sm);
+        white-space: nowrap; /* 移動端優化：防止文字換行 */
+    }
+}
+
+@media (max-width: 380px) {
+    .comparison-table-container {
+        overflow-x: auto !important; /* 小屏幕優化：允許水平滾動 */
+        -webkit-overflow-scrolling: touch; /* iOS 平滑滾動 */
+        padding: var(--space-xs) 0; /* 小屏幕優化：減少上下 padding */
+    }
+    
+    .comparison-table {
+        min-width: 450px;
+        font-size: 0.65rem;
+        width: 100%;
+    }
+    
+    .comparison-table th,
+    .comparison-table td {
+        padding: 4px var(--space-xs); /* 小屏幕優化：進一步減少 padding */
+        white-space: nowrap; /* 小屏幕優化：防止文字換行 */
+    }
+}
+
+.comparison-table thead {
+    background: var(--bg-primary);
+    border-bottom: 2px solid var(--border-medium);
+}
+
+.comparison-table th {
+    padding: var(--space-md);
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+
+.comparison-table td {
+    padding: var(--space-md);
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+}
+
+.comparison-table tbody tr:hover {
+    background: var(--bg-primary);
+}
+
+.comparison-table tbody tr:last-child td {
+    border-bottom: none;
 }
 
 /* ============================================
    Algorithm Section - Documentation Style
    ============================================ */
 .algorithm-section {
-    background: var(--bg-secondary);
-    border-radius: var(--radius-xl);
-    padding: var(--space-2xl);
-    border: 1px solid var(--border-subtle);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 20px rgba(0, 0, 0, 0.03);
     width: 100%;
     max-width: 100%;
-    box-sizing: border-box;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-xl);
+    padding: var(--space-xl);
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 20px rgba(0, 0, 0, 0.03);
+    position: relative;
     overflow: hidden;
-}
-
-.algorithm-content {
-    overflow-y: auto;
-    overflow-x: hidden;
-    max-height: 600px;
-    -webkit-overflow-scrolling: touch;
-    padding-right: var(--space-sm);
-}
-
-.algorithm-content::-webkit-scrollbar {
-    width: 6px;
-}
-
-.algorithm-content::-webkit-scrollbar-thumb {
-    background: var(--border-medium);
-    border-radius: var(--radius-full);
+    box-sizing: border-box;
 }
 
 .algorithm-section h2::before {
@@ -1310,12 +1783,12 @@ section h2 {
 }
 
 .algorithm-content {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
     width: 100%;
     max-width: 100%;
-    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: var(--space-xl);
+    box-sizing: border-box;
 }
 
 .algorithm-formula {
@@ -1376,6 +1849,13 @@ section h2 {
 .factors-table td {
     color: var(--text-primary);
     font-size: 0.9rem;
+    vertical-align: top;
+}
+
+.factors-table td:last-child {
+    max-width: 300px;
+    word-wrap: break-word;
+    line-height: 1.5;
 }
 
 .factors-table tr:hover td {
@@ -1390,6 +1870,22 @@ section h2 {
 .factors-table td.negative {
     color: var(--accent-danger);
     font-weight: 700;
+}
+
+/* 動態因子表格效應樣式 */
+.effect-positive {
+    color: var(--accent-success);
+    font-weight: 600;
+}
+
+.effect-negative {
+    color: var(--accent-danger);
+    font-weight: 600;
+}
+
+.effect-neutral {
+    color: var(--text-tertiary);
+    font-weight: 500;
 }
 
 .considerations {
@@ -1416,20 +1912,76 @@ section h2 {
 .considerations li {
     margin-bottom: var(--space-sm);
     line-height: 1.6;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-sm);
+}
+
+.consideration-icon {
+    flex-shrink: 0;
+    font-size: 1.1rem;
+    margin-top: 2px;
+}
+
+.consideration-text {
+    flex: 1;
+    color: var(--text-secondary);
 }
 
 /* ============================================
-   Footer - Minimal
+   Comparison Header
    ============================================ */
-.prediction-footer {
-    text-align: center;
-    padding: var(--space-xl);
-    color: var(--text-tertiary);
-    font-size: 0.8rem;
+.comparison-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-md);
+    flex-wrap: wrap;
+    gap: var(--space-sm);
 }
 
+.add-data-btn {
+    padding: clamp(6px, 1.2vw, 8px) clamp(12px, 2.5vw, 16px);
+    background: var(--accent-primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: clamp(0.75rem, 1.8vw, 0.875rem);
+    white-space: nowrap;
+    transition: var(--transition-base);
+    font-weight: 500;
+}
+
+.add-data-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
+}
+
+.add-data-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ============================================
+   Footer - Minimal (World Class)
+   ============================================ */
+.app-footer,
+.prediction-footer {
+    text-align: center;
+    padding: clamp(16px, 3vw, 32px);
+    color: var(--text-tertiary);
+    font-size: clamp(0.7rem, 1.5vw, 0.8rem);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.app-footer p,
 .prediction-footer p {
-    margin: var(--space-xs) 0;
+    margin: clamp(4px, 1vw, 8px) 0;
 }
 
 /* ============================================
@@ -1438,27 +1990,71 @@ section h2 {
 @media (max-width: 1200px) {
     .prediction-container {
         padding: var(--space-lg);
+        width: 100%;
+        max-width: 100vw; /* 確保不超過視窗寬度 */
+        box-sizing: border-box;
+    }
+    
+    .prediction-header {
+        width: 100%;
+        max-width: 100%;
+        padding: var(--space-lg);
+    }
+    
+    .prediction-card,
+    .chart-card,
+    .algorithm-section {
+        width: 100%;
+        max-width: 100%;
+        padding: var(--space-lg);
     }
     
     .forecast-cards {
         gap: var(--space-sm);
     }
+    
+    .charts-section {
+        width: 100%;
+        max-width: 100%;
+        grid-template-columns: 1fr !important; /* 移動端優化：單列布局 */
+        gap: var(--space-md) !important; /* 移動端優化：減少間距 */
+    }
+    
+    .time-range-selector {
+        overflow-x: auto;
+        padding: var(--space-xs);
+    }
+    
+    .time-range-btn {
+        font-size: 0.8rem;
+        padding: var(--space-xs) var(--space-sm);
+    }
 }
 
 @media (max-width: 900px) {
+    .prediction-container {
+        padding: var(--space-md);
+        width: 100%;
+        max-width: 100vw; /* 確保不超過視窗寬度 */
+        box-sizing: border-box;
+    }
+    
     .today-prediction {
+        width: 100%;
+        max-width: 100%;
         grid-template-columns: 1fr;
     }
     
     .charts-section {
-        grid-template-columns: 1fr;
+        width: 100%;
+        max-width: 100%;
+        grid-template-columns: 1fr !important; /* 移動端優化：單列布局 */
+        gap: var(--space-md) !important; /* 移動端優化：減少間距 */
     }
     
     .algorithm-content {
-        grid-template-columns: 1fr;
-    }
-    
-    .factors-grid {
+        width: 100%;
+        max-width: 100%;
         grid-template-columns: 1fr;
     }
     
@@ -1466,20 +2062,16 @@ section h2 {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
         gap: var(--space-sm);
-        padding-bottom: var(--space-md);
+        padding: var(--space-sm) 0; /* 移動端優化：減少上下 padding */
         overflow-x: auto;
-        overflow-y: hidden;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: thin;
-        width: 100%;
-        max-width: 100%;
-        box-sizing: border-box;
     }
-    
+
     .forecast-day-card {
         min-width: 90px;
         max-width: 100%;
-        box-sizing: border-box;
+        padding: var(--space-md) var(--space-sm) !important; /* 移動端優化：減少 padding */
     }
 }
 
@@ -1491,11 +2083,54 @@ section h2 {
     }
     
     .prediction-header {
+        width: 100%;
+        max-width: 100%;
         padding: var(--space-xl) var(--space-md);
         margin-bottom: var(--space-xl);
+        box-sizing: border-box;
+    }
+    
+    section {
         width: 100%;
         max-width: 100%;
         box-sizing: border-box;
+    }
+    
+    .today-prediction {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .charts-section {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        overflow-x: hidden !important; /* 防止水平溢出 */
+    }
+    
+    .algorithm-content {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .prediction-card,
+    .chart-card,
+    .algorithm-section {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .chart-container {
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .chart-container canvas {
+        width: 100% !important;
+        max-width: 100% !important;
     }
     
     .prediction-header h1 {
@@ -1505,9 +2140,6 @@ section h2 {
     .weather-display {
         padding: var(--space-sm) var(--space-md);
         gap: var(--space-sm);
-        width: 100%;
-        max-width: 100%;
-        box-sizing: border-box;
     }
     
     .weather-icon {
@@ -1520,26 +2152,30 @@ section h2 {
     
     section {
         margin-bottom: var(--space-2xl);
-        width: 100%;
-        max-width: 100%;
-        box-sizing: border-box;
     }
     
     section h2 {
         font-size: 1.25rem;
-        width: 100%;
-        max-width: 100%;
     }
     
-    .prediction-card {
-        padding: var(--space-lg);
-        width: 100%;
-        max-width: 100%;
-        box-sizing: border-box;
+    .prediction-card,
+    .chart-card,
+    .algorithm-section {
+        padding: var(--space-md) !important; /* 移動端優化：減少 padding */
+    }
+    
+    .chart-card h3 {
+        font-size: clamp(0.8rem, 3.5vw, 0.9rem) !important; /* 移動端優化字體大小 */
+        margin-bottom: var(--space-sm) !important; /* 減少底部間距 */
     }
     
     .big-number {
         font-size: 3.5rem;
+        padding: 0 var(--space-xs);
+    }
+    
+    .prediction-value {
+        padding: var(--space-xl) var(--space-md);
     }
     
     .unit {
@@ -1550,22 +2186,18 @@ section h2 {
         flex-direction: column;
         align-items: flex-start;
         gap: var(--space-sm);
-        width: 100%;
-        max-width: 100%;
     }
     
     .forecast-cards {
         grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
         gap: var(--space-xs);
-        width: 100%;
-        max-width: 100%;
-        box-sizing: border-box;
+        padding: var(--space-xs) 0; /* 移動端優化：減少上下 padding */
     }
     
     .forecast-day-card {
         min-width: 75px;
-        padding: var(--space-md) var(--space-sm);
-        box-sizing: border-box;
+        padding: var(--space-sm) var(--space-xs) !important; /* 移動端優化：減少 padding */
+        border-radius: var(--radius-md) !important; /* 移動端優化：稍微減小圓角 */
     }
     
     .forecast-value {
@@ -1589,58 +2221,51 @@ section h2 {
     }
     
     .chart-container {
-        height: 280px;
-        width: 100%;
-        max-width: 100%;
+        height: min(45vh, 480px) !important; /* 移動端：增加高度，確保圖表清晰 */
+        min-height: min(38vh, 400px) !important; /* 移動端：增加最小高度 */
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: visible !important; /* 允許工具提示顯示 */
+        padding: 0 !important; /* 移除 padding，由 Chart.js 控制 */
     }
     
     .chart-container.large {
-        height: 320px;
+        height: min(55vh, 600px) !important; /* 移動端：增加高度 */
+        min-height: min(45vh, 500px) !important; /* 移動端：增加最小高度 */
     }
     
-    .factors-grid {
-        grid-template-columns: 1fr;
-        width: 100%;
-        max-width: 100%;
+    .chart-container canvas {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100% !important;
     }
     
-    .algorithm-content {
-        max-height: 400px;
-        overflow-y: auto;
-        overflow-x: hidden;
+    /* 確保圖例在移動端有足夠空間 */
+    .chart-card h3 {
+        margin-bottom: var(--space-sm) !important; /* 減少標題底部間距 */
     }
-    
-    .comparison-section {
-        width: 100%;
-        max-width: 100%;
-        box-sizing: border-box;
-    }
-    
-    .table-wrapper {
-        width: 100%;
-        max-width: 100%;
-        overflow-x: auto;
-        overflow-y: visible;
-    }
-    
-    .chart-header-with-controls {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .time-period-selector {
-        width: 100%;
-        justify-content: flex-start;
-        overflow-x: auto;
-        padding-bottom: var(--space-xs);
-        -webkit-overflow-scrolling: touch;
-    }
-    
-    .period-btn {
-        font-size: 0.7rem;
-        padding: var(--space-xs) var(--space-sm);
-        min-width: 35px;
-    }
+
+/* Chart.js 工具提示樣式 - 確保在所有設備上清晰可見 */
+.chartjs-tooltip {
+    z-index: 9999 !important; /* 確保工具提示在最上層 */
+    pointer-events: none !important; /* 不阻擋鼠標事件 */
+    position: absolute !important;
+    background: rgba(30, 41, 59, 0.95) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 10px !important;
+    padding: 10px 12px !important;
+    color: #fff !important;
+    font-size: 12px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    max-width: 90vw !important; /* 確保在小屏幕上不會超出視窗 */
+    word-wrap: break-word !important;
+}
+
+/* 確保圖表容器不會裁剪工具提示 */
+.chart-container,
+.chart-card {
+    overflow: visible !important;
+}
 
 /* 圖表載入狀態 */
 .chart-loading {
@@ -1739,7 +2364,11 @@ section h2 {
     }
     
     .factors-table table {
-        min-width: 450px;
+        min-width: 600px;
+    }
+    
+    .factors-table td:last-child {
+        max-width: 250px;
     }
     
     .factors-grid {
@@ -1755,18 +2384,105 @@ section h2 {
 }
 
 @media (max-width: 380px) {
+    .prediction-container {
+        padding: var(--space-sm);
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .prediction-header {
+        padding: var(--space-md);
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    section {
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .prediction-card,
+    .chart-card,
+    .algorithm-section {
+        padding: var(--space-md);
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+        position: relative;
+        box-sizing: border-box;
+    }
+    
+    .chart-container {
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+    }
+    
+    #history-chart-container {
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch;
+        cursor: grab;
+    }
+    
+    #history-chart-container:active {
+        cursor: grabbing;
+    }
+    
+    .chart-container canvas {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        display: block;
+        box-sizing: border-box;
+    }
+    
+    #history-chart {
+        min-width: auto !important;
+        width: auto !important;
+        max-width: none !important;
+    }
+    
+    .time-range-selector {
+        overflow-x: auto;
+        padding: var(--space-xs);
+        gap: var(--space-xs);
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .time-range-btn {
+        font-size: 0.7rem;
+        padding: 6px var(--space-xs);
+        min-width: auto;
+    }
+    
+    .chart-hint {
+        font-size: 0.65rem;
+        padding: 0 var(--space-xs);
+        line-height: 1.4;
+    }
+    
     .big-number {
         font-size: 2.75rem;
+        padding: 0 var(--space-xs);
+    }
+    
+    .prediction-value {
+        padding: var(--space-lg) var(--space-sm);
     }
     
     .forecast-cards {
         grid-template-columns: repeat(auto-fit, minmax(65px, 1fr));
         gap: var(--space-xs);
+        width: 100%;
+        max-width: 100%;
+        padding: var(--space-xs) 0; /* 小屏幕優化：減少上下 padding */
     }
     
     .forecast-day-card {
         min-width: 65px;
-        padding: var(--space-sm);
+        padding: var(--space-xs) 4px !important; /* 小屏幕優化：進一步減少 padding */
+        border-radius: var(--radius-sm) !important; /* 小屏幕優化：更小的圓角 */
     }
     
     .forecast-value {
@@ -1779,6 +2495,23 @@ section h2 {
     
     .forecast-day {
         font-size: 0.75rem;
+    }
+    
+    .chart-container {
+        height: min(32vh, 320px); /* 世界級標準：視窗高度的32%，最大320px */
+        min-height: min(28vh, 280px); /* 世界級標準最小高度 */
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .chart-container.large {
+        height: min(38vh, 400px); /* 世界級標準：視窗高度的38%，最大400px */
+        min-height: min(32vh, 340px); /* 世界級標準最小高度 */
+    }
+    
+    .chart-container canvas {
+        width: 100% !important;
+        max-width: 100% !important;
     }
 }
 
@@ -1856,175 +2589,5 @@ section h2 {
 
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-tertiary);
-}
-
-/* ============================================
-   數據比較區塊樣式
-   ============================================ */
-.comparison-section {
-    background: var(--bg-secondary);
-    border-radius: var(--radius-xl);
-    padding: var(--space-2xl);
-    border: 1px solid var(--border-subtle);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 20px rgba(0, 0, 0, 0.03);
-    margin-bottom: var(--space-3xl);
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    overflow: hidden;
-}
-
-.comparison-section h2::before {
-    content: '📊';
-    font-size: 1.5rem;
-}
-
-.comparison-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: var(--space-lg);
-    margin-bottom: var(--space-2xl);
-}
-
-.comparison-stat-card {
-    background: var(--bg-primary);
-    border-radius: var(--radius-lg);
-    padding: var(--space-lg);
-    border: 1px solid var(--border-subtle);
-    text-align: center;
-}
-
-.comparison-stat-value {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--accent-primary);
-    display: block;
-    margin-bottom: var(--space-xs);
-}
-
-.comparison-stat-label {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    font-weight: 500;
-}
-
-.comparison-table-container {
-    margin-top: var(--space-2xl);
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-}
-
-.comparison-table-container h3 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: var(--space-lg);
-    color: var(--text-primary);
-    width: 100%;
-    max-width: 100%;
-}
-
-.table-wrapper {
-    overflow-x: auto;
-    overflow-y: visible;
-    -webkit-overflow-scrolling: touch;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border-subtle);
-}
-
-.comparison-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: var(--bg-primary);
-    font-size: 0.875rem;
-}
-
-.comparison-table thead {
-    background: var(--bg-secondary);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
-
-.comparison-table th {
-    padding: var(--space-md);
-    text-align: left;
-    font-weight: 600;
-    color: var(--text-primary);
-    border-bottom: 2px solid var(--border-subtle);
-    white-space: nowrap;
-}
-
-.comparison-table td {
-    padding: var(--space-md);
-    border-bottom: 1px solid var(--border-subtle);
-    color: var(--text-primary);
-}
-
-.comparison-table tbody tr:hover {
-    background: var(--bg-secondary);
-}
-
-.comparison-table tbody tr:last-child td {
-    border-bottom: none;
-}
-
-.accuracy-badge {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
-    border-radius: var(--radius-full);
-    font-size: 0.75rem;
-    font-weight: 600;
-    white-space: nowrap;
-}
-
-.accuracy-badge.excellent {
-    background: rgba(34, 197, 94, 0.1);
-    color: #16a34a;
-}
-
-.accuracy-badge.good {
-    background: rgba(59, 130, 246, 0.1);
-    color: #3b82f6;
-}
-
-.accuracy-badge.fair {
-    background: rgba(234, 179, 8, 0.1);
-    color: #eab308;
-}
-
-.accuracy-badge.poor {
-    background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
-}
-
-.error-positive {
-    color: #ef4444;
-}
-
-.error-negative {
-    color: #16a34a;
-}
-
-.error-zero {
-    color: var(--text-secondary);
-}
-
-@media (max-width: 768px) {
-    .comparison-stats {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .comparison-table {
-        font-size: 0.75rem;
-    }
-    
-    .comparison-table th,
-    .comparison-table td {
-        padding: var(--space-sm);
-    }
 }
 

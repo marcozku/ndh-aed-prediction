@@ -29,7 +29,11 @@ function initPool() {
             password: pgPassword,
             host: pgHost,
             port: parseInt(pgPort),
-            database: pgDatabase
+            database: pgDatabase,
+            // 連接池配置
+            max: 20, // 最大連接數
+            idleTimeoutMillis: 30000, // 空閒連接超時（30秒）
+            connectionTimeoutMillis: 20000 // 連接超時（20秒，增加以應對網絡延遲）
         };
 
         // Only enable SSL for external connections
@@ -38,7 +42,14 @@ function initPool() {
         }
         
         console.log(`📍 Connecting to ${poolConfig.host}:${poolConfig.port}/${poolConfig.database}`);
-        return new Pool(poolConfig);
+        const pool = new Pool(poolConfig);
+        
+        // 添加連接錯誤處理
+        pool.on('error', (err) => {
+            console.error('❌ 數據庫連接池錯誤:', err.message);
+        });
+        
+        return pool;
     }
     
     if (dbUrl && !dbUrl.includes('${{')) {
@@ -50,7 +61,11 @@ function initPool() {
                 password: decodeURIComponent(url.password),
                 host: url.hostname,
                 port: parseInt(url.port) || 5432,
-                database: url.pathname.slice(1)
+                database: url.pathname.slice(1),
+                // 連接池配置
+                max: 20, // 最大連接數
+                idleTimeoutMillis: 30000, // 空閒連接超時（30秒）
+                connectionTimeoutMillis: 20000 // 連接超時（20秒，增加以應對網絡延遲）
             };
 
             if (!url.hostname.includes('.railway.internal')) {
@@ -58,7 +73,14 @@ function initPool() {
             }
             
             console.log(`📍 Connecting to ${poolConfig.host}:${poolConfig.port}/${poolConfig.database}`);
-            return new Pool(poolConfig);
+            const pool = new Pool(poolConfig);
+            
+            // 添加連接錯誤處理
+            pool.on('error', (err) => {
+                console.error('❌ 數據庫連接池錯誤:', err.message);
+            });
+            
+            return pool;
         } catch (err) {
             console.error('❌ Failed to parse DATABASE_URL:', err.message);
         }
@@ -70,6 +92,35 @@ function initPool() {
 }
 
 pool = initPool();
+
+// 帶重試的查詢函數
+async function queryWithRetry(query, params = [], maxRetries = 3) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+    
+    let lastError;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const result = await pool.query(query, params);
+            return result;
+        } catch (error) {
+            lastError = error;
+            // 如果是連接錯誤，等待後重試
+            if (error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+                if (attempt < maxRetries) {
+                    const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // 指數退避，最多5秒
+                    console.warn(`⚠️ 數據庫連接失敗 (嘗試 ${attempt}/${maxRetries})，${delay}ms 後重試...`, error.message);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    continue;
+                }
+            }
+            // 其他錯誤或已達最大重試次數，直接拋出
+            throw error;
+        }
+    }
+    throw lastError;
+}
 
 // Initialize database tables
 async function initDatabase() {
@@ -270,12 +321,15 @@ async function insertBulkActualData(dataArray) {
 
 // Insert prediction
 async function insertPrediction(predictionDate, targetDate, predictedCount, ci80, ci95, modelVersion = '1.0.0') {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
     const query = `
         INSERT INTO predictions (prediction_date, target_date, predicted_count, ci80_low, ci80_high, ci95_low, ci95_high, model_version)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
     `;
-    const result = await pool.query(query, [
+    const result = await queryWithRetry(query, [
         predictionDate,
         targetDate,
         predictedCount,
@@ -290,6 +344,10 @@ async function insertPrediction(predictionDate, targetDate, predictedCount, ci80
 
 // Get all actual data
 async function getActualData(startDate = null, endDate = null) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+    
     let query = 'SELECT * FROM actual_data';
     const params = [];
     
@@ -305,8 +363,13 @@ async function getActualData(startDate = null, endDate = null) {
     }
     
     query += ' ORDER BY date DESC';
-    const result = await pool.query(query, params);
-    return result.rows;
+    try {
+        const result = await queryWithRetry(query, params);
+        return result.rows;
+    } catch (error) {
+        console.error('❌ getActualData 查詢失敗:', error);
+        throw error;
+    }
 }
 
 // Get predictions
@@ -346,7 +409,15 @@ async function calculateAccuracy(targetDate) {
             [targetDate]
         );
         
-        // Fallback to most recent prediction if no final prediction exists
+        // Fallback to most recent daily prediction if no final prediction exists
+        if (predictionResult.rows.length === 0) {
+            predictionResult = await client.query(
+                'SELECT * FROM daily_predictions WHERE target_date = $1 ORDER BY created_at DESC LIMIT 1',
+                [targetDate]
+            );
+        }
+        
+        // Last fallback to predictions table
         if (predictionResult.rows.length === 0) {
             predictionResult = await client.query(
                 'SELECT * FROM predictions WHERE target_date = $1 ORDER BY created_at DESC LIMIT 1',
@@ -410,52 +481,129 @@ async function getAccuracyStats() {
 }
 
 // Get comparison data for visualization
-async function getComparisonData(limit = 30) {
+async function getComparisonData(limit = 100) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+    
+    // 優先使用 final_daily_predictions（每日平均），然後使用 daily_predictions 的最新預測，最後使用 predictions
+    // 改進查詢：使用子查詢來獲取預測數據，確保能找到所有有實際數據的日期
     const query = `
         SELECT 
             a.date,
             a.patient_count as actual,
-            p.predicted_count as predicted,
-            p.ci80_low,
-            p.ci80_high,
+            COALESCE(
+                fdp.predicted_count,
+                (SELECT predicted_count FROM daily_predictions 
+                 WHERE target_date = a.date 
+                 ORDER BY created_at DESC LIMIT 1),
+                p.predicted_count
+            ) as predicted,
+            COALESCE(
+                fdp.ci80_low,
+                (SELECT ci80_low FROM daily_predictions 
+                 WHERE target_date = a.date 
+                 ORDER BY created_at DESC LIMIT 1),
+                p.ci80_low
+            ) as ci80_low,
+            COALESCE(
+                fdp.ci80_high,
+                (SELECT ci80_high FROM daily_predictions 
+                 WHERE target_date = a.date 
+                 ORDER BY created_at DESC LIMIT 1),
+                p.ci80_high
+            ) as ci80_high,
+            COALESCE(
+                fdp.ci95_low,
+                (SELECT ci95_low FROM daily_predictions 
+                 WHERE target_date = a.date 
+                 ORDER BY created_at DESC LIMIT 1),
+                p.ci95_low
+            ) as ci95_low,
+            COALESCE(
+                fdp.ci95_high,
+                (SELECT ci95_high FROM daily_predictions 
+                 WHERE target_date = a.date 
+                 ORDER BY created_at DESC LIMIT 1),
+                p.ci95_high
+            ) as ci95_high,
             pa.error,
             pa.error_percentage
         FROM actual_data a
+        LEFT JOIN final_daily_predictions fdp ON a.date = fdp.target_date
         LEFT JOIN predictions p ON a.date = p.target_date
         LEFT JOIN prediction_accuracy pa ON a.date = pa.target_date
+        WHERE 
+            -- 確保至少有一個預測數據來源（使用子查詢檢查 daily_predictions）
+            (
+                fdp.predicted_count IS NOT NULL
+                OR EXISTS (
+                    SELECT 1 FROM daily_predictions dp
+                    WHERE dp.target_date = a.date
+                    AND dp.predicted_count IS NOT NULL
+                )
+                OR p.predicted_count IS NOT NULL
+            )
+            -- 確保預測值不為空（COALESCE 可能返回 NULL）
+            AND COALESCE(
+                fdp.predicted_count,
+                (SELECT predicted_count FROM daily_predictions 
+                 WHERE target_date = a.date 
+                 ORDER BY created_at DESC LIMIT 1),
+                p.predicted_count
+            ) IS NOT NULL
         ORDER BY a.date DESC
         LIMIT $1
     `;
-    const result = await pool.query(query, [limit]);
-    return result.rows;
+    
+    try {
+        const result = await queryWithRetry(query, [limit]);
+        console.log(`📊 比較數據查詢: 找到 ${result.rows.length} 筆有效數據`);
+        return result.rows;
+    } catch (error) {
+        console.error('❌ 查詢比較數據失敗:', error);
+        throw error;
+    }
 }
 
 // Get AI factors cache
 async function getAIFactorsCache() {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+    
     const query = `
         SELECT last_update_time, factors_cache, analysis_data, updated_at
         FROM ai_factors_cache
         WHERE id = 1
     `;
-    const result = await pool.query(query);
-    if (result.rows.length === 0) {
+    try {
+        const result = await queryWithRetry(query);
+        if (result.rows.length === 0) {
+            return {
+                last_update_time: 0,
+                factors_cache: {},
+                analysis_data: {},
+                updated_at: null
+            };
+        }
         return {
-            last_update_time: 0,
-            factors_cache: {},
-            analysis_data: {},
-            updated_at: null
+            last_update_time: parseInt(result.rows[0].last_update_time) || 0,
+            factors_cache: result.rows[0].factors_cache || {},
+            analysis_data: result.rows[0].analysis_data || {},
+            updated_at: result.rows[0].updated_at
         };
+    } catch (error) {
+        console.error('❌ getAIFactorsCache 查詢失敗:', error);
+        throw error;
     }
-    return {
-        last_update_time: parseInt(result.rows[0].last_update_time) || 0,
-        factors_cache: result.rows[0].factors_cache || {},
-        analysis_data: result.rows[0].analysis_data || {},
-        updated_at: result.rows[0].updated_at
-    };
 }
 
 // Update AI factors cache
 async function updateAIFactorsCache(updateTime, factorsCache, analysisData = null) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
     const query = `
         UPDATE ai_factors_cache
         SET last_update_time = $1,
@@ -465,7 +613,7 @@ async function updateAIFactorsCache(updateTime, factorsCache, analysisData = nul
         WHERE id = 1
         RETURNING *
     `;
-    const result = await pool.query(query, [
+    const result = await queryWithRetry(query, [
         updateTime.toString(),
         JSON.stringify(factorsCache),
         analysisData ? JSON.stringify(analysisData) : null
@@ -475,12 +623,15 @@ async function updateAIFactorsCache(updateTime, factorsCache, analysisData = nul
 
 // Insert daily prediction (each update throughout the day)
 async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, modelVersion = '1.0.0', weatherData = null, aiFactors = null) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
     const query = `
         INSERT INTO daily_predictions (target_date, predicted_count, ci80_low, ci80_high, ci95_low, ci95_high, model_version, weather_data, ai_factors)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *
     `;
-    const result = await pool.query(query, [
+    const result = await queryWithRetry(query, [
         targetDate,
         predictedCount,
         ci80?.low,
@@ -597,6 +748,31 @@ async function getFinalDailyPredictions(startDate = null, endDate = null) {
     return result.rows;
 }
 
+// Clear all data from tables (for reimport)
+async function clearAllData() {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // 按順序清除（考慮外鍵約束）
+        await client.query('TRUNCATE TABLE prediction_accuracy CASCADE');
+        await client.query('TRUNCATE TABLE final_daily_predictions CASCADE');
+        await client.query('TRUNCATE TABLE daily_predictions CASCADE');
+        await client.query('TRUNCATE TABLE predictions CASCADE');
+        await client.query('TRUNCATE TABLE actual_data CASCADE');
+        
+        // 保留 ai_factors_cache（不需要清除）
+        
+        await client.query('COMMIT');
+        return { success: true, message: '所有數據已清除' };
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
 module.exports = {
     get pool() { return pool; },
     initDatabase,
@@ -612,6 +788,7 @@ module.exports = {
     updateAIFactorsCache,
     insertDailyPrediction,
     calculateFinalDailyPrediction,
-    getFinalDailyPredictions
+    getFinalDailyPredictions,
+    clearAllData
 };
 

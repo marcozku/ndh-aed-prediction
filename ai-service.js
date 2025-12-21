@@ -5,6 +5,102 @@
 
 const https = require('https');
 const http = require('http');
+let chineseConv = null;
+
+// 嘗試載入 chinese-conv（如果已安裝）
+try {
+    chineseConv = require('chinese-conv');
+} catch (e) {
+    console.warn('⚠️ chinese-conv 未安裝，將無法自動轉換簡體中文到繁體中文');
+}
+
+// 檢測是否包含簡體中文字符
+function hasSimplifiedChinese(text) {
+    if (!text || typeof text !== 'string') return false;
+    
+    // 常見簡體中文字符列表（用於檢測）
+    const simplifiedChars = [
+        '简', '体', '预', '测', '统', '系', '数', '据', '库', '连', '检', '载',
+        '气', '资', '响', '无', '总', '结', '说', '获', '后', '时', '间', '缓',
+        '个', '卫', '会', '节', '来', '袭', '温', '骤', '导', '致', '别', '对',
+        '于', '础', '经', '开', '渐', '况', '医', '疗', '药', '诊', '症', '病',
+        '患', '护', '风', '云', '雾', '雨', '雪', '热', '冷', '湿', '干', '现',
+        '实', '际', '过', '还', '这', '圣', '诞', '临', '期', '准', '备', '伤',
+        '关', '负', '担', '历', '显', '着', '动', '学', '为', '产', '发', '长',
+        '门', '问', '题', '应', '该', '较', '认', '识', '记', '录', '处', '理',
+        '置', '分', '罚', '变', '化', '确', '定', '标', '准', '规', '则',
+        // 新增遺漏的簡體字符
+        '传', '监', '转', '将', '诱', '恶', '险', '紧', '持', '续', '剧', '调',
+        '并', '机'
+    ];
+    
+    for (let char of simplifiedChars) {
+        if (text.includes(char)) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+// 轉換簡體中文到繁體中文的輔助函數
+function convertToTraditional(text) {
+    if (!text || typeof text !== 'string') return text;
+    
+    // 檢測是否包含簡體中文（轉換前）
+    const hadSimplified = hasSimplifiedChinese(text);
+    
+    if (!chineseConv) {
+        if (hadSimplified) {
+            console.warn('⚠️ 檢測到簡體中文，但 chinese-conv 未安裝，無法自動轉換:', text.substring(0, 100));
+        }
+        return text; // 如果沒有轉換器，直接返回
+    }
+    
+    try {
+        // chinese-conv 使用 tify() 方法將簡體轉換為繁體（Traditional）
+        // sify() 是簡體化（Simplified），tify() 是繁體化（Traditional）
+        const converted = chineseConv.tify(text);
+        
+        // 如果檢測到簡體中文，記錄警告
+        if (hadSimplified) {
+            console.warn('⚠️ 檢測到簡體中文並已自動轉換為繁體中文:', text.substring(0, 100));
+        }
+        
+        return converted;
+    } catch (e) {
+        console.warn('⚠️ 轉換簡體中文失敗:', e.message);
+        if (hadSimplified) {
+            console.warn('⚠️ 原始文本包含簡體中文但轉換失敗，返回原文:', text.substring(0, 100));
+        }
+        return text; // 轉換失敗時返回原文
+    }
+}
+
+// 遞歸轉換對象中的所有字符串
+function convertObjectToTraditional(obj) {
+    if (!obj) return obj;
+    
+    if (typeof obj === 'string') {
+        // 檢測並轉換簡體中文
+        if (hasSimplifiedChinese(obj)) {
+            console.warn('⚠️ 檢測到簡體中文字符串並已自動轉換:', obj.substring(0, 100));
+        }
+        return convertToTraditional(obj);
+    } else if (Array.isArray(obj)) {
+        return obj.map(item => convertObjectToTraditional(item));
+    } else if (typeof obj === 'object') {
+        const converted = {};
+        for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                converted[key] = convertObjectToTraditional(obj[key]);
+            }
+        }
+        return converted;
+    }
+    
+    return obj;
+}
 
 const API_KEY = 'sk-hYb2t30UZbEPjt3QXVwBU4wXLvUzxBVL4DiLgbDWhKYIiFQW';
 
@@ -187,11 +283,68 @@ async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord
                 messages: [
                     {
                         role: 'system',
-                        content: '你是一個專業的醫療數據分析助手，專門分析可能影響香港北區醫院急症室病人數量的各種因素。所有回應必須使用繁體中文（Traditional Chinese）。'
+                        content: `你是一個專業的醫療數據分析助手，專門分析可能影響香港北區醫院急症室病人數量的各種因素。
+
+**極其嚴格的要求 - 必須遵守：**
+
+1. **語言要求（最高優先級）**：
+   - 你必須只使用繁體中文（Traditional Chinese / 正體中文）進行回應
+   - 絕對不能使用簡體中文（Simplified Chinese / 簡體中文）
+   - 絕對不能使用簡體字，包括：实际、预测、分析、影响、因素、说明、描述、理由、总结 等
+   - 必須使用繁體字：實際、預測、分析、影響、因素、說明、描述、理由、總結 等
+
+2. **適用範圍**：
+   - 所有描述性文字
+   - JSON 中的所有字段值（type, description, reasoning, summary 等）
+   - 所有分析理由和說明
+   - 任何輸出的文本內容
+   - 數字和標點符號後的文字
+
+3. **違規後果**：
+   - 如果使用簡體中文，系統將無法正確顯示內容
+   - 這是一個硬性要求，沒有任何例外
+   - 請在生成任何文字前，先確認使用的是繁體中文
+
+4. **常見簡體字對照（必須使用繁體）**：
+   - 实际 → 實際
+   - 预测 → 預測
+   - 分析 → 分析（相同）
+   - 影响 → 影響
+   - 因素 → 因素（相同）
+   - 说明 → 說明
+   - 描述 → 描述（相同）
+   - 理由 → 理由（相同）
+   - 总结 → 總結
+   - 天气 → 天氣
+   - 温度 → 溫度
+   - 湿度 → 濕度
+   - 降雨 → 降雨（相同）
+
+請務必確保所有輸出都是繁體中文，沒有任何簡體中文。`
                     },
                     {
                         role: 'user',
-                        content: prompt
+                        content: prompt + `\n\n**極其重要的語言要求（必須遵守）：**
+
+⚠️ 你必須只使用繁體中文（Traditional Chinese / 正體中文）回應，絕對不能使用簡體中文（Simplified Chinese / 簡體中文）。
+
+**嚴格禁止使用簡體字，包括但不限於：**
+- 实际、预测、影响、说明、描述、总结
+- 天气、温度、湿度、降雨
+- 任何簡體中文字符
+
+**必須使用繁體字：**
+- 實際、預測、影響、說明、描述、總結
+- 天氣、溫度、濕度、降雨
+- 所有文字都必須是繁體中文
+
+**檢查清單（生成回應前必須確認）：**
+1. ✅ 所有文字都是繁體中文
+2. ✅ JSON 中的所有字段值都是繁體中文
+3. ✅ 沒有任何簡體中文字符
+4. ✅ 所有描述、分析、理由都是繁體中文
+
+如果發現任何簡體中文，請立即轉換為繁體中文後再輸出。`
                     }
                 ],
                 temperature: temperature,
@@ -412,32 +565,50 @@ async function searchRelevantNewsAndEvents() {
 
 請基於當前日期（${today}，香港時間 ${hkTime}）和一般知識，分析是否有任何已知或可能發生的因素會影響未來幾天北區醫院的病人數量。
 
-**重要：所有返回的文字必須使用繁體中文（Traditional Chinese），包括因素類型、描述、總結等。**
+**⚠️ 極其重要的語言要求（最高優先級）：**
 
-請以 JSON 格式返回分析結果：
+你必須只使用繁體中文（Traditional Chinese / 正體中文）進行回應，絕對不能使用簡體中文（Simplified Chinese / 簡體中文）。
+
+**嚴格禁止的簡體字（必須使用繁體）：**
+- 实际 → 實際
+- 预测 → 預測
+- 影响 → 影響
+- 说明 → 說明
+- 描述 → 描述
+- 总结 → 總結
+- 天气 → 天氣
+- 温度 → 溫度
+- 湿度 → 濕度
+
+**所有文字、描述、分析、JSON 字段值都必須是繁體中文。生成回應前請確認沒有任何簡體中文字符。**
+
+請以 JSON 格式返回分析結果（所有文字必須是繁體中文）：
 {
   "factors": [
     {
       "type": "天氣/公共衛生/社會事件/季節性",
-      "description": "因素描述（必須使用繁體中文）",
+      "description": "因素描述",
       "impact": "增加/減少/無影響",
       "impactFactor": 1.05,  // 影響因子（1.0 = 無影響，>1.0 = 增加，<1.0 = 減少）
       "confidence": "高/中/低",
       "affectedDays": ["2025-01-XX", "2025-01-YY"],  // 受影響的日期
-      "reasoning": "分析理由（必須使用繁體中文）"
+      "reasoning": "分析理由"
     }
   ],
-  "summary": "總結說明（必須使用繁體中文）"
+  "summary": "總結說明"
 }`;
 
     try {
         const response = await callAI(prompt, null, 0.5);
         
+        // 先轉換響應中的簡體中文到繁體中文
+        const convertedResponse = convertToTraditional(response);
+        
         // 嘗試解析 JSON
         let result;
         try {
             // 提取 JSON 部分（如果響應包含其他文本）
-            const jsonMatch = response.match(/\{[\s\S]*\}/);
+            const jsonMatch = convertedResponse.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 result = JSON.parse(jsonMatch[0]);
             } else {
@@ -448,10 +619,13 @@ async function searchRelevantNewsAndEvents() {
             console.warn('⚠️ AI 響應無法解析為 JSON，使用文本響應');
             result = {
                 factors: [],
-                summary: response,
-                rawResponse: response
+                summary: convertedResponse,
+                rawResponse: convertedResponse
             };
         }
+        
+        // 轉換結果中的所有字符串為繁體中文
+        result = convertObjectToTraditional(result);
         
         return result;
     } catch (error) {
@@ -489,29 +663,47 @@ ${weatherData ? `當前天氣狀況：
 4. 季節性模式
 5. 其他可能導致急症室病人數量異常的因素
 
-**重要：所有返回的文字必須使用繁體中文（Traditional Chinese），包括因素類型、描述、分析理由、整體影響評估等。**
+**⚠️ 極其重要的語言要求（最高優先級）：**
 
-請以 JSON 格式返回：
+你必須只使用繁體中文（Traditional Chinese / 正體中文）進行回應，絕對不能使用簡體中文（Simplified Chinese / 簡體中文）。
+
+**嚴格禁止的簡體字（必須使用繁體）：**
+- 实际 → 實際
+- 预测 → 預測
+- 影响 → 影響
+- 说明 → 說明
+- 描述 → 描述
+- 总结 → 總結
+- 天气 → 天氣
+- 温度 → 溫度
+- 湿度 → 濕度
+
+**所有文字、描述、分析、JSON 字段值都必須是繁體中文。生成回應前請確認沒有任何簡體中文字符。**
+
+請以 JSON 格式返回（所有文字必須是繁體中文）：
 {
   "factors": [
     {
       "date": "YYYY-MM-DD",
       "type": "天氣/公共衛生/社會事件/季節性",
-      "description": "因素描述（必須使用繁體中文）",
+      "description": "因素描述",
       "impactFactor": 1.05,
       "confidence": "高/中/低",
-      "reasoning": "分析理由（必須使用繁體中文）"
+      "reasoning": "分析理由"
     }
   ],
-  "overallImpact": "整體影響評估（必須使用繁體中文）"
+  "overallImpact": "整體影響評估"
 }`;
 
     try {
         const response = await callAI(prompt, null, 0.5);
         
+        // 先轉換響應中的簡體中文到繁體中文
+        const convertedResponse = convertToTraditional(response);
+        
         let result;
         try {
-            const jsonMatch = response.match(/\{[\s\S]*\}/);
+            const jsonMatch = convertedResponse.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 result = JSON.parse(jsonMatch[0]);
             } else {
@@ -521,10 +713,13 @@ ${weatherData ? `當前天氣狀況：
             console.warn('⚠️ AI 響應無法解析為 JSON');
             result = {
                 factors: [],
-                overallImpact: response,
-                rawResponse: response
+                overallImpact: convertedResponse,
+                rawResponse: convertedResponse
             };
         }
+        
+        // 轉換結果中的所有字符串為繁體中文
+        result = convertObjectToTraditional(result);
         
         return result;
     } catch (error) {
@@ -596,5 +791,4 @@ module.exports = {
     getModelTier,
     MODEL_CONFIG
 };
-
 
