@@ -2557,7 +2557,31 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 const forceCanvasSize = () => {
                     const containerRect = historyContainer.getBoundingClientRect();
                     if (containerRect.width > 0 && containerRect.height > 0) {
-                        // 使用 setProperty 和 important 標誌強制設置
+                        // 計算容器的實際可用尺寸（考慮 padding）
+                        const computedStyle = window.getComputedStyle(historyContainer);
+                        const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+                        const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+                        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                        const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+                        
+                        const availableWidth = containerRect.width - paddingLeft - paddingRight;
+                        const availableHeight = containerRect.height - paddingTop - paddingBottom;
+                        
+                        // 限制 canvas 的實際像素尺寸（width 和 height 屬性）
+                        // 使用 devicePixelRatio 確保在高 DPI 屏幕上正確顯示
+                        const dpr = window.devicePixelRatio || 1;
+                        const maxCanvasWidth = Math.floor(availableWidth * dpr);
+                        const maxCanvasHeight = Math.floor(availableHeight * dpr);
+                        
+                        // 設置 canvas 的實際像素尺寸（不超過容器）
+                        if (historyCanvas.width > maxCanvasWidth) {
+                            historyCanvas.width = maxCanvasWidth;
+                        }
+                        if (historyCanvas.height > maxCanvasHeight) {
+                            historyCanvas.height = maxCanvasHeight;
+                        }
+                        
+                        // 使用 setProperty 和 important 標誌強制設置 CSS 樣式
                         historyCanvas.style.setProperty('width', '100%', 'important');
                         historyCanvas.style.setProperty('max-width', '100%', 'important');
                         historyCanvas.style.setProperty('height', '100%', 'important');
