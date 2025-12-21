@@ -1636,11 +1636,20 @@ section h2 {
     }
     
     #history-chart-container {
-        height: min(38vh, 400px) !important; /* 世界級標準 */
-        min-height: min(32vh, 340px) !important;
-        max-height: min(38vh, 400px) !important; /* 限制最大高度，防止無限增長 */
-        padding-bottom: min(10vh, 80px) !important;
+        height: min(35vh, 100%) !important; /* 使用百分比確保適應任何尺寸 */
+        min-height: min(30vh, 250px) !important; /* 減少最小高度以適應小屏幕 */
+        max-height: 100% !important; /* 使用百分比而不是固定像素 */
+        padding-bottom: min(5vh, 30px) !important; /* 減少 padding */
         overflow: hidden !important; /* 隱藏溢出內容，確保 canvas 在容器內 */
+    }
+    
+    /* 確保歷史趨勢圖的 canvas 在 380px 以下時不超出容器 */
+    #history-chart {
+        max-height: 100% !important;
+        height: 100% !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        object-fit: contain !important;
     }
     
     .accuracy-stats {
@@ -1662,8 +1671,8 @@ section h2 {
     }
     
     .chart-card.full-width {
-        height: min(50vh, 500px); /* 增加高度以容納歷史趨勢圖 */
-        min-height: min(48vh, 480px); /* 增加最小高度 */
+        height: auto; /* 使用 auto 讓內容決定高度 */
+        min-height: min(45vh, 400px); /* 減少最小高度以適應小屏幕 */
     }
     
     /* 只對「實際 vs 預測對比」相關的卡片使用 auto 高度 */
