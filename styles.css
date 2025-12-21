@@ -1682,6 +1682,75 @@ section h2 {
     }
 }
 
+/* 300px 以下：進一步優化 */
+@media (max-width: 300px) {
+    #history-chart-container {
+        height: min(30vh, 100%) !important;
+        min-height: min(25vh, 200px) !important;
+        max-height: 100% !important;
+        padding-bottom: min(3vh, 20px) !important;
+    }
+    
+    .chart-card.full-width {
+        min-height: min(40vh, 350px);
+    }
+    
+    .chart-card {
+        padding: var(--space-md) !important; /* 減少 padding */
+    }
+}
+
+/* 200px 以下：極小屏幕優化 */
+@media (max-width: 200px) {
+    #history-chart-container {
+        height: min(25vh, 100%) !important;
+        min-height: min(20vh, 150px) !important;
+        max-height: 100% !important;
+        padding-bottom: min(2vh, 15px) !important;
+    }
+    
+    .chart-card.full-width {
+        min-height: min(35vh, 300px);
+    }
+    
+    .chart-card {
+        padding: var(--space-sm) !important; /* 進一步減少 padding */
+    }
+    
+    .time-range-selector {
+        padding: var(--space-xs) !important;
+        gap: var(--space-xs) !important;
+    }
+    
+    .time-range-btn {
+        font-size: 0.6rem !important;
+        padding: 4px var(--space-xs) !important;
+    }
+}
+
+/* 100px 以下：超小屏幕優化 */
+@media (max-width: 100px) {
+    #history-chart-container {
+        height: min(20vh, 100%) !important;
+        min-height: min(15vh, 100px) !important;
+        max-height: 100% !important;
+        padding-bottom: min(1vh, 10px) !important;
+    }
+    
+    .chart-card.full-width {
+        min-height: min(30vh, 250px);
+    }
+    
+    .chart-card {
+        padding: var(--space-xs) !important;
+    }
+    
+    .chart-card h3 {
+        font-size: 0.7rem !important;
+        margin-bottom: var(--space-xs) !important;
+    }
+}
+
 /* 時間範圍選擇按鈕 */
 .time-range-selector {
     width: 100%;
