@@ -4091,12 +4091,43 @@ function getHKTime() {
 // ============================================
 // 更新區塊載入進度
 function updateSectionProgress(sectionId, percent) {
-    const loadingEl = document.getElementById(`${sectionId}-loading`);
-    const percentEl = document.getElementById(`${sectionId}-percent`);
-    const progressFill = document.getElementById(`${sectionId}-progress`);
-    // 嘗試多種可能的內容元素 ID
-    const contentEl = document.getElementById(`${sectionId}-card`) || 
+    // ID 映射表：將邏輯 sectionId 映射到實際的 HTML 元素 ID
+    const idMapping = {
+        'today-prediction': 'today',
+        'forecast-cards': 'forecast',
+        'realtime-factors': 'factors',
+        'stats': 'stats'
+    };
+    
+    // 內容元素 ID 映射表：特定 sectionId 對應的內容元素 ID
+    const contentIdMapping = {
+        'today-prediction': 'today-prediction-grid',
+        'forecast-cards': 'forecast-cards',
+        'realtime-factors': 'realtime-factors',
+        'stats': 'stats'
+    };
+    
+    // 獲取實際的元素 ID 前綴
+    const actualIdPrefix = idMapping[sectionId] || sectionId;
+    
+    // 嘗試查找 loading 元素（多種可能的 ID 格式）
+    const loadingEl = document.getElementById(`${actualIdPrefix}-loading`) || 
+                      document.getElementById(`${sectionId}-loading`);
+    const percentEl = document.getElementById(`${actualIdPrefix}-percent`) || 
+                      document.getElementById(`${sectionId}-percent`);
+    const progressFill = document.getElementById(`${actualIdPrefix}-progress`) || 
+                        document.getElementById(`${sectionId}-progress`);
+    
+    // 優先使用映射表中的內容元素 ID，然後嘗試其他可能的格式
+    const mappedContentId = contentIdMapping[sectionId];
+    const contentEl = (mappedContentId ? document.getElementById(mappedContentId) : null) ||
+                      document.getElementById(`${sectionId}-grid`) ||
+                      document.getElementById(`${sectionId}-card`) ||
+                      document.getElementById(`${actualIdPrefix}-prediction-grid`) ||
+                      document.getElementById(`${actualIdPrefix}-cards`) ||
+                      document.getElementById(`${actualIdPrefix}-grid`) ||
                       document.getElementById(sectionId) ||
+                      document.getElementById(actualIdPrefix) ||
                       document.getElementById(sectionId.replace('-loading', '')) ||
                       document.getElementById(sectionId.replace('-card', ''));
     
@@ -4109,6 +4140,9 @@ function updateSectionProgress(sectionId, percent) {
     if (percent >= 100 && contentEl) {
         if (loadingEl) loadingEl.style.display = 'none';
         contentEl.style.display = 'block';
+    } else if (loadingEl && percent < 100) {
+        // 確保載入指示器在載入時顯示
+        loadingEl.style.display = 'block';
     }
 }
 
@@ -5440,8 +5474,8 @@ async function updateAIFactors(force = false) {
 
 // 更新 factors-loading 進度
 function updateFactorsLoadingProgress(percent) {
-    const percentEl = document.getElementById('factors-loading-percent');
-    const progressFill = document.getElementById('factors-loading-progress');
+    const percentEl = document.getElementById('factors-percent');
+    const progressFill = document.getElementById('factors-progress');
     const loadingEl = document.getElementById('factors-loading');
     
     if (percentEl) {
