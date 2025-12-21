@@ -2149,17 +2149,9 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             historyCanvas.style.left = '0';
             historyCanvas.style.boxSizing = 'border-box';
             
-            // 設置 canvas 的實際像素尺寸（考慮 devicePixelRatio）
-            // 這會限制實際渲染尺寸，但 CSS 使用百分比保持響應式
-            const dpr = window.devicePixelRatio || 1;
-            historyCanvas.width = Math.floor(availableSize.width * dpr);
-            historyCanvas.height = Math.floor(availableSize.height * dpr);
-            
-            // 調整 canvas 的 scale 以匹配 devicePixelRatio
-            const ctx = historyCanvas.getContext('2d');
-            if (ctx) {
-                ctx.scale(dpr, dpr);
-            }
+            // 不手動設置 canvas 的像素尺寸和 scale
+            // 讓 Chart.js 自動處理 devicePixelRatio，這樣在高 DPI 設備（如 iPhone）上才能獲得高分辨率
+            // 我們只設置 CSS 尺寸為百分比，保持響應式
             
             // 存儲計算函數供後續使用（將在 Chart.js 創建後設置）
             window._historyChartCalculateSize = calculateAvailableSize;
@@ -2272,7 +2264,8 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 responsive: true, // 啟用響應式，讓圖表適應容器寬度
                 maintainAspectRatio: false,
                 // 明確設置設備像素比，防止 Chart.js 自動調整導致溢出
-                devicePixelRatio: 1, // 使用 1，因為我們已經手動處理了高 DPI
+                // 不設置 devicePixelRatio，讓 Chart.js 使用默認值（通常是 window.devicePixelRatio）
+                // 這樣在高 DPI 設備（如 iPhone）上才能獲得高分辨率
                 // 明確限制圖表尺寸
                 aspectRatio: undefined,
                 layout: {
@@ -2655,25 +2648,30 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                     const availableWidth = containerRect.width - paddingLeft - paddingRight;
                     const availableHeight = finalHeight - paddingTop - paddingBottom;
                     
-                    // 限制 canvas 的實際像素尺寸（但保持 CSS 為百分比，這樣才能響應式）
-                    const dpr = window.devicePixelRatio || 1;
-                    const maxCanvasWidth = Math.floor(availableWidth * dpr);
-                    const maxCanvasHeight = Math.floor(availableHeight * dpr);
+                    // 不手動限制 canvas 的實際像素尺寸
+                    // 讓 Chart.js 自動處理 devicePixelRatio，這樣在高 DPI 設備（如 iPhone）上才能獲得高分辨率
+                    // 我們只確保 CSS 尺寸不超過容器
                     
-                    // 只限制實際像素尺寸，不超過容器
-                    if (historyCanvas.width > maxCanvasWidth) {
-                        historyCanvas.width = maxCanvasWidth;
-                    }
-                    if (historyCanvas.height > maxCanvasHeight) {
-                        historyCanvas.height = maxCanvasHeight;
-                    }
-                    
-                    // 使用百分比保持響應式，而不是固定像素值
+                    // 使用百分比保持響應式
                     historyCanvas.style.setProperty('width', '100%', 'important');
                     historyCanvas.style.setProperty('max-width', '100%', 'important');
                     historyCanvas.style.setProperty('height', '100%', 'important');
                     historyCanvas.style.setProperty('max-height', '100%', 'important');
-                }, 50); // 給 CSS 媒體查詢時間應用
+                    
+                    // 如果 canvas 明顯超出容器，強制限制（允許 10px 誤差）
+                    const canvasRect = historyCanvas.getBoundingClientRect();
+                    if (canvasRect.height > finalHeight + 10) {
+                        historyCanvas.style.setProperty('max-height', `${availableHeight}px`, 'important');
+                    }
+                }, 100); // 給 CSS 媒體查詢更多時間應用（特別是 600px 斷點）
+                
+                // 第三次：最終檢查（確保 600px 斷點正確應用）
+                setTimeout(() => {
+                    historyCanvas.style.setProperty('width', '100%', 'important');
+                    historyCanvas.style.setProperty('max-width', '100%', 'important');
+                    historyCanvas.style.setProperty('height', '100%', 'important');
+                    historyCanvas.style.setProperty('max-height', '100%', 'important');
+                }, 200);
             };
         }
         
@@ -2709,19 +2707,9 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                     const availableWidth = containerRect.width - paddingLeft - paddingRight;
                     const availableHeight = finalHeight - paddingTop - paddingBottom;
                     
-                    // 限制 canvas 的實際像素尺寸（width 和 height 屬性）
-                    // 使用 devicePixelRatio 確保在高 DPI 屏幕上正確顯示
-                    const dpr = window.devicePixelRatio || 1;
-                    const maxCanvasWidth = Math.floor(availableWidth * dpr);
-                    const maxCanvasHeight = Math.floor(availableHeight * dpr);
-                    
-                    // 設置 canvas 的實際像素尺寸（不超過容器）
-                    if (historyCanvas.width > maxCanvasWidth) {
-                        historyCanvas.width = maxCanvasWidth;
-                    }
-                    if (historyCanvas.height > maxCanvasHeight) {
-                        historyCanvas.height = maxCanvasHeight;
-                    }
+                    // 不手動限制 canvas 的實際像素尺寸
+                    // 讓 Chart.js 自動處理 devicePixelRatio，這樣在高 DPI 設備（如 iPhone）上才能獲得高分辨率
+                    // 我們只確保 CSS 尺寸不超過容器
                     
                     // 使用百分比保持響應式，而不是固定像素值
                     historyCanvas.style.setProperty('width', '100%', 'important');
