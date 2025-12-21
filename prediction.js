@@ -2548,17 +2548,24 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         // 使用統一的簡單 resize 邏輯
         setTimeout(() => {
             if (historyChart && historyCanvas && historyContainer) {
-                // 強制限制 canvas 尺寸，確保不超過容器
-                const containerRect = historyContainer.getBoundingClientRect();
-                const maxWidth = containerRect.width;
-                const maxHeight = containerRect.height;
+                // 強制限制 canvas 尺寸的函數
+                const forceCanvasSize = () => {
+                    const containerRect = historyContainer.getBoundingClientRect();
+                    if (containerRect.width > 0 && containerRect.height > 0) {
+                        // 使用 setProperty 和 important 標誌強制設置
+                        historyCanvas.style.setProperty('width', '100%', 'important');
+                        historyCanvas.style.setProperty('max-width', '100%', 'important');
+                        historyCanvas.style.setProperty('height', '100%', 'important');
+                        historyCanvas.style.setProperty('max-height', '100%', 'important');
+                        historyCanvas.style.setProperty('box-sizing', 'border-box', 'important');
+                        historyCanvas.style.setProperty('display', 'block', 'important');
+                        historyCanvas.style.setProperty('margin', '0', 'important');
+                        historyCanvas.style.setProperty('padding', '0', 'important');
+                    }
+                };
                 
-                // 強制設置 canvas 的內聯樣式，確保不超過容器
-                historyCanvas.style.width = '100%';
-                historyCanvas.style.maxWidth = '100%';
-                historyCanvas.style.height = '100%';
-                historyCanvas.style.maxHeight = '100%';
-                historyCanvas.style.boxSizing = 'border-box';
+                // 立即強制設置
+                forceCanvasSize();
                 
                 // 使用統一的簡單 resize 邏輯
                 setupChartResize(historyChart, 'history-chart-container');
@@ -2579,14 +2586,43 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 // 讓 Chart.js 自動處理 resize
                 historyChart.update('none');
                 
-                // 再次強制設置 canvas 尺寸（Chart.js 可能在 update 後重置）
-                setTimeout(() => {
-                    historyCanvas.style.width = '100%';
-                    historyCanvas.style.maxWidth = '100%';
-                    historyCanvas.style.height = '100%';
-                    historyCanvas.style.maxHeight = '100%';
-                    historyCanvas.style.boxSizing = 'border-box';
-                }, 50);
+                // 多次強制設置 canvas 尺寸（Chart.js 可能在多個時機重置）
+                setTimeout(forceCanvasSize, 50);
+                setTimeout(forceCanvasSize, 100);
+                setTimeout(forceCanvasSize, 200);
+                
+                // 使用 MutationObserver 監控 canvas 樣式變化並強制設置
+                if (window.MutationObserver) {
+                    const observer = new MutationObserver((mutations) => {
+                        mutations.forEach((mutation) => {
+                            if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                                forceCanvasSize();
+                            }
+                        });
+                    });
+                    observer.observe(historyCanvas, {
+                        attributes: true,
+                        attributeFilter: ['style']
+                    });
+                    
+                    // 存儲 observer 以便後續清理
+                    if (!historyChart._sizeObserver) {
+                        historyChart._sizeObserver = observer;
+                    }
+                }
+                
+                // 使用 ResizeObserver 監控容器尺寸變化
+                if (window.ResizeObserver) {
+                    const resizeObserver = new ResizeObserver(() => {
+                        forceCanvasSize();
+                    });
+                    resizeObserver.observe(historyContainer);
+                    
+                    // 存儲 observer 以便後續清理
+                    if (!historyChart._resizeObserver) {
+                        historyChart._resizeObserver = resizeObserver;
+                    }
+                }
             }
         }, 100);
         console.log(`✅ 歷史趨勢圖已載入 (${historicalData.length} 筆數據, 範圍: ${range}, 分頁偏移: ${pageOffset})`);
