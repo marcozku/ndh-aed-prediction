@@ -2624,48 +2624,43 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         
         // 不需要監聽特定斷點，使用 ResizeObserver 和窗口 resize 事件即可適應所有尺寸
         
-        // 攔截 Chart.js 的 resize 方法，確保 canvas 不超過容器
+        // 攔截 Chart.js 的 resize 方法，確保 canvas 不超過容器，但保持響應式
         if (historyChart && historyChart.resize) {
             const originalResize = historyChart.resize.bind(historyChart);
             historyChart.resize = function() {
+                // 先讓 Chart.js 正常處理 resize（這樣它才能響應式調整）
                 originalResize();
-                // 在 resize 後立即強制限制 canvas 尺寸
-                // 使用存儲的計算函數或重新計算
-                const calculateSize = historyChart._calculateAvailableSize || (() => {
+                
+                // 使用 setTimeout 確保 CSS 媒體查詢已經應用，然後再限制尺寸
+                setTimeout(() => {
                     const containerRect = historyContainer.getBoundingClientRect();
                     if (containerRect.width <= 0 || containerRect.height <= 0) {
-                        return null;
+                        return;
                     }
+                    
                     const computedStyle = window.getComputedStyle(historyContainer);
                     const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
                     const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
                     const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
                     const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
                     
-            // 使用 getBoundingClientRect 獲取實際渲染尺寸（已包含所有 CSS 規則，包括媒體查詢）
-            // 這比 computedStyle.height 更準確，因為它反映了實際渲染後的尺寸
-            const actualContainerHeight = containerRect.height;
-            
-            // 檢查 computedStyle 的 max-height，確保不超過限制
-            const computedMaxHeight = computedStyle.maxHeight !== 'none' ? parseFloat(computedStyle.maxHeight) : null;
-            const finalHeight = computedMaxHeight ? Math.min(actualContainerHeight, computedMaxHeight) : actualContainerHeight;
-            
-            const availableWidth = containerRect.width - paddingLeft - paddingRight;
-            const availableHeight = finalHeight - paddingTop - paddingBottom;
+                    // 使用 getBoundingClientRect 獲取實際渲染尺寸（已包含所有 CSS 規則，包括媒體查詢）
+                    // 這比 computedStyle.height 更準確，因為它反映了實際渲染後的尺寸
+                    const actualContainerHeight = containerRect.height;
                     
-                    return {
-                        width: Math.max(0, availableWidth),
-                        height: Math.max(0, availableHeight)
-                    };
-                });
-                
-                const availableSize = calculateSize();
-                if (availableSize) {
-                    // 強制限制 canvas 的實際像素尺寸
+                    // 檢查 computedStyle 的 max-height，確保不超過限制
+                    const computedMaxHeight = computedStyle.maxHeight !== 'none' ? parseFloat(computedStyle.maxHeight) : null;
+                    const finalHeight = computedMaxHeight ? Math.min(actualContainerHeight, computedMaxHeight) : actualContainerHeight;
+                    
+                    const availableWidth = containerRect.width - paddingLeft - paddingRight;
+                    const availableHeight = finalHeight - paddingTop - paddingBottom;
+                    
+                    // 限制 canvas 的實際像素尺寸（但保持 CSS 為百分比，這樣才能響應式）
                     const dpr = window.devicePixelRatio || 1;
-                    const maxCanvasWidth = Math.floor(availableSize.width * dpr);
-                    const maxCanvasHeight = Math.floor(availableSize.height * dpr);
+                    const maxCanvasWidth = Math.floor(availableWidth * dpr);
+                    const maxCanvasHeight = Math.floor(availableHeight * dpr);
                     
+                    // 只限制實際像素尺寸，不超過容器
                     if (historyCanvas.width > maxCanvasWidth) {
                         historyCanvas.width = maxCanvasWidth;
                     }
@@ -2678,7 +2673,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                     historyCanvas.style.setProperty('max-width', '100%', 'important');
                     historyCanvas.style.setProperty('height', '100%', 'important');
                     historyCanvas.style.setProperty('max-height', '100%', 'important');
-                }
+                }, 50); // 給 CSS 媒體查詢時間應用
             };
         }
         
