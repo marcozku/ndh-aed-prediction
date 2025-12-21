@@ -2157,8 +2157,8 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 ctx.scale(dpr, dpr);
             }
             
-            // 存儲計算函數供後續使用
-            historyChart._calculateAvailableSize = calculateAvailableSize;
+            // 存儲計算函數供後續使用（將在 Chart.js 創建後設置）
+            window._historyChartCalculateSize = calculateAvailableSize;
         }
         
         historyChart = new Chart(historyCtx, {
@@ -2611,6 +2611,12 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         
         updateLoadingProgress('history', 100);
         completeChartLoading('history');
+        
+        // 將計算函數存儲到 historyChart 對象上（現在 historyChart 已經創建）
+        if (historyChart && window._historyChartCalculateSize) {
+            historyChart._calculateAvailableSize = window._historyChartCalculateSize;
+            delete window._historyChartCalculateSize; // 清理臨時變量
+        }
         
         // 攔截 Chart.js 的 resize 方法，確保 canvas 不超過容器
         if (historyChart && historyChart.resize) {
