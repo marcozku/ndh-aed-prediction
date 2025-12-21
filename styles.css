@@ -1431,6 +1431,11 @@ section h2 {
         gap: 8px !important; /* 減少間距 */
         padding: 10px !important; /* 減少 padding */
         max-height: 150px !important; /* 減少最大高度 */
+        margin-bottom: 24px !important; /* 確保與圖表有足夠間距 */
+    }
+    
+    #comparison-chart-container {
+        margin-top: 12px !important; /* 增加頂部間距，避免與 accuracy-stats 重疊 */
     }
 }
 
@@ -1440,6 +1445,11 @@ section h2 {
         gap: 8px !important;
         padding: 10px !important;
         max-height: 140px !important; /* 減少最大高度 */
+        margin-bottom: 24px !important; /* 確保與圖表有足夠間距 */
+    }
+    
+    #comparison-chart-container {
+        margin-top: 16px !important; /* 增加頂部間距，避免與 accuracy-stats 重疊 */
     }
 }
 
@@ -1449,6 +1459,11 @@ section h2 {
         gap: 8px !important;
         padding: 10px !important;
         max-height: 180px !important; /* 減少最大高度 */
+        margin-bottom: 28px !important; /* 增加底部間距，確保與圖表有足夠間距 */
+    }
+    
+    #comparison-chart-container {
+        margin-top: 20px !important; /* 增加頂部間距，避免與 accuracy-stats 重疊 */
     }
 }
 
@@ -1458,6 +1473,11 @@ section h2 {
         gap: 8px !important;
         padding: 10px !important;
         max-height: 180px !important; /* 減少最大高度 */
+        margin-bottom: 28px !important; /* 增加底部間距，確保與圖表有足夠間距 */
+    }
+    
+    #comparison-chart-container {
+        margin-top: 20px !important; /* 增加頂部間距，避免與 accuracy-stats 重疊 */
     }
 }
 
@@ -1467,6 +1487,11 @@ section h2 {
         gap: 6px !important;
         padding: 8px !important;
         max-height: 220px !important; /* 小屏幕2列布局需要更多高度 */
+        margin-bottom: 32px !important; /* 增加底部間距，確保與圖表有足夠間距 */
+    }
+    
+    #comparison-chart-container {
+        margin-top: 24px !important; /* 增加頂部間距，避免與 accuracy-stats 重疊 */
     }
 }
 
@@ -1580,11 +1605,16 @@ section h2 {
         padding-bottom: min(10vh, 80px) !important;
     }
     
+    .accuracy-stats {
+        margin-bottom: 36px !important; /* 增加底部間距，確保與圖表有足夠間距 */
+    }
+    
     #comparison-chart-container {
         height: auto !important;
         min-height: min(40vh, 400px) !important; /* 世界級標準最小高度：視窗高度的40%，最小400px */
         max-height: none !important;
         padding-bottom: min(10vh, 80px) !important; /* 世界級標準底部 padding */
+        margin-top: 28px !important; /* 增加頂部間距，避免與 accuracy-stats 重疊 */
     }
     
     #comparison-chart-container canvas {
