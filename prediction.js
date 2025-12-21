@@ -1584,6 +1584,22 @@ async function initCharts(predictor) {
     console.log('✅ 所有圖表載入完成');
 }
 
+// 清理歷史趨勢圖的 observers
+function cleanupHistoryChart() {
+    if (historyChart) {
+        if (historyChart._sizeObserver) {
+            historyChart._sizeObserver.disconnect();
+            historyChart._sizeObserver = null;
+        }
+        if (historyChart._resizeObserver) {
+            historyChart._resizeObserver.disconnect();
+            historyChart._resizeObserver = null;
+        }
+        historyChart.destroy();
+        historyChart = null;
+    }
+}
+
 // 統一的簡單 resize 邏輯（類似 factors-container）
 function setupChartResize(chart, containerId) {
     if (!chart || !containerId) return;
@@ -1693,10 +1709,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             console.warn(`⚠️ 日期範圍無效或過早 (範圍=${range}, pageOffset=${pageOffset})`);
             
             // 銷毀現有圖表（如果存在）
-            if (historyChart) {
-                historyChart.destroy();
-                historyChart = null;
-            }
+            cleanupHistoryChart();
             
             // 顯示友好的提示消息，而不是完全隱藏區塊
             // 但保留 canvas 元素，以便下次可以正常顯示圖表
@@ -1762,10 +1775,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             console.warn(`⚠️ 沒有歷史數據 (範圍=${range}, pageOffset=${pageOffset}, ${startDate} 至 ${endDate})`);
             
             // 銷毀現有圖表（如果存在）
-            if (historyChart) {
-                historyChart.destroy();
-                historyChart = null;
-            }
+            cleanupHistoryChart();
             
             // 顯示友好的提示消息，但保留 canvas 元素以便下次使用
             const historyContainer = document.getElementById('history-chart-container');
@@ -1873,10 +1883,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             console.warn(`⚠️ 數據處理後為空 (範圍=${range}, pageOffset=${pageOffset})`);
             
             // 銷毀現有圖表（如果存在）
-            if (historyChart) {
-                historyChart.destroy();
-                historyChart = null;
-            }
+            cleanupHistoryChart();
             
             // 顯示友好的提示消息，但保留 canvas 元素以便下次使用
             const historyContainer = document.getElementById('history-chart-container');
@@ -2052,9 +2059,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         updateLoadingProgress('history', 70);
         
         // 如果已有圖表，先銷毀
-        if (historyChart) {
-            historyChart.destroy();
-        }
+        cleanupHistoryChart();
         
         // 設置容器（使用responsive模式，不再需要滾動）
         const historyContainer = document.getElementById('history-chart-container');
@@ -6194,7 +6199,7 @@ async function refreshPredictions(predictor) {
     if (forecastChart) forecastChart.destroy();
     if (dowChart) dowChart.destroy();
     if (monthChart) monthChart.destroy();
-    if (historyChart) historyChart.destroy();
+    cleanupHistoryChart();
     if (comparisonChart) comparisonChart.destroy();
     await initCharts(predictor);
     // 確保圖表正確適應
@@ -6340,7 +6345,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (forecastChart) forecastChart.destroy();
                 if (dowChart) dowChart.destroy();
                 if (monthChart) monthChart.destroy();
-                if (historyChart) historyChart.destroy();
+                cleanupHistoryChart();
                 if (comparisonChart) comparisonChart.destroy();
                 await initCharts(predictor);
                 // 確保圖表正確適應
@@ -6361,7 +6366,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (forecastChart) forecastChart.destroy();
                 if (dowChart) dowChart.destroy();
                 if (monthChart) monthChart.destroy();
-                if (historyChart) historyChart.destroy();
+                cleanupHistoryChart();
                 if (comparisonChart) comparisonChart.destroy();
                 await initCharts(predictor);
                 // 確保圖表正確適應
