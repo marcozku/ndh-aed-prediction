@@ -1691,6 +1691,15 @@ section h2 {
         padding-bottom: min(3vh, 20px) !important;
     }
     
+    /* 確保歷史趨勢圖的 canvas 在 300px 以下時不超出容器 */
+    #history-chart {
+        max-height: 100% !important;
+        height: 100% !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        object-fit: contain !important;
+    }
+    
     .chart-card.full-width {
         min-height: min(40vh, 350px);
     }
@@ -1707,6 +1716,15 @@ section h2 {
         min-height: min(20vh, 150px) !important;
         max-height: 100% !important;
         padding-bottom: min(2vh, 15px) !important;
+    }
+    
+    /* 確保歷史趨勢圖的 canvas 在 200px 以下時不超出容器 */
+    #history-chart {
+        max-height: 100% !important;
+        height: 100% !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        object-fit: contain !important;
     }
     
     .chart-card.full-width {
@@ -1735,6 +1753,15 @@ section h2 {
         min-height: min(15vh, 100px) !important;
         max-height: 100% !important;
         padding-bottom: min(1vh, 10px) !important;
+    }
+    
+    /* 確保歷史趨勢圖的 canvas 在 100px 以下時不超出容器 */
+    #history-chart {
+        max-height: 100% !important;
+        height: 100% !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        object-fit: contain !important;
     }
     
     .chart-card.full-width {
