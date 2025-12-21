@@ -2139,17 +2139,18 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         
         const availableSize = calculateAvailableSize();
         if (availableSize) {
-            // 設置 canvas 的 CSS 尺寸
-            historyCanvas.style.width = `${availableSize.width}px`;
-            historyCanvas.style.height = `${availableSize.height}px`;
-            historyCanvas.style.maxWidth = `${availableSize.width}px`;
-            historyCanvas.style.maxHeight = `${availableSize.height}px`;
+            // 設置 canvas 的 CSS 尺寸（使用百分比保持響應式，而不是固定像素值）
+            historyCanvas.style.width = '100%';
+            historyCanvas.style.height = '100%';
+            historyCanvas.style.maxWidth = '100%';
+            historyCanvas.style.maxHeight = '100%';
             historyCanvas.style.position = 'absolute';
             historyCanvas.style.top = '0';
             historyCanvas.style.left = '0';
             historyCanvas.style.boxSizing = 'border-box';
             
             // 設置 canvas 的實際像素尺寸（考慮 devicePixelRatio）
+            // 這會限制實際渲染尺寸，但 CSS 使用百分比保持響應式
             const dpr = window.devicePixelRatio || 1;
             historyCanvas.width = Math.floor(availableSize.width * dpr);
             historyCanvas.height = Math.floor(availableSize.height * dpr);
@@ -2672,11 +2673,11 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         historyCanvas.height = maxCanvasHeight;
                     }
                     
-                    // 強制設置 CSS 尺寸
-                    historyCanvas.style.setProperty('width', `${availableSize.width}px`, 'important');
-                    historyCanvas.style.setProperty('height', `${availableSize.height}px`, 'important');
-                    historyCanvas.style.setProperty('max-width', `${availableSize.width}px`, 'important');
-                    historyCanvas.style.setProperty('max-height', `${availableSize.height}px`, 'important');
+                    // 使用百分比保持響應式，而不是固定像素值
+                    historyCanvas.style.setProperty('width', '100%', 'important');
+                    historyCanvas.style.setProperty('max-width', '100%', 'important');
+                    historyCanvas.style.setProperty('height', '100%', 'important');
+                    historyCanvas.style.setProperty('max-height', '100%', 'important');
                 }
             };
         }
@@ -2727,11 +2728,11 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         historyCanvas.height = maxCanvasHeight;
                     }
                     
-                    // 使用 setProperty 和 important 標誌強制設置 CSS 樣式（使用實際像素值）
-                    historyCanvas.style.setProperty('width', `${availableWidth}px`, 'important');
-                    historyCanvas.style.setProperty('max-width', `${availableWidth}px`, 'important');
-                    historyCanvas.style.setProperty('height', `${availableHeight}px`, 'important');
-                    historyCanvas.style.setProperty('max-height', `${availableHeight}px`, 'important');
+                    // 使用百分比保持響應式，而不是固定像素值
+                    historyCanvas.style.setProperty('width', '100%', 'important');
+                    historyCanvas.style.setProperty('max-width', '100%', 'important');
+                    historyCanvas.style.setProperty('height', '100%', 'important');
+                    historyCanvas.style.setProperty('max-height', '100%', 'important');
                     historyCanvas.style.setProperty('box-sizing', 'border-box', 'important');
                     historyCanvas.style.setProperty('display', 'block', 'important');
                     historyCanvas.style.setProperty('margin', '0', 'important');
