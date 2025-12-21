@@ -2107,22 +2107,40 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         }
         
         // 在創建 Chart.js 之前，強制設置 canvas 尺寸
-        const containerRect = historyContainer.getBoundingClientRect();
-        if (containerRect.width > 0 && containerRect.height > 0) {
+        // 使用函數來計算可用尺寸，確保考慮所有 CSS 規則（包括媒體查詢）
+        const calculateAvailableSize = () => {
+            const containerRect = historyContainer.getBoundingClientRect();
+            if (containerRect.width <= 0 || containerRect.height <= 0) {
+                return null;
+            }
+            
             const computedStyle = window.getComputedStyle(historyContainer);
             const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
             const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
             const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
             const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
             
-            const availableWidth = containerRect.width - paddingLeft - paddingRight;
-            const availableHeight = containerRect.height - paddingTop - paddingBottom;
+            // 獲取容器的實際計算高度（考慮 max-height 等 CSS 規則）
+            const computedHeight = parseFloat(computedStyle.height) || containerRect.height;
+            const computedMaxHeight = computedStyle.maxHeight !== 'none' ? parseFloat(computedStyle.maxHeight) : null;
+            const actualHeight = computedMaxHeight ? Math.min(computedHeight, computedMaxHeight) : computedHeight;
             
+            const availableWidth = containerRect.width - paddingLeft - paddingRight;
+            const availableHeight = actualHeight - paddingTop - paddingBottom;
+            
+            return {
+                width: Math.max(0, availableWidth),
+                height: Math.max(0, availableHeight)
+            };
+        };
+        
+        const availableSize = calculateAvailableSize();
+        if (availableSize) {
             // 設置 canvas 的 CSS 尺寸
-            historyCanvas.style.width = `${availableWidth}px`;
-            historyCanvas.style.height = `${availableHeight}px`;
-            historyCanvas.style.maxWidth = `${availableWidth}px`;
-            historyCanvas.style.maxHeight = `${availableHeight}px`;
+            historyCanvas.style.width = `${availableSize.width}px`;
+            historyCanvas.style.height = `${availableSize.height}px`;
+            historyCanvas.style.maxWidth = `${availableSize.width}px`;
+            historyCanvas.style.maxHeight = `${availableSize.height}px`;
             historyCanvas.style.position = 'absolute';
             historyCanvas.style.top = '0';
             historyCanvas.style.left = '0';
@@ -2130,14 +2148,17 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             
             // 設置 canvas 的實際像素尺寸（考慮 devicePixelRatio）
             const dpr = window.devicePixelRatio || 1;
-            historyCanvas.width = Math.floor(availableWidth * dpr);
-            historyCanvas.height = Math.floor(availableHeight * dpr);
+            historyCanvas.width = Math.floor(availableSize.width * dpr);
+            historyCanvas.height = Math.floor(availableSize.height * dpr);
             
             // 調整 canvas 的 scale 以匹配 devicePixelRatio
             const ctx = historyCanvas.getContext('2d');
             if (ctx) {
                 ctx.scale(dpr, dpr);
             }
+            
+            // 存儲計算函數供後續使用
+            historyChart._calculateAvailableSize = calculateAvailableSize;
         }
         
         historyChart = new Chart(historyCtx, {
@@ -2597,31 +2618,51 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             historyChart.resize = function() {
                 originalResize();
                 // 在 resize 後立即強制限制 canvas 尺寸
-                const containerRect = historyContainer.getBoundingClientRect();
-                if (containerRect.width > 0 && containerRect.height > 0) {
+                // 使用存儲的計算函數或重新計算
+                const calculateSize = historyChart._calculateAvailableSize || (() => {
+                    const containerRect = historyContainer.getBoundingClientRect();
+                    if (containerRect.width <= 0 || containerRect.height <= 0) {
+                        return null;
+                    }
                     const computedStyle = window.getComputedStyle(historyContainer);
                     const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
                     const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
                     const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
                     const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
                     
-                    const maxWidth = containerRect.width - paddingLeft - paddingRight;
-                    const maxHeight = containerRect.height - paddingTop - paddingBottom;
+                    // 獲取容器的實際計算高度（考慮 max-height 等 CSS 規則）
+                    const computedHeight = parseFloat(computedStyle.height) || containerRect.height;
+                    const computedMaxHeight = computedStyle.maxHeight !== 'none' ? parseFloat(computedStyle.maxHeight) : null;
+                    const actualHeight = computedMaxHeight ? Math.min(computedHeight, computedMaxHeight) : computedHeight;
                     
+                    const availableWidth = containerRect.width - paddingLeft - paddingRight;
+                    const availableHeight = actualHeight - paddingTop - paddingBottom;
+                    
+                    return {
+                        width: Math.max(0, availableWidth),
+                        height: Math.max(0, availableHeight)
+                    };
+                });
+                
+                const availableSize = calculateSize();
+                if (availableSize) {
                     // 強制限制 canvas 的實際像素尺寸
                     const dpr = window.devicePixelRatio || 1;
-                    if (historyCanvas.width > maxWidth * dpr) {
-                        historyCanvas.width = Math.floor(maxWidth * dpr);
+                    const maxCanvasWidth = Math.floor(availableSize.width * dpr);
+                    const maxCanvasHeight = Math.floor(availableSize.height * dpr);
+                    
+                    if (historyCanvas.width > maxCanvasWidth) {
+                        historyCanvas.width = maxCanvasWidth;
                     }
-                    if (historyCanvas.height > maxHeight * dpr) {
-                        historyCanvas.height = Math.floor(maxHeight * dpr);
+                    if (historyCanvas.height > maxCanvasHeight) {
+                        historyCanvas.height = maxCanvasHeight;
                     }
                     
                     // 強制設置 CSS 尺寸
-                    historyCanvas.style.setProperty('width', `${maxWidth}px`, 'important');
-                    historyCanvas.style.setProperty('height', `${maxHeight}px`, 'important');
-                    historyCanvas.style.setProperty('max-width', `${maxWidth}px`, 'important');
-                    historyCanvas.style.setProperty('max-height', `${maxHeight}px`, 'important');
+                    historyCanvas.style.setProperty('width', `${availableSize.width}px`, 'important');
+                    historyCanvas.style.setProperty('height', `${availableSize.height}px`, 'important');
+                    historyCanvas.style.setProperty('max-width', `${availableSize.width}px`, 'important');
+                    historyCanvas.style.setProperty('max-height', `${availableSize.height}px`, 'important');
                 }
             };
         }
@@ -2636,41 +2677,50 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 // 強制限制 canvas 尺寸的函數
                 const forceCanvasSize = () => {
                     const containerRect = historyContainer.getBoundingClientRect();
-                    if (containerRect.width > 0 && containerRect.height > 0) {
-                        // 計算容器的實際可用尺寸（考慮 padding）
-                        const computedStyle = window.getComputedStyle(historyContainer);
-                        const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
-                        const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
-                        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
-                        const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
-                        
-                        const availableWidth = containerRect.width - paddingLeft - paddingRight;
-                        const availableHeight = containerRect.height - paddingTop - paddingBottom;
-                        
-                        // 限制 canvas 的實際像素尺寸（width 和 height 屬性）
-                        // 使用 devicePixelRatio 確保在高 DPI 屏幕上正確顯示
-                        const dpr = window.devicePixelRatio || 1;
-                        const maxCanvasWidth = Math.floor(availableWidth * dpr);
-                        const maxCanvasHeight = Math.floor(availableHeight * dpr);
-                        
-                        // 設置 canvas 的實際像素尺寸（不超過容器）
-                        if (historyCanvas.width > maxCanvasWidth) {
-                            historyCanvas.width = maxCanvasWidth;
-                        }
-                        if (historyCanvas.height > maxCanvasHeight) {
-                            historyCanvas.height = maxCanvasHeight;
-                        }
-                        
-                        // 使用 setProperty 和 important 標誌強制設置 CSS 樣式
-                        historyCanvas.style.setProperty('width', '100%', 'important');
-                        historyCanvas.style.setProperty('max-width', '100%', 'important');
-                        historyCanvas.style.setProperty('height', '100%', 'important');
-                        historyCanvas.style.setProperty('max-height', '100%', 'important');
-                        historyCanvas.style.setProperty('box-sizing', 'border-box', 'important');
-                        historyCanvas.style.setProperty('display', 'block', 'important');
-                        historyCanvas.style.setProperty('margin', '0', 'important');
-                        historyCanvas.style.setProperty('padding', '0', 'important');
+                    if (containerRect.width <= 0 || containerRect.height <= 0) {
+                        return;
                     }
+                    
+                    // 計算容器的實際可用尺寸（考慮 padding 和 CSS max-height，包括媒體查詢）
+                    const computedStyle = window.getComputedStyle(historyContainer);
+                    const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+                    const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+                    const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                    const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+                    
+                    // 獲取容器的實際計算高度（考慮 max-height 等 CSS 規則，包括媒體查詢）
+                    // 這對於 900px 斷點很重要，因為 CSS 會改變容器高度
+                    const computedHeight = parseFloat(computedStyle.height) || containerRect.height;
+                    const computedMaxHeight = computedStyle.maxHeight !== 'none' ? parseFloat(computedStyle.maxHeight) : null;
+                    // 使用實際計算的高度，而不是 getBoundingClientRect 的高度
+                    const actualHeight = computedMaxHeight ? Math.min(computedHeight, computedMaxHeight) : computedHeight;
+                    
+                    const availableWidth = containerRect.width - paddingLeft - paddingRight;
+                    const availableHeight = actualHeight - paddingTop - paddingBottom;
+                    
+                    // 限制 canvas 的實際像素尺寸（width 和 height 屬性）
+                    // 使用 devicePixelRatio 確保在高 DPI 屏幕上正確顯示
+                    const dpr = window.devicePixelRatio || 1;
+                    const maxCanvasWidth = Math.floor(availableWidth * dpr);
+                    const maxCanvasHeight = Math.floor(availableHeight * dpr);
+                    
+                    // 設置 canvas 的實際像素尺寸（不超過容器）
+                    if (historyCanvas.width > maxCanvasWidth) {
+                        historyCanvas.width = maxCanvasWidth;
+                    }
+                    if (historyCanvas.height > maxCanvasHeight) {
+                        historyCanvas.height = maxCanvasHeight;
+                    }
+                    
+                    // 使用 setProperty 和 important 標誌強制設置 CSS 樣式（使用實際像素值）
+                    historyCanvas.style.setProperty('width', `${availableWidth}px`, 'important');
+                    historyCanvas.style.setProperty('max-width', `${availableWidth}px`, 'important');
+                    historyCanvas.style.setProperty('height', `${availableHeight}px`, 'important');
+                    historyCanvas.style.setProperty('max-height', `${availableHeight}px`, 'important');
+                    historyCanvas.style.setProperty('box-sizing', 'border-box', 'important');
+                    historyCanvas.style.setProperty('display', 'block', 'important');
+                    historyCanvas.style.setProperty('margin', '0', 'important');
+                    historyCanvas.style.setProperty('padding', '0', 'important');
                 };
                 
                 // 立即強制設置
