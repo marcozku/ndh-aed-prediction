@@ -1603,12 +1603,35 @@ function setupChartResize(chart, containerId) {
     canvas.style.boxSizing = 'border-box';
     canvas.style.display = 'block';
     
+    // 對於歷史趨勢圖，強制限制 canvas 高度，確保不超過容器
+    if (containerId === 'history-chart-container') {
+        canvas.style.height = '100%';
+        canvas.style.maxHeight = '100%';
+        // 強制設置，覆蓋 Chart.js 可能設置的內聯樣式
+        const containerRect = container.getBoundingClientRect();
+        if (containerRect.height > 0) {
+            canvas.style.setProperty('height', '100%', 'important');
+            canvas.style.setProperty('max-height', '100%', 'important');
+        }
+    }
+    
     // 確保圖表選項正確設置
     chart.options.responsive = true;
     chart.options.maintainAspectRatio = false;
     
     // 讓 Chart.js 自動處理 resize（類似 factors-container 的自然適應）
     chart.resize();
+    
+    // 對於歷史趨勢圖，在 resize 後再次強制設置 canvas 尺寸
+    if (containerId === 'history-chart-container') {
+        setTimeout(() => {
+            canvas.style.setProperty('width', '100%', 'important');
+            canvas.style.setProperty('max-width', '100%', 'important');
+            canvas.style.setProperty('height', '100%', 'important');
+            canvas.style.setProperty('max-height', '100%', 'important');
+            canvas.style.setProperty('box-sizing', 'border-box', 'important');
+        }, 50);
+    }
 }
 
 // 統一的窗口 resize 處理（簡單邏輯，類似 factors-container）
@@ -2525,6 +2548,18 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         // 使用統一的簡單 resize 邏輯
         setTimeout(() => {
             if (historyChart && historyCanvas && historyContainer) {
+                // 強制限制 canvas 尺寸，確保不超過容器
+                const containerRect = historyContainer.getBoundingClientRect();
+                const maxWidth = containerRect.width;
+                const maxHeight = containerRect.height;
+                
+                // 強制設置 canvas 的內聯樣式，確保不超過容器
+                historyCanvas.style.width = '100%';
+                historyCanvas.style.maxWidth = '100%';
+                historyCanvas.style.height = '100%';
+                historyCanvas.style.maxHeight = '100%';
+                historyCanvas.style.boxSizing = 'border-box';
+                
                 // 使用統一的簡單 resize 邏輯
                 setupChartResize(historyChart, 'history-chart-container');
                 
@@ -2543,6 +2578,15 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 
                 // 讓 Chart.js 自動處理 resize
                 historyChart.update('none');
+                
+                // 再次強制設置 canvas 尺寸（Chart.js 可能在 update 後重置）
+                setTimeout(() => {
+                    historyCanvas.style.width = '100%';
+                    historyCanvas.style.maxWidth = '100%';
+                    historyCanvas.style.height = '100%';
+                    historyCanvas.style.maxHeight = '100%';
+                    historyCanvas.style.boxSizing = 'border-box';
+                }, 50);
             }
         }, 100);
         console.log(`✅ 歷史趨勢圖已載入 (${historicalData.length} 筆數據, 範圍: ${range}, 分頁偏移: ${pageOffset})`);
