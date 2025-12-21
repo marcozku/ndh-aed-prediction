@@ -164,7 +164,9 @@ const apiHandlers = {
         try {
             const parsedUrl = url.parse(req.url, true);
             const { start, end } = parsedUrl.query;
+            console.log(`📅 API 接收日期範圍參數: start=${start}, end=${end}`);
             const data = await db.getActualData(start, end);
+            console.log(`📊 API 返回數據數量: ${data ? data.length : 0} (範圍: ${start} 至 ${end})`);
             sendJson(res, { success: true, data });
         } catch (error) {
             console.error('❌ 獲取實際數據失敗:', error);

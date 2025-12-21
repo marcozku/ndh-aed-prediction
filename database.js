@@ -352,19 +352,25 @@ async function getActualData(startDate = null, endDate = null) {
     const params = [];
     
     if (startDate && endDate) {
-        query += ' WHERE date BETWEEN $1 AND $2';
+        query += ' WHERE date >= $1 AND date <= $2';
         params.push(startDate, endDate);
+        console.log(`🔍 數據庫查詢: WHERE date >= '${startDate}' AND date <= '${endDate}'`);
     } else if (startDate) {
         query += ' WHERE date >= $1';
         params.push(startDate);
+        console.log(`🔍 數據庫查詢: WHERE date >= '${startDate}'`);
     } else if (endDate) {
         query += ' WHERE date <= $1';
         params.push(endDate);
+        console.log(`🔍 數據庫查詢: WHERE date <= '${endDate}'`);
+    } else {
+        console.log(`⚠️ 數據庫查詢: 沒有日期範圍限制，將返回所有數據`);
     }
     
     query += ' ORDER BY date DESC';
     try {
         const result = await queryWithRetry(query, params);
+        console.log(`✅ 數據庫返回 ${result.rows.length} 筆數據`);
         return result.rows;
     } catch (error) {
         console.error('❌ getActualData 查詢失敗:', error);

@@ -4997,35 +4997,35 @@ function getDateRangeWithOffset(range, pageOffset = 0) {
             break;
         case '1週':
             start.setDate(today.getDate() - 7);
-            end.setDate(today.getDate());
+            end = new Date(today); // 確保 end 是 today 的副本，包含今天
             break;
         case '1月':
             start.setMonth(today.getMonth() - 1);
-            end.setDate(today.getDate());
+            end = new Date(today); // 確保 end 是 today 的副本，包含今天
             break;
         case '3月':
             start.setMonth(today.getMonth() - 3);
-            end.setDate(today.getDate());
+            end = new Date(today); // 確保 end 是 today 的副本，包含今天
             break;
         case '6月':
             start.setMonth(today.getMonth() - 6);
-            end.setDate(today.getDate());
+            end = new Date(today); // 確保 end 是 today 的副本，包含今天
             break;
         case '1年':
             start.setFullYear(today.getFullYear() - 1);
-            end.setDate(today.getDate());
+            end = new Date(today); // 確保 end 是 today 的副本，包含今天
             break;
         case '2年':
             start.setFullYear(today.getFullYear() - 2);
-            end.setDate(today.getDate());
+            end = new Date(today); // 確保 end 是 today 的副本，包含今天
             break;
         case '5年':
             start.setFullYear(today.getFullYear() - 5);
-            end.setDate(today.getDate());
+            end = new Date(today); // 確保 end 是 today 的副本，包含今天
             break;
         case '10年':
             start.setFullYear(today.getFullYear() - 10);
-            end.setDate(today.getDate());
+            end = new Date(today); // 確保 end 是 today 的副本，包含今天
             break;
         case '全部':
             return { startDate: null, endDate: null }; // 返回null表示獲取所有數據
@@ -5089,9 +5089,17 @@ function getDateRangeWithOffset(range, pageOffset = 0) {
         }
     }
     
+    // 格式化日期為 YYYY-MM-DD（使用本地時間，避免時區問題）
+    const formatDate = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+    
     return {
-        startDate: start.toISOString().split('T')[0],
-        endDate: end.toISOString().split('T')[0]
+        startDate: formatDate(start),
+        endDate: formatDate(end)
     };
 }
 
