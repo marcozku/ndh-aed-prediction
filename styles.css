@@ -1269,7 +1269,7 @@ section h2 {
     z-index: 1 !important; /* 確保在 accuracy-stats 下方 */
 }
 
-/* 實際 vs 預測對比圖容器 - 減少高度以避免與統計卡片重疊 */
+/* 實際 vs 預測對比圖容器 - 減少高度以避免與統計卡片重疊，讓圖表居中 */
 #comparison-chart-container {
     width: 100% !important;
     max-width: 100% !important;
@@ -1277,10 +1277,13 @@ section h2 {
     min-height: min(45vh, 450px) !important; /* 減少最小高度：視窗高度的45%，最小450px */
     max-height: min(50vh, 500px) !important; /* 限制最大高度，防止無限增長 */
     padding-bottom: min(4vh, 30px) !important; /* 減少底部 padding：視窗高度的4%，最大30px */
+    padding-top: 0px !important; /* 頂部 padding 由 Chart.js layout.padding 控制 */
     overflow: hidden !important; /* 隱藏溢出內容，防止容器增長 */
     position: relative;
     box-sizing: border-box;
-    display: block !important;
+    display: flex !important; /* 使用 flex 讓圖表居中 */
+    align-items: center !important; /* 垂直居中 */
+    justify-content: center !important; /* 水平居中 */
     margin-top: 40px !important; /* 大幅增加頂部間距，避免與 accuracy-stats 重疊 */
 }
 
@@ -1426,6 +1429,7 @@ section h2 {
     min-height: auto !important; /* 讓內容決定高度 */
     max-height: none !important; /* 移除最大高度限制，確保所有內容都在容器內 */
     clear: both !important; /* 確保不會與其他元素重疊 */
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%) !important; /* 確保背景色在所有屏幕尺寸下都顯示 */
 }
 
 @media (max-width: 1200px) {
@@ -1433,8 +1437,9 @@ section h2 {
         grid-template-columns: repeat(3, 1fr) !important;
         gap: 8px !important; /* 減少間距 */
         padding: 10px !important; /* 減少 padding */
-        max-height: 150px !important; /* 減少最大高度 */
+        max-height: none !important; /* 移除最大高度限制，確保所有卡片都在容器內 */
         margin-bottom: 40px !important; /* 大幅增加底部間距，確保與圖表有足夠間距 */
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%) !important; /* 確保背景色顯示 */
     }
     
     #comparison-chart-container {
@@ -1447,8 +1452,9 @@ section h2 {
         grid-template-columns: repeat(3, 1fr) !important; /* 平板：保持3列 */
         gap: 8px !important;
         padding: 10px !important;
-        max-height: 140px !important; /* 減少最大高度 */
+        max-height: none !important; /* 移除最大高度限制，確保所有卡片都在容器內 */
         margin-bottom: 44px !important; /* 大幅增加底部間距，確保與圖表有足夠間距 */
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%) !important; /* 確保背景色顯示 */
     }
     
     #comparison-chart-container {
@@ -1461,8 +1467,9 @@ section h2 {
         grid-template-columns: repeat(2, 1fr) !important; /* 小於700px：改為2列 */
         gap: 8px !important;
         padding: 10px !important;
-        max-height: 180px !important; /* 減少最大高度 */
+        max-height: none !important; /* 移除最大高度限制，確保所有卡片都在容器內 */
         margin-bottom: 48px !important; /* 大幅增加底部間距，確保與圖表有足夠間距 */
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%) !important; /* 確保背景色顯示 */
     }
     
     #comparison-chart-container {
@@ -1475,8 +1482,9 @@ section h2 {
         grid-template-columns: repeat(2, 1fr) !important; /* 手機：2列 */
         gap: 8px !important;
         padding: 10px !important;
-        max-height: 180px !important; /* 減少最大高度 */
+        max-height: none !important; /* 移除最大高度限制，確保所有卡片都在容器內 */
         margin-bottom: 48px !important; /* 大幅增加底部間距，確保與圖表有足夠間距 */
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%) !important; /* 確保背景色顯示 */
     }
     
     #comparison-chart-container {
@@ -1489,8 +1497,9 @@ section h2 {
         grid-template-columns: repeat(2, 1fr) !important; /* 小屏幕：2列 */
         gap: 6px !important;
         padding: 8px !important;
-        max-height: 220px !important; /* 小屏幕2列布局需要更多高度 */
+        max-height: none !important; /* 移除最大高度限制，確保所有卡片都在容器內 */
         margin-bottom: 52px !important; /* 大幅增加底部間距，確保與圖表有足夠間距 */
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%) !important; /* 確保背景色顯示 */
     }
     
     #comparison-chart-container {
@@ -1610,6 +1619,8 @@ section h2 {
     
     .accuracy-stats {
         margin-bottom: 56px !important; /* 大幅增加底部間距，確保與圖表有足夠間距 */
+        max-height: none !important; /* 移除最大高度限制，確保所有卡片都在容器內 */
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%) !important; /* 確保背景色顯示 */
     }
     
     #comparison-chart-container {

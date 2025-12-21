@@ -884,19 +884,19 @@ function getResponsivePadding() {
     }
 }
 
-// 獲取對比圖表的響應式 layout padding（需要更多頂部空間避免圖例遮擋統計卡片）
+// 獲取對比圖表的響應式 layout padding（需要更多頂部空間避免圖例遮擋統計卡片，並讓圖表更低更居中）
 function getComparisonChartPadding() {
     const width = window.innerWidth;
     if (width <= 380) {
-        // 小屏幕：大幅增加頂部空間，避免圖例遮擋統計卡片
-        return { top: 60, bottom: 65, left: 5, right: 5 };
+        // 小屏幕：大幅增加頂部空間，避免圖例遮擋統計卡片，增加底部空間讓圖表更低
+        return { top: 60, bottom: 80, left: 5, right: 5 };
     } else if (width <= 600) {
-        return { top: 60, bottom: 75, left: 8, right: 8 };
+        return { top: 60, bottom: 90, left: 8, right: 8 };
     } else if (width <= 900) {
-        return { top: 60, bottom: 85, left: 10, right: 10 };
+        return { top: 60, bottom: 100, left: 10, right: 10 };
     } else {
-        // 桌面端：大幅增加頂部空間，確保圖例不會遮擋統計卡片
-        return { top: 60, bottom: 95, left: 10, right: 20 };
+        // 桌面端：大幅增加頂部空間，確保圖例不會遮擋統計卡片，增加底部空間讓圖表更低更居中
+        return { top: 60, bottom: 110, left: 10, right: 20 };
     }
 }
 
@@ -2778,17 +2778,17 @@ async function initComparisonChart() {
                     // 根據屏幕寬度設置最大高度（確保所有內容都在容器內）
                     let maxHeight = 'none'; // 默認桌面：不限制高度，讓內容決定
                     if (screenWidth <= 480) {
-                        maxHeight = '220px'; // 小屏幕：2列，需要更多高度
+                        maxHeight = 'none'; // 小屏幕：不限制，確保所有卡片都在容器內
                     } else if (screenWidth <= 700) {
-                        maxHeight = '200px'; // 2列布局
+                        maxHeight = 'none'; // 2列布局：不限制
                     } else if (screenWidth <= 900) {
-                        maxHeight = '180px'; // 平板：3列
+                        maxHeight = 'none'; // 平板：3列，不限制
                     } else if (screenWidth <= 1200) {
-                        maxHeight = '180px'; // 中等屏幕：3列
+                        maxHeight = 'none'; // 中等屏幕：3列，不限制
                     }
                 
                 statsEl.style.cssText = `
-                    background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%);
+                    background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%) !important;
                     border-radius: 8px;
                     padding: ${padding};
                     margin-bottom: 40px;
