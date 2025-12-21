@@ -1148,6 +1148,42 @@ function initAlgorithmContent() {
                 <li>持續學習和優化，根據實際數據反饋調整模型</li>
             </ul>
         </div>
+        
+        <div style="grid-column: 1 / -1; margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: 1px solid var(--border-subtle);">
+            <h4 style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600; margin-bottom: var(--space-md);">研究參考文獻</h4>
+            <div style="color: var(--text-primary); line-height: 1.8; font-size: 0.85rem;">
+                <p style="margin-bottom: var(--space-sm);"><strong>1. 法國醫院 XGBoost 研究（2025）</strong></p>
+                <p style="margin-bottom: var(--space-md); margin-left: var(--space-md); color: var(--text-secondary);">
+                    BMC Emergency Medicine (2025). "Predicting Emergency Department Admissions Using a Machine-Learning Algorithm: A Proof of Concept with Retrospective Study". 
+                    <br>MAE: 2.63-2.64 病人 | 
+                    <a href="https://bmcemergmed.biomedcentral.com/articles/10.1186/s12873-024-01141-4" target="_blank" style="color: var(--accent-primary);">查看研究</a>
+                </p>
+                
+                <p style="margin-bottom: var(--space-sm);"><strong>2. 特徵工程增強預測研究（2024）</strong></p>
+                <p style="margin-bottom: var(--space-md); margin-left: var(--space-md); color: var(--text-secondary);">
+                    BMC Medical Informatics and Decision Making (2024). "Enhanced Forecasting of Emergency Department Patient Arrivals Using Feature Engineering Approach and Machine Learning".
+                    <br>方法：特徵工程 + 六種機器學習算法 | 數據：11個急診室，三個國家 |
+                    <a href="https://bmcmedinformdecismak.biomedcentral.com/articles/10.1186/s12911-024-02788-6" target="_blank" style="color: var(--accent-primary);">查看研究</a>
+                </p>
+                
+                <p style="margin-bottom: var(--space-sm);"><strong>3. 深度學習登機預測（2025）</strong></p>
+                <p style="margin-bottom: var(--space-md); margin-left: var(--space-md); color: var(--text-secondary);">
+                    arXiv (2025). "Deep Learning-Based Forecasting of Boarding Patient Counts to Address ED Overcrowding".
+                    <br>方法：深度學習模型，提前6小時預測 | 數據整合：急診室追蹤系統 + 住院患者數據 + 天氣 + 本地事件 |
+                    <a href="https://arxiv.org/abs/2505.14765" target="_blank" style="color: var(--accent-primary);">查看研究</a>
+                </p>
+                
+                <p style="margin-bottom: var(--space-sm);"><strong>4. 算法組件研究基礎</strong></p>
+                <ul style="margin-left: var(--space-md); color: var(--text-secondary); margin-bottom: var(--space-md);">
+                    <li><strong>滾動窗口計算</strong>：基於 LSTM 網絡研究，適應數據分佈變化</li>
+                    <li><strong>加權平均</strong>：基於時間序列研究，指數衰減權重</li>
+                    <li><strong>月份-星期交互</strong>：基於星期效應研究，不同月份的星期模式不同</li>
+                    <li><strong>趨勢調整</strong>：基於 Prophet 模型研究，短期和長期趨勢組合</li>
+                    <li><strong>相對溫度</strong>：基於天氣影響研究，相對溫度比絕對溫度更重要</li>
+                    <li><strong>異常檢測</strong>：基於異常檢測研究，自動調整到合理範圍</li>
+                </ul>
+            </div>
+        </div>
     `;
     
     console.log('✅ 算法說明內容已初始化');
@@ -2755,7 +2791,8 @@ async function initComparisonChart() {
                     background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%);
                     border-radius: 8px;
                     padding: ${padding};
-                    margin-bottom: 12px;
+                    margin-bottom: 24px;
+                    margin-top: 0px;
                     display: grid;
                     grid-template-columns: ${gridColumns};
                     gap: ${gap};
@@ -2766,7 +2803,7 @@ async function initComparisonChart() {
                     overflow: visible;
                     max-height: ${maxHeight};
                     position: relative;
-                    z-index: 1;
+                    z-index: 2;
                 `;
                 // 世界級標記
                 const worldClassBadge = accuracyStats.isWorldClass 

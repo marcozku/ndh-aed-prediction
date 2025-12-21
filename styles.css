@@ -1269,25 +1269,26 @@ section h2 {
     z-index: 1 !important; /* 確保在 accuracy-stats 下方 */
 }
 
-/* 實際 vs 預測對比圖容器需要更多空間 - 增加高度以容納 MAE MAPE 數據和圖表 */
+/* 實際 vs 預測對比圖容器 - 減少高度以避免與統計卡片重疊 */
 #comparison-chart-container {
     width: 100% !important;
     max-width: 100% !important;
-    height: min(70vh, 750px) !important; /* 增加高度：視窗高度的70%，最大750px */
-    min-height: min(65vh, 700px) !important; /* 增加最小高度：視窗高度的65%，最小700px */
-    max-height: min(70vh, 750px) !important; /* 限制最大高度，防止無限增長 */
-    padding-bottom: min(6vh, 50px) !important; /* 減少底部 padding：視窗高度的6%，最大50px */
+    height: min(50vh, 500px) !important; /* 減少高度：視窗高度的50%，最大500px */
+    min-height: min(45vh, 450px) !important; /* 減少最小高度：視窗高度的45%，最小450px */
+    max-height: min(50vh, 500px) !important; /* 限制最大高度，防止無限增長 */
+    padding-bottom: min(4vh, 30px) !important; /* 減少底部 padding：視窗高度的4%，最大30px */
     overflow: hidden !important; /* 隱藏溢出內容，防止容器增長 */
     position: relative;
     box-sizing: border-box;
     display: block !important;
+    margin-top: 0px !important; /* 確保頂部沒有間距，與 accuracy-stats 分離 */
 }
 
-/* 確保圖表 canvas 有足夠的高度，容納 MAE MAPE 數據和圖表 */
+/* 確保圖表 canvas 有合適的高度，避免與統計卡片重疊 */
 #comparison-chart-container canvas {
-    height: min(55vh, 600px) !important; /* 增加高度：視窗高度的55%，最大600px */
-    min-height: min(50vh, 550px) !important; /* 增加最小高度：視窗高度的50%，最小550px */
-    max-height: min(55vh, 600px) !important; /* 限制最大高度，防止無限增長 */
+    height: min(45vh, 450px) !important; /* 減少高度：視窗高度的45%，最大450px */
+    min-height: min(40vh, 400px) !important; /* 減少最小高度：視窗高度的40%，最小400px */
+    max-height: min(45vh, 450px) !important; /* 限制最大高度，防止無限增長 */
 }
 
 /* 歷史趨勢圖容器：增加高度以完整顯示圖表 */
