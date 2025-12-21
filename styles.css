@@ -1218,7 +1218,7 @@ section h2 {
     grid-column: 1 / -1;
     box-sizing: border-box;
     height: auto; /* 使用 auto 讓內容決定高度 */
-    min-height: min(55vh, 600px); /* 最小高度：視窗高度的55%，最小600px */
+    min-height: min(75vh, 800px); /* 增加最小高度以容納歷史趨勢圖：視窗高度的75%，最小800px */
     overflow: visible; /* 允許內容完整顯示 */
     overflow-x: hidden; /* 明確防止水平溢出 */
 }
@@ -1555,8 +1555,8 @@ section h2 {
     }
     
     .chart-card.full-width {
-        height: min(65vh, 650px);
-        min-height: min(55vh, 550px);
+        height: min(75vh, 800px); /* 增加高度以容納歷史趨勢圖 */
+        min-height: min(70vh, 750px); /* 增加最小高度 */
     }
     
     /* 只對「實際 vs 預測對比」相關的卡片使用 auto 高度 */
@@ -1653,8 +1653,8 @@ section h2 {
     }
     
     .chart-card.full-width {
-        height: min(55vh, 550px);
-        min-height: min(45vh, 450px);
+        height: min(50vh, 500px); /* 增加高度以容納歷史趨勢圖 */
+        min-height: min(48vh, 480px); /* 增加最小高度 */
     }
     
     /* 只對「實際 vs 預測對比」相關的卡片使用 auto 高度 */
