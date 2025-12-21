@@ -884,19 +884,19 @@ function getResponsivePadding() {
     }
 }
 
-// 獲取對比圖表的響應式 layout padding（需要更多底部空間容納 X 軸標籤和統計信息）
+// 獲取對比圖表的響應式 layout padding（需要更多頂部空間避免圖例遮擋統計卡片）
 function getComparisonChartPadding() {
     const width = window.innerWidth;
     if (width <= 380) {
-        // 小屏幕：更多底部空間，為統計信息和 X 軸標籤留出空間
-        return { top: 12, bottom: 65, left: 5, right: 5 };
+        // 小屏幕：大幅增加頂部空間，避免圖例遮擋統計卡片
+        return { top: 60, bottom: 65, left: 5, right: 5 };
     } else if (width <= 600) {
-        return { top: 12, bottom: 75, left: 8, right: 8 };
+        return { top: 60, bottom: 75, left: 8, right: 8 };
     } else if (width <= 900) {
-        return { top: 15, bottom: 85, left: 10, right: 10 };
+        return { top: 60, bottom: 85, left: 10, right: 10 };
     } else {
-        // 桌面端：最大空間，確保統計信息和圖表都清晰可見
-        return { top: 15, bottom: 95, left: 10, right: 20 };
+        // 桌面端：大幅增加頂部空間，確保圖例不會遮擋統計卡片
+        return { top: 60, bottom: 95, left: 10, right: 20 };
     }
 }
 
@@ -2885,7 +2885,7 @@ async function initComparisonChart() {
                 }
                 
                 // 確保統計信息有足夠空間顯示所有內容，增加底部間距
-                statsEl.style.marginBottom = '20px';
+                // margin-bottom 由 CSS 控制，這裡不需要覆蓋
                 statsEl.style.marginTop = '0px';
                 statsEl.style.overflow = 'visible'; // 允許所有內容顯示
             }

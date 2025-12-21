@@ -1289,6 +1289,9 @@ section h2 {
     height: min(45vh, 450px) !important; /* 減少高度：視窗高度的45%，最大450px */
     min-height: min(40vh, 400px) !important; /* 減少最小高度：視窗高度的40%，最小400px */
     max-height: min(45vh, 450px) !important; /* 限制最大高度，防止無限增長 */
+    margin-top: 0px !important; /* 確保沒有額外的頂部 margin */
+    position: relative !important;
+    z-index: 1 !important; /* 確保在 accuracy-stats 下方 */
 }
 
 /* 歷史趨勢圖容器：增加高度以完整顯示圖表 */
