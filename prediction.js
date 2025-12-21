@@ -2791,7 +2791,7 @@ async function initComparisonChart() {
                     background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%);
                     border-radius: 8px;
                     padding: ${padding};
-                    margin-bottom: 24px;
+                    margin-bottom: 40px;
                     margin-top: 0px;
                     display: grid;
                     grid-template-columns: ${gridColumns};

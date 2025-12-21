@@ -1281,7 +1281,7 @@ section h2 {
     position: relative;
     box-sizing: border-box;
     display: block !important;
-    margin-top: 8px !important; /* 增加頂部間距，避免與 accuracy-stats 重疊 */
+    margin-top: 40px !important; /* 大幅增加頂部間距，避免與 accuracy-stats 重疊 */
 }
 
 /* 確保圖表 canvas 有合適的高度，避免與統計卡片重疊 */
@@ -1415,7 +1415,7 @@ section h2 {
     max-width: 100% !important;
     box-sizing: border-box !important;
     padding: 12px !important; /* 減少 padding */
-    margin-bottom: 20px !important; /* 增加底部間距，確保與圖表分離 */
+    margin-bottom: 40px !important; /* 大幅增加底部間距，確保與圖表分離 */
     margin-top: 0px !important; /* 確保頂部沒有額外間距 */
     overflow: visible !important; /* 允許所有內容顯示 */
     z-index: 2 !important; /* 確保統計信息在圖表上方 */
@@ -1431,11 +1431,11 @@ section h2 {
         gap: 8px !important; /* 減少間距 */
         padding: 10px !important; /* 減少 padding */
         max-height: 150px !important; /* 減少最大高度 */
-        margin-bottom: 24px !important; /* 確保與圖表有足夠間距 */
+        margin-bottom: 40px !important; /* 大幅增加底部間距，確保與圖表有足夠間距 */
     }
     
     #comparison-chart-container {
-        margin-top: 12px !important; /* 增加頂部間距，避免與 accuracy-stats 重疊 */
+        margin-top: 40px !important; /* 大幅增加頂部間距，避免與 accuracy-stats 重疊 */
     }
 }
 
@@ -1445,11 +1445,11 @@ section h2 {
         gap: 8px !important;
         padding: 10px !important;
         max-height: 140px !important; /* 減少最大高度 */
-        margin-bottom: 24px !important; /* 確保與圖表有足夠間距 */
+        margin-bottom: 44px !important; /* 大幅增加底部間距，確保與圖表有足夠間距 */
     }
     
     #comparison-chart-container {
-        margin-top: 16px !important; /* 增加頂部間距，避免與 accuracy-stats 重疊 */
+        margin-top: 44px !important; /* 大幅增加頂部間距，避免與 accuracy-stats 重疊 */
     }
 }
 
@@ -1459,11 +1459,11 @@ section h2 {
         gap: 8px !important;
         padding: 10px !important;
         max-height: 180px !important; /* 減少最大高度 */
-        margin-bottom: 28px !important; /* 增加底部間距，確保與圖表有足夠間距 */
+        margin-bottom: 48px !important; /* 大幅增加底部間距，確保與圖表有足夠間距 */
     }
     
     #comparison-chart-container {
-        margin-top: 20px !important; /* 增加頂部間距，避免與 accuracy-stats 重疊 */
+        margin-top: 48px !important; /* 大幅增加頂部間距，避免與 accuracy-stats 重疊 */
     }
 }
 
@@ -1473,11 +1473,11 @@ section h2 {
         gap: 8px !important;
         padding: 10px !important;
         max-height: 180px !important; /* 減少最大高度 */
-        margin-bottom: 28px !important; /* 增加底部間距，確保與圖表有足夠間距 */
+        margin-bottom: 48px !important; /* 大幅增加底部間距，確保與圖表有足夠間距 */
     }
     
     #comparison-chart-container {
-        margin-top: 20px !important; /* 增加頂部間距，避免與 accuracy-stats 重疊 */
+        margin-top: 48px !important; /* 大幅增加頂部間距，避免與 accuracy-stats 重疊 */
     }
 }
 
@@ -1487,11 +1487,11 @@ section h2 {
         gap: 6px !important;
         padding: 8px !important;
         max-height: 220px !important; /* 小屏幕2列布局需要更多高度 */
-        margin-bottom: 32px !important; /* 增加底部間距，確保與圖表有足夠間距 */
+        margin-bottom: 52px !important; /* 大幅增加底部間距，確保與圖表有足夠間距 */
     }
     
     #comparison-chart-container {
-        margin-top: 24px !important; /* 增加頂部間距，避免與 accuracy-stats 重疊 */
+        margin-top: 52px !important; /* 大幅增加頂部間距，避免與 accuracy-stats 重疊 */
     }
 }
 
@@ -1606,7 +1606,7 @@ section h2 {
     }
     
     .accuracy-stats {
-        margin-bottom: 36px !important; /* 增加底部間距，確保與圖表有足夠間距 */
+        margin-bottom: 56px !important; /* 大幅增加底部間距，確保與圖表有足夠間距 */
     }
     
     #comparison-chart-container {
@@ -1614,7 +1614,7 @@ section h2 {
         min-height: min(40vh, 400px) !important; /* 世界級標準最小高度：視窗高度的40%，最小400px */
         max-height: none !important;
         padding-bottom: min(10vh, 80px) !important; /* 世界級標準底部 padding */
-        margin-top: 28px !important; /* 增加頂部間距，避免與 accuracy-stats 重疊 */
+        margin-top: 56px !important; /* 大幅增加頂部間距，避免與 accuracy-stats 重疊 */
     }
     
     #comparison-chart-container canvas {
