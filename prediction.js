@@ -2072,8 +2072,6 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         }
         if (historyCanvas) {
             historyCanvas.style.width = '100%';
-            historyCanvas.style.height = '550px'; /* 世界級標準高度 */
-            historyCanvas.style.maxWidth = '100%';
         }
         
         // 將數據轉換為 {x: date, y: value} 格式以支持 time scale
@@ -2106,6 +2104,40 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             console.log('📊 最後一個數據點:', JSON.stringify(dataPoints[dataPoints.length - 1], null, 2));
         } else {
             console.error('❌ 沒有有效的數據點！');
+        }
+        
+        // 在創建 Chart.js 之前，強制設置 canvas 尺寸
+        const containerRect = historyContainer.getBoundingClientRect();
+        if (containerRect.width > 0 && containerRect.height > 0) {
+            const computedStyle = window.getComputedStyle(historyContainer);
+            const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+            const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+            const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+            const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+            
+            const availableWidth = containerRect.width - paddingLeft - paddingRight;
+            const availableHeight = containerRect.height - paddingTop - paddingBottom;
+            
+            // 設置 canvas 的 CSS 尺寸
+            historyCanvas.style.width = `${availableWidth}px`;
+            historyCanvas.style.height = `${availableHeight}px`;
+            historyCanvas.style.maxWidth = `${availableWidth}px`;
+            historyCanvas.style.maxHeight = `${availableHeight}px`;
+            historyCanvas.style.position = 'absolute';
+            historyCanvas.style.top = '0';
+            historyCanvas.style.left = '0';
+            historyCanvas.style.boxSizing = 'border-box';
+            
+            // 設置 canvas 的實際像素尺寸（考慮 devicePixelRatio）
+            const dpr = window.devicePixelRatio || 1;
+            historyCanvas.width = Math.floor(availableWidth * dpr);
+            historyCanvas.height = Math.floor(availableHeight * dpr);
+            
+            // 調整 canvas 的 scale 以匹配 devicePixelRatio
+            const ctx = historyCanvas.getContext('2d');
+            if (ctx) {
+                ctx.scale(dpr, dpr);
+            }
         }
         
         historyChart = new Chart(historyCtx, {

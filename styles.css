@@ -1302,6 +1302,7 @@ section h2 {
     position: relative;
     overflow: hidden !important; /* 隱藏溢出內容，確保 canvas 在容器內 */
     overflow-x: hidden !important; /* 明確防止水平溢出 */
+    overflow-y: hidden !important; /* 明確防止垂直溢出 */
     width: 100% !important;
     max-width: 100% !important;
     height: min(65vh, 700px) !important; /* 增加高度：視窗高度的65%，最大700px */
@@ -1309,6 +1310,8 @@ section h2 {
     max-height: min(65vh, 700px) !important; /* 限制最大高度，防止無限增長 */
     padding-bottom: min(6vh, 50px) !important; /* 減少底部 padding：視窗高度的6%，最大50px */
     box-sizing: border-box !important;
+    /* 使用 clip-path 強制裁剪超出容器的內容 */
+    clip-path: inset(0 0 0 0) !important;
 }
 
 /* 歷史趨勢圖的 canvas */
@@ -1319,9 +1322,13 @@ section h2 {
     max-height: 100% !important;
     display: block !important;
     box-sizing: border-box !important;
-    position: relative !important;
+    position: absolute !important; /* 使用 absolute 定位，確保在容器內 */
+    top: 0 !important;
+    left: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
+    /* 使用 clip-path 強制裁剪 */
+    clip-path: inset(0 0 0 0) !important;
 }
 
 /* 歷史趨勢圖導航按鈕 */
