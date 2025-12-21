@@ -1595,17 +1595,6 @@ function cleanupHistoryChart() {
             historyChart._resizeObserver.disconnect();
             historyChart._resizeObserver = null;
         }
-        // 清理媒體查詢監聽器
-        if (historyChart._mediaQueryListener) {
-            const { query, handler } = historyChart._mediaQueryListener;
-            if (query.removeEventListener) {
-                query.removeEventListener('change', handler);
-            } else {
-                // 兼容舊瀏覽器
-                query.removeListener(handler);
-            }
-            historyChart._mediaQueryListener = null;
-        }
         historyChart.destroy();
         historyChart = null;
     }
@@ -2131,13 +2120,16 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
             const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
             
-            // 獲取容器的實際計算高度（考慮 max-height 等 CSS 規則）
-            const computedHeight = parseFloat(computedStyle.height) || containerRect.height;
+            // 使用 getBoundingClientRect 獲取實際渲染尺寸（已包含所有 CSS 規則，包括媒體查詢）
+            // 這比 computedStyle.height 更準確，因為它反映了實際渲染後的尺寸
+            const actualContainerHeight = containerRect.height;
+            
+            // 檢查 computedStyle 的 max-height，確保不超過限制
             const computedMaxHeight = computedStyle.maxHeight !== 'none' ? parseFloat(computedStyle.maxHeight) : null;
-            const actualHeight = computedMaxHeight ? Math.min(computedHeight, computedMaxHeight) : computedHeight;
+            const finalHeight = computedMaxHeight ? Math.min(actualContainerHeight, computedMaxHeight) : actualContainerHeight;
             
             const availableWidth = containerRect.width - paddingLeft - paddingRight;
-            const availableHeight = actualHeight - paddingTop - paddingBottom;
+            const availableHeight = finalHeight - paddingTop - paddingBottom;
             
             return {
                 width: Math.max(0, availableWidth),
@@ -2629,29 +2621,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             delete window._historyChartCalculateSize; // 清理臨時變量
         }
         
-        // 監聽媒體查詢變化（特別是 900px 斷點）
-        if (window.matchMedia && historyChart) {
-            const mediaQuery900 = window.matchMedia('(max-width: 900px)');
-            const handleMediaChange = () => {
-                // 媒體查詢變化時，強制重新計算並限制 canvas 尺寸
-                setTimeout(() => {
-                    if (historyChart && historyChart.resize) {
-                        historyChart.resize();
-                    }
-                }, 100);
-            };
-            
-            // 監聽媒體查詢變化
-            if (mediaQuery900.addEventListener) {
-                mediaQuery900.addEventListener('change', handleMediaChange);
-            } else {
-                // 兼容舊瀏覽器
-                mediaQuery900.addListener(handleMediaChange);
-            }
-            
-            // 存儲監聽器以便後續清理
-            historyChart._mediaQueryListener = { query: mediaQuery900, handler: handleMediaChange };
-        }
+        // 不需要監聽特定斷點，使用 ResizeObserver 和窗口 resize 事件即可適應所有尺寸
         
         // 攔截 Chart.js 的 resize 方法，確保 canvas 不超過容器
         if (historyChart && historyChart.resize) {
@@ -2671,13 +2641,16 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                     const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
                     const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
                     
-                    // 獲取容器的實際計算高度（考慮 max-height 等 CSS 規則）
-                    const computedHeight = parseFloat(computedStyle.height) || containerRect.height;
-                    const computedMaxHeight = computedStyle.maxHeight !== 'none' ? parseFloat(computedStyle.maxHeight) : null;
-                    const actualHeight = computedMaxHeight ? Math.min(computedHeight, computedMaxHeight) : computedHeight;
-                    
-                    const availableWidth = containerRect.width - paddingLeft - paddingRight;
-                    const availableHeight = actualHeight - paddingTop - paddingBottom;
+            // 使用 getBoundingClientRect 獲取實際渲染尺寸（已包含所有 CSS 規則，包括媒體查詢）
+            // 這比 computedStyle.height 更準確，因為它反映了實際渲染後的尺寸
+            const actualContainerHeight = containerRect.height;
+            
+            // 檢查 computedStyle 的 max-height，確保不超過限制
+            const computedMaxHeight = computedStyle.maxHeight !== 'none' ? parseFloat(computedStyle.maxHeight) : null;
+            const finalHeight = computedMaxHeight ? Math.min(actualContainerHeight, computedMaxHeight) : actualContainerHeight;
+            
+            const availableWidth = containerRect.width - paddingLeft - paddingRight;
+            const availableHeight = finalHeight - paddingTop - paddingBottom;
                     
                     return {
                         width: Math.max(0, availableWidth),
@@ -2729,15 +2702,16 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                     const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
                     const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
                     
-                    // 獲取容器的實際計算高度（考慮 max-height 等 CSS 規則，包括媒體查詢）
-                    // 這對於 900px 斷點很重要，因為 CSS 會改變容器高度
-                    const computedHeight = parseFloat(computedStyle.height) || containerRect.height;
+                    // 使用 getBoundingClientRect 獲取實際渲染尺寸（已包含所有 CSS 規則，包括媒體查詢）
+                    // 這比 computedStyle.height 更準確，因為它反映了實際渲染後的尺寸
+                    const actualContainerHeight = containerRect.height;
+                    
+                    // 檢查 computedStyle 的 max-height，確保不超過限制
                     const computedMaxHeight = computedStyle.maxHeight !== 'none' ? parseFloat(computedStyle.maxHeight) : null;
-                    // 使用實際計算的高度，而不是 getBoundingClientRect 的高度
-                    const actualHeight = computedMaxHeight ? Math.min(computedHeight, computedMaxHeight) : computedHeight;
+                    const finalHeight = computedMaxHeight ? Math.min(actualContainerHeight, computedMaxHeight) : actualContainerHeight;
                     
                     const availableWidth = containerRect.width - paddingLeft - paddingRight;
-                    const availableHeight = actualHeight - paddingTop - paddingBottom;
+                    const availableHeight = finalHeight - paddingTop - paddingBottom;
                     
                     // 限制 canvas 的實際像素尺寸（width 和 height 屬性）
                     // 使用 devicePixelRatio 確保在高 DPI 屏幕上正確顯示
