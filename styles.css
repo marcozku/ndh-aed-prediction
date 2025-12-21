@@ -1281,7 +1281,7 @@ section h2 {
     position: relative;
     box-sizing: border-box;
     display: block !important;
-    margin-top: 0px !important; /* 確保頂部沒有間距，與 accuracy-stats 分離 */
+    margin-top: 8px !important; /* 增加頂部間距，避免與 accuracy-stats 重疊 */
 }
 
 /* 確保圖表 canvas 有合適的高度，避免與統計卡片重疊 */
@@ -1421,7 +1421,7 @@ section h2 {
     z-index: 2 !important; /* 確保統計信息在圖表上方 */
     position: relative !important; /* 確保 z-index 生效 */
     min-height: auto !important; /* 讓內容決定高度 */
-    max-height: 160px !important; /* 減少最大高度 */
+    max-height: none !important; /* 移除最大高度限制，確保所有內容都在容器內 */
     clear: both !important; /* 確保不會與其他元素重疊 */
 }
 

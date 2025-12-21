@@ -2775,16 +2775,16 @@ async function initComparisonChart() {
                     padding = '12px';
                 }
                 
-                    // 根據屏幕寬度設置最大高度（減少高度以節省空間）
-                    let maxHeight = '160px'; // 默認桌面：3列
+                    // 根據屏幕寬度設置最大高度（確保所有內容都在容器內）
+                    let maxHeight = 'none'; // 默認桌面：不限制高度，讓內容決定
                     if (screenWidth <= 480) {
-                        maxHeight = '200px'; // 小屏幕：2列
+                        maxHeight = '220px'; // 小屏幕：2列，需要更多高度
                     } else if (screenWidth <= 700) {
-                        maxHeight = '180px'; // 2列布局
+                        maxHeight = '200px'; // 2列布局
                     } else if (screenWidth <= 900) {
-                        maxHeight = '140px'; // 平板：3列
+                        maxHeight = '180px'; // 平板：3列
                     } else if (screenWidth <= 1200) {
-                        maxHeight = '150px'; // 中等屏幕：3列
+                        maxHeight = '180px'; // 中等屏幕：3列
                     }
                 
                 statsEl.style.cssText = `
