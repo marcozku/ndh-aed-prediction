@@ -1595,6 +1595,17 @@ function cleanupHistoryChart() {
             historyChart._resizeObserver.disconnect();
             historyChart._resizeObserver = null;
         }
+        // 清理媒體查詢監聽器
+        if (historyChart._mediaQueryListener) {
+            const { query, handler } = historyChart._mediaQueryListener;
+            if (query.removeEventListener) {
+                query.removeEventListener('change', handler);
+            } else {
+                // 兼容舊瀏覽器
+                query.removeListener(handler);
+            }
+            historyChart._mediaQueryListener = null;
+        }
         historyChart.destroy();
         historyChart = null;
     }
@@ -2616,6 +2627,30 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         if (historyChart && window._historyChartCalculateSize) {
             historyChart._calculateAvailableSize = window._historyChartCalculateSize;
             delete window._historyChartCalculateSize; // 清理臨時變量
+        }
+        
+        // 監聽媒體查詢變化（特別是 900px 斷點）
+        if (window.matchMedia && historyChart) {
+            const mediaQuery900 = window.matchMedia('(max-width: 900px)');
+            const handleMediaChange = () => {
+                // 媒體查詢變化時，強制重新計算並限制 canvas 尺寸
+                setTimeout(() => {
+                    if (historyChart && historyChart.resize) {
+                        historyChart.resize();
+                    }
+                }, 100);
+            };
+            
+            // 監聽媒體查詢變化
+            if (mediaQuery900.addEventListener) {
+                mediaQuery900.addEventListener('change', handleMediaChange);
+            } else {
+                // 兼容舊瀏覽器
+                mediaQuery900.addListener(handleMediaChange);
+            }
+            
+            // 存儲監聽器以便後續清理
+            historyChart._mediaQueryListener = { query: mediaQuery900, handler: handleMediaChange };
         }
         
         // 攔截 Chart.js 的 resize 方法，確保 canvas 不超過容器
