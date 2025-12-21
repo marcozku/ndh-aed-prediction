@@ -1006,7 +1006,8 @@ const professionalOptions = {
                     },
                     padding: window.innerWidth <= 600 ? 6 : 10, // 響應式 padding
                     callback: function(value) {
-                        return value;
+                        // 格式化為整數，避免顯示浮點數（如 315.66666666666663）
+                        return Math.round(value);
                     },
                     // 確保 Y 軸標籤有足夠空間
                     maxTicksLimit: window.innerWidth <= 600 ? 6 : 10
