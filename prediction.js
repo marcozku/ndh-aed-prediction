@@ -2246,6 +2246,19 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 ...professionalOptions,
                 responsive: true, // 啟用響應式，讓圖表適應容器寬度
                 maintainAspectRatio: false,
+                // 明確設置設備像素比，防止 Chart.js 自動調整導致溢出
+                devicePixelRatio: 1, // 使用 1，因為我們已經手動處理了高 DPI
+                // 明確限制圖表尺寸
+                aspectRatio: undefined,
+                layout: {
+                    ...professionalOptions.layout,
+                    padding: {
+                        top: 10,
+                        bottom: 20,
+                        left: 10,
+                        right: 10
+                    }
+                },
                 plugins: {
                     ...professionalOptions.plugins,
                     legend: {
@@ -2577,6 +2590,41 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         
         updateLoadingProgress('history', 100);
         completeChartLoading('history');
+        
+        // 攔截 Chart.js 的 resize 方法，確保 canvas 不超過容器
+        if (historyChart && historyChart.resize) {
+            const originalResize = historyChart.resize.bind(historyChart);
+            historyChart.resize = function() {
+                originalResize();
+                // 在 resize 後立即強制限制 canvas 尺寸
+                const containerRect = historyContainer.getBoundingClientRect();
+                if (containerRect.width > 0 && containerRect.height > 0) {
+                    const computedStyle = window.getComputedStyle(historyContainer);
+                    const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+                    const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+                    const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                    const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+                    
+                    const maxWidth = containerRect.width - paddingLeft - paddingRight;
+                    const maxHeight = containerRect.height - paddingTop - paddingBottom;
+                    
+                    // 強制限制 canvas 的實際像素尺寸
+                    const dpr = window.devicePixelRatio || 1;
+                    if (historyCanvas.width > maxWidth * dpr) {
+                        historyCanvas.width = Math.floor(maxWidth * dpr);
+                    }
+                    if (historyCanvas.height > maxHeight * dpr) {
+                        historyCanvas.height = Math.floor(maxHeight * dpr);
+                    }
+                    
+                    // 強制設置 CSS 尺寸
+                    historyCanvas.style.setProperty('width', `${maxWidth}px`, 'important');
+                    historyCanvas.style.setProperty('height', `${maxHeight}px`, 'important');
+                    historyCanvas.style.setProperty('max-width', `${maxWidth}px`, 'important');
+                    historyCanvas.style.setProperty('max-height', `${maxHeight}px`, 'important');
+                }
+            };
+        }
         
         // 更新導航按鈕和日期範圍顯示
         updateHistoryDateRange(startDate, endDate, range);
