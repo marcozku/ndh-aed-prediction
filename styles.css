@@ -1314,7 +1314,7 @@ section h2 {
     clip-path: inset(0 0 0 0) !important;
 }
 
-/* 歷史趨勢圖的 canvas */
+/* 歷史趨勢圖的 canvas - 使用和其他圖表相同的樣式 */
 #history-chart {
     width: 100% !important;
     max-width: 100% !important;
@@ -1322,13 +1322,9 @@ section h2 {
     max-height: 100% !important;
     display: block !important;
     box-sizing: border-box !important;
-    position: absolute !important; /* 使用 absolute 定位，確保在容器內 */
-    top: 0 !important;
-    left: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
-    /* 使用 clip-path 強制裁剪 */
-    clip-path: inset(0 0 0 0) !important;
+    position: relative !important; /* 使用 relative，和其他圖表一樣 */
 }
 
 /* 歷史趨勢圖導航按鈕 */

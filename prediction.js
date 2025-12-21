@@ -1587,14 +1587,6 @@ async function initCharts(predictor) {
 // 清理歷史趨勢圖的 observers
 function cleanupHistoryChart() {
     if (historyChart) {
-        if (historyChart._sizeObserver) {
-            historyChart._sizeObserver.disconnect();
-            historyChart._sizeObserver = null;
-        }
-        if (historyChart._resizeObserver) {
-            historyChart._resizeObserver.disconnect();
-            historyChart._resizeObserver = null;
-        }
         historyChart.destroy();
         historyChart = null;
     }
@@ -2106,56 +2098,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             console.error('❌ 沒有有效的數據點！');
         }
         
-        // 在創建 Chart.js 之前，強制設置 canvas 尺寸
-        // 使用函數來計算可用尺寸，確保考慮所有 CSS 規則（包括媒體查詢）
-        const calculateAvailableSize = () => {
-            const containerRect = historyContainer.getBoundingClientRect();
-            if (containerRect.width <= 0 || containerRect.height <= 0) {
-                return null;
-            }
-            
-            const computedStyle = window.getComputedStyle(historyContainer);
-            const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
-            const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
-            const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
-            const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
-            
-            // 使用 getBoundingClientRect 獲取實際渲染尺寸（已包含所有 CSS 規則，包括媒體查詢）
-            // 這比 computedStyle.height 更準確，因為它反映了實際渲染後的尺寸
-            const actualContainerHeight = containerRect.height;
-            
-            // 檢查 computedStyle 的 max-height，確保不超過限制
-            const computedMaxHeight = computedStyle.maxHeight !== 'none' ? parseFloat(computedStyle.maxHeight) : null;
-            const finalHeight = computedMaxHeight ? Math.min(actualContainerHeight, computedMaxHeight) : actualContainerHeight;
-            
-            const availableWidth = containerRect.width - paddingLeft - paddingRight;
-            const availableHeight = finalHeight - paddingTop - paddingBottom;
-            
-            return {
-                width: Math.max(0, availableWidth),
-                height: Math.max(0, availableHeight)
-            };
-        };
-        
-        const availableSize = calculateAvailableSize();
-        if (availableSize) {
-            // 設置 canvas 的 CSS 尺寸（使用百分比保持響應式，而不是固定像素值）
-            historyCanvas.style.width = '100%';
-            historyCanvas.style.height = '100%';
-            historyCanvas.style.maxWidth = '100%';
-            historyCanvas.style.maxHeight = '100%';
-            historyCanvas.style.position = 'absolute';
-            historyCanvas.style.top = '0';
-            historyCanvas.style.left = '0';
-            historyCanvas.style.boxSizing = 'border-box';
-            
-            // 不手動設置 canvas 的像素尺寸和 scale
-            // 讓 Chart.js 自動處理 devicePixelRatio，這樣在高 DPI 設備（如 iPhone）上才能獲得高分辨率
-            // 我們只設置 CSS 尺寸為百分比，保持響應式
-            
-            // 存儲計算函數供後續使用（將在 Chart.js 創建後設置）
-            window._historyChartCalculateSize = calculateAvailableSize;
-        }
+        // 不預先設置 canvas 尺寸，讓 Chart.js 像其他圖表（forecast-chart）一樣自動處理
         
         historyChart = new Chart(historyCtx, {
             type: 'line',
@@ -2617,171 +2560,31 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         
         // 不需要監聽特定斷點，使用 ResizeObserver 和窗口 resize 事件即可適應所有尺寸
         
-        // 攔截 Chart.js 的 resize 方法，確保 canvas 不超過容器，但保持響應式
-        if (historyChart && historyChart.resize) {
-            const originalResize = historyChart.resize.bind(historyChart);
-            historyChart.resize = function() {
-                // 先讓 Chart.js 正常處理 resize（這樣它才能響應式調整）
-                originalResize();
-                
-                // 使用 setTimeout 確保 CSS 媒體查詢已經應用，然後再限制尺寸
-                setTimeout(() => {
-                    const containerRect = historyContainer.getBoundingClientRect();
-                    if (containerRect.width <= 0 || containerRect.height <= 0) {
-                        return;
-                    }
-                    
-                    const computedStyle = window.getComputedStyle(historyContainer);
-                    const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
-                    const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
-                    const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
-                    const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
-                    
-                    // 使用 getBoundingClientRect 獲取實際渲染尺寸（已包含所有 CSS 規則，包括媒體查詢）
-                    // 這比 computedStyle.height 更準確，因為它反映了實際渲染後的尺寸
-                    const actualContainerHeight = containerRect.height;
-                    
-                    // 檢查 computedStyle 的 max-height，確保不超過限制
-                    const computedMaxHeight = computedStyle.maxHeight !== 'none' ? parseFloat(computedStyle.maxHeight) : null;
-                    const finalHeight = computedMaxHeight ? Math.min(actualContainerHeight, computedMaxHeight) : actualContainerHeight;
-                    
-                    const availableWidth = containerRect.width - paddingLeft - paddingRight;
-                    const availableHeight = finalHeight - paddingTop - paddingBottom;
-                    
-                    // 不手動限制 canvas 的實際像素尺寸
-                    // 讓 Chart.js 自動處理 devicePixelRatio，這樣在高 DPI 設備（如 iPhone）上才能獲得高分辨率
-                    // 我們只確保 CSS 尺寸不超過容器
-                    
-                    // 使用百分比保持響應式
-                    historyCanvas.style.setProperty('width', '100%', 'important');
-                    historyCanvas.style.setProperty('max-width', '100%', 'important');
-                    historyCanvas.style.setProperty('height', '100%', 'important');
-                    historyCanvas.style.setProperty('max-height', '100%', 'important');
-                    
-                    // 如果 canvas 明顯超出容器，強制限制（允許 10px 誤差）
-                    const canvasRect = historyCanvas.getBoundingClientRect();
-                    if (canvasRect.height > finalHeight + 10) {
-                        historyCanvas.style.setProperty('max-height', `${availableHeight}px`, 'important');
-                    }
-                }, 100); // 給 CSS 媒體查詢更多時間應用（特別是 600px 斷點）
-                
-                // 第三次：最終檢查（確保 600px 斷點正確應用）
-                setTimeout(() => {
-                    historyCanvas.style.setProperty('width', '100%', 'important');
-                    historyCanvas.style.setProperty('max-width', '100%', 'important');
-                    historyCanvas.style.setProperty('height', '100%', 'important');
-                    historyCanvas.style.setProperty('max-height', '100%', 'important');
-                }, 200);
-            };
-        }
+        // 不攔截 resize 方法，讓 Chart.js 像其他圖表（forecast-chart）一樣自動處理
         
         // 更新導航按鈕和日期範圍顯示
         updateHistoryDateRange(startDate, endDate, range);
         updateHistoryNavigationButtons(range, pageOffset, historicalData);
         
-        // 使用統一的簡單 resize 邏輯
+        // 使用統一的簡單 resize 邏輯（和 forecast-chart 完全相同）
         setTimeout(() => {
-            if (historyChart && historyCanvas && historyContainer) {
-                // 強制限制 canvas 尺寸的函數
-                const forceCanvasSize = () => {
-                    const containerRect = historyContainer.getBoundingClientRect();
-                    if (containerRect.width <= 0 || containerRect.height <= 0) {
-                        return;
-                    }
-                    
-                    // 計算容器的實際可用尺寸（考慮 padding 和 CSS max-height，包括媒體查詢）
-                    const computedStyle = window.getComputedStyle(historyContainer);
-                    const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
-                    const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
-                    const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
-                    const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
-                    
-                    // 使用 getBoundingClientRect 獲取實際渲染尺寸（已包含所有 CSS 規則，包括媒體查詢）
-                    // 這比 computedStyle.height 更準確，因為它反映了實際渲染後的尺寸
-                    const actualContainerHeight = containerRect.height;
-                    
-                    // 檢查 computedStyle 的 max-height，確保不超過限制
-                    const computedMaxHeight = computedStyle.maxHeight !== 'none' ? parseFloat(computedStyle.maxHeight) : null;
-                    const finalHeight = computedMaxHeight ? Math.min(actualContainerHeight, computedMaxHeight) : actualContainerHeight;
-                    
-                    const availableWidth = containerRect.width - paddingLeft - paddingRight;
-                    const availableHeight = finalHeight - paddingTop - paddingBottom;
-                    
-                    // 不手動限制 canvas 的實際像素尺寸
-                    // 讓 Chart.js 自動處理 devicePixelRatio，這樣在高 DPI 設備（如 iPhone）上才能獲得高分辨率
-                    // 我們只確保 CSS 尺寸不超過容器
-                    
-                    // 使用百分比保持響應式，而不是固定像素值
-                    historyCanvas.style.setProperty('width', '100%', 'important');
-                    historyCanvas.style.setProperty('max-width', '100%', 'important');
-                    historyCanvas.style.setProperty('height', '100%', 'important');
-                    historyCanvas.style.setProperty('max-height', '100%', 'important');
-                    historyCanvas.style.setProperty('box-sizing', 'border-box', 'important');
-                    historyCanvas.style.setProperty('display', 'block', 'important');
-                    historyCanvas.style.setProperty('margin', '0', 'important');
-                    historyCanvas.style.setProperty('padding', '0', 'important');
-                };
+            setupChartResize(historyChart, 'history-chart-container');
+            
+            // 更新圖表選項，特別是時間軸配置
+            if (historyChart.options.scales && historyChart.options.scales.x) {
+                historyChart.options.scales.x.time.unit = getTimeUnit(range);
+                historyChart.options.scales.x.time.displayFormats = getTimeDisplayFormats(range);
                 
-                // 立即強制設置
-                forceCanvasSize();
-                
-                // 使用統一的簡單 resize 邏輯
-                setupChartResize(historyChart, 'history-chart-container');
-                
-                // 更新圖表選項，特別是時間軸配置
-                if (historyChart.options.scales && historyChart.options.scales.x) {
-                    historyChart.options.scales.x.time.unit = getTimeUnit(range);
-                    historyChart.options.scales.x.time.displayFormats = getTimeDisplayFormats(range);
-                    
-                    if (historyChart.options.scales.x.ticks) {
-                        historyChart.options.scales.x.ticks.autoSkip = true;
-                        historyChart.options.scales.x.ticks.maxTicksLimit = getMaxTicksForRange(range, historicalData.length);
-                        historyChart.options.scales.x.ticks.maxRotation = 0;
-                        historyChart.options.scales.x.ticks.padding = 10;
-                    }
-                }
-                
-                // 讓 Chart.js 自動處理 resize
-                historyChart.update('none');
-                
-                // 多次強制設置 canvas 尺寸（Chart.js 可能在多個時機重置）
-                setTimeout(forceCanvasSize, 50);
-                setTimeout(forceCanvasSize, 100);
-                setTimeout(forceCanvasSize, 200);
-                
-                // 使用 MutationObserver 監控 canvas 樣式變化並強制設置
-                if (window.MutationObserver) {
-                    const observer = new MutationObserver((mutations) => {
-                        mutations.forEach((mutation) => {
-                            if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
-                                forceCanvasSize();
-                            }
-                        });
-                    });
-                    observer.observe(historyCanvas, {
-                        attributes: true,
-                        attributeFilter: ['style']
-                    });
-                    
-                    // 存儲 observer 以便後續清理
-                    if (!historyChart._sizeObserver) {
-                        historyChart._sizeObserver = observer;
-                    }
-                }
-                
-                // 使用 ResizeObserver 監控容器尺寸變化
-                if (window.ResizeObserver) {
-                    const resizeObserver = new ResizeObserver(() => {
-                        forceCanvasSize();
-                    });
-                    resizeObserver.observe(historyContainer);
-                    
-                    // 存儲 observer 以便後續清理
-                    if (!historyChart._resizeObserver) {
-                        historyChart._resizeObserver = resizeObserver;
-                    }
+                if (historyChart.options.scales.x.ticks) {
+                    historyChart.options.scales.x.ticks.autoSkip = true;
+                    historyChart.options.scales.x.ticks.maxTicksLimit = getMaxTicksForRange(range, historicalData.length);
+                    historyChart.options.scales.x.ticks.maxRotation = 0;
+                    historyChart.options.scales.x.ticks.padding = 10;
                 }
             }
+            
+            // 讓 Chart.js 自動處理 resize
+            historyChart.update('none');
         }, 100);
         console.log(`✅ 歷史趨勢圖已載入 (${historicalData.length} 筆數據, 範圍: ${range}, 分頁偏移: ${pageOffset})`);
     } catch (error) {
