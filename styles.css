@@ -1264,6 +1264,9 @@ section h2 {
     min-height: min(55vh, 600px) !important; /* 世界級標準最小高度 */
     max-height: min(55vh, 600px) !important; /* 限制最大高度 */
     overflow: hidden !important; /* 隱藏溢出內容 */
+    margin-top: 0px !important; /* 確保頂部沒有間距，與 accuracy-stats 分離 */
+    position: relative !important;
+    z-index: 1 !important; /* 確保在 accuracy-stats 下方 */
 }
 
 /* 實際 vs 預測對比圖容器需要更多空間 - 增加高度以容納 MAE MAPE 數據和圖表 */
@@ -1411,14 +1414,14 @@ section h2 {
     max-width: 100% !important;
     box-sizing: border-box !important;
     padding: 12px !important; /* 減少 padding */
-    margin-bottom: 16px !important; /* 增加底部間距，確保與圖表分離 */
+    margin-bottom: 20px !important; /* 增加底部間距，確保與圖表分離 */
+    margin-top: 0px !important; /* 確保頂部沒有額外間距 */
     overflow: visible !important; /* 允許所有內容顯示 */
-    z-index: 1 !important; /* 確保統計信息在正確的層級 */
+    z-index: 2 !important; /* 確保統計信息在圖表上方 */
     position: relative !important; /* 確保 z-index 生效 */
     min-height: auto !important; /* 讓內容決定高度 */
     max-height: 160px !important; /* 減少最大高度 */
-    position: relative !important;
-    z-index: 1 !important; /* 降低 z-index，不再需要覆蓋圖表 */
+    clear: both !important; /* 確保不會與其他元素重疊 */
 }
 
 @media (max-width: 1200px) {

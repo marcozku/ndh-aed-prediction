@@ -1076,6 +1076,83 @@ function setupHistoryTimeRangeButtons() {
     });
 }
 
+// 初始化算法說明內容
+function initAlgorithmContent() {
+    const algorithmContentEl = document.getElementById('algorithm-content');
+    if (!algorithmContentEl) {
+        console.warn('⚠️ 找不到 algorithm-content 元素');
+        return;
+    }
+    
+    algorithmContentEl.innerHTML = `
+        <div class="algorithm-formula">
+            <h4>核心預測公式</h4>
+            <code>
+預測值 = 基準值 × 月份效應 × 星期效應 × 假期效應 × 流感季節效應 × 天氣效應 × AI因素效應
+            </code>
+        </div>
+        
+        <div class="factors-table">
+            <h4>主要影響因子</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>因子類型</th>
+                        <th>影響範圍</th>
+                        <th>說明</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="positive">月份效應</td>
+                        <td>0.85 - 1.25</td>
+                        <td>基於歷史數據分析，不同月份的就診模式有顯著差異</td>
+                    </tr>
+                    <tr>
+                        <td class="positive">星期效應</td>
+                        <td>0.70 - 1.30</td>
+                        <td>考慮月份-星期交互作用，週末和工作日的就診模式不同</td>
+                    </tr>
+                    <tr>
+                        <td class="positive">假期效應</td>
+                        <td>0.60 - 1.40</td>
+                        <td>香港公眾假期對就診人數有顯著影響</td>
+                    </tr>
+                    <tr>
+                        <td class="positive">流感季節</td>
+                        <td>1.10 - 1.30</td>
+                        <td>1-3月和7-8月為流感高峰期，就診人數增加</td>
+                    </tr>
+                    <tr>
+                        <td class="positive">天氣因素</td>
+                        <td>0.90 - 1.15</td>
+                        <td>溫度、濕度、降雨量等天氣條件影響就診模式</td>
+                    </tr>
+                    <tr>
+                        <td class="positive">AI 分析因素</td>
+                        <td>0.85 - 1.15</td>
+                        <td>基於實時新聞和事件分析，動態調整預測值</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div style="grid-column: 1 / -1; margin-top: var(--space-lg);">
+            <h4 style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600; margin-bottom: var(--space-md);">算法特點</h4>
+            <ul style="color: var(--text-primary); line-height: 1.8; padding-left: var(--space-lg);">
+                <li>基於真實歷史數據（3,431+ 筆記錄）進行統計分析</li>
+                <li>考慮多維度影響因子，包括時間、天氣、假期等</li>
+                <li>使用月份-星期交互因子，提高預測準確度</li>
+                <li>整合 AI 分析，動態調整預測值</li>
+                <li>提供 80% 和 95% 信賴區間，量化預測不確定性</li>
+                <li>持續學習和優化，根據實際數據反饋調整模型</li>
+            </ul>
+        </div>
+    `;
+    
+    console.log('✅ 算法說明內容已初始化');
+}
+
 async function initCharts(predictor) {
     // 檢查 Chart.js 是否已載入
     if (typeof Chart === 'undefined') {
@@ -2757,19 +2834,22 @@ async function initComparisonChart() {
                     worldClassBanner.textContent = '🏆 達到世界級準確度水準！';
                     statsEl.appendChild(worldClassBanner);
                 }
-                // 將統計信息插入到 chart-card 內部，但在 chart-container 之前，避免與圖表重疊
-                // 確保 stats 在標題之後，圖表容器之前
-                const titleElement = chartCard.querySelector('h3');
-                if (titleElement && titleElement.nextSibling) {
-                    // 插入到標題之後
-                    titleElement.parentNode.insertBefore(statsEl, titleElement.nextSibling);
-                } else {
-                    // 如果找不到標題，插入到容器之前
+                // 將統計信息插入到 comparison-header 之後、chart-container 之前，避免與圖表重疊
+                const comparisonHeader = chartCard.querySelector('.comparison-header');
+                if (comparisonHeader && comparisonHeader.nextSibling) {
+                    // 插入到 comparison-header 之後
+                    comparisonHeader.parentNode.insertBefore(statsEl, comparisonHeader.nextSibling);
+                } else if (chartContainer) {
+                    // 如果找不到 comparison-header，插入到容器之前
                     chartCard.insertBefore(statsEl, chartContainer);
+                } else {
+                    // 最後備選：插入到 chartCard 的末尾
+                    chartCard.appendChild(statsEl);
                 }
                 
-                // 確保統計信息有足夠空間顯示所有內容
-                statsEl.style.marginBottom = '16px';
+                // 確保統計信息有足夠空間顯示所有內容，增加底部間距
+                statsEl.style.marginBottom = '20px';
+                statsEl.style.marginTop = '0px';
                 statsEl.style.overflow = 'visible'; // 允許所有內容顯示
             }
         }
@@ -4195,10 +4275,7 @@ function updateUI(predictor) {
     // 更新載入進度
     updateSectionProgress('today-prediction', 10);
     
-    // 更新當前時間
-    const datetimeEl = document.getElementById('current-datetime');
-    const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
-    datetimeEl.textContent = `🕐 ${hk.year}年${hk.month}月${hk.day}日 ${weekdays[hk.dayOfWeek]} ${hk.timeStr} HKT`;
+    // 時間更新由 modules/datetime.js 統一處理
     updateSectionProgress('today-prediction', 30);
     
     // 今日預測（包含天氣和 AI 因素）
@@ -5543,10 +5620,23 @@ function updateRealtimeFactors(aiAnalysisData = null) {
                 </div>
             `;
         } else {
+            // 區分不同的空狀態
+            let emptyMessage = '📊 暫無實時影響因素';
+            let emptyHint = '系統會自動分析可能影響預測的新聞和事件';
+            
+            if (aiAnalysisData?.error) {
+                emptyMessage = '⚠️ AI 分析載入失敗';
+                emptyHint = aiAnalysisData.error || '請稍後重試或刷新頁面';
+            } else if (aiAnalysisData?.cached) {
+                emptyHint += '（使用緩存數據，但暫無有效因素）';
+            } else {
+                emptyHint += '（正在載入中，請稍候...）';
+            }
+            
             factorsEl.innerHTML = `
                 <div class="factors-empty">
-                    <span>📊 暫無實時影響因素</span>
-                    <p>系統會自動分析可能影響預測的新聞和事件${aiAnalysisData?.cached ? '（使用緩存數據）' : ''}</p>
+                    <span>${emptyMessage}</span>
+                    <p>${emptyHint}</p>
                 </div>
             `;
         }
@@ -6094,6 +6184,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 設置歷史趨勢時間範圍選擇按鈕
     setupHistoryTimeRangeButtons();
     
+    // 初始化算法說明內容
+    initAlgorithmContent();
+    
     // 設置統一的窗口 resize 處理（簡單邏輯，類似 factors-container）
     setupGlobalChartResize();
     
@@ -6154,13 +6247,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateFactorsLoadingProgress(100);
     }, 1000); // 1秒後在背景執行，確保初始化完成
     
-    // 每秒更新時間 (使用真實 HKT)
-    setInterval(() => {
-        const hk = getHKTime();
-        const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
-        const datetimeEl = document.getElementById('current-datetime');
-        datetimeEl.textContent = `🕐 ${hk.year}年${hk.month}月${hk.day}日 ${weekdays[hk.dayOfWeek]} ${hk.timeStr} HKT`;
-    }, 1000);
+    // 時間更新由 modules/datetime.js 統一處理，避免衝突
     
     // 每分鐘更新天氣並觸發預測更新
     setInterval(async () => {
