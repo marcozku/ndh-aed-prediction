@@ -5145,7 +5145,7 @@ function renderTrainingStatus(data) {
     // 在重新渲染前，保存當前的展開狀態
     const content = document.getElementById('training-details-content');
     if (content) {
-        trainingDetailsExpanded = content.style.display !== 'none';
+        trainingDetailsExpanded = content.style.display !== 'none' && content.style.display !== '';
     }
     
     const models = data.models || {};
@@ -5440,15 +5440,17 @@ function renderTrainingStatus(data) {
     
     container.innerHTML = html;
     
-    // 恢復訓練詳情的展開狀態
-    if (trainingDetailsExpanded) {
-        const content = document.getElementById('training-details-content');
-        const toggleText = document.getElementById('training-details-toggle-text');
-        if (content && toggleText) {
-            content.style.display = 'block';
-            toggleText.textContent = '收起';
+    // 使用 setTimeout 確保 DOM 完全渲染後再恢復展開狀態
+    setTimeout(() => {
+        if (trainingDetailsExpanded) {
+            const content = document.getElementById('training-details-content');
+            const toggleText = document.getElementById('training-details-toggle-text');
+            if (content && toggleText) {
+                content.style.display = 'block';
+                toggleText.textContent = '收起';
+            }
         }
-    }
+    }, 0);
     
     // 如果正在訓練，啟動倒數計時器
     if (isTraining && estimatedRemainingTime !== null && estimatedRemainingTime > 0) {
