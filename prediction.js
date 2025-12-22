@@ -5324,26 +5324,94 @@ function renderTrainingStatus(data) {
         </div>
     `;
     
-    // 如果訓練失敗或模型不可用，顯示訓練日誌
-    if (!isTraining && !data.available && (lastTrainingOutput || lastTrainingError)) {
+    // 解析訓練輸出，提取詳細信息
+    const trainingDetails = parseTrainingOutput(lastTrainingOutput);
+    
+    // 顯示訓練詳情（無論是否訓練完成）
+    if (lastTrainingOutput || lastTrainingError || trainingDetails.hasDetails) {
         html += `
-            <div class="training-logs" style="margin-top: var(--space-lg); padding: var(--space-md); background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-                <h4 style="margin-bottom: var(--space-sm); color: var(--text-primary);">📋 上次訓練日誌</h4>
-                ${lastTrainingOutput ? `
-                    <div style="margin-bottom: var(--space-md);">
-                        <strong style="color: var(--text-secondary); font-size: 0.9rem;">標準輸出:</strong>
-                        <pre style="margin-top: var(--space-xs); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.85rem; overflow-x: auto; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(lastTrainingOutput)}</pre>
-                    </div>
-                ` : ''}
-                ${lastTrainingError ? `
-                    <div>
-                        <strong style="color: var(--text-danger); font-size: 0.9rem;">錯誤輸出:</strong>
-                        <pre style="margin-top: var(--space-xs); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.85rem; overflow-x: auto; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; color: var(--text-danger);">${escapeHtml(lastTrainingError)}</pre>
-                    </div>
-                ` : ''}
-                ${!lastTrainingOutput && !lastTrainingError ? `
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">⚠️ 無訓練日誌。可能原因：1) Python 依賴未安裝 2) 訓練腳本未執行 3) 輸出被緩衝</p>
-                ` : ''}
+            <div class="training-details" style="margin-top: var(--space-lg); padding: var(--space-md); background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md);">
+                    <h4 style="margin: 0; color: var(--text-primary);">📊 訓練詳情</h4>
+                    <button id="toggle-training-details" onclick="toggleTrainingDetails()" style="padding: var(--space-xs) var(--space-sm); background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; font-size: 0.85rem; color: var(--text-secondary);">
+                        <span id="training-details-toggle-text">展開</span>
+                    </button>
+                </div>
+                
+                <div id="training-details-content" style="display: none;">
+                    ${trainingDetails.summary ? `
+                        <div style="margin-bottom: var(--space-md); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid ${trainingDetails.allSuccess ? 'var(--accent-success)' : 'var(--accent-warning)'};">
+                            <h5 style="margin: 0 0 var(--space-xs) 0; color: var(--text-primary); font-size: 0.95rem;">訓練總結</h5>
+                            <div style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6;">
+                                ${trainingDetails.summary.map(item => `
+                                    <div style="margin: var(--space-xs) 0; display: flex; align-items: center;">
+                                        <span style="margin-right: var(--space-xs);">${item.status === 'success' ? '✅' : '❌'}</span>
+                                        <span><strong>${item.name}:</strong> ${item.status === 'success' ? '成功' : '失敗'}</span>
+                                        ${item.metrics ? `<span style="margin-left: var(--space-sm); color: var(--text-tertiary);">${item.metrics}</span>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${trainingDetails.models.length > 0 ? `
+                        <div style="margin-bottom: var(--space-md);">
+                            <h5 style="margin: 0 0 var(--space-sm) 0; color: var(--text-primary); font-size: 0.95rem;">模型訓練詳情</h5>
+                            ${trainingDetails.models.map(model => `
+                                <div style="margin-bottom: var(--space-sm); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid ${model.success ? 'var(--accent-success)' : 'var(--accent-danger)'};">
+                                    <div style="display: flex; align-items: center; margin-bottom: var(--space-xs);">
+                                        <span style="font-size: 1.2rem; margin-right: var(--space-xs);">${modelInfo[model.key]?.icon || '📦'}</span>
+                                        <strong style="color: var(--text-primary);">${modelInfo[model.key]?.name || model.name}</strong>
+                                        <span style="margin-left: auto; padding: 2px 8px; background: ${model.success ? 'var(--accent-success)' : 'var(--accent-danger)'}; color: white; border-radius: var(--radius-sm); font-size: 0.75rem;">
+                                            ${model.success ? '成功' : '失敗'}
+                                        </span>
+                                    </div>
+                                    ${model.metrics ? `
+                                        <div style="margin-top: var(--space-xs); font-size: 0.85rem; color: var(--text-secondary);">
+                                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--space-xs);">
+                                                ${Object.entries(model.metrics).map(([key, value]) => `
+                                                    <div>
+                                                        <span style="color: var(--text-tertiary);">${key}:</span>
+                                                        <span style="color: var(--text-primary); font-weight: 600;">${value}</span>
+                                                    </div>
+                                                `).join('')}
+                                            </div>
+                                        </div>
+                                    ` : ''}
+                                    ${model.error ? `
+                                        <div style="margin-top: var(--space-xs); padding: var(--space-xs); background: rgba(220, 53, 69, 0.1); border-radius: var(--radius-sm); font-size: 0.8rem; color: var(--text-danger);">
+                                            <strong>錯誤:</strong> ${escapeHtml(model.error.substring(0, 200))}${model.error.length > 200 ? '...' : ''}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    ${lastTrainingOutput ? `
+                        <div style="margin-bottom: var(--space-md);">
+                            <h5 style="margin: 0 0 var(--space-sm) 0; color: var(--text-primary); font-size: 0.95rem;">完整輸出日誌</h5>
+                            <details style="margin-top: var(--space-xs);">
+                                <summary style="cursor: pointer; padding: var(--space-xs); color: var(--text-secondary); font-size: 0.85rem; user-select: none;">點擊展開完整日誌</summary>
+                                <pre style="margin-top: var(--space-xs); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.8rem; overflow-x: auto; max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', monospace;">${escapeHtml(lastTrainingOutput)}</pre>
+                            </details>
+                        </div>
+                    ` : ''}
+                    
+                    ${lastTrainingError ? `
+                        <div>
+                            <h5 style="margin: 0 0 var(--space-sm) 0; color: var(--text-danger); font-size: 0.95rem;">錯誤日誌</h5>
+                            <details style="margin-top: var(--space-xs);">
+                                <summary style="cursor: pointer; padding: var(--space-xs); color: var(--text-danger); font-size: 0.85rem; user-select: none;">點擊展開錯誤詳情</summary>
+                                <pre style="margin-top: var(--space-xs); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.8rem; overflow-x: auto; max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; color: var(--text-danger); font-family: 'Courier New', monospace;">${escapeHtml(lastTrainingError)}</pre>
+                            </details>
+                        </div>
+                    ` : ''}
+                    
+                    ${!lastTrainingOutput && !lastTrainingError && !trainingDetails.hasDetails ? `
+                        <p style="color: var(--text-secondary); font-size: 0.9rem;">⚠️ 無訓練日誌。可能原因：1) Python 依賴未安裝 2) 訓練腳本未執行 3) 輸出被緩衝</p>
+                    ` : ''}
+                </div>
             </div>
         `;
     }
