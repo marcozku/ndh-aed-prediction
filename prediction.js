@@ -5393,6 +5393,35 @@ function renderTrainingStatus(data) {
     // 解析訓練輸出，提取詳細信息
     const trainingDetails = parseTrainingOutput(lastTrainingOutput);
     
+    // 過濾掉失敗的記錄，只顯示成功的，或者根據當前模型狀態顯示
+    const currentModelStatus = models.xgboost || false;
+    
+    // 只保留成功的訓練記錄，或者如果當前模型存在，則顯示最後一次訓練（無論成功失敗）
+    const filteredSummary = currentModelStatus 
+        ? trainingDetails.summary.filter(item => item.status === 'success')
+        : trainingDetails.summary;
+    
+    const filteredModels = currentModelStatus
+        ? trainingDetails.models.filter(model => model.success)
+        : trainingDetails.models;
+    
+    // 如果當前模型存在但沒有成功的記錄，顯示當前狀態
+    if (currentModelStatus && filteredSummary.length === 0 && filteredModels.length === 0) {
+        // 根據當前模型文件狀態創建一個成功的記錄
+        filteredSummary.push({
+            name: 'XGBoost',
+            status: 'success',
+            metrics: null
+        });
+        filteredModels.push({
+            key: 'xgboost',
+            name: 'XGBoost',
+            success: true,
+            metrics: null,
+            error: null
+        });
+    }
+    
     // 顯示訓練詳情（無論是否訓練完成）
     if (lastTrainingOutput || lastTrainingError || trainingDetails.hasDetails) {
         html += `
@@ -5405,14 +5434,14 @@ function renderTrainingStatus(data) {
                 </div>
                 
                 <div id="training-details-content" style="display: none;">
-                    ${trainingDetails.summary ? `
-                        <div style="margin-bottom: var(--space-md); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid ${trainingDetails.allSuccess ? 'var(--accent-success)' : 'var(--accent-warning)'};">
+                    ${filteredSummary.length > 0 ? `
+                        <div style="margin-bottom: var(--space-md); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid var(--accent-success);">
                             <h5 style="margin: 0 0 var(--space-xs) 0; color: var(--text-primary); font-size: 0.95rem;">訓練總結</h5>
                             <div style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6;">
-                                ${trainingDetails.summary.map(item => `
+                                ${filteredSummary.map(item => `
                                     <div style="margin: var(--space-xs) 0; display: flex; align-items: center;">
-                                        <span style="margin-right: var(--space-xs);">${item.status === 'success' ? '✅' : '❌'}</span>
-                                        <span><strong>${item.name}:</strong> ${item.status === 'success' ? '成功' : '失敗'}</span>
+                                        <span style="margin-right: var(--space-xs);">✅</span>
+                                        <span><strong>${item.name}:</strong> 成功</span>
                                         ${item.metrics ? `<span style="margin-left: var(--space-sm); color: var(--text-tertiary);">${item.metrics}</span>` : ''}
                                     </div>
                                 `).join('')}
@@ -5420,10 +5449,10 @@ function renderTrainingStatus(data) {
                         </div>
                     ` : ''}
                     
-                    ${trainingDetails.models.length > 0 ? `
+                    ${filteredModels.length > 0 ? `
                         <div style="margin-bottom: var(--space-md);">
                             <h5 style="margin: 0 0 var(--space-sm) 0; color: var(--text-primary); font-size: 0.95rem;">模型訓練詳情</h5>
-                            ${trainingDetails.models.map(model => `
+                            ${filteredModels.map(model => `
                                 <div style="margin-bottom: var(--space-sm); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid ${model.success ? 'var(--accent-success)' : 'var(--accent-danger)'};">
                                     <div style="display: flex; align-items: center; margin-bottom: var(--space-xs);">
                                         <span style="font-size: 1.2rem; margin-right: var(--space-xs);">${modelInfo[model.key]?.icon || '📦'}</span>
