@@ -86,8 +86,13 @@ class AutoTrainManager {
      */
     _saveTrainingStatus(dataCount = null, isTraining = false) {
         try {
+            // 如果訓練完成（isTraining = false），更新 lastTrainingDate
+            if (!isTraining) {
+                this.lastTrainingDate = new Date().toISOString();
+            }
+            
             const status = {
-                lastTrainingDate: isTraining ? this.lastTrainingDate : new Date().toISOString(),
+                lastTrainingDate: this.lastTrainingDate,
                 lastDataCount: dataCount !== null ? dataCount : this.lastDataCount,
                 lastUpdate: new Date().toISOString(),
                 trainingStartTime: isTraining ? (this.trainingStartTime || new Date().toISOString()) : null,
@@ -361,7 +366,7 @@ class AutoTrainManager {
                 } else {
                     console.warn(`⚠️ 訓練腳本退出成功，但模型文件未找到`);
                     console.warn(`模型目錄存在: ${modelStatus.modelsDirExists}`);
-                    console.warn(`可用模型: ${Object.values(modelStatus.models).filter(Boolean).length}/3`);
+                    console.warn(`可用模型: ${Object.values(modelStatus.models).filter(Boolean).length}/1`);
                     console.warn(`完整輸出:\n${output}`);
                     if (error) {
                         console.warn(`錯誤輸出:\n${error}`);
