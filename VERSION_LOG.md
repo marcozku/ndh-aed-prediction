@@ -1,5 +1,46 @@
 # 版本更新日誌
 
+## v2.4.2 - 2025-12-23 01:18 (HKT)
+
+### 🔧 修復：模型路徑和診斷功能
+
+**問題修復**：
+1. **模型保存路徑問題**：
+   - 修正所有 Python 訓練腳本使用絕對路徑保存模型
+   - 確保模型文件保存在 `python/models/` 目錄
+   - 修正 `auto-train-manager.js` 的工作目錄設置
+
+2. **模型檢查邏輯增強**：
+   - 添加詳細的模型狀態檢查（文件大小、修改時間）
+   - 檢查所有必需的輔助文件（scaler、features、metrics 等）
+   - 列出模型目錄中的所有文件
+
+3. **診斷功能**：
+   - 新增 `GET /api/model-diagnostics` API 端點
+   - 檢查 Python 環境可用性
+   - 提供修復建議
+   - 前端顯示文件大小和修改時間
+
+**修改文件**：
+- `python/train_xgboost.py` - 使用絕對路徑保存模型
+- `python/train_lstm.py` - 使用絕對路徑保存模型
+- `python/train_prophet.py` - 使用絕對路徑保存模型
+- `python/ensemble_predict.py` - 使用絕對路徑加載模型
+- `python/train_all_models.py` - 改進工作目錄設置
+- `modules/ensemble-predictor.js` - 增強模型狀態檢查
+- `modules/auto-train-manager.js` - 修正工作目錄
+- `server.js` - 添加診斷 API
+- `prediction.js` - 顯示詳細模型信息
+
+**使用方式**：
+```javascript
+// 檢查模型診斷信息
+GET /api/model-diagnostics
+
+// 獲取詳細模型狀態
+GET /api/ensemble-status
+```
+
 ## v2.4.1 - 2025-12-23 (HKT)
 
 ### 🤖 新增：自動訓練功能

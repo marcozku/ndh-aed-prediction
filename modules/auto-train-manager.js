@@ -189,7 +189,7 @@ class AutoTrainManager {
         return new Promise((resolve) => {
             const pythonScript = path.join(__dirname, '../python/train_all_models.py');
             const python = spawn('python3', [pythonScript], {
-                cwd: path.join(__dirname, '..'),
+                cwd: path.join(__dirname, '../python'),  // 在 python 目錄下運行
                 stdio: ['pipe', 'pipe', 'pipe']
             });
 

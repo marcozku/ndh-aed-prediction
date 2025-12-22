@@ -105,8 +105,11 @@ def train_xgboost_model(train_data, test_data, feature_cols):
     return model, {'mae': mae, 'rmse': rmse, 'mape': mape}
 
 def main():
-    # 創建模型目錄
-    os.makedirs('models', exist_ok=True)
+    # 創建模型目錄（相對於當前腳本目錄）
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    models_dir = os.path.join(script_dir, 'models')
+    os.makedirs(models_dir, exist_ok=True)
+    print(f"模型目錄: {models_dir}")
     
     # 嘗試從數據庫加載數據
     df = load_data_from_db()
@@ -153,17 +156,22 @@ def main():
     # 訓練模型
     model, metrics = train_xgboost_model(train_data, test_data, feature_cols)
     
-    # 保存模型
-    model_path = 'models/xgboost_model.json'
+    # 保存模型（使用絕對路徑）
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    models_dir = os.path.join(script_dir, 'models')
+    
+    model_path = os.path.join(models_dir, 'xgboost_model.json')
     model.save_model(model_path)
     print(f"模型已保存到 {model_path}")
     
     # 保存特徵列名
-    with open('models/xgboost_features.json', 'w') as f:
+    features_path = os.path.join(models_dir, 'xgboost_features.json')
+    with open(features_path, 'w') as f:
         json.dump(feature_cols, f)
     
     # 保存評估指標
-    with open('models/xgboost_metrics.json', 'w') as f:
+    metrics_path = os.path.join(models_dir, 'xgboost_metrics.json')
+    with open(metrics_path, 'w') as f:
         json.dump(metrics, f)
     
     print("✅ XGBoost 模型訓練完成！")

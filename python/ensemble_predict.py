@@ -23,14 +23,18 @@ def load_xgboost_model():
     """加載 XGBoost 模型"""
     try:
         import xgboost as xgb
-        model_path = 'models/xgboost_model.json'
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        models_dir = os.path.join(script_dir, 'models')
+        
+        model_path = os.path.join(models_dir, 'xgboost_model.json')
         if not os.path.exists(model_path):
             return None, None
         
         model = xgb.XGBRegressor()
         model.load_model(model_path)
         
-        with open('models/xgboost_features.json', 'r') as f:
+        features_path = os.path.join(models_dir, 'xgboost_features.json')
+        with open(features_path, 'r') as f:
             feature_cols = json.load(f)
         
         return model, feature_cols
@@ -42,19 +46,22 @@ def load_lstm_model():
     """加載 LSTM 模型"""
     try:
         from tensorflow.keras.models import load_model
-        model_path = 'models/lstm_model.h5'
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        models_dir = os.path.join(script_dir, 'models')
+        
+        model_path = os.path.join(models_dir, 'lstm_model.h5')
         if not os.path.exists(model_path):
-            return None, None, None, None
+            return None, None, None, None, None
         
         model = load_model(model_path)
         
-        with open('models/lstm_scaler_X.pkl', 'rb') as f:
+        with open(os.path.join(models_dir, 'lstm_scaler_X.pkl'), 'rb') as f:
             scaler_X = pickle.load(f)
-        with open('models/lstm_scaler_y.pkl', 'rb') as f:
+        with open(os.path.join(models_dir, 'lstm_scaler_y.pkl'), 'rb') as f:
             scaler_y = pickle.load(f)
-        with open('models/lstm_features.json', 'r') as f:
+        with open(os.path.join(models_dir, 'lstm_features.json'), 'r') as f:
             feature_cols = json.load(f)
-        with open('models/lstm_params.json', 'r') as f:
+        with open(os.path.join(models_dir, 'lstm_params.json'), 'r') as f:
             params = json.load(f)
         
         return model, scaler_X, scaler_y, feature_cols, params.get('seq_length', 60)
@@ -65,7 +72,10 @@ def load_lstm_model():
 def load_prophet_model():
     """加載 Prophet 模型"""
     try:
-        model_path = 'models/prophet_model.pkl'
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        models_dir = os.path.join(script_dir, 'models')
+        
+        model_path = os.path.join(models_dir, 'prophet_model.pkl')
         if not os.path.exists(model_path):
             return None
         

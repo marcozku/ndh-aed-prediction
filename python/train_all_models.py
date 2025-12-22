@@ -12,9 +12,16 @@ def run_training_script(script_name):
     print(f"開始訓練: {script_name}")
     print(f"{'='*60}\n")
     
+    # 確保在 python 目錄下運行
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    script_path = os.path.join(script_dir, script_name)
+    
+    print(f"工作目錄: {script_dir}")
+    print(f"腳本路徑: {script_path}")
+    
     result = subprocess.run(
-        [sys.executable, script_name],
-        cwd=os.path.dirname(os.path.abspath(__file__)),
+        [sys.executable, script_path],
+        cwd=script_dir,  # 在 python 目錄下運行
         capture_output=True,
         text=True
     )

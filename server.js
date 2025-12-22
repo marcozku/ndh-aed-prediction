@@ -132,6 +132,69 @@ function sendJson(res, data, statusCode = 200) {
     res.end(JSON.stringify(data));
 }
 
+// 生成診斷建議
+function generateRecommendations(status, pythonInfo) {
+    const recommendations = [];
+    
+    if (!pythonInfo.available) {
+        recommendations.push({
+            level: 'error',
+            message: 'Python 3 未安裝或不可用',
+            action: '請安裝 Python 3.8+ 並確保 python3 命令可用'
+        });
+    }
+    
+    if (!status.modelsDirExists) {
+        recommendations.push({
+            level: 'error',
+            message: '模型目錄不存在',
+            action: `創建目錄: ${status.modelsDir}`
+        });
+    }
+    
+    const missingModels = [];
+    if (!status.models.xgboost) missingModels.push('XGBoost');
+    if (!status.models.lstm) missingModels.push('LSTM');
+    if (!status.models.prophet) missingModels.push('Prophet');
+    
+    if (missingModels.length > 0) {
+        recommendations.push({
+            level: 'warning',
+            message: `缺少模型: ${missingModels.join(', ')}`,
+            action: '運行 python/train_all_models.py 訓練模型'
+        });
+    }
+    
+    // 檢查部分文件缺失
+    if (status.details) {
+        for (const [modelKey, details] of Object.entries(status.details)) {
+            if (details.exists) {
+                const missingFiles = Object.entries(details.requiredFiles)
+                    .filter(([key, file]) => !file.exists && key !== 'model')
+                    .map(([key, file]) => file.name);
+                
+                if (missingFiles.length > 0) {
+                    recommendations.push({
+                        level: 'warning',
+                        message: `${modelKey} 模型缺少輔助文件: ${missingFiles.join(', ')}`,
+                        action: '重新訓練模型以生成所有必需文件'
+                    });
+                }
+            }
+        }
+    }
+    
+    if (recommendations.length === 0) {
+        recommendations.push({
+            level: 'success',
+            message: '所有模型文件完整',
+            action: '模型已準備就緒，可以使用集成預測'
+        });
+    }
+    
+    return recommendations;
+}
+
 // API handlers
 const apiHandlers = {
     // Upload actual data
@@ -1215,6 +1278,14 @@ const apiHandlers = {
                 status.training = { error: '訓練管理器不可用' };
             }
             
+            // 添加診斷信息
+            status.diagnostics = {
+                modelsDir: status.modelsDir,
+                modelsDirExists: status.modelsDirExists,
+                allFiles: status.allFiles,
+                fileCount: status.allFiles ? status.allFiles.length : 0
+            };
+            
             sendJson(res, {
                 success: true,
                 data: status
@@ -1228,6 +1299,60 @@ const apiHandlers = {
                     error: '集成預測器模組不可用'
                 }
             });
+        }
+    },
+    
+    // 診斷模型文件（詳細檢查）
+    'GET /api/model-diagnostics': async (req, res) => {
+        try {
+            const { EnsemblePredictor } = require('./modules/ensemble-predictor');
+            const predictor = new EnsemblePredictor();
+            const status = predictor.getModelStatus();
+            
+            // 檢查 Python 環境
+            const { spawn } = require('child_process');
+            const pythonCheck = new Promise((resolve) => {
+                const python = spawn('python3', ['--version'], {
+                    stdio: ['pipe', 'pipe', 'pipe']
+                });
+                
+                let output = '';
+                python.stdout.on('data', (data) => {
+                    output += data.toString();
+                });
+                
+                python.on('close', (code) => {
+                    resolve({
+                        available: code === 0,
+                        version: output.trim(),
+                        error: code !== 0 ? 'Python 3 不可用' : null
+                    });
+                });
+                
+                python.on('error', (err) => {
+                    resolve({
+                        available: false,
+                        version: null,
+                        error: err.message
+                    });
+                });
+            });
+            
+            const pythonInfo = await pythonCheck;
+            
+            sendJson(res, {
+                success: true,
+                data: {
+                    modelStatus: status,
+                    python: pythonInfo,
+                    recommendations: generateRecommendations(status, pythonInfo)
+                }
+            });
+        } catch (err) {
+            sendJson(res, {
+                success: false,
+                error: err.message
+            }, 500);
         }
     },
     

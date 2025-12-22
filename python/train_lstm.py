@@ -151,7 +151,11 @@ def train_lstm_model(train_data, test_data, feature_cols, seq_length=60):
     return model, scaler_X, scaler_y, {'mae': mae, 'rmse': rmse, 'mape': mape}
 
 def main():
-    os.makedirs('models', exist_ok=True)
+    # 創建模型目錄（相對於當前腳本目錄）
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    models_dir = os.path.join(script_dir, 'models')
+    os.makedirs(models_dir, exist_ok=True)
+    print(f"模型目錄: {models_dir}")
     
     # 加載數據
     df = load_data_from_db()
@@ -197,24 +201,27 @@ def main():
         print("模型訓練失敗")
         sys.exit(1)
     
-    # 保存模型
-    model_path = 'models/lstm_model.h5'
+    # 保存模型（使用絕對路徑）
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    models_dir = os.path.join(script_dir, 'models')
+    
+    model_path = os.path.join(models_dir, 'lstm_model.h5')
     model.save(model_path)
     print(f"模型已保存到 {model_path}")
     
     # 保存 scaler（需要序列化）
     import pickle
-    with open('models/lstm_scaler_X.pkl', 'wb') as f:
+    with open(os.path.join(models_dir, 'lstm_scaler_X.pkl'), 'wb') as f:
         pickle.dump(scaler_X, f)
-    with open('models/lstm_scaler_y.pkl', 'wb') as f:
+    with open(os.path.join(models_dir, 'lstm_scaler_y.pkl'), 'wb') as f:
         pickle.dump(scaler_y, f)
     
     # 保存特徵列和參數
-    with open('models/lstm_features.json', 'w') as f:
+    with open(os.path.join(models_dir, 'lstm_features.json'), 'w') as f:
         json.dump(feature_cols, f)
-    with open('models/lstm_metrics.json', 'w') as f:
+    with open(os.path.join(models_dir, 'lstm_metrics.json'), 'w') as f:
         json.dump(metrics, f)
-    with open('models/lstm_params.json', 'w') as f:
+    with open(os.path.join(models_dir, 'lstm_params.json'), 'w') as f:
         json.dump({'seq_length': 60}, f)
     
     print("✅ LSTM 模型訓練完成！")

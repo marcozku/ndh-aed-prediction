@@ -5146,6 +5146,8 @@ function renderTrainingStatus(data) {
     const trainingStartTime = training.trainingStartTime;
     const estimatedRemainingTime = training.estimatedRemainingTime;
     const elapsedTime = training.elapsedTime;
+    const details = data.details || {};
+    const diagnostics = data.diagnostics || {};
     
     // 模型信息
     const modelInfo = {
@@ -5215,6 +5217,20 @@ function renderTrainingStatus(data) {
                         <span class="model-detail-label">狀態</span>
                         <span class="model-detail-value ${isAvailable ? 'success' : 'danger'}">${isAvailable ? '✅ 已訓練' : '❌ 未訓練'}</span>
                     </div>
+                    ${details[modelKey] ? `
+                        ${details[modelKey].exists ? `
+                            <div class="model-detail-item" style="font-size: 0.75rem; color: var(--text-tertiary);">
+                                <span class="model-detail-label">文件大小</span>
+                                <span class="model-detail-value">${formatFileSize(details[modelKey].fileSize)}</span>
+                            </div>
+                            ${details[modelKey].lastModified ? `
+                                <div class="model-detail-item" style="font-size: 0.75rem; color: var(--text-tertiary);">
+                                    <span class="model-detail-label">最後修改</span>
+                                    <span class="model-detail-value time">${formatTrainingDate(details[modelKey].lastModified)}</span>
+                                </div>
+                            ` : ''}
+                        ` : ''}
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -5292,6 +5308,17 @@ function renderTrainingStatus(data) {
                     </div>
                 </div>
             ` : ''}
+            ${diagnostics.allFiles && diagnostics.allFiles.length > 0 ? `
+                <div style="margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border-subtle);">
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                        <strong>模型目錄文件 (${diagnostics.allFiles.length} 個):</strong><br>
+                        <div style="margin-top: var(--space-xs); font-family: monospace; font-size: 0.75rem;">
+                            ${diagnostics.allFiles.slice(0, 10).map(f => `• ${f}`).join('<br>')}
+                            ${diagnostics.allFiles.length > 10 ? `<br>... 還有 ${diagnostics.allFiles.length - 10} 個文件` : ''}
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
         </div>
     `;
     
@@ -5350,6 +5377,15 @@ function formatElapsedTime(ms) {
     } else {
         return `${minutes} 分鐘`;
     }
+}
+
+// 格式化文件大小
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
 // 啟動訓練倒數計時器

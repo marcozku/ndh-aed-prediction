@@ -81,19 +81,68 @@ class EnsemblePredictor {
     }
 
     /**
-     * 獲取模型狀態
+     * 獲取模型狀態（詳細版本）
      */
     getModelStatus() {
-        const models = {
-            xgboost: fs.existsSync(path.join(this.modelsDir, 'xgboost_model.json')),
-            lstm: fs.existsSync(path.join(this.modelsDir, 'lstm_model.h5')),
-            prophet: fs.existsSync(path.join(this.modelsDir, 'prophet_model.pkl'))
+        const modelFiles = {
+            xgboost: {
+                model: 'xgboost_model.json',
+                features: 'xgboost_features.json',
+                metrics: 'xgboost_metrics.json'
+            },
+            lstm: {
+                model: 'lstm_model.h5',
+                scalerX: 'lstm_scaler_X.pkl',
+                scalerY: 'lstm_scaler_y.pkl',
+                features: 'lstm_features.json',
+                params: 'lstm_params.json',
+                metrics: 'lstm_metrics.json'
+            },
+            prophet: {
+                model: 'prophet_model.pkl',
+                metrics: 'prophet_metrics.json'
+            }
         };
+        
+        const models = {};
+        const modelDetails = {};
+        
+        for (const [modelKey, files] of Object.entries(modelFiles)) {
+            const modelFile = files.model;
+            const modelPath = path.join(this.modelsDir, modelFile);
+            const exists = fs.existsSync(modelPath);
+            
+            models[modelKey] = exists;
+            
+            // 獲取詳細信息
+            modelDetails[modelKey] = {
+                exists: exists,
+                path: modelPath,
+                fileSize: exists ? fs.statSync(modelPath).size : 0,
+                lastModified: exists ? fs.statSync(modelPath).mtime : null,
+                requiredFiles: {}
+            };
+            
+            // 檢查所有必需文件
+            for (const [fileKey, fileName] of Object.entries(files)) {
+                const filePath = path.join(this.modelsDir, fileName);
+                modelDetails[modelKey].requiredFiles[fileKey] = {
+                    name: fileName,
+                    exists: fs.existsSync(filePath),
+                    path: filePath
+                };
+            }
+        }
 
         return {
             available: this.isModelAvailable(),
             models: models,
-            modelsDir: this.modelsDir
+            modelsDir: this.modelsDir,
+            details: modelDetails,
+            // 檢查目錄是否存在
+            modelsDirExists: fs.existsSync(this.modelsDir),
+            // 列出目錄中的所有文件
+            allFiles: fs.existsSync(this.modelsDir) ? fs.readdirSync(this.modelsDir) : []
         };
     }
 }

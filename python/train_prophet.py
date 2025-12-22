@@ -108,7 +108,11 @@ def train_prophet_model(train_data, test_data):
     return model, {'mae': mae, 'rmse': rmse, 'mape': mape}
 
 def main():
-    os.makedirs('models', exist_ok=True)
+    # 創建模型目錄（相對於當前腳本目錄）
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    models_dir = os.path.join(script_dir, 'models')
+    os.makedirs(models_dir, exist_ok=True)
+    print(f"模型目錄: {models_dir}")
     
     # 加載數據
     df = load_data_from_db()
@@ -144,15 +148,19 @@ def main():
     # 訓練模型
     model, metrics = train_prophet_model(train_data, test_data)
     
-    # 保存模型
+    # 保存模型（使用絕對路徑）
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    models_dir = os.path.join(script_dir, 'models')
+    
     import pickle
-    model_path = 'models/prophet_model.pkl'
+    model_path = os.path.join(models_dir, 'prophet_model.pkl')
     with open(model_path, 'wb') as f:
         pickle.dump(model, f)
     print(f"模型已保存到 {model_path}")
     
     # 保存評估指標
-    with open('models/prophet_metrics.json', 'w') as f:
+    metrics_path = os.path.join(models_dir, 'prophet_metrics.json')
+    with open(metrics_path, 'w') as f:
         json.dump(metrics, f)
     
     print("✅ Prophet 模型訓練完成！")
