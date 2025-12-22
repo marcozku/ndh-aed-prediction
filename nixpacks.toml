@@ -1,0 +1,17 @@
+[phases.setup]
+nixPkgs = ["python3", "pip"]
+
+[phases.install]
+cmds = [
+  "pip install --upgrade pip",
+  "cd python && pip install -r requirements.txt"
+]
+
+[phases.build]
+cmds = [
+  "echo 'Python environment ready'"
+]
+
+[start]
+cmd = "node server.js"
+

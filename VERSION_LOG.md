@@ -1,5 +1,45 @@
 # 版本更新日誌
 
+## v2.4.4 - 2025-12-23 01:30 (HKT)
+
+### 🚀 新增：Railway 自動安裝 Python
+
+**Railway 配置**：
+1. **Nixpacks 配置** (`nixpacks.toml`)：
+   - 自動安裝 Python 3 和 pip
+   - 構建時自動安裝 Python 依賴
+   - 確保 Python 環境在部署時可用
+
+2. **Railway 配置** (`railway.json`)：
+   - 定義構建命令
+   - 配置重啟策略
+
+3. **備用安裝腳本** (`scripts/install-python-deps.js`)：
+   - 自動檢測 Python 命令
+   - 安裝 Python 依賴
+   - 在 `postinstall` 階段執行
+
+4. **Railway 忽略文件** (`.railwayignore`)：
+   - 排除不必要的文件
+   - 優化部署速度
+
+**新增文件**：
+- `nixpacks.toml` - Nixpacks 構建配置
+- `railway.json` - Railway 項目配置
+- `scripts/install-python-deps.js` - Python 依賴安裝腳本
+- `.railwayignore` - Railway 忽略文件
+
+**修改文件**：
+- `package.json` - 添加 postinstall 腳本
+
+**使用方式**：
+Railway 部署時會自動：
+1. 安裝 Python 3 和 pip（通過 Nixpacks）
+2. 安裝 Python 依賴（通過 nixpacks.toml）
+3. 執行 postinstall 腳本（備用方案）
+
+部署完成後，Python 環境應該可用。
+
 ## v2.4.3 - 2025-12-23 01:25 (HKT)
 
 ### 🔧 修復：訓練執行和環境檢測

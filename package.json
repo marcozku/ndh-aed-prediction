@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "postinstall": "node scripts/install-python-deps.js || echo 'Python dependencies installation skipped'",
+    "setup-python": "node scripts/install-python-deps.js"
   },
   "keywords": [
     "ndh",
