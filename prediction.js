@@ -5707,45 +5707,117 @@ function appendTrainingLogs(content, type = 'output') {
     const lines = content.split('\n');
     
     lines.forEach(line => {
-        if (line.trim() === '') return;
+        // 錯誤類型總是顯示
+        if (type === 'error') {
+            const lineDiv = document.createElement('div');
+            lineDiv.style.marginBottom = '2px';
+            lineDiv.style.padding = '2px 4px';
+            lineDiv.style.color = 'var(--text-danger)';
+            lineDiv.style.background = 'rgba(220, 53, 69, 0.1)';
+            lineDiv.textContent = `[錯誤] ${line}`;
+            logsContent.appendChild(lineDiv);
+            return;
+        }
+        
+        // 對於輸出類型，過濾掉無用的行
+        const trimmed = line.trim();
+        if (trimmed === '') return;
+        
+        // 過濾掉無用的行
+        const uselessPatterns = [
+            /^[\s=]+$/,  // 只有分隔符
+            /^Loading\s+/i,  // Loading 信息
+            /^Using\s+/i,  // Using 信息
+            /^Reading\s+/i,  // Reading 信息
+            /^Processing\s+/i,  // Processing 信息
+            /^Found\s+\d+\s+rows/i,  // Found X rows
+            /^\d+\/\d+\s+\[.*\]\s+-\s+[0-9]+s\s+[0-9]+ms\/step/,  // TensorFlow 訓練步驟詳情
+            /^Epoch\s+\d+\/\d+.*loss.*val_loss/,  // Epoch 詳細進度
+            /^[0-9]+\/[0-9]+\s+\[.*\]\s+loss/,  // TensorFlow 訓練詳情
+            /^WARNING:.*tensorflow/i,  // TensorFlow 一般警告
+            /^INFO:.*tensorflow/i,  // TensorFlow 一般信息
+            /^DEBUG:/i,  // 調試信息
+            /^Using.*backend/i,  // 後端信息
+        ];
+        
+        // 檢查是否匹配無用模式
+        let isUseless = false;
+        for (const pattern of uselessPatterns) {
+            if (pattern.test(trimmed)) {
+                isUseless = true;
+                break;
+            }
+        }
+        
+        // 如果無用，跳過
+        if (isUseless) {
+            return;
+        }
+        
+        // 保留有用的行
+        const usefulPatterns = [
+            /✅|成功|完成|Finished|Done|完成/i,  // 成功信息
+            /❌|失敗|錯誤|Error|Exception|Failed/i,  // 錯誤信息
+            /開始|Starting|開始訓練|Training|訓練/i,  // 開始信息
+            /MAE|RMSE|MAPE|準確度|Accuracy|Performance|性能/i,  // 性能指標
+            /模型|Model|訓練|Train/i,  // 模型相關
+            /保存|Saved|保存到|saved to/i,  // 保存信息
+            /XGBoost|訓練完成|訓練失敗/i,  // 關鍵狀態
+            /耗時|時間|Time|Duration|分鐘/i,  // 時間信息
+            /數據|Data|記錄|Records|筆/i,  // 數據信息
+            /警告.*重要|Warning.*important/i,  // 重要警告
+            /🚀|📊|⏱️|✅|❌|⚠️/,  // 特殊符號
+        ];
+        
+        // 檢查是否匹配有用模式
+        let isUseful = false;
+        for (const pattern of usefulPatterns) {
+            if (pattern.test(trimmed)) {
+                isUseful = true;
+                break;
+            }
+        }
+        
+        // 如果沒有匹配有用模式，跳過（減少噪音）
+        if (!isUseful) {
+            return;
+        }
         
         const lineDiv = document.createElement('div');
         lineDiv.style.marginBottom = '2px';
         lineDiv.style.padding = '2px 4px';
         
-        // 根據類型設置樣式
-        if (type === 'error') {
-            lineDiv.style.color = 'var(--text-danger)';
-            lineDiv.style.background = 'rgba(220, 53, 69, 0.1)';
-            lineDiv.textContent = `[錯誤] ${line}`;
-        } else if (type === 'success') {
+        // 根據內容類型設置顏色和樣式
+        if (trimmed.includes('✅') || trimmed.includes('成功') || trimmed.includes('完成') || trimmed.match(/Finished|Done/i)) {
             lineDiv.style.color = 'var(--accent-success)';
             lineDiv.style.background = 'rgba(34, 197, 94, 0.1)';
-            lineDiv.textContent = line;
+            lineDiv.style.fontWeight = '500';
+        } else if (trimmed.includes('❌') || trimmed.includes('失敗') || trimmed.includes('錯誤') || trimmed.match(/Error|Exception|Failed/i)) {
+            lineDiv.style.color = 'var(--text-danger)';
+            lineDiv.style.background = 'rgba(220, 53, 69, 0.1)';
+            lineDiv.style.fontWeight = '500';
+        } else if (trimmed.includes('⚠️') || trimmed.match(/警告|Warning/i)) {
+            lineDiv.style.color = 'var(--accent-warning)';
+            lineDiv.style.background = 'rgba(251, 191, 36, 0.1)';
+        } else if (trimmed.match(/開始|開始訓練|Starting|Training|訓練/i)) {
+            lineDiv.style.color = 'var(--accent-primary)';
+            lineDiv.style.fontWeight = '600';
+            lineDiv.style.background = 'rgba(59, 130, 246, 0.1)';
+        } else if (trimmed.match(/MAE|RMSE|MAPE|準確度|Accuracy|Performance|性能/i)) {
+            lineDiv.style.color = 'var(--text-primary)';
+            lineDiv.style.fontWeight = '500';
+            lineDiv.style.background = 'rgba(59, 130, 246, 0.05)';
+        } else if (trimmed.match(/^\s*[=]+/)) {
+            // 分隔線
+            lineDiv.style.color = 'var(--text-tertiary)';
+            lineDiv.style.borderBottom = '1px solid var(--border-color)';
+            lineDiv.style.marginBottom = '4px';
+            lineDiv.style.paddingBottom = '4px';
         } else {
-            // 根據內容類型設置顏色
-            if (line.includes('✅') || line.includes('成功')) {
-                lineDiv.style.color = 'var(--accent-success)';
-            } else if (line.includes('❌') || line.includes('失敗') || line.includes('錯誤')) {
-                lineDiv.style.color = 'var(--text-danger)';
-            } else if (line.includes('警告') || line.includes('Warning')) {
-                lineDiv.style.color = 'var(--accent-warning)';
-            } else if (line.includes('開始') || line.includes('開始訓練')) {
-                lineDiv.style.color = 'var(--accent-primary)';
-                lineDiv.style.fontWeight = '600';
-            } else if (line.match(/^\s*[=]+/)) {
-                // 分隔線
-                lineDiv.style.color = 'var(--text-tertiary)';
-                lineDiv.style.borderBottom = '1px solid var(--border-color)';
-                lineDiv.style.marginBottom = '4px';
-                lineDiv.style.paddingBottom = '4px';
-            } else {
-                lineDiv.style.color = 'var(--text-primary)';
-            }
-            
-            lineDiv.textContent = line;
+            lineDiv.style.color = 'var(--text-secondary)';
         }
         
+        lineDiv.textContent = trimmed;
         logsContent.appendChild(lineDiv);
     });
     
