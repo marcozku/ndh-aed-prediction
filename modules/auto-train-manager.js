@@ -68,6 +68,13 @@ class AutoTrainManager {
                         this.trainingStartTime = status.trainingStartTime;
                     }
                 }
+                // 加載保存的輸出（如果存在）
+                if (status.lastTrainingOutput) {
+                    this.lastTrainingOutput = status.lastTrainingOutput;
+                }
+                if (status.lastTrainingError) {
+                    this.lastTrainingError = status.lastTrainingError;
+                }
             }
         } catch (e) {
             console.warn('無法加載訓練狀態:', e.message);
@@ -80,10 +87,12 @@ class AutoTrainManager {
     _saveTrainingStatus(dataCount = null, isTraining = false) {
         try {
             const status = {
-                lastTrainingDate: new Date().toISOString(),
-                lastDataCount: dataCount || this.lastDataCount,
+                lastTrainingDate: isTraining ? this.lastTrainingDate : new Date().toISOString(),
+                lastDataCount: dataCount !== null ? dataCount : this.lastDataCount,
                 lastUpdate: new Date().toISOString(),
-                trainingStartTime: isTraining ? (this.trainingStartTime || new Date().toISOString()) : null
+                trainingStartTime: isTraining ? (this.trainingStartTime || new Date().toISOString()) : null,
+                lastTrainingOutput: this.lastTrainingOutput || '',
+                lastTrainingError: this.lastTrainingError || ''
             };
             fs.writeFileSync(this.statusFile, JSON.stringify(status, null, 2));
         } catch (e) {
@@ -197,6 +206,10 @@ class AutoTrainManager {
         this.trainingStartTime = new Date().toISOString();
         const startTime = Date.now();
         
+        // 重置輸出，準備接收新的訓練日誌
+        this.lastTrainingOutput = '';
+        this.lastTrainingError = '';
+        
         // 保存訓練開始狀態
         this._saveTrainingStatus(dataCount, true);
 
@@ -288,13 +301,25 @@ class AutoTrainManager {
         python.stdout.on('data', (data) => {
             const text = data.toString();
             output += text;
+            // 實時更新輸出，讓前端可以獲取
+            this.lastTrainingOutput = output;
             console.log(`[訓練] ${text.trim()}`);
+            
+            // 定期保存狀態（每 5 秒或每 100 行）
+            if (output.split('\n').length % 100 === 0 || Date.now() % 5000 < 100) {
+                this._saveTrainingStatus(dataCount, true);
+            }
         });
 
         python.stderr.on('data', (data) => {
             const text = data.toString();
             error += text;
+            // 實時更新錯誤輸出
+            this.lastTrainingError = error;
             console.error(`[訓練錯誤] ${text.trim()}`);
+            
+            // 定期保存狀態
+            this._saveTrainingStatus(dataCount, true);
         });
 
         // 設置超時
