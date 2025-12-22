@@ -1503,16 +1503,38 @@ const apiHandlers = {
         }
         
         try {
-            const { getAutoTrainManager } = require('./modules/auto-train-manager');
-            const trainManager = getAutoTrainManager();
+            let trainManager;
+            try {
+                const { getAutoTrainManager } = require('./modules/auto-train-manager');
+                trainManager = getAutoTrainManager();
+            } catch (requireErr) {
+                console.error('加載訓練管理器模組失敗:', requireErr);
+                return sendJson(res, {
+                    success: false,
+                    error: `無法加載訓練管理器: ${requireErr.message}`
+                }, 500);
+            }
             
             if (!trainManager) {
-                throw new Error('訓練管理器初始化失敗');
+                return sendJson(res, {
+                    success: false,
+                    error: '訓練管理器初始化失敗'
+                }, 500);
             }
             
             // 檢查是否正在訓練
-            const currentStatus = trainManager.getStatus();
-            if (currentStatus.isTraining) {
+            let currentStatus;
+            try {
+                currentStatus = trainManager.getStatus();
+            } catch (statusErr) {
+                console.error('獲取訓練狀態失敗:', statusErr);
+                return sendJson(res, {
+                    success: false,
+                    error: `無法獲取訓練狀態: ${statusErr.message}`
+                }, 500);
+            }
+            
+            if (currentStatus && currentStatus.isTraining) {
                 return sendJson(res, {
                     success: false,
                     error: '訓練已在進行中，請等待完成',
@@ -1528,21 +1550,37 @@ const apiHandlers = {
                 }
             }).catch(err => {
                 console.error('手動訓練異常:', err);
+                console.error('錯誤堆棧:', err.stack);
             });
+            
+            // 再次獲取狀態（可能已更新）
+            let finalStatus;
+            try {
+                finalStatus = trainManager.getStatus();
+            } catch (e) {
+                finalStatus = currentStatus || {
+                    isTraining: false,
+                    lastTrainingDate: null,
+                    lastDataCount: 0
+                };
+            }
             
             sendJson(res, {
                 success: true,
                 message: '模型訓練已開始（後台執行）',
-                status: trainManager.getStatus()
+                status: finalStatus
             });
         } catch (err) {
             console.error('觸發訓練失敗:', err);
             console.error('錯誤堆棧:', err.stack);
-            sendJson(res, {
-                success: false,
-                error: err.message || '訓練啟動失敗',
-                details: process.env.NODE_ENV === 'development' ? err.stack : undefined
-            }, 500);
+            if (!res.headersSent) {
+                sendJson(res, {
+                    success: false,
+                    error: err.message || '訓練啟動失敗',
+                    errorType: err.name || 'Error',
+                    details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+                }, 500);
+            }
         }
     },
     
