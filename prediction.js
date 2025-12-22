@@ -5441,8 +5441,11 @@ function renderTrainingStatus(data) {
     // 更新訓練按鈕狀態
     updateTrainingButton(isTraining);
     
-    // 如果正在訓練，每 5 秒刷新一次狀態以同步倒數計時器
+    // 如果正在訓練，每 5 秒刷新一次狀態以同步倒數計時器，並更新實時日誌
     if (isTraining) {
+        // 啟動實時日誌更新
+        startRealtimeTrainingLogs();
+        
         setTimeout(() => {
             fetch('/api/training-status').then(r => r.json()).then(statusData => {
                 if (statusData.success && statusData.data.isTraining && statusData.data.estimatedRemainingTime) {
@@ -5454,6 +5457,144 @@ function renderTrainingStatus(data) {
                 }
             });
         }, 5000);
+    } else {
+        // 停止實時日誌更新
+        stopRealtimeTrainingLogs();
+    }
+}
+
+// 實時訓練日誌相關變量
+let realtimeLogsInterval = null;
+let lastLogLength = 0;
+let trainingLogsBuffer = [];
+
+// 啟動實時訓練日誌更新
+function startRealtimeTrainingLogs() {
+    stopRealtimeTrainingLogs();
+    lastLogLength = 0;
+    trainingLogsBuffer = [];
+    
+    const updateLogs = async () => {
+        try {
+            const response = await fetch('/api/training-status');
+            if (!response.ok) return;
+            
+            const data = await response.json();
+            if (data.success && data.data) {
+                const training = data.data.training || {};
+                const output = training.lastTrainingOutput || '';
+                const error = training.lastTrainingError || '';
+                
+                // 如果輸出有更新，追加新行
+                if (output && output.length > lastLogLength) {
+                    const newContent = output.substring(lastLogLength);
+                    appendTrainingLogs(newContent, 'output');
+                    lastLogLength = output.length;
+                }
+                
+                // 如果錯誤有更新，追加新行
+                if (error && error.length > 0) {
+                    appendTrainingLogs(error, 'error');
+                }
+                
+                // 如果訓練已完成，停止更新
+                if (!training.isTraining) {
+                    stopRealtimeTrainingLogs();
+                    appendTrainingLogs('\n✅ 訓練已完成', 'success');
+                }
+            }
+        } catch (error) {
+            console.error('獲取訓練日誌失敗:', error);
+        }
+    };
+    
+    // 立即更新一次
+    updateLogs();
+    
+    // 每 2 秒更新一次
+    realtimeLogsInterval = setInterval(updateLogs, 2000);
+}
+
+// 停止實時訓練日誌更新
+function stopRealtimeTrainingLogs() {
+    if (realtimeLogsInterval) {
+        clearInterval(realtimeLogsInterval);
+        realtimeLogsInterval = null;
+    }
+}
+
+// 追加訓練日誌
+function appendTrainingLogs(content, type = 'output') {
+    if (!content || content.trim() === '') return;
+    
+    const logsContent = document.getElementById('training-logs-content');
+    if (!logsContent) return;
+    
+    // 移除"等待訓練輸出..."提示
+    if (logsContent.textContent.includes('等待訓練輸出...')) {
+        logsContent.innerHTML = '';
+    }
+    
+    // 將內容按行分割
+    const lines = content.split('\n');
+    
+    lines.forEach(line => {
+        if (line.trim() === '') return;
+        
+        const lineDiv = document.createElement('div');
+        lineDiv.style.marginBottom = '2px';
+        lineDiv.style.padding = '2px 4px';
+        
+        // 根據類型設置樣式
+        if (type === 'error') {
+            lineDiv.style.color = 'var(--text-danger)';
+            lineDiv.style.background = 'rgba(220, 53, 69, 0.1)';
+            lineDiv.textContent = `[錯誤] ${line}`;
+        } else if (type === 'success') {
+            lineDiv.style.color = 'var(--accent-success)';
+            lineDiv.style.background = 'rgba(34, 197, 94, 0.1)';
+            lineDiv.textContent = line;
+        } else {
+            // 根據內容類型設置顏色
+            if (line.includes('✅') || line.includes('成功')) {
+                lineDiv.style.color = 'var(--accent-success)';
+            } else if (line.includes('❌') || line.includes('失敗') || line.includes('錯誤')) {
+                lineDiv.style.color = 'var(--text-danger)';
+            } else if (line.includes('警告') || line.includes('Warning')) {
+                lineDiv.style.color = 'var(--accent-warning)';
+            } else if (line.includes('開始') || line.includes('開始訓練')) {
+                lineDiv.style.color = 'var(--accent-primary)';
+                lineDiv.style.fontWeight = '600';
+            } else if (line.match(/^\s*[=]+/)) {
+                // 分隔線
+                lineDiv.style.color = 'var(--text-tertiary)';
+                lineDiv.style.borderBottom = '1px solid var(--border-color)';
+                lineDiv.style.marginBottom = '4px';
+                lineDiv.style.paddingBottom = '4px';
+            } else {
+                lineDiv.style.color = 'var(--text-primary)';
+            }
+            
+            lineDiv.textContent = line;
+        }
+        
+        logsContent.appendChild(lineDiv);
+    });
+    
+    // 自動滾動到底部
+    const logsContainer = document.getElementById('realtime-training-logs');
+    if (logsContainer) {
+        logsContainer.scrollTop = logsContainer.scrollHeight;
+    }
+}
+
+// 清除訓練日誌
+function clearTrainingLogs() {
+    const logsContent = document.getElementById('training-logs-content');
+    if (logsContent) {
+        logsContent.innerHTML = '<div style="color: var(--text-tertiary); font-style: italic;">日誌已清除...</div>';
+        lastLogLength = 0;
+        trainingLogsBuffer = [];
     }
 }
 
