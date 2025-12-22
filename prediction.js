@@ -5146,6 +5146,8 @@ function renderTrainingStatus(data) {
     const trainingStartTime = training.trainingStartTime;
     const estimatedRemainingTime = training.estimatedRemainingTime;
     const elapsedTime = training.elapsedTime;
+    const lastTrainingOutput = training.lastTrainingOutput || '';
+    const lastTrainingError = training.lastTrainingError || '';
     const details = data.details || {};
     const diagnostics = data.diagnostics || {};
     
@@ -5321,6 +5323,30 @@ function renderTrainingStatus(data) {
             ` : ''}
         </div>
     `;
+    
+    // 如果訓練失敗或模型不可用，顯示訓練日誌
+    if (!isTraining && !data.available && (lastTrainingOutput || lastTrainingError)) {
+        html += `
+            <div class="training-logs" style="margin-top: var(--space-lg); padding: var(--space-md); background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                <h4 style="margin-bottom: var(--space-sm); color: var(--text-primary);">📋 上次訓練日誌</h4>
+                ${lastTrainingOutput ? `
+                    <div style="margin-bottom: var(--space-md);">
+                        <strong style="color: var(--text-secondary); font-size: 0.9rem;">標準輸出:</strong>
+                        <pre style="margin-top: var(--space-xs); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.85rem; overflow-x: auto; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(lastTrainingOutput)}</pre>
+                    </div>
+                ` : ''}
+                ${lastTrainingError ? `
+                    <div>
+                        <strong style="color: var(--text-danger); font-size: 0.9rem;">錯誤輸出:</strong>
+                        <pre style="margin-top: var(--space-xs); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.85rem; overflow-x: auto; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; color: var(--text-danger);">${escapeHtml(lastTrainingError)}</pre>
+                    </div>
+                ` : ''}
+                ${!lastTrainingOutput && !lastTrainingError ? `
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">⚠️ 無訓練日誌。可能原因：1) Python 依賴未安裝 2) 訓練腳本未執行 3) 輸出被緩衝</p>
+                ` : ''}
+            </div>
+        `;
+    }
     
     container.innerHTML = html;
     
