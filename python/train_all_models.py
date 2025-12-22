@@ -98,14 +98,29 @@ def main():
     # 檢查所有腳本是否成功
     all_success = all(results.values())
     
+    # 輸出詳細的失敗信息
+    if not all_success:
+        print("\n❌ 以下訓練腳本失敗:")
+        for script, success in results.items():
+            if not success:
+                print(f"  - {script}")
+    
+    if not all_files_exist:
+        print("\n❌ 以下模型文件缺失:")
+        for model_name, files in model_files.items():
+            for file in files:
+                file_path = os.path.join(models_dir, file)
+                if not os.path.exists(file_path):
+                    print(f"  - {file}")
+    
     if all_success and all_files_exist:
         print("\n🎉 所有模型訓練完成且文件完整！")
         print("現在可以使用 ensemble_predict.py 進行預測")
         sys.exit(0)
     else:
         print("\n⚠️  部分模型訓練失敗或文件缺失，請檢查錯誤信息")
-        if not all_files_exist:
-            print("⚠️  某些模型文件未找到，請檢查訓練日誌")
+        print("💡 提示: 請檢查 Python 依賴是否已安裝（pip install -r requirements.txt）")
+        print("💡 提示: 請檢查數據庫連接是否正常")
         sys.exit(1)
 
 if __name__ == '__main__':
