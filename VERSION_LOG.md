@@ -1,5 +1,21 @@
 # 版本更新日誌
 
+## v2.4.7 - 2025-12-23 01:45 (HKT)
+
+### 🔧 修復：Nixpacks 配置錯誤
+
+**問題修復**：
+1. **Nixpacks 包名修正**：
+   - 將 `pip` 改為 `python3Packages.pip`
+   - 將所有 `pip` 命令改為 `pip3`
+
+2. **Railway 構建命令修正**：
+   - 更新 `railway.json` 中的 pip 命令為 `pip3`
+
+**修改文件**：
+- `nixpacks.toml` - 修正 Nix 包名
+- `railway.json` - 更新構建命令
+
 ## v2.4.6 - 2025-12-23 01:40 (HKT)
 
 ### 🔧 修復：服務器錯誤處理和訓練管理器初始化
