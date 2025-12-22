@@ -1287,11 +1287,12 @@ section h2 {
     margin-top: 40px !important; /* 大幅增加頂部間距，避免與 accuracy-stats 重疊 */
 }
 
-/* 確保圖表 canvas 有合適的高度，避免與統計卡片重疊 */
+/* 確保圖表 canvas 填滿容器高度 */
 #comparison-chart-container canvas {
-    height: min(45vh, 450px) !important; /* 減少高度：視窗高度的45%，最大450px */
-    min-height: min(40vh, 400px) !important; /* 減少最小高度：視窗高度的40%，最小400px */
-    max-height: min(45vh, 450px) !important; /* 限制最大高度，防止無限增長 */
+    height: 100% !important; /* 填滿容器高度 */
+    min-height: 100% !important; /* 確保至少填滿容器 */
+    max-height: 100% !important; /* 不超過容器高度 */
+    width: 100% !important; /* 填滿容器寬度 */
     margin-top: 0px !important; /* 確保沒有額外的頂部 margin */
     position: relative !important;
     z-index: 1 !important; /* 確保在 accuracy-stats 下方 */
