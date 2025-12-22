@@ -5135,9 +5135,18 @@ async function checkTrainingStatus() {
 // 訓練倒數計時器
 let trainingCountdownInterval = null;
 
+// 保存訓練詳情展開狀態
+let trainingDetailsExpanded = false;
+
 function renderTrainingStatus(data) {
     const container = document.getElementById('training-status-container');
     if (!container) return;
+    
+    // 在重新渲染前，保存當前的展開狀態
+    const content = document.getElementById('training-details-content');
+    if (content) {
+        trainingDetailsExpanded = content.style.display !== 'none';
+    }
     
     const models = data.models || {};
     const training = data.training || {};
@@ -5430,6 +5439,16 @@ function renderTrainingStatus(data) {
     }
     
     container.innerHTML = html;
+    
+    // 恢復訓練詳情的展開狀態
+    if (trainingDetailsExpanded) {
+        const content = document.getElementById('training-details-content');
+        const toggleText = document.getElementById('training-details-toggle-text');
+        if (content && toggleText) {
+            content.style.display = 'block';
+            toggleText.textContent = '收起';
+        }
+    }
     
     // 如果正在訓練，啟動倒數計時器
     if (isTraining && estimatedRemainingTime !== null && estimatedRemainingTime > 0) {
@@ -5730,9 +5749,11 @@ function toggleTrainingDetails() {
         if (content.style.display === 'none') {
             content.style.display = 'block';
             toggleText.textContent = '收起';
+            trainingDetailsExpanded = true; // 更新全局狀態
         } else {
             content.style.display = 'none';
             toggleText.textContent = '展開';
+            trainingDetailsExpanded = false; // 更新全局狀態
         }
     }
 }
