@@ -15,7 +15,13 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # 完全禁用 GPU
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'false'
 os.environ['TF_USE_GPU'] = '0'  # 明確禁用 GPU
 os.environ['TF_GPU_ALLOCATOR'] = ''  # 禁用 GPU 分配器
-os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices=false'  # 禁用 XLA GPU
+# 完全禁用 XLA（這是導致 CUDA 初始化錯誤的主要原因）
+os.environ['TF_XLA_FLAGS'] = '--tf_xla_cpu_global_jit=false --tf_xla_enable_xla_devices=false'
+os.environ['XLA_FLAGS'] = '--xla_gpu_force_compilation_parallelism=1'
+# 禁用 JIT 編譯
+os.environ['TF_DISABLE_JIT'] = '1'
+# 禁用 CUDA 相關功能
+os.environ['TF_DISABLE_CUDA'] = '1'
 
 # 嘗試禁用 CUDA 庫加載（如果可能）
 try:
@@ -39,7 +45,14 @@ import gc
 import traceback
 
 # 現在導入 TensorFlow，並進行嚴格的 CPU-only 配置
+# 注意：即使設置了所有環境變數，TensorFlow 的 XLA 組件仍可能在導入時嘗試初始化 CUDA
+# 這可能導致 "failed call to cuInit" 錯誤，但我們會盡力防止這種情況
 try:
+    # 在導入前設置更多環境變數來防止 CUDA 初始化
+    # 這些變數必須在 import tensorflow 之前設置
+    os.environ['TF_DISABLE_SEGMENT_REDUCTION_OP'] = '1'
+    os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # 禁用 oneDNN 優化（可能依賴 CUDA）
+    
     import tensorflow as tf
     
     # 強制使用 CPU - 在 TensorFlow 初始化之前設置
@@ -81,6 +94,21 @@ try:
         print("嘗試繼續執行，但可能遇到 CUDA 相關問題...")
         traceback.print_exc()
     
+    # 禁用 XLA JIT 編譯（防止 XLA 嘗試初始化 CUDA）
+    try:
+        tf.config.optimizer.set_jit(False)  # 禁用 JIT 編譯
+        print("✅ 已禁用 TensorFlow JIT 編譯")
+    except Exception as jit_error:
+        print(f"⚠️  無法禁用 JIT 編譯: {jit_error}")
+    
+    # 禁用 XLA（這是導致 CUDA 錯誤的主要原因）
+    try:
+        # 嘗試禁用所有 XLA 相關功能
+        os.environ['TF_XLA_FLAGS'] = '--tf_xla_cpu_global_jit=false'
+        print("✅ 已禁用 XLA CPU JIT")
+    except Exception as xla_error:
+        print(f"⚠️  XLA 配置警告: {xla_error}")
+    
     # 導入 Keras 組件
     from tensorflow.keras.models import Sequential
     from tensorflow.keras.layers import LSTM, Dense, Dropout
@@ -88,7 +116,7 @@ try:
     from tensorflow.keras.callbacks import EarlyStopping
     from tensorflow.keras import backend as K
     
-    print("✅ TensorFlow 已成功配置為 CPU-only 模式")
+    print("✅ TensorFlow 已成功配置為 CPU-only 模式（XLA 已禁用）")
     
 except ImportError as e:
     print(f"錯誤: 無法導入 TensorFlow: {e}")
@@ -240,10 +268,16 @@ def train_lstm_model(train_data, test_data, feature_cols, seq_length=60):
         ])
         
         print("編譯模型...")
+        # 確保 JIT 編譯已禁用
+        try:
+            tf.config.optimizer.set_jit(False)
+        except:
+            pass
         model.compile(
             optimizer=Adam(learning_rate=0.001),
             loss='mae',
-            metrics=['mae', 'mse']
+            metrics=['mae', 'mse'],
+            run_eagerly=False  # 確保不使用 XLA
         )
         
         # 訓練

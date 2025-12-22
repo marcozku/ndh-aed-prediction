@@ -85,8 +85,12 @@ def run_training_script(script_name):
         env['TF_USE_GPU'] = '0'
         env['TF_FORCE_GPU_ALLOW_GROWTH'] = 'false'
         env['TF_GPU_ALLOCATOR'] = ''
-        env['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices=false'
-        print("✅ 環境變數已設置（強制 CPU-only 模式）")
+        # 完全禁用 XLA（防止 XLA 嘗試初始化 CUDA）
+        env['TF_XLA_FLAGS'] = '--tf_xla_cpu_global_jit=false --tf_xla_enable_xla_devices=false'
+        env['XLA_FLAGS'] = '--xla_gpu_force_compilation_parallelism=1'
+        env['TF_DISABLE_JIT'] = '1'
+        env['TF_DISABLE_CUDA'] = '1'
+        print("✅ 環境變數已設置（強制 CPU-only 模式，XLA 已禁用）")
     
     start_time = time.time()
     
