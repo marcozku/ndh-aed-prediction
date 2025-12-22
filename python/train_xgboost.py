@@ -35,12 +35,24 @@ def load_data_from_db():
         conn.close()
         
         # 確保列名正確（pandas 可能會將列名轉為小寫）
+        # 檢查並映射 Date 列
         if 'date' in df.columns and 'Date' not in df.columns:
             df['Date'] = df['date']
             df = df.drop(columns=['date'])
-        if 'patient_count' in df.columns and 'Attendance' not in df.columns:
+        elif 'Date' not in df.columns:
+            print(f"錯誤: 找不到 Date 列。可用列: {df.columns.tolist()}")
+            return None
+        
+        # 檢查並映射 Attendance 列（可能是 attendance 或 patient_count）
+        if 'attendance' in df.columns and 'Attendance' not in df.columns:
+            df['Attendance'] = df['attendance']
+            df = df.drop(columns=['attendance'])
+        elif 'patient_count' in df.columns and 'Attendance' not in df.columns:
             df['Attendance'] = df['patient_count']
             df = df.drop(columns=['patient_count'])
+        elif 'Attendance' not in df.columns:
+            print(f"錯誤: 找不到 Attendance 列。可用列: {df.columns.tolist()}")
+            return None
         
         # 確保只返回需要的列
         if 'Date' in df.columns and 'Attendance' in df.columns:
