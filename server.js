@@ -640,10 +640,12 @@ const apiHandlers = {
                     }
                     
                     // 導入數據
+                    console.log(`📊 開始導入 ${data.length} 筆數據到數據庫...`);
                     const client = await db.pool.connect();
                     let successCount = 0;
                     let errorCount = 0;
                     const importedDates = [];
+                    const errors = [];
                     
                     try {
                         await client.query('BEGIN');
@@ -660,7 +662,7 @@ const apiHandlers = {
                                         updated_at = CURRENT_TIMESTAMP
                                     RETURNING *
                                 `;
-                                await client.query(query, [
+                                const result = await client.query(query, [
                                     record.date,
                                     record.patient_count,
                                     record.source,
@@ -668,22 +670,30 @@ const apiHandlers = {
                                 ]);
                                 successCount++;
                                 importedDates.push(record.date);
+                                console.log(`✅ 已導入 ${record.date}: ${record.patient_count} 人`);
                             } catch (err) {
+                                console.error(`❌ 導入失敗 ${record.date}:`, err.message);
                                 errorCount++;
+                                errors.push({ date: record.date, error: err.message });
                             }
                         }
                         
                         await client.query('COMMIT');
+                        console.log(`✅ 事務提交成功，成功導入 ${successCount} 筆數據`);
                         
                         // 計算準確度
                         let accuracyCount = 0;
                         if (importedDates.length > 0 && db.calculateAccuracy) {
+                            console.log('📊 開始計算準確度...');
                             for (const date of importedDates) {
                                 try {
                                     const accuracy = await db.calculateAccuracy(date);
-                                    if (accuracy) accuracyCount++;
+                                    if (accuracy) {
+                                        accuracyCount++;
+                                        console.log(`✅ 已計算 ${date} 的準確度`);
+                                    }
                                 } catch (err) {
-                                    // 忽略錯誤
+                                    console.warn(`⚠️ 計算 ${date} 準確度時出錯:`, err.message);
                                 }
                             }
                         }
@@ -693,10 +703,12 @@ const apiHandlers = {
                             message: `成功導入 ${successCount} 筆數據${accuracyCount > 0 ? `，已計算 ${accuracyCount} 筆準確度` : ''}`,
                             count: successCount,
                             errors: errorCount,
+                            errorDetails: errors.length > 0 ? errors : undefined,
                             accuracyCalculated: accuracyCount
                         });
                     } catch (err) {
                         await client.query('ROLLBACK');
+                        console.error('❌ 事務回滾:', err);
                         throw err;
                     } finally {
                         client.release();
@@ -707,7 +719,8 @@ const apiHandlers = {
             }
         } catch (err) {
             console.error('❌ CSV 上傳失敗:', err);
-            sendJson(res, { error: err.message }, 500);
+            console.error('錯誤詳情:', err.stack);
+            sendJson(res, { error: err.message || '上傳失敗', details: err.stack }, 500);
         }
     },
 

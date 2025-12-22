@@ -6676,17 +6676,56 @@ function initCSVUpload() {
                     body: JSON.stringify({ csv: csvContent })
                 });
                 
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    let errorData;
+                    try {
+                        errorData = JSON.parse(errorText);
+                    } catch (e) {
+                        errorData = { error: errorText || `HTTP ${response.status}` };
+                    }
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
+                
                 const result = await response.json();
+                console.log('上傳結果:', result);
                 
                 if (result.success) {
                     showStatus(`✅ ${result.message}`, 'success');
                     
-                    // 刷新頁面數據
-                    setTimeout(() => {
-                        location.reload();
-                    }, 2000);
+                    // 刷新頁面數據（不重新載入整個頁面，只刷新相關數據）
+                    setTimeout(async () => {
+                        try {
+                            // 重新載入歷史數據
+                            if (typeof fetchHistoricalData === 'function') {
+                                await fetchHistoricalData();
+                            }
+                            // 重新載入對比數據
+                            if (typeof initComparisonChart === 'function') {
+                                await initComparisonChart();
+                            }
+                            if (typeof initComparisonTable === 'function') {
+                                await initComparisonTable();
+                            }
+                            // 更新數據來源信息
+                            if (typeof checkDatabaseStatus === 'function') {
+                                await checkDatabaseStatus();
+                            }
+                            // 更新 UI
+                            if (typeof updateUI === 'function') {
+                                const predictor = new NDHAttendancePredictor();
+                                updateUI(predictor);
+                            }
+                            showStatus('✅ 數據已更新', 'success');
+                        } catch (refreshError) {
+                            console.error('刷新數據失敗:', refreshError);
+                            // 如果刷新失敗，則重新載入頁面
+                            location.reload();
+                        }
+                    }, 1500);
                 } else {
-                    showStatus(`❌ 上傳失敗: ${result.error}`, 'error');
+                    const errorMsg = result.error || '上傳失敗';
+                    showStatus(`❌ ${errorMsg}`, 'error');
                     submitBtn.disabled = false;
                     submitBtn.textContent = '上傳';
                 }
