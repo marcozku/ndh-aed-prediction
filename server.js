@@ -555,16 +555,15 @@ const apiHandlers = {
                     
                     for (const record of data) {
                         try {
-                            const query = `
-                                INSERT INTO actual_data (date, patient_count, source, notes)
-                                VALUES ($1, $2, $3, $4)
-                                ON CONFLICT (date) DO UPDATE SET
-                                    patient_count = EXCLUDED.patient_count,
-                                    source = EXCLUDED.source,
-                                    notes = EXCLUDED.notes,
-                                    updated_at = CURRENT_TIMESTAMP
-                                RETURNING *, (xmax = 0) AS inserted
-                            `;
+                                const query = `
+                                    INSERT INTO actual_data (date, patient_count, source, notes)
+                                    VALUES ($1, $2, $3, $4)
+                                    ON CONFLICT (date) DO UPDATE SET
+                                        patient_count = EXCLUDED.patient_count,
+                                        source = EXCLUDED.source,
+                                        notes = EXCLUDED.notes
+                                    RETURNING *, (xmax = 0) AS inserted
+                                `;
                             const result = await client.query(query, [
                                 record.date,
                                 record.patient_count,
@@ -713,8 +712,7 @@ const apiHandlers = {
                                     ON CONFLICT (date) DO UPDATE SET
                                         patient_count = EXCLUDED.patient_count,
                                         source = EXCLUDED.source,
-                                        notes = EXCLUDED.notes,
-                                        updated_at = CURRENT_TIMESTAMP
+                                        notes = EXCLUDED.notes
                                     RETURNING *, (xmax = 0) AS inserted
                                 `;
                                 const result = await client.query(query, [
