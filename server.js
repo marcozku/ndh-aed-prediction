@@ -612,28 +612,59 @@ const apiHandlers = {
                 const body = await parseBody(req);
                 if (body.csv) {
                     // 直接使用 CSV 字符串
-                    const lines = body.csv.trim().split('\n');
+                    const lines = body.csv.trim().split(/\r?\n/);
                     const data = [];
                     
-                    for (let i = 1; i < lines.length; i++) {
+                    // 檢查第一行是否為標題行
+                    let startIndex = 0;
+                    if (lines[0] && lines[0].toLowerCase().includes('date')) {
+                        startIndex = 1;
+                    }
+                    
+                    console.log(`📊 解析 CSV: 總行數 ${lines.length}, 從第 ${startIndex + 1} 行開始`);
+                    
+                    for (let i = startIndex; i < lines.length; i++) {
                         const line = lines[i].trim();
                         if (!line) continue;
                         
                         const parts = line.split(',');
-                        if (parts.length < 2) continue;
+                        if (parts.length < 2) {
+                            console.warn(`⚠️ 跳過無效行 ${i + 1}: 列數不足 - ${line}`);
+                            continue;
+                        }
                         
                         const date = parts[0].trim().replace(/^"|"$/g, '');
                         const attendance = parts[1].trim().replace(/^"|"$/g, '');
                         
-                        if (date && attendance && !isNaN(parseInt(attendance, 10))) {
-                            data.push({
-                                date: date,
-                                patient_count: parseInt(attendance, 10),
-                                source: 'csv_upload',
-                                notes: `從網頁上傳的 CSV 數據 (${new Date().toISOString()})`
-                            });
+                        // 驗證日期格式 (YYYY-MM-DD)
+                        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+                        if (!dateRegex.test(date)) {
+                            console.warn(`⚠️ 跳過無效行 ${i + 1}: 日期格式錯誤 - ${date}`);
+                            continue;
                         }
+                        
+                        const attendanceNum = parseInt(attendance, 10);
+                        if (isNaN(attendanceNum) || attendanceNum < 0) {
+                            console.warn(`⚠️ 跳過無效行 ${i + 1}: 人數無效 - ${attendance}`);
+                            continue;
+                        }
+                        
+                        // 驗證日期是否有效
+                        const dateObj = new Date(date + 'T00:00:00');
+                        if (isNaN(dateObj.getTime())) {
+                            console.warn(`⚠️ 跳過無效行 ${i + 1}: 日期無效 - ${date}`);
+                            continue;
+                        }
+                        
+                        data.push({
+                            date: date,
+                            patient_count: attendanceNum,
+                            source: 'csv_upload',
+                            notes: `從網頁上傳的 CSV 數據 (${new Date().toISOString()})`
+                        });
                     }
+                    
+                    console.log(`📊 解析完成: ${data.length} 筆有效數據`);
                     
                     if (data.length === 0) {
                         return sendJson(res, { error: 'CSV 內容中沒有有效數據' }, 400);
@@ -673,8 +704,14 @@ const apiHandlers = {
                                 console.log(`✅ 已導入 ${record.date}: ${record.patient_count} 人`);
                             } catch (err) {
                                 console.error(`❌ 導入失敗 ${record.date}:`, err.message);
+                                console.error(`   錯誤詳情:`, err.stack);
                                 errorCount++;
-                                errors.push({ date: record.date, error: err.message });
+                                errors.push({ 
+                                    date: record.date, 
+                                    error: err.message,
+                                    code: err.code,
+                                    detail: err.detail
+                                });
                             }
                         }
                         

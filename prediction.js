@@ -6691,38 +6691,55 @@ function initCSVUpload() {
                 console.log('上傳結果:', result);
                 
                 if (result.success) {
-                    showStatus(`✅ ${result.message}`, 'success');
-                    
-                    // 刷新頁面數據（不重新載入整個頁面，只刷新相關數據）
-                    setTimeout(async () => {
-                        try {
-                            // 重新載入歷史數據
-                            if (typeof fetchHistoricalData === 'function') {
-                                await fetchHistoricalData();
+                    // 檢查是否有實際導入的數據
+                    if (result.count > 0) {
+                        showStatus(`✅ ${result.message}`, 'success');
+                        
+                        // 刷新頁面數據（不重新載入整個頁面，只刷新相關數據）
+                        setTimeout(async () => {
+                            try {
+                                // 重新載入歷史數據
+                                if (typeof fetchHistoricalData === 'function') {
+                                    await fetchHistoricalData();
+                                }
+                                // 重新載入對比數據
+                                if (typeof initComparisonChart === 'function') {
+                                    await initComparisonChart();
+                                }
+                                if (typeof initComparisonTable === 'function') {
+                                    await initComparisonTable();
+                                }
+                                // 更新數據來源信息
+                                if (typeof checkDatabaseStatus === 'function') {
+                                    await checkDatabaseStatus();
+                                }
+                                // 更新 UI
+                                if (typeof updateUI === 'function') {
+                                    const predictor = new NDHAttendancePredictor();
+                                    updateUI(predictor);
+                                }
+                                showStatus('✅ 數據已更新', 'success');
+                            } catch (refreshError) {
+                                console.error('刷新數據失敗:', refreshError);
+                                // 如果刷新失敗，則重新載入頁面
+                                location.reload();
                             }
-                            // 重新載入對比數據
-                            if (typeof initComparisonChart === 'function') {
-                                await initComparisonChart();
+                        }, 1500);
+                    } else {
+                        // 沒有成功導入任何數據
+                        let errorMsg = '所有數據導入失敗';
+                        if (result.errors > 0) {
+                            errorMsg = `${result.errors} 筆數據導入失敗`;
+                            if (result.errorDetails && result.errorDetails.length > 0) {
+                                const firstError = result.errorDetails[0];
+                                errorMsg += `\n第一個錯誤: ${firstError.date} - ${firstError.error}`;
+                                console.error('錯誤詳情:', result.errorDetails);
                             }
-                            if (typeof initComparisonTable === 'function') {
-                                await initComparisonTable();
-                            }
-                            // 更新數據來源信息
-                            if (typeof checkDatabaseStatus === 'function') {
-                                await checkDatabaseStatus();
-                            }
-                            // 更新 UI
-                            if (typeof updateUI === 'function') {
-                                const predictor = new NDHAttendancePredictor();
-                                updateUI(predictor);
-                            }
-                            showStatus('✅ 數據已更新', 'success');
-                        } catch (refreshError) {
-                            console.error('刷新數據失敗:', refreshError);
-                            // 如果刷新失敗，則重新載入頁面
-                            location.reload();
                         }
-                    }, 1500);
+                        showStatus(`❌ ${errorMsg}`, 'error');
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = '上傳';
+                    }
                 } else {
                     const errorMsg = result.error || '上傳失敗';
                     showStatus(`❌ ${errorMsg}`, 'error');
