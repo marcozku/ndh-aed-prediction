@@ -6,12 +6,13 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-def create_comprehensive_features(df):
+def create_comprehensive_features(df, ai_factors_dict=None):
     """
     創建所有特徵用於 NDH AED 就診預測
     
     參數:
         df: DataFrame，必須包含 'Date' 和 'Attendance' 列
+        ai_factors_dict: dict，日期字符串到 AI 因子的映射，格式: {'YYYY-MM-DD': {'impactFactor': 1.05, ...}}
     
     返回:
         DataFrame with all engineered features
@@ -108,6 +109,45 @@ def create_comprehensive_features(df):
     # 計算到最近假期的天數（簡化）
     df['Days_To_Next_Holiday'] = 0  # 可擴展為實際計算
     
+    # ============ AI 因子特徵 ============
+    if ai_factors_dict is not None:
+        # 將日期轉換為字符串格式用於匹配
+        df['Date_Str'] = df['Date'].dt.strftime('%Y-%m-%d')
+        
+        # AI 因子（impactFactor）
+        df['AI_Factor'] = df['Date_Str'].apply(
+            lambda x: ai_factors_dict.get(x, {}).get('impactFactor', 1.0) if isinstance(ai_factors_dict.get(x, {}), dict) else 1.0
+        )
+        
+        # AI 因子是否存在（二進制指標）
+        df['Has_AI_Factor'] = df['Date_Str'].apply(
+            lambda x: 1 if x in ai_factors_dict and ai_factors_dict.get(x) else 0
+        )
+        
+        # AI 因子類型編碼（如果有類型信息）
+        # 將類型映射為數值：'positive'=1, 'negative'=-1, 'neutral'=0, 其他=0
+        def encode_ai_type(date_str):
+            factor_data = ai_factors_dict.get(date_str, {})
+            if not isinstance(factor_data, dict):
+                return 0
+            ai_type = factor_data.get('type', '').lower()
+            if 'positive' in ai_type or '增加' in ai_type or '上升' in ai_type:
+                return 1
+            elif 'negative' in ai_type or '減少' in ai_type or '下降' in ai_type:
+                return -1
+            else:
+                return 0
+        
+        df['AI_Factor_Type'] = df['Date_Str'].apply(encode_ai_type)
+        
+        # 移除臨時列
+        df = df.drop(columns=['Date_Str'])
+    else:
+        # 如果沒有 AI 數據，設置默認值
+        df['AI_Factor'] = 1.0
+        df['Has_AI_Factor'] = 0
+        df['AI_Factor_Type'] = 0
+    
     return df
 
 def get_feature_columns():
@@ -129,7 +169,8 @@ def get_feature_columns():
         'Is_COVID_AND_Winter', 'Is_Monday_AND_Winter', 'Is_Weekend_AND_Summer',
         'Trend_Normalized', 'Era_Indicator',
         'Daily_Change', 'Weekly_Change', 'Monthly_Change',
-        'Is_Holiday', 'Days_To_Next_Holiday'
+        'Is_Holiday', 'Days_To_Next_Holiday',
+        'AI_Factor', 'Has_AI_Factor', 'AI_Factor_Type'
     ]
     return feature_cols
 

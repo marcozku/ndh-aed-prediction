@@ -44,6 +44,43 @@ def predict_with_xgboost(model, feature_cols, features_df):
     return float(prediction)
 
 
+def load_ai_factors_from_db():
+    """從數據庫加載 AI 因子數據"""
+    try:
+        import psycopg2
+        from dotenv import load_dotenv
+        load_dotenv()
+        
+        conn = psycopg2.connect(
+            host=os.getenv('PGHOST') or os.getenv('DATABASE_URL', '').split('@')[1].split('/')[0] if '@' in os.getenv('DATABASE_URL', '') else None,
+            database=os.getenv('PGDATABASE') or os.getenv('DATABASE_URL', '').split('/')[-1] if '/' in os.getenv('DATABASE_URL', '') else None,
+            user=os.getenv('PGUSER') or os.getenv('DATABASE_URL', '').split('://')[1].split(':')[0] if '://' in os.getenv('DATABASE_URL', '') else None,
+            password=os.getenv('PGPASSWORD') or os.getenv('DATABASE_URL', '').split('@')[0].split(':')[-1] if '@' in os.getenv('DATABASE_URL', '') else None,
+        )
+        
+        query = """
+            SELECT factors_cache
+            FROM ai_factors_cache
+            WHERE id = 1
+        """
+        result = pd.read_sql_query(query, conn)
+        conn.close()
+        
+        if len(result) > 0 and result.iloc[0]['factors_cache'] is not None:
+            import json
+            factors_cache = result.iloc[0]['factors_cache']
+            if isinstance(factors_cache, str):
+                factors_cache = json.loads(factors_cache)
+            elif isinstance(factors_cache, dict):
+                pass  # 已經是字典
+            else:
+                factors_cache = {}
+            return factors_cache
+        return {}
+    except Exception as e:
+        print(f"⚠️ 無法加載 AI 因子數據: {e}")
+        return {}
+
 def ensemble_predict(target_date, historical_data):
     """
     XGBoost 預測主函數
@@ -68,14 +105,19 @@ def ensemble_predict(target_date, historical_data):
     if xgb_model is None:
         return None
     
+    # 加載 AI 因子數據
+    ai_factors = load_ai_factors_from_db()
+    if ai_factors:
+        print(f"✅ 加載了 {len(ai_factors)} 個日期的 AI 因子數據用於預測")
+    
     # 準備特徵數據
     if historical_data is not None and len(historical_data) > 0:
         # 確保包含目標日期之前的數據
         all_data = historical_data.copy()
         target_dt = pd.to_datetime(target_date)
         
-        # 創建特徵
-        all_data = create_comprehensive_features(all_data)
+        # 創建特徵（包含 AI 因子）
+        all_data = create_comprehensive_features(all_data, ai_factors_dict=ai_factors if ai_factors else None)
         
         # 獲取目標日期的特徵（使用最後一天的數據作為基礎）
         if len(all_data) > 0:

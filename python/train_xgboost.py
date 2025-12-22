@@ -12,6 +12,30 @@ import os
 import sys
 from feature_engineering import create_comprehensive_features, get_feature_columns
 
+def load_ai_factors_from_db(conn):
+    """從數據庫加載 AI 因子數據"""
+    try:
+        query = """
+            SELECT factors_cache
+            FROM ai_factors_cache
+            WHERE id = 1
+        """
+        result = pd.read_sql_query(query, conn)
+        if len(result) > 0 and result.iloc[0]['factors_cache'] is not None:
+            import json
+            factors_cache = result.iloc[0]['factors_cache']
+            if isinstance(factors_cache, str):
+                factors_cache = json.loads(factors_cache)
+            elif isinstance(factors_cache, dict):
+                pass  # 已經是字典
+            else:
+                factors_cache = {}
+            return factors_cache
+        return {}
+    except Exception as e:
+        print(f"⚠️ 無法加載 AI 因子數據: {e}")
+        return {}
+
 def load_data_from_db():
     """從數據庫加載數據（如果可用）"""
     try:
@@ -32,6 +56,14 @@ def load_data_from_db():
             ORDER BY date ASC
         """
         df = pd.read_sql_query(query, conn)
+        
+        # 加載 AI 因子數據
+        ai_factors = load_ai_factors_from_db(conn)
+        if ai_factors:
+            print(f"✅ 加載了 {len(ai_factors)} 個日期的 AI 因子數據")
+        else:
+            print("ℹ️ 沒有找到 AI 因子數據，將使用默認值")
+        
         conn.close()
         
         # 確保列名正確（pandas 可能會將列名轉為小寫）
@@ -54,11 +86,15 @@ def load_data_from_db():
             print(f"錯誤: 找不到 Attendance 列。可用列: {df.columns.tolist()}")
             return None
         
-        # 確保只返回需要的列
+        # 確保只返回需要的列和 AI 因子
         if 'Date' in df.columns and 'Attendance' in df.columns:
-            return df[['Date', 'Attendance']]
+            # 將 AI 因子附加到 DataFrame（作為元數據，稍後在特徵工程中使用）
+            df_with_ai = df[['Date', 'Attendance']].copy()
+            df_with_ai.attrs['ai_factors'] = ai_factors
+            return df_with_ai
         else:
             print(f"警告: 數據列不完整。可用列: {df.columns.tolist()}")
+            df.attrs['ai_factors'] = ai_factors
             return df
     except Exception as e:
         print(f"無法從數據庫加載數據: {e}")
@@ -162,8 +198,11 @@ def main():
     
     print(f"加載了 {len(df)} 筆數據")
     
-    # 創建特徵
-    df = create_comprehensive_features(df)
+    # 獲取 AI 因子數據（如果有的話）
+    ai_factors = df.attrs.get('ai_factors', {}) if hasattr(df, 'attrs') else {}
+    
+    # 創建特徵（包含 AI 因子）
+    df = create_comprehensive_features(df, ai_factors_dict=ai_factors if ai_factors else None)
     
     # 移除包含 NaN 的行（除了我們已經填充的列）
     df = df.dropna(subset=['Attendance'])
