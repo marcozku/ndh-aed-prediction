@@ -3058,7 +3058,39 @@ async function initComparisonChart() {
                         min: 0,
                         ticks: {
                             ...professionalOptions.scales.y.ticks,
-                            stepSize: 20
+                            // 根據數據範圍動態計算步長，確保標籤間距合適
+                            stepSize: (() => {
+                                const allValues = [
+                                    ...validComparisonData.map(d => d.actual || 0),
+                                    ...validComparisonData.map(d => d.predicted || 0),
+                                    ...validComparisonData.map(d => d.ci80_low || 0),
+                                    ...validComparisonData.map(d => d.ci80_high || 0)
+                                ].filter(v => v > 0);
+                                
+                                if (allValues.length === 0) return 20;
+                                
+                                const dataMin = Math.min(...allValues);
+                                const dataMax = Math.max(...allValues);
+                                const valueRange = dataMax - dataMin;
+                                
+                                // 計算理想的步長（目標：6-8 個標籤）
+                                const idealStepSize = valueRange / 7;
+                                
+                                // 將步長調整為合適的整數（20, 25, 30, 50, 100等）
+                                if (idealStepSize <= 20) return 20;
+                                if (idealStepSize <= 25) return 25;
+                                if (idealStepSize <= 30) return 30;
+                                if (idealStepSize <= 50) return 50;
+                                if (idealStepSize <= 100) return 100;
+                                return Math.ceil(idealStepSize / 50) * 50; // 向上取整到50的倍數
+                            })(),
+                            // 減少最大標籤數量，增加間距
+                            maxTicksLimit: window.innerWidth <= 600 ? 5 : 8,
+                            // 增加 padding，讓標籤之間有更多空間
+                            padding: window.innerWidth <= 600 ? 10 : 15,
+                            // 確保自動跳過標籤以避免重疊
+                            autoSkip: true,
+                            autoSkipPadding: 15
                         }
                     }
                 }
