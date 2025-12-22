@@ -256,9 +256,15 @@
         <section class="model-training-section" id="model-training-section">
             <div class="section-header">
                 <h2 class="section-title">模型訓練狀態</h2>
-                <button class="refresh-btn" id="refresh-training-status" title="刷新狀態">
-                    <span>🔄</span>
-                </button>
+                <div class="header-actions">
+                    <button class="train-btn" id="start-training-btn" title="開始訓練模型">
+                        <span>🚀</span>
+                        <span>開始訓練</span>
+                    </button>
+                    <button class="refresh-btn" id="refresh-training-status" title="刷新狀態">
+                        <span>🔄</span>
+                    </button>
+                </div>
             </div>
             <div class="training-status-container" id="training-status-container">
                 <div class="loading-spinner"></div>

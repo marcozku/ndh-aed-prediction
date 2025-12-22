@@ -5292,6 +5292,98 @@ function formatTrainingDate(dateString) {
     }
 }
 
+// 觸發模型訓練
+async function startTraining() {
+    const trainBtn = document.getElementById('start-training-btn');
+    if (!trainBtn) return;
+    
+    // 禁用按鈕並顯示狀態
+    trainBtn.disabled = true;
+    trainBtn.classList.add('training');
+    const originalText = trainBtn.innerHTML;
+    trainBtn.innerHTML = '<span>⏳</span><span>訓練中...</span>';
+    
+    try {
+        const response = await fetch('/api/train-models', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // 顯示成功消息
+            showTrainingNotification('✅ 模型訓練已開始！訓練將在後台執行，預計需要 15-35 分鐘。', 'success');
+            
+            // 立即刷新狀態
+            setTimeout(() => {
+                checkTrainingStatus();
+            }, 1000);
+            
+            // 每 10 秒刷新一次狀態（訓練中）
+            const statusInterval = setInterval(() => {
+                checkTrainingStatus().then(() => {
+                    // 檢查是否還在訓練
+                    fetch('/api/training-status').then(r => r.json()).then(statusData => {
+                        if (statusData.success && !statusData.data.isTraining) {
+                            clearInterval(statusInterval);
+                            trainBtn.disabled = false;
+                            trainBtn.classList.remove('training');
+                            trainBtn.innerHTML = originalText;
+                            showTrainingNotification('🎉 模型訓練完成！', 'success');
+                        }
+                    });
+                });
+            }, 10000);
+        } else {
+            throw new Error(data.error || '訓練啟動失敗');
+        }
+    } catch (error) {
+        console.error('訓練啟動失敗:', error);
+        showTrainingNotification(`❌ 訓練啟動失敗: ${error.message}`, 'error');
+        trainBtn.disabled = false;
+        trainBtn.classList.remove('training');
+        trainBtn.innerHTML = originalText;
+    }
+}
+
+// 顯示訓練通知
+function showTrainingNotification(message, type = 'info') {
+    // 創建通知元素
+    const notification = document.createElement('div');
+    notification.className = `training-notification ${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? 'var(--accent-success)' : type === 'error' ? 'var(--accent-danger)' : 'var(--accent-info)'};
+        color: white;
+        padding: var(--space-md) var(--space-lg);
+        border-radius: var(--radius-md);
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+        z-index: 10000;
+        font-size: 0.9rem;
+        font-weight: 500;
+        max-width: 400px;
+        animation: slideIn 0.3s ease-out;
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // 3 秒後自動移除
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 5000);
+}
+
 // 初始化時檢查訓練狀態
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
@@ -5311,6 +5403,12 @@ if (document.readyState === 'loading') {
                 checkTrainingStatus();
             });
         }
+        
+        // 開始訓練按鈕
+        const trainBtn = document.getElementById('start-training-btn');
+        if (trainBtn) {
+            trainBtn.addEventListener('click', startTraining);
+        }
     });
 } else {
     checkTrainingStatus();
@@ -5326,6 +5424,11 @@ if (document.readyState === 'loading') {
             }, 500);
             checkTrainingStatus();
         });
+    }
+    
+    const trainBtn = document.getElementById('start-training-btn');
+    if (trainBtn) {
+        trainBtn.addEventListener('click', startTraining);
     }
 }
 

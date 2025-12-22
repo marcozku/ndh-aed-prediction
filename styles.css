@@ -429,6 +429,12 @@ body::before {
     margin-bottom: var(--space-lg);
 }
 
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
 .refresh-btn {
     background: var(--bg-card);
     border: 1px solid var(--border-subtle);
@@ -451,6 +457,42 @@ body::before {
 
 .refresh-btn:active {
     transform: scale(0.98);
+}
+
+.train-btn {
+    background: var(--gradient-primary);
+    border: none;
+    border-radius: var(--radius-md);
+    padding: var(--space-sm) var(--space-md);
+    cursor: pointer;
+    transition: var(--transition-base);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: white;
+    box-shadow: var(--glow-primary);
+}
+
+.train-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 32px rgba(79, 70, 229, 0.25);
+}
+
+.train-btn:active {
+    transform: translateY(0);
+}
+
+.train-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.train-btn.training {
+    background: var(--gradient-warm);
+    animation: pulse 2s ease-in-out infinite;
 }
 
 .training-status-container {
@@ -675,6 +717,29 @@ body::before {
 
 .ensemble-stat-value.danger {
     color: var(--accent-danger);
+}
+
+/* 訓練通知動畫 */
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
 }
 
 /* ============================================
