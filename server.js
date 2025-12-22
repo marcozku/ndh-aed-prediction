@@ -26,40 +26,55 @@ db = require('./database');
 if (hasDbConfig) {
     db.initDatabase().then(async () => {
         // 數據庫初始化完成後，自動導入 CSV 數據
-        const defaultCsvPath = '/Users/yoyoau/Library/Containers/net.whatsapp.WhatsApp/Data/tmp/documents/86448351-FEDA-406E-B465-B7D0B0753234/NDH_AED_Attendance_Minimal.csv';
-        if (fs.existsSync(defaultCsvPath)) {
-            console.log('📊 檢測到 CSV 文件，開始自動導入...');
-            try {
-                const { importCSVData } = require('./import-csv-data');
-            const result = await importCSVData(defaultCsvPath, db);
-            if (result.success) {
-                console.log(`✅ 自動導入完成！成功導入 ${result.count} 筆數據`);
-                // 導入完成後，計算所有導入日期的準確度（如果有預測數據）
-                if (result.count > 0 && result.importedDates && db.calculateAccuracy) {
-                    console.log('📊 開始計算導入數據的準確度...');
-                    let accuracyCount = 0;
-                    for (const date of result.importedDates) {
-                        try {
-                            const accuracy = await db.calculateAccuracy(date);
-                            if (accuracy) {
-                                accuracyCount++;
+        // 優先檢查項目目錄中的 CSV 文件
+        const csvFiles = [
+            'NDH_AED_Attendance_2025-12-01_to_2025-12-21.csv',
+            'NDH_AED_Attendance_Minimal.csv',
+            '/Users/yoyoau/Library/Containers/net.whatsapp.WhatsApp/Data/tmp/documents/86448351-FEDA-406E-B465-B7D0B0753234/NDH_AED_Attendance_Minimal.csv'
+        ];
+        
+        let csvImported = false;
+        for (const csvFile of csvFiles) {
+            if (fs.existsSync(csvFile)) {
+                console.log(`📊 檢測到 CSV 文件: ${csvFile}，開始自動導入...`);
+                try {
+                    const { importCSVData } = require('./import-csv-data');
+                    const result = await importCSVData(csvFile, db);
+                    if (result.success) {
+                        console.log(`✅ 自動導入完成！成功導入 ${result.count} 筆數據`);
+                        csvImported = true;
+                        // 導入完成後，計算所有導入日期的準確度（如果有預測數據）
+                        if (result.count > 0 && result.importedDates && db.calculateAccuracy) {
+                            console.log('📊 開始計算導入數據的準確度...');
+                            let accuracyCount = 0;
+                            for (const date of result.importedDates) {
+                                try {
+                                    const accuracy = await db.calculateAccuracy(date);
+                                    if (accuracy) {
+                                        accuracyCount++;
+                                    }
+                                } catch (err) {
+                                    console.warn(`⚠️ 計算 ${date} 準確度時出錯:`, err.message);
+                                }
                             }
-                        } catch (err) {
-                            console.warn(`⚠️ 計算 ${date} 準確度時出錯:`, err.message);
+                            if (accuracyCount > 0) {
+                                console.log(`✅ 已計算 ${accuracyCount} 筆數據的準確度`);
+                            } else {
+                                console.log('ℹ️ 沒有找到對應的預測數據，跳過準確度計算');
+                            }
                         }
-                    }
-                    if (accuracyCount > 0) {
-                        console.log(`✅ 已計算 ${accuracyCount} 筆數據的準確度`);
+                        break; // 成功導入一個文件後停止
                     } else {
-                        console.log('ℹ️ 沒有找到對應的預測數據，跳過準確度計算');
+                        console.error(`❌ 自動導入失敗: ${result.error}`);
                     }
+                } catch (err) {
+                    console.error(`❌ 自動導入 CSV 時出錯:`, err.message);
                 }
-            } else {
-                console.error(`❌ 自動導入失敗: ${result.error}`);
             }
-            } catch (err) {
-                console.error('❌ 自動導入 CSV 時出錯:', err.message);
-            }
+        }
+        
+        if (!csvImported) {
+            console.log('ℹ️ 未找到 CSV 文件，跳過自動導入');
         }
         
         // 自動添加 1/12 到 12/12 的實際數據（如果不存在）
