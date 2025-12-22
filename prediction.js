@@ -6369,7 +6369,336 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, 600000); // 10 分鐘
     
     console.log('✅ NDH AED 預測系統就緒');
+    
+    // 初始化 CSV 上傳功能
+    initCSVUpload();
 });
+
+// ============================================
+// CSV 上傳功能
+// ============================================
+
+function initCSVUpload() {
+    const dataSourceInfo = document.getElementById('data-source-info');
+    const modal = document.getElementById('csv-upload-modal');
+    const closeBtn = document.getElementById('csv-upload-close');
+    const cancelBtn = document.getElementById('csv-upload-cancel');
+    const submitBtn = document.getElementById('csv-upload-submit');
+    const textInput = document.getElementById('csv-text-input');
+    const fileInput = document.getElementById('csv-file-input');
+    const tabs = document.querySelectorAll('.upload-tab');
+    const tabContents = document.querySelectorAll('.upload-tab-content');
+    
+    let currentData = null;
+    
+    // 點擊數據來源信息打開對話框
+    if (dataSourceInfo) {
+        dataSourceInfo.addEventListener('click', () => {
+            if (modal) {
+                modal.style.display = 'flex';
+                textInput.focus();
+            }
+        });
+    }
+    
+    // 關閉對話框
+    function closeModal() {
+        if (modal) {
+            modal.style.display = 'none';
+            textInput.value = '';
+            fileInput.value = '';
+            currentData = null;
+            updateSubmitButton();
+            clearPreview();
+            clearStatus();
+        }
+    }
+    
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal || e.target.classList.contains('upload-modal-overlay')) {
+                closeModal();
+            }
+        });
+    }
+    
+    // 標籤切換
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabName = tab.dataset.tab;
+            
+            // 更新標籤狀態
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            // 更新內容顯示
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+                if (content.id === `upload-tab-${tabName}`) {
+                    content.classList.add('active');
+                    if (tabName === 'text') {
+                        content.style.display = 'block';
+                    } else {
+                        content.style.display = 'block';
+                    }
+                } else {
+                    content.style.display = 'none';
+                }
+            });
+            
+            clearPreview();
+            clearStatus();
+            updateSubmitButton();
+        });
+    });
+    
+    // 解析 CSV 文本
+    function parseCSVText(text) {
+        if (!text || !text.trim()) return null;
+        
+        const lines = text.trim().split(/\r?\n/);
+        const data = [];
+        
+        // 跳過標題行（如果存在）
+        let startIndex = 0;
+        if (lines[0] && lines[0].toLowerCase().includes('date')) {
+            startIndex = 1;
+        }
+        
+        for (let i = startIndex; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            // 處理 CSV（可能包含引號）
+            const parts = line.split(',');
+            if (parts.length < 2) continue;
+            
+            const date = parts[0].trim().replace(/^"|"$/g, '');
+            const attendance = parts[1].trim().replace(/^"|"$/g, '');
+            
+            // 驗證日期格式 (YYYY-MM-DD)
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (date && dateRegex.test(date) && attendance && !isNaN(parseInt(attendance, 10))) {
+                data.push({
+                    date: date,
+                    attendance: parseInt(attendance, 10)
+                });
+            }
+        }
+        
+        return data.length > 0 ? data : null;
+    }
+    
+    // 顯示預覽
+    function showPreview(data, isText = true) {
+        const previewEl = isText ? document.getElementById('csv-text-preview') : document.getElementById('csv-file-preview');
+        const previewContent = isText ? document.getElementById('csv-text-preview-content') : document.getElementById('csv-file-preview-text');
+        
+        if (!previewEl || !previewContent) return;
+        
+        if (data && data.length > 0) {
+            previewEl.style.display = 'block';
+            
+            if (isText) {
+                // 文本模式：顯示表格
+                const table = document.createElement('table');
+                table.style.width = '100%';
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th style="text-align: left; padding: 4px 8px;">日期</th>
+                            <th style="text-align: right; padding: 4px 8px;">人數</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.slice(0, 10).map(d => `
+                            <tr>
+                                <td style="padding: 4px 8px;">${d.date}</td>
+                                <td style="text-align: right; padding: 4px 8px;">${d.attendance}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                `;
+                if (data.length > 10) {
+                    const more = document.createElement('p');
+                    more.style.marginTop = '8px';
+                    more.style.color = 'var(--text-secondary)';
+                    more.style.fontSize = '12px';
+                    more.textContent = `... 還有 ${data.length - 10} 筆數據`;
+                    previewContent.innerHTML = '';
+                    previewContent.appendChild(table);
+                    previewContent.appendChild(more);
+                } else {
+                    previewContent.innerHTML = '';
+                    previewContent.appendChild(table);
+                }
+            } else {
+                // 文件模式：顯示文本預覽
+                previewContent.value = data.map(d => `${d.date},${d.attendance}`).join('\n');
+            }
+        } else {
+            previewEl.style.display = 'none';
+        }
+    }
+    
+    // 清除預覽
+    function clearPreview() {
+        const textPreview = document.getElementById('csv-text-preview');
+        const filePreview = document.getElementById('csv-file-preview');
+        if (textPreview) textPreview.style.display = 'none';
+        if (filePreview) filePreview.style.display = 'none';
+    }
+    
+    // 顯示狀態
+    function showStatus(message, type = 'info') {
+        const statusEl = document.getElementById('csv-upload-status');
+        if (statusEl) {
+            statusEl.textContent = message;
+            statusEl.className = `upload-status ${type}`;
+        }
+    }
+    
+    // 清除狀態
+    function clearStatus() {
+        const statusEl = document.getElementById('csv-upload-status');
+        if (statusEl) {
+            statusEl.textContent = '';
+            statusEl.className = 'upload-status';
+        }
+    }
+    
+    // 更新提交按鈕狀態
+    function updateSubmitButton() {
+        if (submitBtn) {
+            submitBtn.disabled = !currentData || currentData.length === 0;
+        }
+    }
+    
+    // 文本輸入處理
+    if (textInput) {
+        textInput.addEventListener('input', () => {
+            const text = textInput.value;
+            const data = parseCSVText(text);
+            currentData = data;
+            
+            if (data) {
+                showPreview(data, true);
+                showStatus(`已解析到 ${data.length} 筆數據`, 'success');
+            } else {
+                clearPreview();
+                if (text.trim()) {
+                    showStatus('無法解析數據，請檢查格式', 'error');
+                } else {
+                    clearStatus();
+                }
+            }
+            
+            updateSubmitButton();
+        });
+    }
+    
+    // 文件上傳處理
+    if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const text = event.target.result;
+                const data = parseCSVText(text);
+                currentData = data;
+                
+                if (data) {
+                    showPreview(data, false);
+                    showStatus(`已解析到 ${data.length} 筆數據`, 'success');
+                } else {
+                    clearPreview();
+                    showStatus('無法解析文件，請檢查格式', 'error');
+                }
+                
+                updateSubmitButton();
+            };
+            reader.readAsText(file);
+        });
+        
+        // 拖放支持
+        const uploadArea = document.getElementById('csv-upload-area');
+        if (uploadArea) {
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = 'var(--accent-primary)';
+                uploadArea.style.background = 'var(--bg-primary)';
+            });
+            
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.style.borderColor = 'var(--border-medium)';
+                uploadArea.style.background = 'transparent';
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = 'var(--border-medium)';
+                uploadArea.style.background = 'transparent';
+                
+                const file = e.dataTransfer.files[0];
+                if (file && file.type === 'text/csv' || file.name.endsWith('.csv')) {
+                    fileInput.files = e.dataTransfer.files;
+                    fileInput.dispatchEvent(new Event('change'));
+                } else {
+                    showStatus('請上傳 CSV 文件', 'error');
+                }
+            });
+        }
+    }
+    
+    // 提交上傳
+    if (submitBtn) {
+        submitBtn.addEventListener('click', async () => {
+            if (!currentData || currentData.length === 0) return;
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ 上傳中...';
+            showStatus('正在上傳數據...', 'info');
+            
+            try {
+                // 構建 CSV 字符串
+                const csvContent = `Date,Attendance\n${currentData.map(d => `${d.date},${d.attendance}`).join('\n')}`;
+                
+                // 發送請求
+                const response = await fetch('/api/upload-csv', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ csv: csvContent })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus(`✅ ${result.message}`, 'success');
+                    
+                    // 刷新頁面數據
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    showStatus(`❌ 上傳失敗: ${result.error}`, 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '上傳';
+                }
+            } catch (error) {
+                console.error('上傳失敗:', error);
+                showStatus(`❌ 上傳失敗: ${error.message}`, 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = '上傳';
+            }
+        });
+    }
+}
 
 // 觸發添加實際數據
 async function triggerAddActualData() {

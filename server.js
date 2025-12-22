@@ -472,6 +472,245 @@ const apiHandlers = {
         }
     },
 
+    // Upload CSV file
+    'POST /api/upload-csv': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        try {
+            const contentType = req.headers['content-type'] || '';
+            
+            if (contentType.includes('multipart/form-data')) {
+                // 處理文件上傳
+                const chunks = [];
+                for await (const chunk of req) {
+                    chunks.push(chunk);
+                }
+                const buffer = Buffer.concat(chunks);
+                
+                // 簡單的 multipart 解析（僅用於 CSV 文件）
+                const boundary = contentType.split('boundary=')[1];
+                const parts = buffer.toString('utf-8').split(`--${boundary}`);
+                
+                let csvContent = '';
+                for (const part of parts) {
+                    if (part.includes('Content-Disposition: form-data') && part.includes('name="csv"')) {
+                        const lines = part.split('\r\n');
+                        let startIndex = -1;
+                        for (let i = 0; i < lines.length; i++) {
+                            if (lines[i].trim() === '' && i < lines.length - 1) {
+                                startIndex = i + 1;
+                                break;
+                            }
+                        }
+                        if (startIndex > 0) {
+                            csvContent = lines.slice(startIndex, -1).join('\n').trim();
+                            break;
+                        }
+                    }
+                }
+                
+                if (!csvContent) {
+                    return sendJson(res, { error: '未找到 CSV 文件內容' }, 400);
+                }
+                
+                // 解析 CSV 內容
+                const { parseCSV } = require('./import-csv-data');
+                const lines = csvContent.trim().split('\n');
+                const data = [];
+                
+                // 跳過標題行
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    const parts = line.split(',');
+                    if (parts.length < 2) continue;
+                    
+                    const date = parts[0].trim().replace(/^"|"$/g, '');
+                    const attendance = parts[1].trim().replace(/^"|"$/g, '');
+                    
+                    if (date && attendance && !isNaN(parseInt(attendance, 10))) {
+                        data.push({
+                            date: date,
+                            patient_count: parseInt(attendance, 10),
+                            source: 'csv_upload',
+                            notes: `從網頁上傳的 CSV 數據 (${new Date().toISOString()})`
+                        });
+                    }
+                }
+                
+                if (data.length === 0) {
+                    return sendJson(res, { error: 'CSV 文件中沒有有效數據' }, 400);
+                }
+                
+                // 導入數據
+                const client = await db.pool.connect();
+                let successCount = 0;
+                let errorCount = 0;
+                const importedDates = [];
+                
+                try {
+                    await client.query('BEGIN');
+                    
+                    for (const record of data) {
+                        try {
+                            const query = `
+                                INSERT INTO actual_data (date, patient_count, source, notes)
+                                VALUES ($1, $2, $3, $4)
+                                ON CONFLICT (date) DO UPDATE SET
+                                    patient_count = EXCLUDED.patient_count,
+                                    source = EXCLUDED.source,
+                                    notes = EXCLUDED.notes,
+                                    updated_at = CURRENT_TIMESTAMP
+                                RETURNING *
+                            `;
+                            await client.query(query, [
+                                record.date,
+                                record.patient_count,
+                                record.source,
+                                record.notes
+                            ]);
+                            successCount++;
+                            importedDates.push(record.date);
+                        } catch (err) {
+                            console.error(`❌ 導入失敗 ${record.date}:`, err.message);
+                            errorCount++;
+                        }
+                    }
+                    
+                    await client.query('COMMIT');
+                    
+                    // 計算準確度
+                    let accuracyCount = 0;
+                    if (importedDates.length > 0 && db.calculateAccuracy) {
+                        for (const date of importedDates) {
+                            try {
+                                const accuracy = await db.calculateAccuracy(date);
+                                if (accuracy) accuracyCount++;
+                            } catch (err) {
+                                // 忽略錯誤
+                            }
+                        }
+                    }
+                    
+                    sendJson(res, {
+                        success: true,
+                        message: `成功導入 ${successCount} 筆數據${accuracyCount > 0 ? `，已計算 ${accuracyCount} 筆準確度` : ''}`,
+                        count: successCount,
+                        errors: errorCount,
+                        accuracyCalculated: accuracyCount
+                    });
+                } catch (err) {
+                    await client.query('ROLLBACK');
+                    throw err;
+                } finally {
+                    client.release();
+                }
+            } else {
+                // 處理 JSON 格式的 CSV 內容
+                const body = await parseBody(req);
+                if (body.csv) {
+                    // 直接使用 CSV 字符串
+                    const lines = body.csv.trim().split('\n');
+                    const data = [];
+                    
+                    for (let i = 1; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        if (!line) continue;
+                        
+                        const parts = line.split(',');
+                        if (parts.length < 2) continue;
+                        
+                        const date = parts[0].trim().replace(/^"|"$/g, '');
+                        const attendance = parts[1].trim().replace(/^"|"$/g, '');
+                        
+                        if (date && attendance && !isNaN(parseInt(attendance, 10))) {
+                            data.push({
+                                date: date,
+                                patient_count: parseInt(attendance, 10),
+                                source: 'csv_upload',
+                                notes: `從網頁上傳的 CSV 數據 (${new Date().toISOString()})`
+                            });
+                        }
+                    }
+                    
+                    if (data.length === 0) {
+                        return sendJson(res, { error: 'CSV 內容中沒有有效數據' }, 400);
+                    }
+                    
+                    // 導入數據
+                    const client = await db.pool.connect();
+                    let successCount = 0;
+                    let errorCount = 0;
+                    const importedDates = [];
+                    
+                    try {
+                        await client.query('BEGIN');
+                        
+                        for (const record of data) {
+                            try {
+                                const query = `
+                                    INSERT INTO actual_data (date, patient_count, source, notes)
+                                    VALUES ($1, $2, $3, $4)
+                                    ON CONFLICT (date) DO UPDATE SET
+                                        patient_count = EXCLUDED.patient_count,
+                                        source = EXCLUDED.source,
+                                        notes = EXCLUDED.notes,
+                                        updated_at = CURRENT_TIMESTAMP
+                                    RETURNING *
+                                `;
+                                await client.query(query, [
+                                    record.date,
+                                    record.patient_count,
+                                    record.source,
+                                    record.notes
+                                ]);
+                                successCount++;
+                                importedDates.push(record.date);
+                            } catch (err) {
+                                errorCount++;
+                            }
+                        }
+                        
+                        await client.query('COMMIT');
+                        
+                        // 計算準確度
+                        let accuracyCount = 0;
+                        if (importedDates.length > 0 && db.calculateAccuracy) {
+                            for (const date of importedDates) {
+                                try {
+                                    const accuracy = await db.calculateAccuracy(date);
+                                    if (accuracy) accuracyCount++;
+                                } catch (err) {
+                                    // 忽略錯誤
+                                }
+                            }
+                        }
+                        
+                        sendJson(res, {
+                            success: true,
+                            message: `成功導入 ${successCount} 筆數據${accuracyCount > 0 ? `，已計算 ${accuracyCount} 筆準確度` : ''}`,
+                            count: successCount,
+                            errors: errorCount,
+                            accuracyCalculated: accuracyCount
+                        });
+                    } catch (err) {
+                        await client.query('ROLLBACK');
+                        throw err;
+                    } finally {
+                        client.release();
+                    }
+                } else {
+                    return sendJson(res, { error: '請提供 CSV 內容' }, 400);
+                }
+            }
+        } catch (err) {
+            console.error('❌ CSV 上傳失敗:', err);
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+
     // Clear all data and reimport CSV
     'POST /api/clear-and-reimport': async (req, res) => {
         if (!db || !db.pool) {
