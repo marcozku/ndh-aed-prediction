@@ -563,33 +563,56 @@ const apiHandlers = {
                                     source = EXCLUDED.source,
                                     notes = EXCLUDED.notes,
                                     updated_at = CURRENT_TIMESTAMP
-                                RETURNING *
+                                RETURNING *, (xmax = 0) AS inserted
                             `;
-                            await client.query(query, [
+                            const result = await client.query(query, [
                                 record.date,
                                 record.patient_count,
                                 record.source,
                                 record.notes
                             ]);
+                            
+                            const row = result.rows[0];
+                            const isNew = row.inserted;
                             successCount++;
                             importedDates.push(record.date);
+                            
+                            if (isNew) {
+                                console.log(`✅ 已插入新數據 ${record.date}: ${record.patient_count} 人`);
+                            } else {
+                                console.log(`🔄 已更新現有數據 ${record.date}: ${record.patient_count} 人`);
+                            }
                         } catch (err) {
                             console.error(`❌ 導入失敗 ${record.date}:`, err.message);
+                            console.error(`   錯誤詳情:`, err.stack);
+                            console.error(`   錯誤代碼:`, err.code);
+                            console.error(`   錯誤詳情:`, err.detail);
                             errorCount++;
+                            errors.push({ 
+                                date: record.date, 
+                                error: err.message,
+                                code: err.code,
+                                detail: err.detail
+                            });
                         }
                     }
                     
                     await client.query('COMMIT');
+                    console.log(`✅ 事務提交成功，成功導入 ${successCount} 筆數據`);
                     
                     // 計算準確度
                     let accuracyCount = 0;
                     if (importedDates.length > 0 && db.calculateAccuracy) {
+                        console.log('📊 開始計算準確度...');
                         for (const date of importedDates) {
                             try {
                                 const accuracy = await db.calculateAccuracy(date);
-                                if (accuracy) accuracyCount++;
+                                if (accuracy) {
+                                    accuracyCount++;
+                                    console.log(`✅ 已計算 ${date} 的準確度`);
+                                }
                             } catch (err) {
-                                // 忽略錯誤
+                                console.warn(`⚠️ 計算 ${date} 準確度時出錯:`, err.message);
                             }
                         }
                     }
@@ -599,6 +622,7 @@ const apiHandlers = {
                         message: `成功導入 ${successCount} 筆數據${accuracyCount > 0 ? `，已計算 ${accuracyCount} 筆準確度` : ''}`,
                         count: successCount,
                         errors: errorCount,
+                        errorDetails: errors.length > 0 ? errors : undefined,
                         accuracyCalculated: accuracyCount
                     });
                 } catch (err) {
