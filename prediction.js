@@ -5515,6 +5515,18 @@ async function startTraining() {
             }
         });
         
+        // 檢查響應狀態
+        if (!response.ok) {
+            const errorText = await response.text();
+            let errorData;
+            try {
+                errorData = JSON.parse(errorText);
+            } catch (e) {
+                errorData = { error: errorText || `HTTP ${response.status}` };
+            }
+            throw new Error(errorData.error || errorData.message || '訓練啟動失敗');
+        }
+        
         const data = await response.json();
         
         if (data.success) {

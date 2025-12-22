@@ -1496,18 +1496,38 @@ const apiHandlers = {
     // 手動觸發模型訓練
     'POST /api/train-models': async (req, res) => {
         if (!db || !db.pool) {
-            return sendJson(res, { error: 'Database not configured' }, 503);
+            return sendJson(res, { 
+                success: false,
+                error: 'Database not configured' 
+            }, 503);
         }
         
         try {
             const { getAutoTrainManager } = require('./modules/auto-train-manager');
             const trainManager = getAutoTrainManager();
             
+            if (!trainManager) {
+                throw new Error('訓練管理器初始化失敗');
+            }
+            
+            // 檢查是否正在訓練
+            const currentStatus = trainManager.getStatus();
+            if (currentStatus.isTraining) {
+                return sendJson(res, {
+                    success: false,
+                    error: '訓練已在進行中，請等待完成',
+                    status: currentStatus
+                });
+            }
+            
             // 異步執行訓練，立即返回
             trainManager.manualTrain(db).then(result => {
                 console.log('手動訓練完成:', result);
+                if (!result.success) {
+                    console.error('訓練失敗:', result.reason, result.error);
+                }
             }).catch(err => {
-                console.error('手動訓練失敗:', err);
+                console.error('手動訓練異常:', err);
             });
             
             sendJson(res, {
@@ -1517,9 +1537,11 @@ const apiHandlers = {
             });
         } catch (err) {
             console.error('觸發訓練失敗:', err);
+            console.error('錯誤堆棧:', err.stack);
             sendJson(res, {
                 success: false,
-                error: err.message
+                error: err.message || '訓練啟動失敗',
+                details: process.env.NODE_ENV === 'development' ? err.stack : undefined
             }, 500);
         }
     },
@@ -1529,18 +1551,25 @@ const apiHandlers = {
         try {
             const { getAutoTrainManager } = require('./modules/auto-train-manager');
             const trainManager = getAutoTrainManager();
+            if (!trainManager) {
+                throw new Error('訓練管理器初始化失敗');
+            }
             const status = trainManager.getStatus();
-            
+
             sendJson(res, {
                 success: true,
                 data: status
             });
         } catch (err) {
+            console.error('獲取訓練狀態失敗:', err);
             sendJson(res, {
                 success: false,
                 error: err.message,
                 data: {
-                    error: '訓練管理器不可用'
+                    isTraining: false,
+                    error: err.message || '訓練管理器不可用',
+                    lastTrainingDate: null,
+                    lastDataCount: 0
                 }
             });
         }

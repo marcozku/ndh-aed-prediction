@@ -341,7 +341,6 @@ class AutoTrainManager {
             resolve({ success: false, reason: `無法執行訓練腳本: ${err.message}` });
         });
     }
-    }
 
     /**
      * 手動觸發訓練
