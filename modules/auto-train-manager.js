@@ -12,6 +12,8 @@ class AutoTrainManager {
         this.lastTrainingDate = null;
         this.lastDataCount = 0;
         this.trainingQueue = [];
+        this.trainingStartTime = null;  // 訓練開始時間
+        this.estimatedDuration = 30 * 60 * 1000;  // 預估訓練時間：30 分鐘（毫秒）
         
         // 配置
         this.config = {
@@ -36,6 +38,16 @@ class AutoTrainManager {
                 const status = JSON.parse(fs.readFileSync(this.statusFile, 'utf8'));
                 this.lastTrainingDate = status.lastTrainingDate;
                 this.lastDataCount = status.lastDataCount || 0;
+                // 如果訓練開始時間存在且距離現在不超過超時時間，認為仍在訓練
+                if (status.trainingStartTime) {
+                    const startTime = new Date(status.trainingStartTime).getTime();
+                    const now = Date.now();
+                    const elapsed = now - startTime;
+                    if (elapsed < this.config.trainingTimeout) {
+                        this.isTraining = true;
+                        this.trainingStartTime = status.trainingStartTime;
+                    }
+                }
             }
         } catch (e) {
             console.warn('無法加載訓練狀態:', e.message);
@@ -45,12 +57,13 @@ class AutoTrainManager {
     /**
      * 保存訓練狀態
      */
-    _saveTrainingStatus(dataCount = null) {
+    _saveTrainingStatus(dataCount = null, isTraining = false) {
         try {
             const status = {
                 lastTrainingDate: new Date().toISOString(),
                 lastDataCount: dataCount || this.lastDataCount,
-                lastUpdate: new Date().toISOString()
+                lastUpdate: new Date().toISOString(),
+                trainingStartTime: isTraining ? (this.trainingStartTime || new Date().toISOString()) : null
             };
             fs.writeFileSync(this.statusFile, JSON.stringify(status, null, 2));
         } catch (e) {
@@ -161,10 +174,14 @@ class AutoTrainManager {
         }
 
         this.isTraining = true;
+        this.trainingStartTime = new Date().toISOString();
         const startTime = Date.now();
+        
+        // 保存訓練開始狀態
+        this._saveTrainingStatus(dataCount, true);
 
         console.log('🚀 開始自動訓練模型...');
-        console.log(`   時間: ${new Date().toISOString()}`);
+        console.log(`   時間: ${this.trainingStartTime}`);
         if (dataCount !== null) {
             console.log(`   數據總數: ${dataCount}`);
         }
@@ -202,15 +219,17 @@ class AutoTrainManager {
             python.on('close', (code) => {
                 clearTimeout(timeout);
                 this.isTraining = false;
+                this.trainingStartTime = null;
                 const duration = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
 
                 if (code === 0) {
                     console.log(`✅ 模型訓練完成（耗時 ${duration} 分鐘）`);
-                    this._saveTrainingStatus(dataCount);
+                    this._saveTrainingStatus(dataCount, false);
                     resolve({ success: true, duration: duration });
                 } else {
                     console.error(`❌ 模型訓練失敗（退出碼 ${code}）`);
                     console.error('錯誤輸出:', error);
+                    this._saveTrainingStatus(dataCount, false);
                     resolve({ success: false, reason: `訓練失敗（退出碼 ${code}）`, error: error });
                 }
             });
@@ -218,6 +237,8 @@ class AutoTrainManager {
             python.on('error', (err) => {
                 clearTimeout(timeout);
                 this.isTraining = false;
+                this.trainingStartTime = null;
+                this._saveTrainingStatus(dataCount, false);
                 console.error('❌ 無法執行訓練腳本:', err.message);
                 resolve({ success: false, reason: `無法執行訓練腳本: ${err.message}` });
             });
@@ -237,10 +258,24 @@ class AutoTrainManager {
      * 獲取訓練狀態
      */
     getStatus() {
+        let estimatedRemainingTime = null;
+        let elapsedTime = null;
+        
+        if (this.isTraining && this.trainingStartTime) {
+            const startTime = new Date(this.trainingStartTime).getTime();
+            const now = Date.now();
+            elapsedTime = now - startTime;
+            estimatedRemainingTime = Math.max(0, this.estimatedDuration - elapsedTime);
+        }
+        
         return {
             isTraining: this.isTraining,
             lastTrainingDate: this.lastTrainingDate,
             lastDataCount: this.lastDataCount,
+            trainingStartTime: this.trainingStartTime,
+            estimatedRemainingTime: estimatedRemainingTime,
+            elapsedTime: elapsedTime,
+            estimatedDuration: this.estimatedDuration,
             config: this.config,
             statusFile: this.statusFile
         };

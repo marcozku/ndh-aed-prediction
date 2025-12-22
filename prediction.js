@@ -5132,6 +5132,9 @@ async function checkTrainingStatus() {
     }
 }
 
+// 訓練倒數計時器
+let trainingCountdownInterval = null;
+
 function renderTrainingStatus(data) {
     const container = document.getElementById('training-status-container');
     if (!container) return;
@@ -5140,6 +5143,9 @@ function renderTrainingStatus(data) {
     const training = data.training || {};
     const isTraining = training.isTraining || false;
     const lastTrainingDate = training.lastTrainingDate;
+    const trainingStartTime = training.trainingStartTime;
+    const estimatedRemainingTime = training.estimatedRemainingTime;
+    const elapsedTime = training.elapsedTime;
     
     // 模型信息
     const modelInfo = {
@@ -5166,11 +5172,26 @@ function renderTrainingStatus(data) {
     let html = '<div class="training-status-grid">';
     
     // 顯示每個模型的狀態
+    // 根據訓練進度判斷當前訓練的模型
+    let currentTrainingModel = null;
+    if (isTraining && elapsedTime !== null) {
+        // XGBoost: 0-10分鐘, LSTM: 10-25分鐘, Prophet: 25-30分鐘
+        const elapsedMins = elapsedTime / 60000;
+        if (elapsedMins < 10) {
+            currentTrainingModel = 'xgboost';
+        } else if (elapsedMins < 25) {
+            currentTrainingModel = 'lstm';
+        } else {
+            currentTrainingModel = 'prophet';
+        }
+    }
+    
     for (const [modelKey, modelData] of Object.entries(modelInfo)) {
         const isAvailable = models[modelKey] || false;
-        const cardClass = isTraining && modelKey === 'xgboost' ? 'training' : (isAvailable ? 'available' : 'unavailable');
-        const statusBadge = isTraining && modelKey === 'xgboost' ? 'training' : (isAvailable ? 'available' : 'unavailable');
-        const statusText = isTraining && modelKey === 'xgboost' ? '訓練中' : (isAvailable ? '可用' : '不可用');
+        const isCurrentlyTraining = isTraining && currentTrainingModel === modelKey;
+        const cardClass = isCurrentlyTraining ? 'training' : (isAvailable ? 'available' : 'unavailable');
+        const statusBadge = isCurrentlyTraining ? 'training' : (isAvailable ? 'available' : 'unavailable');
+        const statusText = isCurrentlyTraining ? '訓練中' : (isAvailable ? '可用' : '不可用');
         
         html += `
             <div class="model-status-card ${cardClass}">
@@ -5238,11 +5259,26 @@ function renderTrainingStatus(data) {
                 <div class="training-progress" style="margin-top: var(--space-md);">
                     <div class="training-progress-label">
                         <span>訓練進度</span>
-                        <span>進行中...</span>
+                        <span id="training-progress-text">進行中...</span>
                     </div>
                     <div class="training-progress-bar">
-                        <div class="training-progress-fill" style="width: 50%; animation: pulse 2s ease-in-out infinite;"></div>
+                        <div class="training-progress-fill" id="training-progress-fill" style="width: 0%; animation: pulse 2s ease-in-out infinite;"></div>
                     </div>
+                    ${estimatedRemainingTime !== null ? `
+                        <div class="training-countdown" style="margin-top: var(--space-sm); text-align: center;">
+                            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: var(--space-xs);">
+                                預估剩餘時間
+                            </div>
+                            <div id="training-countdown-timer" style="font-size: 1.2rem; font-weight: 700; color: var(--accent-primary);">
+                                ${formatRemainingTime(estimatedRemainingTime)}
+                            </div>
+                            ${elapsedTime !== null ? `
+                                <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: var(--space-xs);">
+                                    已用時: ${formatElapsedTime(elapsedTime)}
+                                </div>
+                            ` : ''}
+                        </div>
+                    ` : ''}
                 </div>
             ` : ''}
             ${training.config ? `
@@ -5260,6 +5296,141 @@ function renderTrainingStatus(data) {
     `;
     
     container.innerHTML = html;
+    
+    // 如果正在訓練，啟動倒數計時器
+    if (isTraining && estimatedRemainingTime !== null && estimatedRemainingTime > 0) {
+        startTrainingCountdown(estimatedRemainingTime, elapsedTime);
+    } else {
+        stopTrainingCountdown();
+    }
+    
+    // 更新訓練按鈕狀態
+    updateTrainingButton(isTraining);
+    
+    // 如果正在訓練，每 5 秒刷新一次狀態以同步倒數計時器
+    if (isTraining) {
+        setTimeout(() => {
+            fetch('/api/training-status').then(r => r.json()).then(statusData => {
+                if (statusData.success && statusData.data.isTraining && statusData.data.estimatedRemainingTime) {
+                    // 重新同步倒數計時器（從服務器獲取最新時間）
+                    startTrainingCountdown(
+                        statusData.data.estimatedRemainingTime,
+                        statusData.data.elapsedTime
+                    );
+                }
+            });
+        }, 5000);
+    }
+}
+
+// 格式化剩餘時間
+function formatRemainingTime(ms) {
+    if (ms <= 0) return '即將完成';
+    
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    if (hours > 0) {
+        return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    } else {
+        return `${minutes}:${String(seconds).padStart(2, '0')}`;
+    }
+}
+
+// 格式化已用時間
+function formatElapsedTime(ms) {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    
+    if (hours > 0) {
+        return `${hours} 小時 ${minutes} 分鐘`;
+    } else {
+        return `${minutes} 分鐘`;
+    }
+}
+
+// 啟動訓練倒數計時器
+function startTrainingCountdown(initialRemainingTime, initialElapsedTime) {
+    stopTrainingCountdown();
+    
+    if (!initialRemainingTime || initialRemainingTime <= 0) {
+        return;
+    }
+    
+    // 如果提供了已用時間，從那裡開始；否則從 0 開始
+    const startTime = initialElapsedTime 
+        ? Date.now() - initialElapsedTime 
+        : Date.now();
+    const totalEstimatedTime = initialRemainingTime + (initialElapsedTime || 0);
+    
+    const updateCountdown = () => {
+        const now = Date.now();
+        const elapsedTime = now - startTime;
+        const remainingTime = Math.max(0, totalEstimatedTime - elapsedTime);
+        
+        const countdownEl = document.getElementById('training-countdown-timer');
+        const progressFill = document.getElementById('training-progress-fill');
+        const progressText = document.getElementById('training-progress-text');
+        
+        if (countdownEl) {
+            countdownEl.textContent = formatRemainingTime(remainingTime);
+        }
+        
+        if (progressFill && totalEstimatedTime > 0) {
+            const progress = Math.min(100, (elapsedTime / totalEstimatedTime) * 100);
+            progressFill.style.width = `${progress}%`;
+        }
+        
+        if (progressText && totalEstimatedTime > 0) {
+            const progress = Math.min(100, (elapsedTime / totalEstimatedTime) * 100);
+            progressText.textContent = `進行中... ${Math.round(progress)}%`;
+        }
+        
+        // 更新已用時間
+        const elapsedEl = document.querySelector('.training-countdown div:last-child');
+        if (elapsedEl && elapsedTime > 0) {
+            elapsedEl.textContent = `已用時: ${formatElapsedTime(elapsedTime)}`;
+        }
+        
+        if (remainingTime <= 0) {
+            stopTrainingCountdown();
+            // 重新檢查狀態
+            setTimeout(() => checkTrainingStatus(), 2000);
+        }
+    };
+    
+    // 立即更新一次
+    updateCountdown();
+    
+    // 每秒更新
+    trainingCountdownInterval = setInterval(updateCountdown, 1000);
+}
+
+// 停止訓練倒數計時器
+function stopTrainingCountdown() {
+    if (trainingCountdownInterval) {
+        clearInterval(trainingCountdownInterval);
+        trainingCountdownInterval = null;
+    }
+}
+
+// 更新訓練按鈕狀態
+function updateTrainingButton(isTraining) {
+    const trainBtn = document.getElementById('start-training-btn');
+    if (!trainBtn) return;
+    
+    if (isTraining) {
+        trainBtn.disabled = true;
+        trainBtn.classList.add('training');
+        trainBtn.innerHTML = '<span>⏳</span><span>訓練中...</span>';
+    } else {
+        trainBtn.disabled = false;
+        trainBtn.classList.remove('training');
+        trainBtn.innerHTML = '<span>🚀</span><span>開始訓練</span>';
+    }
 }
 
 function formatTrainingDate(dateString) {
@@ -5298,10 +5469,7 @@ async function startTraining() {
     if (!trainBtn) return;
     
     // 禁用按鈕並顯示狀態
-    trainBtn.disabled = true;
-    trainBtn.classList.add('training');
-    const originalText = trainBtn.innerHTML;
-    trainBtn.innerHTML = '<span>⏳</span><span>訓練中...</span>';
+    updateTrainingButton(true);
     
     try {
         const response = await fetch('/api/train-models', {
@@ -5322,30 +5490,26 @@ async function startTraining() {
                 checkTrainingStatus();
             }, 1000);
             
-            // 每 10 秒刷新一次狀態（訓練中）
+            // 每 5 秒刷新一次狀態（訓練中）
             const statusInterval = setInterval(() => {
                 checkTrainingStatus().then(() => {
                     // 檢查是否還在訓練
                     fetch('/api/training-status').then(r => r.json()).then(statusData => {
                         if (statusData.success && !statusData.data.isTraining) {
                             clearInterval(statusInterval);
-                            trainBtn.disabled = false;
-                            trainBtn.classList.remove('training');
-                            trainBtn.innerHTML = originalText;
+                            updateTrainingButton(false);
                             showTrainingNotification('🎉 模型訓練完成！', 'success');
                         }
                     });
                 });
-            }, 10000);
+            }, 5000);
         } else {
             throw new Error(data.error || '訓練啟動失敗');
         }
     } catch (error) {
         console.error('訓練啟動失敗:', error);
         showTrainingNotification(`❌ 訓練啟動失敗: ${error.message}`, 'error');
-        trainBtn.disabled = false;
-        trainBtn.classList.remove('training');
-        trainBtn.innerHTML = originalText;
+        updateTrainingButton(false);
     }
 }
 
@@ -5388,8 +5552,25 @@ function showTrainingNotification(message, type = 'info') {
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         checkTrainingStatus();
-        // 每 30 秒自動刷新
-        setInterval(checkTrainingStatus, 30000);
+        // 如果正在訓練，每 5 秒刷新；否則每 30 秒刷新
+        let refreshInterval = setInterval(() => {
+            checkTrainingStatus().then(() => {
+                // 檢查是否還在訓練，調整刷新間隔
+                fetch('/api/training-status').then(r => r.json()).then(statusData => {
+                    if (statusData.success) {
+                        if (statusData.data.isTraining) {
+                            // 訓練中：每 5 秒刷新
+                            if (refreshInterval) clearInterval(refreshInterval);
+                            refreshInterval = setInterval(() => checkTrainingStatus(), 5000);
+                        } else {
+                            // 未訓練：每 30 秒刷新
+                            if (refreshInterval) clearInterval(refreshInterval);
+                            refreshInterval = setInterval(() => checkTrainingStatus(), 30000);
+                        }
+                    }
+                });
+            });
+        }, 5000);
         
         // 刷新按鈕
         const refreshBtn = document.getElementById('refresh-training-status');
@@ -5400,7 +5581,17 @@ if (document.readyState === 'loading') {
                 setTimeout(() => {
                     refreshBtn.style.transform = 'rotate(0deg)';
                 }, 500);
-                checkTrainingStatus();
+                checkTrainingStatus().then(() => {
+                    // 刷新後檢查是否需要啟動倒數計時器
+                    fetch('/api/training-status').then(r => r.json()).then(statusData => {
+                        if (statusData.success && statusData.data.isTraining && statusData.data.estimatedRemainingTime) {
+                            startTrainingCountdown(
+                                statusData.data.estimatedRemainingTime,
+                                statusData.data.elapsedTime
+                            );
+                        }
+                    });
+                });
             });
         }
         
@@ -5412,7 +5603,22 @@ if (document.readyState === 'loading') {
     });
 } else {
     checkTrainingStatus();
-    setInterval(checkTrainingStatus, 30000);
+    // 動態調整刷新間隔
+    let refreshInterval = setInterval(() => {
+        checkTrainingStatus().then(() => {
+            fetch('/api/training-status').then(r => r.json()).then(statusData => {
+                if (statusData.success) {
+                    if (statusData.data.isTraining) {
+                        if (refreshInterval) clearInterval(refreshInterval);
+                        refreshInterval = setInterval(() => checkTrainingStatus(), 5000);
+                    } else {
+                        if (refreshInterval) clearInterval(refreshInterval);
+                        refreshInterval = setInterval(() => checkTrainingStatus(), 30000);
+                    }
+                }
+            });
+        });
+    }, 5000);
     
     const refreshBtn = document.getElementById('refresh-training-status');
     if (refreshBtn) {
@@ -5422,7 +5628,17 @@ if (document.readyState === 'loading') {
             setTimeout(() => {
                 refreshBtn.style.transform = 'rotate(0deg)';
             }, 500);
-            checkTrainingStatus();
+            checkTrainingStatus().then(() => {
+                // 刷新後檢查是否需要啟動倒數計時器
+                fetch('/api/training-status').then(r => r.json()).then(statusData => {
+                    if (statusData.success && statusData.data.isTraining && statusData.data.estimatedRemainingTime) {
+                        startTrainingCountdown(
+                            statusData.data.estimatedRemainingTime,
+                            statusData.data.elapsedTime
+                        );
+                    }
+                });
+            });
         });
     }
     

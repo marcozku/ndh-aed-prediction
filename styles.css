@@ -667,6 +667,18 @@ body::before {
     transition: width 0.3s ease;
 }
 
+.training-countdown {
+    padding: var(--space-md);
+    background: rgba(79, 70, 229, 0.05);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(79, 70, 229, 0.1);
+}
+
+.training-countdown #training-countdown-timer {
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.1em;
+}
+
 .ensemble-status-summary {
     grid-column: 1 / -1;
     background: var(--bg-card);
