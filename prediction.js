@@ -1131,21 +1131,75 @@ function initAlgorithmContent() {
     }
     
     algorithmContentEl.innerHTML = `
-        <div class="algorithm-formula">
-            <h4>核心預測公式</h4>
-            <code>
-預測值 = 基準值 × 月份效應 × 星期效應 × 假期效應 × 流感季節效應 × 天氣效應 × AI因素效應
-            </code>
-            <p style="margin-top: var(--space-md); color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6;">
-                <strong>增強公式（v2.2.0+）</strong>：<br>
-                預測值 = 基礎預測值 + 滯後特徵調整 + 移動平均調整 + 趨勢調整<br>
-                其中：基礎預測值 = 基準值 × 月份效應 × 星期效應 × 假期效應 × 流感季節效應 × 天氣效應 × AI因素效應<br>
-                <span style="color: var(--text-tertiary); font-size: 0.85rem;">
-                • 滯後特徵：昨天（lag1，權重18%）+ 上週同一天（lag7，權重10%）<br>
-                • 移動平均：7天平均 vs 30天平均差異（權重14%）<br>
-                • 趨勢調整：短期趨勢（7天）vs 長期趨勢（30天），權重30%
-                </span>
-            </p>
+        <div class="algorithm-formula" style="margin-bottom: var(--space-xl);">
+            <h4>核心預測公式（v2.3.3+）</h4>
+            <div style="background: var(--bg-secondary); padding: var(--space-lg); border-radius: var(--radius-md); margin-top: var(--space-md);">
+                <div style="margin-bottom: var(--space-lg);">
+                    <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">總公式</h5>
+                    <code style="display: block; padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.95rem; line-height: 1.8;">
+                        最終預測值 = 基礎預測值 + 滯後特徵調整 + 移動平均調整 + 趨勢調整
+                    </code>
+                </div>
+                
+                <div style="margin-bottom: var(--space-lg);">
+                    <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">步驟 1：基礎預測值（乘法模型）</h5>
+                    <code style="display: block; padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.95rem; line-height: 1.8;">
+                        基礎預測值 = 基準值 × 星期因子 × 假期因子 × 流感季節因子 × 天氣因子 × AI因子<br>
+                        其中：基準值 = 全局平均 × 月份因子
+                    </code>
+                    <div style="margin-top: var(--space-sm); padding-left: var(--space-md); color: var(--text-secondary); font-size: 0.85rem; line-height: 1.6;">
+                        • 全局平均：加權平均（180天窗口，指數衰減權重 w = e^(-0.02 × days_ago)）<br>
+                        • 月份因子：基於最近180天同月份的加權平均，範圍 0.85 - 1.25<br>
+                        • 星期因子：優先使用月份-星期交互因子，範圍 0.70 - 1.30<br>
+                        • 假期因子：範圍 0.60 - 1.40<br>
+                        • 流感季節因子：1.004（適用於 1, 2, 3, 7, 8 月）<br>
+                        • 天氣因子：範圍 0.90 - 1.15（溫度 × 濕度 × 降雨 × 警告）<br>
+                        • AI因子：範圍 0.85 - 1.15
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: var(--space-lg);">
+                    <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">步驟 2：滯後特徵調整（加法模型）</h5>
+                    <code style="display: block; padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.95rem; line-height: 1.8;">
+                        滯後調整 = Lag1調整 + Lag7調整 + 移動平均調整
+                    </code>
+                    <div style="margin-top: var(--space-sm); padding-left: var(--space-md); color: var(--text-secondary); font-size: 0.85rem; line-height: 1.6;">
+                        <strong>Lag1調整</strong> = (昨天就診人數 - 全局平均) × 0.18<br>
+                        <span style="color: var(--text-tertiary);">權重18%，基於研究：lag1係數約 0.15-0.20</span><br><br>
+                        <strong>Lag7調整</strong> = (上週同一天就診人數 - 全局平均) × 0.10<br>
+                        <span style="color: var(--text-tertiary);">權重10%，基於研究：lag7係數約 0.08-0.12</span><br><br>
+                        <strong>移動平均調整</strong> = (7天移動平均 - 30天移動平均) × 0.14<br>
+                        <span style="color: var(--text-tertiary);">權重14%，基於研究：rolling7係數約 0.12-0.16</span>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: var(--space-lg);">
+                    <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">步驟 3：趨勢調整</h5>
+                    <code style="display: block; padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.95rem; line-height: 1.8;">
+                        趨勢 = (7天移動平均 - 30天移動平均) / 30天移動平均<br>
+                        趨勢調整 = 基礎預測值 × 趨勢 × 0.3
+                    </code>
+                    <div style="margin-top: var(--space-sm); padding-left: var(--space-md); color: var(--text-secondary); font-size: 0.85rem; line-height: 1.6;">
+                        權重30%，基於Prophet模型研究（2017）
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: var(--space-lg);">
+                    <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">步驟 4：異常檢測和調整</h5>
+                    <div style="padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.85rem; line-height: 1.6; color: var(--text-secondary);">
+                        計算歷史5%和95%分位數，如果預測值超出合理範圍（150-350人），進行部分調整（50%權重）
+                    </div>
+                </div>
+                
+                <div>
+                    <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">步驟 5：信賴區間</h5>
+                    <code style="display: block; padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.95rem; line-height: 1.8;">
+                        調整標準差 = 加權標準差 × 1.2（20%不確定性調整）<br>
+                        80% CI: 預測值 ± 1.5 × 調整標準差<br>
+                        95% CI: 預測值 ± 2.5 × 調整標準差
+                    </code>
+                </div>
+            </div>
         </div>
         
         <div class="factors-table">
