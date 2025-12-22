@@ -1684,65 +1684,99 @@ const apiHandlers = {
 };
 
 const server = http.createServer(async (req, res) => {
-    // Handle CORS preflight
-    if (req.method === 'OPTIONS') {
-        res.writeHead(204, {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type'
-        });
-        return res.end();
-    }
-
-    // Check for API routes
-    const parsedUrl = url.parse(req.url, true);
-    const pathname = parsedUrl.pathname;
-    const routeKey = `${req.method} ${pathname}`;
-    
-    if (apiHandlers[routeKey]) {
-        try {
-            await apiHandlers[routeKey](req, res);
-        } catch (error) {
-            console.error('API Error:', error);
-            sendJson(res, { error: error.message }, 500);
+    // 全局錯誤處理 - 確保所有錯誤都返回 JSON
+    const handleError = (err, statusCode = 500) => {
+        console.error('服務器錯誤:', err);
+        if (!res.headersSent) {
+            sendJson(res, {
+                success: false,
+                error: err.message || '內部服務器錯誤',
+                errorType: err.name || 'Error',
+                details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+            }, statusCode);
         }
-        return;
-    }
-
-    // Static file serving
-    let filePath = pathname === '/' ? '/index.html' : pathname;
-    filePath = filePath.split('?')[0];
-    
-    const fullPath = path.join(__dirname, filePath);
-    const ext = path.extname(fullPath).toLowerCase();
-    const contentType = mimeTypes[ext] || 'application/octet-stream';
-    
-    // v1.1: Allow iframe embedding from roster app
-    const frameHeaders = {
-        'Content-Security-Policy': "frame-ancestors 'self' https://ndhaedduty.up.railway.app https://ndhaedroster.up.railway.app https://*.up.railway.app http://localhost:* http://127.0.0.1:*"
     };
-    
-    fs.readFile(fullPath, (err, content) => {
-        if (err) {
-            if (err.code === 'ENOENT') {
-                fs.readFile(path.join(__dirname, 'index.html'), (err, content) => {
-                    if (err) {
-                        res.writeHead(500);
-                        res.end('Server Error');
-                    } else {
-                        res.writeHead(200, { 'Content-Type': 'text/html', ...frameHeaders });
-                        res.end(content, 'utf-8');
-                    }
-                });
-            } else {
-                res.writeHead(500);
-                res.end('Server Error');
-            }
-        } else {
-            res.writeHead(200, { 'Content-Type': contentType, ...frameHeaders });
-            res.end(content, 'utf-8');
+
+    // 包裝異步處理
+    try {
+        // Handle CORS preflight
+        if (req.method === 'OPTIONS') {
+            res.writeHead(204, {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            });
+            return res.end();
         }
-    });
+
+        // Check for API routes
+        const parsedUrl = url.parse(req.url, true);
+        const pathname = parsedUrl.pathname;
+        const routeKey = `${req.method} ${pathname}`;
+        
+        if (apiHandlers[routeKey]) {
+            try {
+                await apiHandlers[routeKey](req, res);
+            } catch (error) {
+                console.error('API Error:', error);
+                console.error('錯誤堆棧:', error.stack);
+                if (!res.headersSent) {
+                    sendJson(res, { 
+                        success: false,
+                        error: error.message || '內部服務器錯誤',
+                        errorType: error.name || 'Error'
+                    }, 500);
+                }
+            }
+            return;
+        }
+
+        // Static file serving
+        let filePath = pathname === '/' ? '/index.html' : pathname;
+        filePath = filePath.split('?')[0];
+        
+        const fullPath = path.join(__dirname, filePath);
+        const ext = path.extname(fullPath).toLowerCase();
+        const contentType = mimeTypes[ext] || 'application/octet-stream';
+        
+        // v1.1: Allow iframe embedding from roster app
+        const frameHeaders = {
+            'Content-Security-Policy': "frame-ancestors 'self' https://ndhaedduty.up.railway.app https://ndhaedroster.up.railway.app https://*.up.railway.app http://localhost:* http://127.0.0.1:*"
+        };
+        
+        fs.readFile(fullPath, (err, content) => {
+            if (err) {
+                if (err.code === 'ENOENT') {
+                    fs.readFile(path.join(__dirname, 'index.html'), (err, content) => {
+                        if (err) {
+                            res.writeHead(500);
+                            res.end('Server Error');
+                        } else {
+                            res.writeHead(200, { 'Content-Type': 'text/html', ...frameHeaders });
+                            res.end(content, 'utf-8');
+                        }
+                    });
+                } else {
+                    res.writeHead(500);
+                    res.end('Server Error');
+                }
+            } else {
+                res.writeHead(200, { 'Content-Type': contentType, ...frameHeaders });
+                res.end(content, 'utf-8');
+            }
+        });
+    } catch (error) {
+        // 全局錯誤處理
+        console.error('服務器全局錯誤:', error);
+        console.error('錯誤堆棧:', error.stack);
+        if (!res.headersSent) {
+            sendJson(res, {
+                success: false,
+                error: error.message || '內部服務器錯誤',
+                errorType: error.name || 'Error'
+            }, 500);
+        }
+    }
 });
 
 // 獲取香港時間
