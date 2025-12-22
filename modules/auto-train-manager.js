@@ -298,6 +298,10 @@ class AutoTrainManager {
         let output = '';
         let error = '';
 
+        // 節流保存，避免過於頻繁的文件寫入
+        let lastSaveTime = 0;
+        const saveThrottle = 2000; // 每 2 秒最多保存一次
+        
         python.stdout.on('data', (data) => {
             const text = data.toString();
             output += text;
@@ -305,9 +309,11 @@ class AutoTrainManager {
             this.lastTrainingOutput = output;
             console.log(`[訓練] ${text.trim()}`);
             
-            // 定期保存狀態（每 5 秒或每 100 行）
-            if (output.split('\n').length % 100 === 0 || Date.now() % 5000 < 100) {
+            // 節流保存狀態（每 2 秒最多保存一次）
+            const now = Date.now();
+            if (now - lastSaveTime >= saveThrottle) {
                 this._saveTrainingStatus(dataCount, true);
+                lastSaveTime = now;
             }
         });
 
@@ -318,8 +324,9 @@ class AutoTrainManager {
             this.lastTrainingError = error;
             console.error(`[訓練錯誤] ${text.trim()}`);
             
-            // 定期保存狀態
+            // 錯誤輸出立即保存
             this._saveTrainingStatus(dataCount, true);
+            lastSaveTime = Date.now();
         });
 
         // 設置超時
