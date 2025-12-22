@@ -32,7 +32,21 @@ def load_data_from_db():
         """
         df = pd.read_sql_query(query, conn)
         conn.close()
-        return df
+        
+        # 確保列名正確（pandas 可能會將列名轉為小寫）
+        if 'date' in df.columns and 'Date' not in df.columns:
+            df['Date'] = df['date']
+            df = df.drop(columns=['date'])
+        if 'patient_count' in df.columns and 'Attendance' not in df.columns:
+            df['Attendance'] = df['patient_count']
+            df = df.drop(columns=['patient_count'])
+        
+        # 確保只返回需要的列
+        if 'Date' in df.columns and 'Attendance' in df.columns:
+            return df[['Date', 'Attendance']]
+        else:
+            print(f"警告: 數據列不完整。可用列: {df.columns.tolist()}")
+            return df
     except Exception as e:
         print(f"無法從數據庫加載數據: {e}")
         return None
