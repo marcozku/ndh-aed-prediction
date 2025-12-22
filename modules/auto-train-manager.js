@@ -14,6 +14,8 @@ class AutoTrainManager {
         this.trainingQueue = [];
         this.trainingStartTime = null;  // 訓練開始時間
         this.estimatedDuration = 30 * 60 * 1000;  // 預估訓練時間：30 分鐘（毫秒）
+        this.lastTrainingOutput = '';  // 上次訓練的輸出
+        this.lastTrainingError = '';  // 上次訓練的錯誤
         
         // 配置
         this.config = {
@@ -314,6 +316,10 @@ class AutoTrainManager {
             const predictor = new EnsemblePredictor();
             const modelStatus = predictor.getModelStatus();
 
+            // 保存訓練輸出和錯誤
+            this.lastTrainingOutput = output;
+            this.lastTrainingError = error;
+            
             if (code === 0) {
                 if (modelStatus.available) {
                     console.log(`✅ 模型訓練完成（耗時 ${duration} 分鐘）`);
@@ -332,8 +338,8 @@ class AutoTrainManager {
                     resolve({ 
                         success: false, 
                         reason: '訓練完成但模型文件缺失', 
-                        error: error,
-                        output: output,
+                        error: error || '無錯誤輸出，但模型文件未生成。可能原因：1) Python 依賴未安裝 2) 數據庫連接失敗 3) 訓練腳本內部錯誤',
+                        output: output || '無輸出',
                         modelStatus: modelStatus
                     });
                 }
@@ -345,8 +351,8 @@ class AutoTrainManager {
                 resolve({ 
                     success: false, 
                     reason: `訓練失敗（退出碼 ${code}）`, 
-                    error: error || output,
-                    output: output,
+                    error: error || output || '無錯誤信息',
+                    output: output || '無輸出',
                     modelStatus: modelStatus
                 });
             }
@@ -394,7 +400,9 @@ class AutoTrainManager {
             elapsedTime: elapsedTime,
             estimatedDuration: this.estimatedDuration,
             config: this.config,
-            statusFile: this.statusFile
+            statusFile: this.statusFile,
+            lastTrainingOutput: this.lastTrainingOutput || '',
+            lastTrainingError: this.lastTrainingError || ''
         };
     }
 
