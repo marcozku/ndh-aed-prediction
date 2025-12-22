@@ -6306,6 +6306,7 @@ async function updateAIFactors(force = false) {
                 const timeoutId = setTimeout(() => controller.abort(), timeout);
                 
                 try {
+                    updateFactorsLoadingProgress(20);
                     response = await fetch('/api/ai-analyze', {
                         signal: controller.signal,
                         headers: {
@@ -6313,15 +6314,16 @@ async function updateAIFactors(force = false) {
                         }
                     });
                     clearTimeout(timeoutId);
+                    updateFactorsLoadingProgress(30);
                 } catch (fetchError) {
                     clearTimeout(timeoutId);
+                    updateFactorsLoadingProgress(40);
                     if (fetchError.name === 'AbortError') {
                         throw new Error('請求超時（60秒）');
                     }
                     throw fetchError;
                 }
                 
-                updateFactorsLoadingProgress(30);
                 break; // 成功，跳出重試循環
             } catch (error) {
                 lastError = error;
@@ -6336,10 +6338,12 @@ async function updateAIFactors(force = false) {
         }
         
         if (!response) {
+            updateFactorsLoadingProgress(100);
             throw lastError || new Error('無法連接到服務器');
         }
         
         if (!response.ok) {
+            updateFactorsLoadingProgress(50);
             const errorText = await response.text().catch(() => '無法讀取錯誤訊息');
             let errorData;
             try {
@@ -6348,12 +6352,17 @@ async function updateAIFactors(force = false) {
                 errorData = { error: errorText || `HTTP ${response.status}` };
             }
             console.error('❌ AI 分析 API 錯誤:', response.status, errorData);
+            updateFactorsLoadingProgress(100);
             throw new Error(errorData.error || `AI 分析 API 錯誤 (HTTP ${response.status})`);
         }
         
-        const data = await response.json();
+        updateFactorsLoadingProgress(50);
+        const data = await response.json().catch(async (parseError) => {
+            console.error('❌ 解析 AI 響應 JSON 失敗:', parseError);
+            updateFactorsLoadingProgress(100);
+            throw new Error('服務器響應格式錯誤');
+        });
         updateFactorsLoadingProgress(60);
-        
         console.log('📊 AI 分析響應:', {
             success: data.success,
             factorsCount: data.factors?.length || 0,
@@ -6362,6 +6371,7 @@ async function updateAIFactors(force = false) {
         });
         
         if (data.success && data.factors && Array.isArray(data.factors) && data.factors.length > 0) {
+            updateFactorsLoadingProgress(70);
             // 使用異步轉換確保所有文本都是繁體中文（即使服務端已轉換，也再次確保）
             const convertedData = await convertObjectToTraditionalAsync(data);
             
@@ -6416,7 +6426,7 @@ async function updateAIFactors(force = false) {
             }
             
             console.log('✅ AI 因素已更新:', Object.keys(aiFactors).length, '個日期');
-            updateFactorsLoadingProgress(90);
+            updateFactorsLoadingProgress(85);
             
             // 返回完整的分析數據供顯示使用（使用轉換後的數據）
             const result = {
@@ -6425,6 +6435,7 @@ async function updateAIFactors(force = false) {
                 timestamp: data.timestamp || new Date().toISOString(),
                 cached: false
             };
+            updateFactorsLoadingProgress(95);
             updateFactorsLoadingProgress(100);
             return result;
         } else if (data.success && data.summary) {
