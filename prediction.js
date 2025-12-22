@@ -5297,6 +5297,19 @@ function renderTrainingStatus(data) {
                             ` : ''}
                         </div>
                     ` : ''}
+                    
+                    <!-- 實時訓練日誌 -->
+                    <div id="realtime-training-logs" style="margin-top: var(--space-md); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-md); border: 1px solid var(--border-color); max-height: 400px; overflow-y: auto;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-xs);">
+                            <h5 style="margin: 0; color: var(--text-primary); font-size: 0.9rem;">📋 實時訓練日誌</h5>
+                            <button onclick="clearTrainingLogs()" style="padding: 4px 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; font-size: 0.75rem; color: var(--text-secondary);">
+                                清除
+                            </button>
+                        </div>
+                        <div id="training-logs-content" style="font-family: 'Courier New', monospace; font-size: 0.8rem; line-height: 1.6; color: var(--text-primary); white-space: pre-wrap; word-wrap: break-word;">
+                            <div style="color: var(--text-tertiary); font-style: italic;">等待訓練輸出...</div>
+                        </div>
+                    </div>
                 </div>
             ` : ''}
             ${training.config ? `
