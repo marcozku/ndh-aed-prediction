@@ -5136,6 +5136,8 @@ let trainingCountdownInterval = null;
 
 // 保存訓練詳情展開狀態（使用 localStorage 持久化）
 const TRAINING_DETAILS_EXPANDED_KEY = 'trainingDetailsExpanded';
+const TRAINING_LOG_DETAILS_OPEN_KEY = 'trainingLogDetailsOpen';
+const TRAINING_ERROR_DETAILS_OPEN_KEY = 'trainingErrorDetailsOpen';
 
 function getTrainingDetailsExpanded() {
     try {
@@ -5148,6 +5150,38 @@ function getTrainingDetailsExpanded() {
 function setTrainingDetailsExpanded(expanded) {
     try {
         localStorage.setItem(TRAINING_DETAILS_EXPANDED_KEY, expanded ? 'true' : 'false');
+    } catch (e) {
+        // localStorage 不可用時忽略
+    }
+}
+
+function getTrainingLogDetailsOpen() {
+    try {
+        return localStorage.getItem(TRAINING_LOG_DETAILS_OPEN_KEY) === 'true';
+    } catch (e) {
+        return false;
+    }
+}
+
+function setTrainingLogDetailsOpen(open) {
+    try {
+        localStorage.setItem(TRAINING_LOG_DETAILS_OPEN_KEY, open ? 'true' : 'false');
+    } catch (e) {
+        // localStorage 不可用時忽略
+    }
+}
+
+function getTrainingErrorDetailsOpen() {
+    try {
+        return localStorage.getItem(TRAINING_ERROR_DETAILS_OPEN_KEY) === 'true';
+    } catch (e) {
+        return false;
+    }
+}
+
+function setTrainingErrorDetailsOpen(open) {
+    try {
+        localStorage.setItem(TRAINING_ERROR_DETAILS_OPEN_KEY, open ? 'true' : 'false');
     } catch (e) {
         // localStorage 不可用時忽略
     }
@@ -5412,7 +5446,7 @@ function renderTrainingStatus(data) {
                     ${lastTrainingOutput ? `
                         <div style="margin-bottom: var(--space-md);">
                             <h5 style="margin: 0 0 var(--space-sm) 0; color: var(--text-primary); font-size: 0.95rem;">完整輸出日誌</h5>
-                            <details style="margin-top: var(--space-xs);">
+                            <details id="training-log-details" style="margin-top: var(--space-xs);" ${getTrainingLogDetailsOpen() ? 'open' : ''}>
                                 <summary style="cursor: pointer; padding: var(--space-xs); color: var(--text-secondary); font-size: 0.85rem; user-select: none;">點擊展開完整日誌</summary>
                                 <pre style="margin-top: var(--space-xs); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.8rem; overflow-x: auto; max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', monospace;">${escapeHtml(lastTrainingOutput)}</pre>
                             </details>
@@ -5422,7 +5456,7 @@ function renderTrainingStatus(data) {
                     ${lastTrainingError ? `
                         <div>
                             <h5 style="margin: 0 0 var(--space-sm) 0; color: var(--text-danger); font-size: 0.95rem;">錯誤日誌</h5>
-                            <details style="margin-top: var(--space-xs);">
+                            <details id="training-error-details" style="margin-top: var(--space-xs);" ${getTrainingErrorDetailsOpen() ? 'open' : ''}>
                                 <summary style="cursor: pointer; padding: var(--space-xs); color: var(--text-danger); font-size: 0.85rem; user-select: none;">點擊展開錯誤詳情</summary>
                                 <pre style="margin-top: var(--space-xs); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.8rem; overflow-x: auto; max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; color: var(--text-danger); font-family: 'Courier New', monospace;">${escapeHtml(lastTrainingError)}</pre>
                             </details>
@@ -5450,6 +5484,31 @@ function renderTrainingStatus(data) {
                     content.style.display = 'block';
                     toggleText.textContent = '收起';
                 }
+            }
+            
+            // 恢復 details 元素的展開狀態
+            const logDetails = document.getElementById('training-log-details');
+            if (logDetails) {
+                const shouldOpenLog = getTrainingLogDetailsOpen();
+                if (shouldOpenLog && !logDetails.open) {
+                    logDetails.open = true;
+                }
+                // 監聽 details 元素的 toggle 事件，保存狀態
+                logDetails.addEventListener('toggle', function() {
+                    setTrainingLogDetailsOpen(this.open);
+                });
+            }
+            
+            const errorDetails = document.getElementById('training-error-details');
+            if (errorDetails) {
+                const shouldOpenError = getTrainingErrorDetailsOpen();
+                if (shouldOpenError && !errorDetails.open) {
+                    errorDetails.open = true;
+                }
+                // 監聽 details 元素的 toggle 事件，保存狀態
+                errorDetails.addEventListener('toggle', function() {
+                    setTrainingErrorDetailsOpen(this.open);
+                });
             }
         });
     });
