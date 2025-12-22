@@ -15,12 +15,20 @@ from feature_engineering import create_comprehensive_features, get_feature_colum
 def load_ai_factors_from_db(conn):
     """從數據庫加載 AI 因子數據"""
     try:
+        import sqlalchemy
+        # 使用 SQLAlchemy 創建連接以避免警告
+        from sqlalchemy import create_engine
+        # 從 psycopg2 連接獲取連接字符串
+        dsn = conn.get_dsn_parameters()
+        connection_string = f"postgresql://{dsn.get('user')}:{dsn.get('password', '')}@{dsn.get('host')}:{dsn.get('port', 5432)}/{dsn.get('dbname')}"
+        engine = create_engine(connection_string)
+        
         query = """
             SELECT factors_cache
             FROM ai_factors_cache
             WHERE id = 1
         """
-        result = pd.read_sql_query(query, conn)
+        result = pd.read_sql_query(query, engine)
         if len(result) > 0 and result.iloc[0]['factors_cache'] is not None:
             import json
             factors_cache = result.iloc[0]['factors_cache']
@@ -50,14 +58,21 @@ def load_data_from_db():
             password=os.getenv('PGPASSWORD') or os.getenv('DATABASE_URL', '').split('@')[0].split(':')[-1] if '@' in os.getenv('DATABASE_URL', '') else None,
         )
         
+        # 使用 SQLAlchemy 創建連接以避免警告
+        from sqlalchemy import create_engine
+        # 從 psycopg2 連接獲取連接字符串
+        dsn = conn.get_dsn_parameters()
+        connection_string = f"postgresql://{dsn.get('user')}:{dsn.get('password', '')}@{dsn.get('host')}:{dsn.get('port', 5432)}/{dsn.get('dbname')}"
+        engine = create_engine(connection_string)
+        
         query = """
             SELECT date as Date, patient_count as Attendance
             FROM actual_data
             ORDER BY date ASC
         """
-        df = pd.read_sql_query(query, conn)
+        df = pd.read_sql_query(query, engine)
         
-        # 加載 AI 因子數據
+        # 加載 AI 因子數據（使用原始連接，因為 load_ai_factors_from_db 會創建自己的 engine）
         ai_factors = load_ai_factors_from_db(conn)
         if ai_factors:
             print(f"✅ 加載了 {len(ai_factors)} 個日期的 AI 因子數據")

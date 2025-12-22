@@ -47,24 +47,34 @@ def predict_with_xgboost(model, feature_cols, features_df):
 def load_ai_factors_from_db():
     """從數據庫加載 AI 因子數據"""
     try:
-        import psycopg2
+        from sqlalchemy import create_engine
         from dotenv import load_dotenv
         load_dotenv()
         
-        conn = psycopg2.connect(
-            host=os.getenv('PGHOST') or os.getenv('DATABASE_URL', '').split('@')[1].split('/')[0] if '@' in os.getenv('DATABASE_URL', '') else None,
-            database=os.getenv('PGDATABASE') or os.getenv('DATABASE_URL', '').split('/')[-1] if '/' in os.getenv('DATABASE_URL', '') else None,
-            user=os.getenv('PGUSER') or os.getenv('DATABASE_URL', '').split('://')[1].split(':')[0] if '://' in os.getenv('DATABASE_URL', '') else None,
-            password=os.getenv('PGPASSWORD') or os.getenv('DATABASE_URL', '').split('@')[0].split(':')[-1] if '@' in os.getenv('DATABASE_URL', '') else None,
-        )
+        # 構建連接字符串
+        database_url = os.getenv('DATABASE_URL')
+        if database_url:
+            # 如果已有完整的 DATABASE_URL，直接使用
+            if not database_url.startswith('postgresql://') and not database_url.startswith('postgres://'):
+                database_url = database_url.replace('postgres://', 'postgresql://', 1)
+            engine = create_engine(database_url)
+        else:
+            # 否則從環境變量構建
+            host = os.getenv('PGHOST', 'localhost')
+            database = os.getenv('PGDATABASE', 'postgres')
+            user = os.getenv('PGUSER', 'postgres')
+            password = os.getenv('PGPASSWORD', '')
+            port = os.getenv('PGPORT', '5432')
+            connection_string = f"postgresql://{user}:{password}@{host}:{port}/{database}"
+            engine = create_engine(connection_string)
         
         query = """
             SELECT factors_cache
             FROM ai_factors_cache
             WHERE id = 1
         """
-        result = pd.read_sql_query(query, conn)
-        conn.close()
+        result = pd.read_sql_query(query, engine)
+        engine.dispose()
         
         if len(result) > 0 and result.iloc[0]['factors_cache'] is not None:
             import json

@@ -46,7 +46,7 @@ def create_comprehensive_features(df, ai_factors_dict=None):
     # 填充 NaN 滯後值
     lag_cols = [col for col in df.columns if col.startswith('Attendance_Lag')]
     # 先向後填充，然後用平均值填充
-    df[lag_cols] = df[lag_cols].fillna(method='bfill')
+    df[lag_cols] = df[lag_cols].bfill()  # 使用 bfill() 替代 fillna(method='bfill')
     for col in lag_cols:
         df[col] = df[col].fillna(df['Attendance'].mean())
     
@@ -59,7 +59,7 @@ def create_comprehensive_features(df, ai_factors_dict=None):
     
     # 填充 NaN 滾動值
     rolling_cols = [col for col in df.columns if any(x in col for x in ['Rolling', 'Std', 'Max', 'Min'])]
-    df[rolling_cols] = df[rolling_cols].fillna(method='bfill')
+    df[rolling_cols] = df[rolling_cols].bfill()  # 使用 bfill() 替代 fillna(method='bfill')
     
     # ============ 二進制事件指標 ============
     df['Is_COVID_Period'] = ((df['Year'] >= 2020) & (df['Year'] <= 2022)).astype(int)
