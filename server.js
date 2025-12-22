@@ -191,8 +191,6 @@ function generateRecommendations(status, pythonInfo) {
     
     const missingModels = [];
     if (!status.models.xgboost) missingModels.push('XGBoost');
-    if (!status.models.lstm) missingModels.push('LSTM');
-    if (!status.models.prophet) missingModels.push('Prophet');
     
     if (missingModels.length > 0) {
         recommendations.push({
@@ -1259,7 +1257,7 @@ const apiHandlers = {
         }
     },
 
-    // 集成預測（Hybrid Ensemble）
+    // XGBoost 預測
     'POST /api/ensemble-predict': async (req, res) => {
         try {
             const data = await parseBody(req);
@@ -1378,7 +1376,7 @@ const apiHandlers = {
             // 檢查依賴
             const checkDependencies = (cmd) => {
                 return new Promise((resolve) => {
-                    const python = spawn(cmd, ['-c', 'import xgboost, tensorflow, prophet; print("OK")'], {
+                    const python = spawn(cmd, ['-c', 'import xgboost; print("OK")'], {
                         stdio: ['pipe', 'pipe', 'pipe'],
                         cwd: path.join(__dirname, 'python')
                     });

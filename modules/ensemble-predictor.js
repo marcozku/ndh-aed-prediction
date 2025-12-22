@@ -1,6 +1,6 @@
 /**
- * 集成預測器模組
- * 調用 Python 集成預測腳本（XGBoost + LSTM + Prophet）
+ * XGBoost 預測器模組
+ * 調用 Python XGBoost 預測腳本
  */
 const { spawn } = require('child_process');
 const path = require('path');
@@ -18,8 +18,7 @@ class EnsemblePredictor {
     isModelAvailable() {
         const requiredFiles = [
             'xgboost_model.json',
-            'lstm_model.h5',
-            'prophet_model.pkl'
+            'xgboost_features.json'
         ];
         
         return requiredFiles.every(file => {
@@ -38,7 +37,7 @@ class EnsemblePredictor {
         return new Promise((resolve, reject) => {
             // 檢查模型是否可用
             if (!this.isModelAvailable()) {
-                return reject(new Error('模型未訓練。請先運行 python/train_all_models.py'));
+                return reject(new Error('XGBoost 模型未訓練。請先運行 python/train_all_models.py'));
             }
 
             // 準備 Python 命令
@@ -89,18 +88,6 @@ class EnsemblePredictor {
                 model: 'xgboost_model.json',
                 features: 'xgboost_features.json',
                 metrics: 'xgboost_metrics.json'
-            },
-            lstm: {
-                model: 'lstm_model.h5',
-                scalerX: 'lstm_scaler_X.pkl',
-                scalerY: 'lstm_scaler_y.pkl',
-                features: 'lstm_features.json',
-                params: 'lstm_params.json',
-                metrics: 'lstm_metrics.json'
-            },
-            prophet: {
-                model: 'prophet_model.pkl',
-                metrics: 'prophet_metrics.json'
             }
         };
         

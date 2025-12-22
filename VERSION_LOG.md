@@ -1,5 +1,51 @@
 # 版本更新日誌
 
+## v2.4.15 - 2025-12-23 04:26 (HKT)
+
+### 🔄 重大變更：改為只使用 XGBoost 模型
+
+**核心變更**：
+1. **簡化模型架構**：
+   - 移除 LSTM 和 Prophet 模型
+   - 只使用 XGBoost 模型進行預測
+   - 簡化訓練流程，只訓練 XGBoost
+
+2. **Python 腳本更新**：
+   - `python/ensemble_predict.py` - 改為只使用 XGBoost 預測
+   - `python/train_all_models.py` - 只訓練 XGBoost 模型
+   - 移除 LSTM 和 Prophet 相關的加載和預測函數
+
+3. **Node.js 模組更新**：
+   - `modules/ensemble-predictor.js` - 只檢查 XGBoost 模型文件
+   - 更新模型狀態檢查邏輯
+
+4. **API 和前端更新**：
+   - `prediction.js` - 更新 `predictWithEnsemble()` 方法，只返回 XGBoost 結果
+   - `server.js` - 更新依賴檢查，只檢查 xgboost
+   - 更新前端顯示，只顯示 XGBoost 模型狀態
+
+**修改文件**：
+- `python/ensemble_predict.py` - 簡化為只使用 XGBoost
+- `python/train_all_models.py` - 只訓練 XGBoost
+- `modules/ensemble-predictor.js` - 只檢查 XGBoost
+- `prediction.js` - 更新相關邏輯
+- `server.js` - 更新依賴檢查
+- `package.json` - 更新版本號
+
+**使用方式**：
+```bash
+# 訓練 XGBoost 模型
+cd python
+python train_all_models.py
+
+# 或直接訓練
+python train_xgboost.py
+```
+
+**性能目標**：
+- MAE: < 13 病人（5.2% MAPE）
+- 使用 XGBoost 單一模型，簡化部署和維護
+
 ## v2.4.14 - 2025-12-23 04:09 (HKT)
 
 ### 🔧 修復：LSTM 訓練 CUDA 錯誤和 free(): invalid pointer 問題

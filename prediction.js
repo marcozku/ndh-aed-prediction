@@ -771,7 +771,7 @@ class NDHAttendancePredictor {
     }
     
     /**
-     * 使用集成方法預測（XGBoost + LSTM + Prophet）
+     * 使用 XGBoost 方法預測
      * @param {string} dateStr - 目標日期 (YYYY-MM-DD)
      * @param {Object} options - 選項 { useEnsemble: true, fallbackToStatistical: true }
      * @returns {Promise<Object>} 預測結果
@@ -823,17 +823,16 @@ class NDHAttendancePredictor {
                     lower: Math.round(result.ci95.low),
                     upper: Math.round(result.ci95.high)
                 },
-                method: 'hybrid_ensemble',
-                version: '2.4.0',
+                method: 'xgboost',
+                version: '2.4.15',
                 ensemble: {
-                    weights: result.weights_used,
                     individual: result.individual
                 },
                 researchBased: true,
                 worldClassTarget: true,
                 targetMAE: 13.0, // 目標 MAE < 13
                 targetMAPE: 5.2, // 目標 MAPE < 5.2%
-                models: ['xgboost', 'lstm', 'prophet']
+                models: ['xgboost']
             };
         } catch (error) {
             console.error('集成預測錯誤:', error);
@@ -5185,19 +5184,7 @@ function renderTrainingStatus(data) {
             name: 'XGBoost',
             icon: '🚀',
             description: '梯度提升樹模型',
-            weight: '40%'
-        },
-        lstm: {
-            name: 'LSTM',
-            icon: '🧠',
-            description: '長短期記憶網絡',
-            weight: '35%'
-        },
-        prophet: {
-            name: 'Prophet',
-            icon: '📈',
-            description: '時間序列預測',
-            weight: '25%'
+            weight: '100%'
         }
     };
     
@@ -5207,15 +5194,8 @@ function renderTrainingStatus(data) {
     // 根據訓練進度判斷當前訓練的模型
     let currentTrainingModel = null;
     if (isTraining && elapsedTime !== null) {
-        // XGBoost: 0-10分鐘, LSTM: 10-25分鐘, Prophet: 25-30分鐘
-        const elapsedMins = elapsedTime / 60000;
-        if (elapsedMins < 10) {
-            currentTrainingModel = 'xgboost';
-        } else if (elapsedMins < 25) {
-            currentTrainingModel = 'lstm';
-        } else {
-            currentTrainingModel = 'prophet';
-        }
+        // 只訓練 XGBoost
+        currentTrainingModel = 'xgboost';
     }
     
     for (const [modelKey, modelData] of Object.entries(modelInfo)) {
@@ -5294,10 +5274,10 @@ function renderTrainingStatus(data) {
                         ${lastTrainingDate ? formatTrainingDate(lastTrainingDate) : '從未訓練'}
                     </span>
                 </div>
-                <div class="ensemble-stat-item">
-                    <span class="ensemble-stat-label">可用模型</span>
-                    <span class="ensemble-stat-value">
-                        ${Object.values(models).filter(v => v).length} / 3
+                    <div class="ensemble-stat-item">
+                        <span class="ensemble-stat-label">可用模型</span>
+                        <span class="ensemble-stat-value">
+                        ${Object.values(models).filter(v => v).length} / 1
                     </span>
                 </div>
             </div>
@@ -5662,13 +5642,11 @@ function appendTrainingSummary(training, statusData) {
     // 檢查模型狀態
     const models = statusData?.details || {};
     const modelStatus = {
-        xgboost: models.xgboost?.exists || false,
-        lstm: models.lstm?.exists || false,
-        prophet: models.prophet?.exists || false
+        xgboost: models.xgboost?.exists || false
     };
     
     const successCount = Object.values(modelStatus).filter(Boolean).length;
-    const totalCount = 3;
+    const totalCount = 1;
     
     // 提取性能指標
     const extractMetrics = (modelName, output) => {
@@ -5694,8 +5672,6 @@ function appendTrainingSummary(training, statusData) {
     };
     
     const xgboostMetrics = extractMetrics('XGBoost', output);
-    const lstmMetrics = extractMetrics('LSTM', output);
-    const prophetMetrics = extractMetrics('Prophet', output);
     
     // 創建總結
     const summaryDiv = document.createElement('div');
@@ -5720,24 +5696,6 @@ function appendTrainingSummary(training, statusData) {
         summaryHTML += `</div>`;
     } else {
         summaryHTML += `<div style="margin-left: 12px; margin-bottom: 4px; color: var(--text-danger);">❌ XGBoost: 訓練失敗或文件缺失</div>`;
-    }
-    
-    // LSTM
-    if (modelStatus.lstm) {
-        summaryHTML += `<div style="margin-left: 12px; margin-bottom: 4px;">✅ LSTM: 已訓練`;
-        if (lstmMetrics.mae) summaryHTML += ` (MAE: ${lstmMetrics.mae.toFixed(2)})`;
-        summaryHTML += `</div>`;
-    } else {
-        summaryHTML += `<div style="margin-left: 12px; margin-bottom: 4px; color: var(--text-danger);">❌ LSTM: 訓練失敗或文件缺失</div>`;
-    }
-    
-    // Prophet
-    if (modelStatus.prophet) {
-        summaryHTML += `<div style="margin-left: 12px; margin-bottom: 4px;">✅ Prophet: 已訓練`;
-        if (prophetMetrics.mae) summaryHTML += ` (MAE: ${prophetMetrics.mae.toFixed(2)})`;
-        summaryHTML += `</div>`;
-    } else {
-        summaryHTML += `<div style="margin-left: 12px; margin-bottom: 4px; color: var(--text-danger);">❌ Prophet: 訓練失敗或文件缺失</div>`;
     }
     
     // 如果有錯誤
@@ -5812,67 +5770,6 @@ function parseTrainingOutput(output) {
             });
         }
         
-        // 檢查 LSTM
-        if (section.includes('train_lstm.py')) {
-            const success = section.includes('✅') || section.includes('訓練完成');
-            const failed = section.includes('❌') || section.includes('訓練失敗');
-            
-            const model = {
-                key: 'lstm',
-                name: 'LSTM',
-                success: success && !failed,
-                metrics: null,
-                error: null
-            };
-            
-            if (failed) {
-                model.error = '訓練失敗，請查看完整日誌';
-                result.allSuccess = false;
-            }
-            
-            result.models.push(model);
-            result.summary.push({
-                name: 'LSTM',
-                status: model.success ? 'success' : 'failed',
-                metrics: null
-            });
-        }
-        
-        // 檢查 Prophet
-        if (section.includes('train_prophet.py')) {
-            const success = section.includes('✅') || section.includes('訓練完成');
-            const failed = section.includes('❌') || section.includes('訓練失敗');
-            
-            const model = {
-                key: 'prophet',
-                name: 'Prophet',
-                success: success && !failed,
-                metrics: null,
-                error: null
-            };
-            
-            // 提取性能指標
-            const metricsMatch = section.match(/Prophet 模型性能:[\s\S]*?MAE: ([\d.]+)[\s\S]*?RMSE: ([\d.]+)[\s\S]*?MAPE: ([\d.]+)%/);
-            if (metricsMatch) {
-                model.metrics = {
-                    'MAE': `${metricsMatch[1]} 病人`,
-                    'RMSE': `${metricsMatch[2]} 病人`,
-                    'MAPE': `${metricsMatch[3]}%`
-                };
-            }
-            
-            if (failed) {
-                model.error = '訓練失敗，請查看完整日誌';
-                result.allSuccess = false;
-            }
-            
-            result.models.push(model);
-            result.summary.push({
-                name: 'Prophet',
-                status: model.success ? 'success' : 'failed',
-                metrics: model.metrics ? `MAE: ${model.metrics.MAE}, MAPE: ${model.metrics.MAPE}` : null
-            });
-        }
     }
     
     return result;

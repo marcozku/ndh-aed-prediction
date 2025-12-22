@@ -1,6 +1,6 @@
 """
-訓練所有模型的主腳本
-依次訓練 XGBoost、LSTM、Prophet，然後評估集成性能
+訓練 XGBoost 模型的主腳本
+只訓練 XGBoost 模型
 """
 import subprocess
 import sys
@@ -76,21 +76,7 @@ def run_training_script(script_name):
     print(f"工作目錄: {script_dir}")
     print(f"腳本路徑: {script_path}")
     
-    # 對於 LSTM 訓練，設置環境變數以強制使用 CPU
     env = os.environ.copy()
-    if 'train_lstm' in script_name:
-        print("🔧 為 LSTM 訓練設置 CPU-only 環境變數...")
-        env['CUDA_VISIBLE_DEVICES'] = '-1'
-        env['TF_CPP_MIN_LOG_LEVEL'] = '2'
-        env['TF_USE_GPU'] = '0'
-        env['TF_FORCE_GPU_ALLOW_GROWTH'] = 'false'
-        env['TF_GPU_ALLOCATOR'] = ''
-        # 完全禁用 XLA（防止 XLA 嘗試初始化 CUDA）
-        env['TF_XLA_FLAGS'] = '--tf_xla_cpu_global_jit=false --tf_xla_enable_xla_devices=false'
-        env['XLA_FLAGS'] = '--xla_gpu_force_compilation_parallelism=1'
-        env['TF_DISABLE_JIT'] = '1'
-        env['TF_DISABLE_CUDA'] = '1'
-        print("✅ 環境變數已設置（強制 CPU-only 模式，XLA 已禁用）")
     
     start_time = time.time()
     
@@ -142,14 +128,12 @@ def main():
     os.makedirs(models_dir, exist_ok=True)
     print(f"📁 模型目錄: {models_dir}")
     
-    print("🚀 開始訓練所有模型...")
-    print("這將依次訓練 XGBoost、LSTM 和 Prophet 模型")
-    print("預計需要 10-30 分鐘（取決於數據量和硬件）\n")
+    print("🚀 開始訓練 XGBoost 模型...")
+    print("只訓練 XGBoost 模型")
+    print("預計需要 5-10 分鐘（取決於數據量和硬件）\n")
     
     scripts = [
-        'train_xgboost.py',
-        'train_lstm.py',
-        'train_prophet.py'
+        'train_xgboost.py'
     ]
     
     results = {}
@@ -198,9 +182,7 @@ def main():
     print("📁 模型文件檢查:")
     print(f"{'='*60}")
     model_files = {
-        'XGBoost': ['xgboost_model.json', 'xgboost_features.json', 'xgboost_metrics.json'],
-        'LSTM': ['lstm_model.h5', 'lstm_scaler_X.pkl', 'lstm_scaler_y.pkl', 'lstm_features.json', 'lstm_params.json', 'lstm_metrics.json'],
-        'Prophet': ['prophet_model.pkl', 'prophet_metrics.json']
+        'XGBoost': ['xgboost_model.json', 'xgboost_features.json', 'xgboost_metrics.json']
     }
     
     all_files_exist = True
@@ -250,7 +232,7 @@ def main():
         print(f"✅ 所有模型文件完整")
         print(f"⏱️  總訓練時間: {total_elapsed_minutes:.2f} 分鐘")
         print(f"📦 總文件大小: {format_file_size(total_file_size)}")
-        print(f"\n💡 現在可以使用 ensemble_predict.py 進行預測")
+        print(f"\n💡 現在可以使用 ensemble_predict.py 進行預測（XGBoost 模型）")
         print(f"{'='*60}\n")
         sys.exit(0)
     else:
