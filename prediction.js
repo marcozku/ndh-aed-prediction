@@ -5748,7 +5748,11 @@ function toggleTrainingDetails() {
     const toggleText = document.getElementById('training-details-toggle-text');
     
     if (content && toggleText) {
-        if (content.style.display === 'none') {
+        const isCurrentlyHidden = content.style.display === 'none' || 
+                                   content.style.display === '' ||
+                                   window.getComputedStyle(content).display === 'none';
+        
+        if (isCurrentlyHidden) {
             content.style.display = 'block';
             toggleText.textContent = '收起';
             trainingDetailsExpanded = true; // 更新全局狀態
