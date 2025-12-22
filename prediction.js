@@ -5200,6 +5200,17 @@ function renderTrainingStatus(data) {
         setTrainingDetailsExpanded(isExpanded);
     }
     
+    // 保存 details 元素的展開狀態
+    const logDetails = document.getElementById('training-log-details');
+    if (logDetails) {
+        setTrainingLogDetailsOpen(logDetails.open);
+    }
+    
+    const errorDetails = document.getElementById('training-error-details');
+    if (errorDetails) {
+        setTrainingErrorDetailsOpen(errorDetails.open);
+    }
+    
     const models = data.models || {};
     const training = data.training || {};
     const isTraining = training.isTraining || false;
@@ -5490,25 +5501,31 @@ function renderTrainingStatus(data) {
             const logDetails = document.getElementById('training-log-details');
             if (logDetails) {
                 const shouldOpenLog = getTrainingLogDetailsOpen();
-                if (shouldOpenLog && !logDetails.open) {
+                if (shouldOpenLog) {
                     logDetails.open = true;
                 }
                 // 監聽 details 元素的 toggle 事件，保存狀態
-                logDetails.addEventListener('toggle', function() {
+                // 先移除可能存在的舊監聽器，避免重複
+                logDetails.removeEventListener('toggle', logDetails._toggleHandler);
+                logDetails._toggleHandler = function() {
                     setTrainingLogDetailsOpen(this.open);
-                });
+                };
+                logDetails.addEventListener('toggle', logDetails._toggleHandler);
             }
             
             const errorDetails = document.getElementById('training-error-details');
             if (errorDetails) {
                 const shouldOpenError = getTrainingErrorDetailsOpen();
-                if (shouldOpenError && !errorDetails.open) {
+                if (shouldOpenError) {
                     errorDetails.open = true;
                 }
                 // 監聽 details 元素的 toggle 事件，保存狀態
-                errorDetails.addEventListener('toggle', function() {
+                // 先移除可能存在的舊監聽器，避免重複
+                errorDetails.removeEventListener('toggle', errorDetails._toggleHandler);
+                errorDetails._toggleHandler = function() {
                     setTrainingErrorDetailsOpen(this.open);
-                });
+                };
+                errorDetails.addEventListener('toggle', errorDetails._toggleHandler);
             }
         });
     });
