@@ -3067,30 +3067,28 @@ async function initComparisonChart() {
                                     ...validComparisonData.map(d => d.ci80_high || 0)
                                 ].filter(v => v > 0);
                                 
-                                if (allValues.length === 0) return 20;
+                                if (allValues.length === 0) return 30;
                                 
                                 const dataMin = Math.min(...allValues);
                                 const dataMax = Math.max(...allValues);
                                 const valueRange = dataMax - dataMin;
                                 
-                                // 計算理想的步長（目標：6-8 個標籤）
-                                const idealStepSize = valueRange / 7;
+                                // 計算理想的步長（目標：5-6 個標籤，增加間距）
+                                const idealStepSize = valueRange / 5;
                                 
-                                // 將步長調整為合適的整數（20, 25, 30, 50, 100等）
-                                if (idealStepSize <= 20) return 20;
-                                if (idealStepSize <= 25) return 25;
+                                // 將步長調整為合適的整數（30, 50, 100等），增加間距
                                 if (idealStepSize <= 30) return 30;
                                 if (idealStepSize <= 50) return 50;
                                 if (idealStepSize <= 100) return 100;
                                 return Math.ceil(idealStepSize / 50) * 50; // 向上取整到50的倍數
                             })(),
-                            // 減少最大標籤數量，增加間距
-                            maxTicksLimit: window.innerWidth <= 600 ? 5 : 8,
-                            // 增加 padding，讓標籤之間有更多空間
-                            padding: window.innerWidth <= 600 ? 10 : 15,
+                            // 進一步減少最大標籤數量，增加間距
+                            maxTicksLimit: window.innerWidth <= 600 ? 4 : 6,
+                            // 大幅增加 padding，讓標籤之間有更多空間
+                            padding: window.innerWidth <= 600 ? 15 : 20,
                             // 確保自動跳過標籤以避免重疊
                             autoSkip: true,
-                            autoSkipPadding: 15
+                            autoSkipPadding: 20
                         }
                     }
                 }

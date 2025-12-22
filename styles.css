@@ -1269,13 +1269,13 @@ section h2 {
     z-index: 1 !important; /* 確保在 accuracy-stats 下方 */
 }
 
-/* 實際 vs 預測對比圖容器 - 減少高度以避免與統計卡片重疊，讓圖表居中 */
+/* 實際 vs 預測對比圖容器 - 增加高度，確保圖表有足夠空間 */
 #comparison-chart-container {
     width: 100% !important;
     max-width: 100% !important;
-    height: min(50vh, 500px) !important; /* 減少高度：視窗高度的50%，最大500px */
-    min-height: min(45vh, 450px) !important; /* 減少最小高度：視窗高度的45%，最小450px */
-    max-height: min(50vh, 500px) !important; /* 限制最大高度，防止無限增長 */
+    height: min(60vh, 600px) !important; /* 增加高度：視窗高度的60%，最大600px */
+    min-height: min(55vh, 550px) !important; /* 增加最小高度：視窗高度的55%，最小550px */
+    max-height: min(60vh, 600px) !important; /* 限制最大高度，防止無限增長 */
     padding-bottom: min(4vh, 30px) !important; /* 減少底部 padding：視窗高度的4%，最大30px */
     padding-top: 0px !important; /* 頂部 padding 由 Chart.js layout.padding 控制 */
     overflow: hidden !important; /* 隱藏溢出內容，防止容器增長 */
@@ -1542,17 +1542,17 @@ section h2 {
     }
     
     #comparison-chart-container {
-        height: min(65vh, 700px) !important; /* 增加高度：視窗高度的65%，最大700px */
-        min-height: min(60vh, 650px) !important; /* 增加最小高度：視窗高度的60%，最小650px */
-        max-height: min(65vh, 700px) !important; /* 限制最大高度，防止無限增長 */
+        height: min(70vh, 750px) !important; /* 增加高度：視窗高度的70%，最大750px */
+        min-height: min(65vh, 700px) !important; /* 增加最小高度：視窗高度的65%，最小700px */
+        max-height: min(70vh, 750px) !important; /* 限制最大高度，防止無限增長 */
         padding-bottom: min(6vh, 50px) !important; /* 減少底部 padding */
         overflow: hidden !important; /* 隱藏溢出內容 */
     }
     
     #comparison-chart-container canvas {
-        height: min(50vh, 550px) !important; /* 增加高度：視窗高度的50%，最大550px */
-        min-height: min(45vh, 500px) !important; /* 增加最小高度：視窗高度的45%，最小500px */
-        max-height: min(50vh, 550px) !important; /* 限制最大高度 */
+        height: 100% !important; /* 填滿容器高度 */
+        min-height: 100% !important; /* 確保至少填滿容器 */
+        max-height: 100% !important; /* 不超過容器高度 */
     }
     
     .chart-card.full-width {
@@ -1598,17 +1598,17 @@ section h2 {
     }
     
     #comparison-chart-container {
-        height: min(60vh, 650px) !important; /* 增加高度：視窗高度的60%，最大650px */
-        min-height: min(55vh, 600px) !important; /* 增加最小高度：視窗高度的55%，最小600px */
-        max-height: min(60vh, 650px) !important; /* 限制最大高度，防止無限增長 */
+        height: min(65vh, 700px) !important; /* 增加高度：視窗高度的65%，最大700px */
+        min-height: min(60vh, 650px) !important; /* 增加最小高度：視窗高度的60%，最小650px */
+        max-height: min(65vh, 700px) !important; /* 限制最大高度，防止無限增長 */
         padding-bottom: min(6vh, 50px) !important; /* 減少底部 padding */
         overflow: hidden !important; /* 隱藏溢出內容 */
     }
     
     #comparison-chart-container canvas {
-        height: min(45vh, 500px) !important; /* 增加高度：視窗高度的45%，最大500px */
-        min-height: min(40vh, 450px) !important; /* 增加最小高度：視窗高度的40%，最小450px */
-        max-height: min(45vh, 500px) !important; /* 限制最大高度 */
+        height: 100% !important; /* 填滿容器高度 */
+        min-height: 100% !important; /* 確保至少填滿容器 */
+        max-height: 100% !important; /* 不超過容器高度 */
     }
     
     .chart-card.full-width {
@@ -1660,15 +1660,17 @@ section h2 {
     }
     
     #comparison-chart-container {
-        height: auto !important;
-        min-height: min(40vh, 400px) !important; /* 世界級標準最小高度：視窗高度的40%，最小400px */
-        max-height: none !important;
-        padding-bottom: min(10vh, 80px) !important; /* 世界級標準底部 padding */
+        height: min(55vh, 550px) !important; /* 增加高度：視窗高度的55%，最大550px */
+        min-height: min(50vh, 500px) !important; /* 增加最小高度：視窗高度的50%，最小500px，確保窄屏不會變成線 */
+        max-height: min(55vh, 550px) !important; /* 限制最大高度 */
+        padding-bottom: min(6vh, 40px) !important; /* 減少底部 padding */
         margin-top: 56px !important; /* 大幅增加頂部間距，避免與 accuracy-stats 重疊 */
     }
     
     #comparison-chart-container canvas {
-        min-height: min(34vh, 350px) !important; /* 世界級標準最小高度 */
+        height: 100% !important; /* 填滿容器高度 */
+        min-height: 100% !important; /* 確保至少填滿容器 */
+        max-height: 100% !important; /* 不超過容器高度 */
     }
     
     .chart-card.full-width {
