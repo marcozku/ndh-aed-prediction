@@ -5444,6 +5444,145 @@ function renderTrainingStatus(data) {
     }
 }
 
+// 解析訓練輸出，提取詳細信息
+function parseTrainingOutput(output) {
+    if (!output) return { hasDetails: false, summary: [], models: [] };
+    
+    const result = {
+        hasDetails: true,
+        summary: [],
+        models: [],
+        allSuccess: true
+    };
+    
+    // 解析每個模型的訓練結果
+    const modelSections = output.split(/============================================================/);
+    
+    for (const section of modelSections) {
+        // 檢查 XGBoost
+        if (section.includes('train_xgboost.py')) {
+            const success = section.includes('✅') || section.includes('訓練完成');
+            const failed = section.includes('❌') || section.includes('訓練失敗');
+            
+            const model = {
+                key: 'xgboost',
+                name: 'XGBoost',
+                success: success && !failed,
+                metrics: null,
+                error: null
+            };
+            
+            // 提取性能指標
+            const metricsMatch = section.match(/XGBoost 模型性能:[\s\S]*?MAE: ([\d.]+)[\s\S]*?RMSE: ([\d.]+)[\s\S]*?MAPE: ([\d.]+)%/);
+            if (metricsMatch) {
+                model.metrics = {
+                    'MAE': `${metricsMatch[1]} 病人`,
+                    'RMSE': `${metricsMatch[2]} 病人`,
+                    'MAPE': `${metricsMatch[3]}%`
+                };
+            }
+            
+            // 提取錯誤信息
+            if (failed) {
+                const errorMatch = section.match(/TypeError:([^\n]+)/);
+                if (errorMatch) {
+                    model.error = `TypeError: ${errorMatch[1].trim()}`;
+                } else {
+                    model.error = '訓練失敗，請查看完整日誌';
+                }
+                result.allSuccess = false;
+            }
+            
+            result.models.push(model);
+            result.summary.push({
+                name: 'XGBoost',
+                status: model.success ? 'success' : 'failed',
+                metrics: model.metrics ? `MAE: ${model.metrics.MAE}, MAPE: ${model.metrics.MAPE}` : null
+            });
+        }
+        
+        // 檢查 LSTM
+        if (section.includes('train_lstm.py')) {
+            const success = section.includes('✅') || section.includes('訓練完成');
+            const failed = section.includes('❌') || section.includes('訓練失敗');
+            
+            const model = {
+                key: 'lstm',
+                name: 'LSTM',
+                success: success && !failed,
+                metrics: null,
+                error: null
+            };
+            
+            if (failed) {
+                model.error = '訓練失敗，請查看完整日誌';
+                result.allSuccess = false;
+            }
+            
+            result.models.push(model);
+            result.summary.push({
+                name: 'LSTM',
+                status: model.success ? 'success' : 'failed',
+                metrics: null
+            });
+        }
+        
+        // 檢查 Prophet
+        if (section.includes('train_prophet.py')) {
+            const success = section.includes('✅') || section.includes('訓練完成');
+            const failed = section.includes('❌') || section.includes('訓練失敗');
+            
+            const model = {
+                key: 'prophet',
+                name: 'Prophet',
+                success: success && !failed,
+                metrics: null,
+                error: null
+            };
+            
+            // 提取性能指標
+            const metricsMatch = section.match(/Prophet 模型性能:[\s\S]*?MAE: ([\d.]+)[\s\S]*?RMSE: ([\d.]+)[\s\S]*?MAPE: ([\d.]+)%/);
+            if (metricsMatch) {
+                model.metrics = {
+                    'MAE': `${metricsMatch[1]} 病人`,
+                    'RMSE': `${metricsMatch[2]} 病人`,
+                    'MAPE': `${metricsMatch[3]}%`
+                };
+            }
+            
+            if (failed) {
+                model.error = '訓練失敗，請查看完整日誌';
+                result.allSuccess = false;
+            }
+            
+            result.models.push(model);
+            result.summary.push({
+                name: 'Prophet',
+                status: model.success ? 'success' : 'failed',
+                metrics: model.metrics ? `MAE: ${model.metrics.MAE}, MAPE: ${model.metrics.MAPE}` : null
+            });
+        }
+    }
+    
+    return result;
+}
+
+// 切換訓練詳情顯示
+function toggleTrainingDetails() {
+    const content = document.getElementById('training-details-content');
+    const toggleText = document.getElementById('training-details-toggle-text');
+    
+    if (content && toggleText) {
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            toggleText.textContent = '收起';
+        } else {
+            content.style.display = 'none';
+            toggleText.textContent = '展開';
+        }
+    }
+}
+
 // 格式化剩餘時間
 function formatRemainingTime(ms) {
     if (ms <= 0) return '即將完成';
