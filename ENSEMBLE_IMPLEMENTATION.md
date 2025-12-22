@@ -1,8 +1,8 @@
-# 集成預測系統實施指南
+# XGBoost 預測系統實施指南
 
 ## 🎯 概述
 
-已成功實施**集成預測系統（Hybrid Ensemble）**，結合 XGBoost + LSTM + Prophet 三個模型，根據 `ai/AI-AED-Algorithm-Specification.txt` 的規格實現。
+已成功實施**XGBoost 預測系統**，使用單一 XGBoost 模型進行預測，根據 `ai/AI-AED-Algorithm-Specification.txt` 的規格實現。
 
 ## 📊 性能目標
 
@@ -19,7 +19,7 @@ cd python
 pip install -r requirements.txt
 ```
 
-### 2. 訓練所有模型
+### 2. 訓練 XGBoost 模型
 
 ```bash
 cd python
@@ -27,7 +27,7 @@ python train_all_models.py
 ```
 
 **注意**: 
-- 首次訓練需要 15-35 分鐘（取決於數據量和硬件）
+- 訓練需要 5-10 分鐘（取決於數據量和硬件）
 - 確保數據庫環境變數已設置，或 CSV 文件在項目根目錄
 
 ### 3. 使用集成預測
@@ -39,10 +39,10 @@ const { NDHAttendancePredictor } = require('./prediction');
 
 const predictor = new NDHAttendancePredictor(historicalData);
 
-// 使用集成方法預測
+// 使用 XGBoost 方法預測
 const result = await predictor.predictWithEnsemble('2025-12-25', {
     useEnsemble: true,
-    fallbackToStatistical: true  // 如果集成失敗，回退到統計方法
+    fallbackToStatistical: true  // 如果 XGBoost 失敗，回退到統計方法
 });
 
 console.log('預測結果:', result);
@@ -75,16 +75,13 @@ python/
 ├── requirements.txt          # Python 依賴
 ├── feature_engineering.py   # 特徵工程（50+ 特徵）
 ├── train_xgboost.py         # XGBoost 訓練
-├── train_lstm.py            # LSTM 訓練
-├── train_prophet.py         # Prophet 訓練
-├── train_all_models.py      # 訓練所有模型
-├── ensemble_predict.py      # 集成預測核心邏輯
+├── train_all_models.py      # 訓練 XGBoost 模型
+├── ensemble_predict.py      # XGBoost 預測核心邏輯
 ├── predict.py               # 預測接口
 └── models/                  # 訓練好的模型（自動創建）
     ├── xgboost_model.json
-    ├── lstm_model.h5
-    ├── prophet_model.pkl
-    └── *_metrics.json       # 評估指標
+    ├── xgboost_features.json
+    └── xgboost_metrics.json  # 評估指標
 
 modules/
 └── ensemble-predictor.js    # Node.js 集成預測器模組
@@ -93,15 +90,11 @@ prediction.js                # 已添加 predictWithEnsemble() 方法
 server.js                    # 已添加 /api/ensemble-predict 端點
 ```
 
-## 🔧 集成權重
+## 🔧 模型說明
 
-根據算法規格文件，默認權重為：
+- **XGBoost**: 100% - 梯度提升樹模型，捕捉複雜模式、非線性關係
 
-- **XGBoost**: 40% - 捕捉複雜模式、非線性關係
-- **LSTM**: 35% - 學習序列、處理多尺度季節性
-- **Prophet**: 25% - 可解釋性、處理制度變化
-
-權重可在 `python/ensemble_predict.py` 中的 `ENSEMBLE_WEIGHTS` 調整。
+系統使用單一 XGBoost 模型進行預測，簡化部署和維護。
 
 ## 🎓 特徵工程
 
@@ -141,17 +134,14 @@ server.js                    # 已添加 /api/ensemble-predict 端點
 2. **特徵工程**: 自動創建 50+ 特徵
 3. **模型訓練**: 
    - XGBoost: ~5-10 分鐘
-   - LSTM: ~10-20 分鐘
-   - Prophet: ~2-5 分鐘
 4. **模型保存**: 保存到 `python/models/` 目錄
 
 ### 預測流程
 
-1. **加載模型**: 從 `python/models/` 加載三個模型
+1. **加載模型**: 從 `python/models/` 加載 XGBoost 模型
 2. **準備特徵**: 為目標日期創建特徵
-3. **單模型預測**: 每個模型獨立預測
-4. **集成預測**: 加權平均三個模型的預測
-5. **置信區間**: 基於模型間分歧計算 CI
+3. **XGBoost 預測**: 使用 XGBoost 模型進行預測
+4. **置信區間**: 基於預測值的不確定性計算 CI
 
 ## ⚙️ 配置選項
 
@@ -164,15 +154,9 @@ server.js                    # 已添加 /api/ensemble-predict 端點
 }
 ```
 
-### 模型權重（在 `python/ensemble_predict.py`）
+### 模型說明
 
-```python
-ENSEMBLE_WEIGHTS = {
-    'xgboost': 0.40,
-    'lstm': 0.35,
-    'prophet': 0.25
-}
-```
+系統使用單一 XGBoost 模型，無需配置權重。
 
 ## 📈 性能監控
 
@@ -181,12 +165,6 @@ ENSEMBLE_WEIGHTS = {
 ```bash
 # XGBoost
 cat python/models/xgboost_metrics.json
-
-# LSTM
-cat python/models/lstm_metrics.json
-
-# Prophet
-cat python/models/prophet_metrics.json
 ```
 
 ### 檢查模型狀態
@@ -200,9 +178,7 @@ console.log(status);
 // {
 //   available: true,
 //   models: {
-//     xgboost: true,
-//     lstm: true,
-//     prophet: true
+//     xgboost: true
 //   },
 //   modelsDir: '...'
 // }
