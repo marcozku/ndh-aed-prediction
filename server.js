@@ -429,6 +429,24 @@ const apiHandlers = {
         try {
             const { autoAddData } = require('./auto-add-data-on-deploy');
             await autoAddData();
+            
+            // 觸發自動訓練檢查（異步，不阻塞響應）
+            try {
+                const { getAutoTrainManager } = require('./modules/auto-train-manager');
+                const trainManager = getAutoTrainManager();
+                trainManager.triggerTrainingCheck(db).then(result => {
+                    if (result.triggered) {
+                        console.log(`✅ 自動訓練已觸發: ${result.reason}`);
+                    } else {
+                        console.log(`ℹ️ 自動訓練未觸發: ${result.reason}`);
+                    }
+                }).catch(err => {
+                    console.error('自動訓練檢查失敗:', err);
+                });
+            } catch (err) {
+                console.warn('自動訓練模組不可用:', err.message);
+            }
+            
             sendJson(res, { success: true, message: '實際數據已自動添加' });
         } catch (err) {
             console.error('自動添加實際數據失敗:', err);
@@ -728,6 +746,25 @@ const apiHandlers = {
                             } catch (err) {
                                 console.warn(`⚠️ 計算 ${date} 準確度時出錯:`, err.message);
                             }
+                        }
+                    }
+                    
+                    // 觸發自動訓練檢查（異步，不阻塞響應）
+                    if (successCount > 0) {
+                        try {
+                            const { getAutoTrainManager } = require('./modules/auto-train-manager');
+                            const trainManager = getAutoTrainManager();
+                            trainManager.triggerTrainingCheck(db).then(result => {
+                                if (result.triggered) {
+                                    console.log(`✅ 自動訓練已觸發: ${result.reason}`);
+                                } else {
+                                    console.log(`ℹ️ 自動訓練未觸發: ${result.reason}`);
+                                }
+                            }).catch(err => {
+                                console.error('自動訓練檢查失敗:', err);
+                            });
+                        } catch (err) {
+                            console.warn('自動訓練模組不可用:', err.message);
                         }
                     }
                     

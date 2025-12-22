@@ -19,8 +19,8 @@ class AutoTrainManager {
         
         // 配置
         this.config = {
-            minDaysSinceLastTrain: 1,      // 至少間隔 1 天
-            minNewDataRecords: 7,           // 至少 7 筆新數據才觸發
+            minDaysSinceLastTrain: 0,      // 至少間隔 0 天（允許同一天多次訓練，如果數據足夠）
+            minNewDataRecords: 1,           // 至少 1 筆新數據才觸發（降低門檻，更靈敏）
             maxTrainingInterval: 7,         // 最多 7 天訓練一次
             trainingTimeout: 3600000,       // 訓練超時：1 小時
             enableAutoTrain: process.env.ENABLE_AUTO_TRAIN !== 'false' // 默認啟用
