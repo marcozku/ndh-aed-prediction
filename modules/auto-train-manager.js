@@ -273,6 +273,8 @@ class AutoTrainManager {
                 
                 this._attachPythonHandlers(python, resolve, startTime, dataCount, modelsDir);
             });
+        });
+    }
 
     /**
      * 附加 Python 進程處理器

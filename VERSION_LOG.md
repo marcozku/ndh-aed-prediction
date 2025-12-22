@@ -1,5 +1,23 @@
 # 版本更新日誌
 
+## v2.4.12 - 2025-12-23 02:17 (HKT)
+
+### 🔧 修復：訓練管理器語法錯誤
+
+**問題修復**：
+1. **修復 Promise 未關閉錯誤**：
+   - 修復 `startTraining` 方法中 `new Promise` 未正確關閉的語法錯誤
+   - 添加缺失的 `});` 來正確關閉 Promise
+   - 確保 `_attachPythonHandlers` 方法在類層級正確定義
+
+2. **模組載入修復**：
+   - 修復導致 "Unexpected token '{'" 錯誤的根本原因
+   - 確保訓練管理器模組可以正常載入
+   - 訓練 API 現在可以正常啟動
+
+**修改文件**：
+- `modules/auto-train-manager.js` - 修復 `startTraining` 方法的語法錯誤
+
 ## v2.4.11 - 2025-12-23 02:05 (HKT)
 
 ### 🔧 修復：訓練 API 錯誤處理
