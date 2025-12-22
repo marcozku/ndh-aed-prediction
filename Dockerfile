@@ -19,10 +19,10 @@ RUN npm install
 # 複製 Python requirements
 COPY python/requirements.txt python/requirements.txt
 
-# 安裝 Python 依賴
-RUN pip3 install --upgrade pip && \
+# 安裝 Python 依賴（使用 --break-system-packages，因為在 Docker 容器中）
+RUN pip3 install --upgrade pip --break-system-packages && \
     cd python && \
-    pip3 install -r requirements.txt
+    pip3 install -r requirements.txt --break-system-packages
 
 # 複製所有文件
 COPY . .
