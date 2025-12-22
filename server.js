@@ -1550,26 +1550,66 @@ const apiHandlers = {
     'GET /api/training-status': async (req, res) => {
         try {
             const { getAutoTrainManager } = require('./modules/auto-train-manager');
-            const trainManager = getAutoTrainManager();
+            let trainManager;
+            try {
+                trainManager = getAutoTrainManager();
+            } catch (initErr) {
+                console.error('訓練管理器初始化失敗:', initErr);
+                return sendJson(res, {
+                    success: true,
+                    data: {
+                        isTraining: false,
+                        error: initErr.message || '訓練管理器初始化失敗',
+                        lastTrainingDate: null,
+                        lastDataCount: 0,
+                        trainingStartTime: null,
+                        estimatedRemainingTime: null,
+                        elapsedTime: null,
+                        estimatedDuration: 1800000,
+                        config: {
+                            minDaysSinceLastTrain: 1,
+                            minNewDataRecords: 7,
+                            maxTrainingInterval: 7,
+                            trainingTimeout: 3600000,
+                            enableAutoTrain: false
+                        },
+                        statusFile: null
+                    }
+                });
+            }
+            
             if (!trainManager) {
                 throw new Error('訓練管理器初始化失敗');
             }
+            
             const status = trainManager.getStatus();
-
+            
             sendJson(res, {
                 success: true,
                 data: status
             });
         } catch (err) {
             console.error('獲取訓練狀態失敗:', err);
+            console.error('錯誤堆棧:', err.stack);
             sendJson(res, {
-                success: false,
-                error: err.message,
+                success: true,
                 data: {
                     isTraining: false,
                     error: err.message || '訓練管理器不可用',
                     lastTrainingDate: null,
-                    lastDataCount: 0
+                    lastDataCount: 0,
+                    trainingStartTime: null,
+                    estimatedRemainingTime: null,
+                    elapsedTime: null,
+                    estimatedDuration: 1800000,
+                    config: {
+                        minDaysSinceLastTrain: 1,
+                        minNewDataRecords: 7,
+                        maxTrainingInterval: 7,
+                        trainingTimeout: 3600000,
+                        enableAutoTrain: false
+                    },
+                    statusFile: null
                 }
             });
         }

@@ -26,7 +26,25 @@ class AutoTrainManager {
         
         // 訓練狀態文件
         this.statusFile = path.join(__dirname, '../python/models/.training_status.json');
-        this._loadTrainingStatus();
+        
+        // 確保模型目錄存在
+        const modelsDir = path.join(__dirname, '../python/models');
+        if (!fs.existsSync(modelsDir)) {
+            try {
+                fs.mkdirSync(modelsDir, { recursive: true });
+                console.log(`📁 創建模型目錄: ${modelsDir}`);
+            } catch (err) {
+                console.warn(`⚠️ 無法創建模型目錄: ${err.message}`);
+            }
+        }
+        
+        // 加載訓練狀態
+        try {
+            this._loadTrainingStatus();
+        } catch (err) {
+            console.warn('⚠️ 加載訓練狀態失敗:', err.message);
+            // 繼續使用默認值
+        }
     }
 
     /**
