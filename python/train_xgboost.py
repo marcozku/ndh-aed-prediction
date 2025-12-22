@@ -92,8 +92,12 @@ def train_xgboost_model(train_data, test_data, feature_cols):
     X_test = test_data[feature_cols].fillna(0)
     y_test = test_data['Attendance']
     
+    # 創建自定義 XGBoost 類以修復 _estimator_type 錯誤
+    class XGBoostModel(xgb.XGBRegressor):
+        _estimator_type = "regressor"
+    
     # 根據算法規格文件配置
-    model = xgb.XGBRegressor(
+    model = XGBoostModel(
         n_estimators=500,
         max_depth=6,
         learning_rate=0.05,

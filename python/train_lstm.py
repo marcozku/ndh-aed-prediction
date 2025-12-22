@@ -177,54 +177,65 @@ def train_lstm_model(train_data, test_data, feature_cols, seq_length=60):
     return model, scaler_X, scaler_y, {'mae': mae, 'rmse': rmse, 'mape': mape}
 
 def main():
-    # 創建模型目錄（相對於當前腳本目錄）
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    models_dir = os.path.join(script_dir, 'models')
-    os.makedirs(models_dir, exist_ok=True)
-    print(f"模型目錄: {models_dir}")
-    
-    # 加載數據
-    df = load_data_from_db()
-    if df is None or len(df) == 0:
-        csv_paths = [
-            '../NDH_AED_Attendance_2025-12-01_to_2025-12-21.csv',
-            'NDH_AED_Attendance_2025-12-01_to_2025-12-21.csv',
-        ]
-        for csv_path in csv_paths:
-            if os.path.exists(csv_path):
-                df = load_data_from_csv(csv_path)
-                if df is not None and len(df) > 0:
-                    break
-    
-    if df is None or len(df) == 0:
-        print("錯誤: 無法加載數據")
-        sys.exit(1)
-    
-    print(f"加載了 {len(df)} 筆數據")
-    
-    # 創建特徵
-    df = create_comprehensive_features(df)
-    df = df.dropna(subset=['Attendance'])
-    
-    # 時間序列分割
-    split_idx = int(len(df) * 0.8)
-    train_data = df[:split_idx].copy()
-    test_data = df[split_idx:].copy()
-    
-    print(f"訓練集: {len(train_data)} 筆")
-    print(f"測試集: {len(test_data)} 筆")
-    
-    # 獲取特徵列
-    feature_cols = get_feature_columns()
-    feature_cols = [col for col in feature_cols if col in df.columns]
-    
-    print(f"使用 {len(feature_cols)} 個特徵")
-    
-    # 訓練模型
-    model, scaler_X, scaler_y, metrics = train_lstm_model(train_data, test_data, feature_cols)
-    
-    if model is None:
-        print("模型訓練失敗")
+    try:
+        # 創建模型目錄（相對於當前腳本目錄）
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        models_dir = os.path.join(script_dir, 'models')
+        os.makedirs(models_dir, exist_ok=True)
+        print(f"模型目錄: {models_dir}")
+        
+        # 加載數據
+        print("正在從數據庫加載數據...")
+        df = load_data_from_db()
+        if df is None or len(df) == 0:
+            print("數據庫加載失敗，嘗試從 CSV 加載...")
+            csv_paths = [
+                '../NDH_AED_Attendance_2025-12-01_to_2025-12-21.csv',
+                'NDH_AED_Attendance_2025-12-01_to_2025-12-21.csv',
+            ]
+            for csv_path in csv_paths:
+                if os.path.exists(csv_path):
+                    df = load_data_from_csv(csv_path)
+                    if df is not None and len(df) > 0:
+                        break
+        
+        if df is None or len(df) == 0:
+            print("錯誤: 無法加載數據")
+            sys.exit(1)
+        
+        print(f"加載了 {len(df)} 筆數據")
+        
+        # 創建特徵
+        print("正在創建特徵...")
+        df = create_comprehensive_features(df)
+        df = df.dropna(subset=['Attendance'])
+        print(f"特徵創建完成，剩餘 {len(df)} 筆數據")
+        
+        # 時間序列分割
+        split_idx = int(len(df) * 0.8)
+        train_data = df[:split_idx].copy()
+        test_data = df[split_idx:].copy()
+        
+        print(f"訓練集: {len(train_data)} 筆")
+        print(f"測試集: {len(test_data)} 筆")
+        
+        # 獲取特徵列
+        feature_cols = get_feature_columns()
+        feature_cols = [col for col in feature_cols if col in df.columns]
+        
+        print(f"使用 {len(feature_cols)} 個特徵")
+        
+        # 訓練模型
+        print("開始訓練 LSTM 模型...")
+        model, scaler_X, scaler_y, metrics = train_lstm_model(train_data, test_data, feature_cols)
+        
+        if model is None:
+            print("錯誤: 模型訓練失敗")
+            sys.exit(1)
+    except Exception as e:
+        print(f"錯誤: 訓練過程中發生異常: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
     
     # 保存模型（使用絕對路徑）
