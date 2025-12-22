@@ -6695,6 +6695,10 @@ function initCSVUpload() {
                     if (result.count > 0) {
                         showStatus(`✅ ${result.message}`, 'success');
                         
+                        // 重置按鈕狀態
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = '上傳';
+                        
                         // 刷新頁面數據（不重新載入整個頁面，只刷新相關數據）
                         setTimeout(async () => {
                             try {
@@ -6719,6 +6723,22 @@ function initCSVUpload() {
                                     updateUI(predictor);
                                 }
                                 showStatus('✅ 數據已更新', 'success');
+                                
+                                // 3 秒後自動關閉對話框
+                                setTimeout(() => {
+                                    const modal = document.getElementById('csv-upload-modal');
+                                    if (modal) {
+                                        modal.style.display = 'none';
+                                        // 清空輸入
+                                        const textInput = document.getElementById('csv-text-input');
+                                        const fileInput = document.getElementById('csv-file-input');
+                                        if (textInput) textInput.value = '';
+                                        if (fileInput) fileInput.value = '';
+                                        currentData = null;
+                                        clearPreview();
+                                        clearStatus();
+                                    }
+                                }, 3000);
                             } catch (refreshError) {
                                 console.error('刷新數據失敗:', refreshError);
                                 // 如果刷新失敗，則重新載入頁面
