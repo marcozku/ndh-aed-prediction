@@ -95,6 +95,9 @@ def main():
             if not exists:
                 all_files_exist = False
     
+    # 檢查所有腳本是否成功
+    all_success = all(results.values())
+    
     if all_success and all_files_exist:
         print("\n🎉 所有模型訓練完成且文件完整！")
         print("現在可以使用 ensemble_predict.py 進行預測")
