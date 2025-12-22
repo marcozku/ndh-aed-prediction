@@ -1,5 +1,37 @@
 # 版本更新日誌
 
+## v2.4.8 - 2025-12-23 01:50 (HKT)
+
+### 🐳 改用 Dockerfile 構建
+
+**構建方式變更**：
+1. **創建 Dockerfile**：
+   - 使用 Node.js 18 官方映像
+   - 安裝 Python 3 和 pip3
+   - 安裝 Node.js 和 Python 依賴
+   - 創建模型目錄
+
+2. **移除 Nixpacks 配置**：
+   - 刪除 `nixpacks.toml`（改用 Dockerfile）
+   - 刪除 `railway.json`（Railway 會自動檢測 Dockerfile）
+
+3. **添加 .dockerignore**：
+   - 排除不必要的文件
+   - 優化構建速度
+
+**新增文件**：
+- `Dockerfile` - Docker 構建配置
+- `.dockerignore` - Docker 忽略文件
+
+**刪除文件**：
+- `nixpacks.toml` - 改用 Dockerfile
+- `railway.json` - Railway 會自動檢測 Dockerfile
+
+**優勢**：
+- 更可靠的構建過程
+- 更好的錯誤處理
+- 標準化的構建方式
+
 ## v2.4.7 - 2025-12-23 01:45 (HKT)
 
 ### 🔧 修復：Nixpacks 配置錯誤
