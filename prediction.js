@@ -5392,6 +5392,7 @@ async function updateAIFactors(force = false) {
                 const timeSinceUpdate = Math.floor((now - lastAIUpdateTime) / 1000 / 60);
                 const minutesRemaining = Math.ceil((AI_UPDATE_INTERVAL - (now - lastAIUpdateTime)) / 1000 / 60);
                 console.log(`⏭️ 跳過 AI 更新（距離上次更新僅 ${timeSinceUpdate} 分鐘，需等待 ${minutesRemaining} 分鐘）`);
+                updateFactorsLoadingProgress(100); // 確保進度更新到 100%
                 return cacheData;
             }
         }
@@ -5404,6 +5405,7 @@ async function updateAIFactors(force = false) {
         console.log(`⏭️ 跳過 AI 更新（距離上次更新僅 ${timeSinceUpdate} 分鐘，需等待 ${minutesRemaining} 分鐘）`);
         // 返回當前緩存的數據
         const cacheData = await loadAIFactorsFromCache();
+        updateFactorsLoadingProgress(100); // 確保進度更新到 100%
         return cacheData.cached ? cacheData : { factors: [], summary: '使用緩存數據', cached: true };
     }
     
@@ -5684,14 +5686,8 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         updateFactorsLoadingProgress(100);
         if (loadingEl) loadingEl.style.display = 'none';
         factorsEl.style.display = 'block';
-        // 檢查是否正在載入（factors-loading 是否可見）
+        // 確保隱藏 factors-loading 元素（進度已到 100%）
         const factorsLoadingEl = document.getElementById('factors-loading');
-        if (factorsLoadingEl && factorsLoadingEl.style.display !== 'none') {
-            // 如果正在載入，保持顯示載入狀態
-            return;
-        }
-        // 否則顯示空狀態或錯誤狀態
-        // 確保隱藏 factors-loading 元素
         if (factorsLoadingEl) {
             factorsLoadingEl.style.display = 'none';
         }

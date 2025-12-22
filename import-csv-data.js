@@ -9,24 +9,79 @@ const path = require('path');
 // 使用共享的數據庫連接（如果可用）
 let pool = null;
 
-// 初始化數據庫連接
+// 初始化數據庫連接（使用與 database.js 相同的邏輯）
 function initPool() {
     if (pool) return pool;
     
     const { Pool } = require('pg');
-    // 從環境變量或默認值讀取數據庫配置
-    pool = new Pool({
-        host: process.env.DB_HOST || process.env.PGHOST || 'localhost',
-        port: process.env.DB_PORT || process.env.PGPORT || 5432,
-        database: process.env.DB_NAME || process.env.PGDATABASE || 'ndh_aed',
-        user: process.env.DB_USER || process.env.PGUSER || 'postgres',
-        password: process.env.DB_PASSWORD || process.env.PGPASSWORD || '',
-        connectionString: process.env.DATABASE_URL,
-        ssl: process.env.DB_SSL === 'true' || process.env.DATABASE_URL?.includes('sslmode=require') 
-            ? { rejectUnauthorized: false } 
-            : false
-    });
-    return pool;
+    // Try individual environment variables first (Railway sets these)
+    const pgHost = process.env.PGHOST;
+    const pgUser = process.env.PGUSER || process.env.POSTGRES_USER;
+    const pgPassword = process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD;
+    const pgDatabase = process.env.PGDATABASE || process.env.POSTGRES_DB;
+    const pgPort = process.env.PGPORT || 5432;
+    
+    // Or try DATABASE_URL
+    const dbUrl = process.env.DATABASE_URL;
+    
+    if (pgHost && pgUser && pgPassword && pgDatabase) {
+        console.log('📡 Using individual PG environment variables...');
+        const poolConfig = {
+            user: pgUser,
+            password: pgPassword,
+            host: pgHost,
+            port: parseInt(pgPort),
+            database: pgDatabase,
+            max: 20,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 20000
+        };
+
+        // Only enable SSL for external connections
+        if (!pgHost.includes('.railway.internal')) {
+            poolConfig.ssl = { rejectUnauthorized: false };
+        }
+        
+        pool = new Pool(poolConfig);
+        pool.on('error', (err) => {
+            console.error('❌ 數據庫連接池錯誤:', err.message);
+        });
+        
+        return pool;
+    }
+    
+    if (dbUrl && !dbUrl.includes('${{')) {
+        console.log('📡 Using DATABASE_URL...');
+        try {
+            const url = new URL(dbUrl);
+            const poolConfig = {
+                user: url.username,
+                password: decodeURIComponent(url.password),
+                host: url.hostname,
+                port: parseInt(url.port) || 5432,
+                database: url.pathname.slice(1),
+                max: 20,
+                idleTimeoutMillis: 30000,
+                connectionTimeoutMillis: 20000
+            };
+
+            if (!url.hostname.includes('.railway.internal')) {
+                poolConfig.ssl = { rejectUnauthorized: false };
+            }
+            
+            pool = new Pool(poolConfig);
+            pool.on('error', (err) => {
+                console.error('❌ 數據庫連接池錯誤:', err.message);
+            });
+            
+            return pool;
+        } catch (err) {
+            console.error('❌ Failed to parse DATABASE_URL:', err.message);
+        }
+    }
+    
+    console.log('⚠️ No valid database configuration found');
+    return null;
 }
 
 // 讀取並解析 CSV 文件
