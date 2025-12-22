@@ -1,0 +1,102 @@
+/**
+ * 集成預測器模組
+ * 調用 Python 集成預測腳本（XGBoost + LSTM + Prophet）
+ */
+const { spawn } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+
+class EnsemblePredictor {
+    constructor() {
+        this.pythonScript = path.join(__dirname, '../python/predict.py');
+        this.modelsDir = path.join(__dirname, '../python/models');
+    }
+
+    /**
+     * 檢查模型是否已訓練
+     */
+    isModelAvailable() {
+        const requiredFiles = [
+            'xgboost_model.json',
+            'lstm_model.h5',
+            'prophet_model.pkl'
+        ];
+        
+        return requiredFiles.every(file => {
+            const filePath = path.join(this.modelsDir, file);
+            return fs.existsSync(filePath);
+        });
+    }
+
+    /**
+     * 執行集成預測
+     * @param {string} targetDate - 目標日期 (YYYY-MM-DD)
+     * @param {Array} historicalData - 歷史數據數組 [{date, attendance}, ...]
+     * @returns {Promise<Object>} 預測結果
+     */
+    async predict(targetDate, historicalData = null) {
+        return new Promise((resolve, reject) => {
+            // 檢查模型是否可用
+            if (!this.isModelAvailable()) {
+                return reject(new Error('模型未訓練。請先運行 python/train_all_models.py'));
+            }
+
+            // 準備 Python 命令
+            const python = spawn('python3', [
+                this.pythonScript,
+                targetDate
+            ], {
+                cwd: path.join(__dirname, '..'),
+                stdio: ['pipe', 'pipe', 'pipe']
+            });
+
+            let output = '';
+            let error = '';
+
+            python.stdout.on('data', (data) => {
+                output += data.toString();
+            });
+
+            python.stderr.on('data', (data) => {
+                error += data.toString();
+            });
+
+            python.on('close', (code) => {
+                if (code === 0) {
+                    try {
+                        const result = JSON.parse(output);
+                        resolve(result);
+                    } catch (e) {
+                        reject(new Error(`無法解析 Python 輸出: ${e.message}\n輸出: ${output}`));
+                    }
+                } else {
+                    reject(new Error(`Python 腳本錯誤 (code ${code}): ${error || output}`));
+                }
+            });
+
+            python.on('error', (err) => {
+                reject(new Error(`無法執行 Python 腳本: ${err.message}\n請確保已安裝 Python 3 和所有依賴`));
+            });
+        });
+    }
+
+    /**
+     * 獲取模型狀態
+     */
+    getModelStatus() {
+        const models = {
+            xgboost: fs.existsSync(path.join(this.modelsDir, 'xgboost_model.json')),
+            lstm: fs.existsSync(path.join(this.modelsDir, 'lstm_model.h5')),
+            prophet: fs.existsSync(path.join(this.modelsDir, 'prophet_model.pkl'))
+        };
+
+        return {
+            available: this.isModelAvailable(),
+            models: models,
+            modelsDir: this.modelsDir
+        };
+    }
+}
+
+module.exports = { EnsemblePredictor };
+

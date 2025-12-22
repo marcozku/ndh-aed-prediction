@@ -1,5 +1,115 @@
 # 版本更新日誌
 
+## v2.4.1 - 2025-12-23 (HKT)
+
+### 🤖 新增：自動訓練功能
+
+**核心功能**：
+1. **自動訓練觸發**：
+   - 當有新實際數據時自動檢查訓練條件
+   - 智能判斷是否需要重新訓練
+   - 後台異步執行，不阻塞數據操作
+
+2. **訓練條件**：
+   - 至少 7 筆新數據（可配置）
+   - 距離上次訓練至少 1 天（可配置）
+   - 最多 7 天強制訓練一次（可配置）
+   - 避免頻繁訓練的節流保護
+
+3. **API 支持**：
+   - `POST /api/train-models` - 手動觸發訓練
+   - `GET /api/training-status` - 獲取訓練狀態
+   - `GET /api/ensemble-status` - 包含訓練信息
+
+4. **狀態管理**：
+   - 訓練狀態持久化保存
+   - 記錄上次訓練時間和數據量
+   - 訓練進度實時日誌
+
+**新增文件**：
+- `modules/auto-train-manager.js` - 自動訓練管理器
+- `AUTO_TRAIN_GUIDE.md` - 自動訓練使用指南
+
+**配置選項**：
+- 環境變數 `ENABLE_AUTO_TRAIN` 控制啟用/禁用
+- 可通過代碼動態調整訓練參數
+
+**使用方式**：
+```javascript
+// 自動觸發（數據插入時自動檢查）
+// 無需額外代碼，系統自動處理
+
+// 手動觸發
+POST /api/train-models
+
+// 查詢狀態
+GET /api/training-status
+```
+
+## v2.4.0 - 2025-12-23 (HKT)
+
+### 🎉 重大更新：實施集成預測系統（Hybrid Ensemble）
+
+**核心功能**：
+1. **集成預測系統**：
+   - 結合 XGBoost (40%) + LSTM (35%) + Prophet (25%)
+   - 根據 `ai/AI-AED-Algorithm-Specification.txt` Section 6.4 實現
+   - 預期 MAE < 13 病人（5.2% MAPE）
+   - 方向準確度 > 91%
+
+2. **Python 機器學習模組**：
+   - 完整的特徵工程（50+ 特徵）
+   - XGBoost 模型訓練和預測
+   - LSTM 深度學習模型
+   - Prophet 時間序列模型
+   - 集成預測核心邏輯
+
+3. **Node.js 整合**：
+   - `EnsemblePredictor` 模組調用 Python 腳本
+   - `NDHAttendancePredictor.predictWithEnsemble()` 方法
+   - `/api/ensemble-predict` API 端點
+   - `/api/ensemble-status` 狀態查詢
+
+**新增文件**：
+- `python/requirements.txt` - Python 依賴
+- `python/feature_engineering.py` - 特徵工程模組
+- `python/train_xgboost.py` - XGBoost 訓練
+- `python/train_lstm.py` - LSTM 訓練
+- `python/train_prophet.py` - Prophet 訓練
+- `python/train_all_models.py` - 訓練所有模型
+- `python/ensemble_predict.py` - 集成預測
+- `python/predict.py` - 預測接口
+- `python/README.md` - Python 文檔
+- `modules/ensemble-predictor.js` - Node.js 集成器
+- `ENSEMBLE_IMPLEMENTATION.md` - 實施指南
+
+**使用方式**：
+```javascript
+// 使用集成預測
+const result = await predictor.predictWithEnsemble('2025-12-25', {
+    useEnsemble: true,
+    fallbackToStatistical: true
+});
+```
+
+**訓練模型**：
+```bash
+cd python
+pip install -r requirements.txt
+python train_all_models.py
+```
+
+**性能目標**：
+- MAE: < 13 病人（5.2% MAPE）
+- 方向準確度: > 91%
+- 95% CI 覆蓋率: > 95%
+
+**研究基礎**：
+- 基於 AI-AED-Algorithm-Specification.txt
+- XGBoost: 法國醫院研究 MAE 2.63-2.64
+- LSTM: 優於 ARIMA 和 Prophet
+- Prophet: 適合強季節性模式
+
 ## v2.3.3 - 2025-12-23 (HKT)
 
 ### 🚀 增強核心預測公式：加入滯後特徵和移動平均

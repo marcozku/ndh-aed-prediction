@@ -414,6 +414,270 @@ body::before {
 }
 
 /* ============================================
+   模型訓練狀態區塊
+   ============================================ */
+.model-training-section {
+    margin: var(--space-2xl) auto;
+    max-width: 1200px;
+    padding: 0 var(--space-md);
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-lg);
+}
+
+.refresh-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm) var(--space-md);
+    cursor: pointer;
+    transition: var(--transition-base);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.refresh-btn:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--border-medium);
+    color: var(--text-primary);
+}
+
+.refresh-btn:active {
+    transform: scale(0.98);
+}
+
+.training-status-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+.training-status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--space-lg);
+}
+
+.model-status-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    transition: var(--transition-base);
+    position: relative;
+    overflow: hidden;
+}
+
+.model-status-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--gradient-primary);
+    opacity: 0;
+    transition: var(--transition-base);
+}
+
+.model-status-card:hover {
+    border-color: var(--border-medium);
+    box-shadow: var(--glow-primary);
+    transform: translateY(-2px);
+}
+
+.model-status-card:hover::before {
+    opacity: 1;
+}
+
+.model-status-card.available {
+    border-left: 4px solid var(--accent-success);
+}
+
+.model-status-card.unavailable {
+    border-left: 4px solid var(--accent-danger);
+}
+
+.model-status-card.training {
+    border-left: 4px solid var(--accent-warning);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.model-status-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-md);
+}
+
+.model-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.model-icon {
+    font-size: 1.5rem;
+}
+
+.model-status-badge {
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.model-status-badge.available {
+    background: rgba(5, 150, 105, 0.1);
+    color: var(--accent-success);
+}
+
+.model-status-badge.unavailable {
+    background: rgba(220, 38, 38, 0.1);
+    color: var(--accent-danger);
+}
+
+.model-status-badge.training {
+    background: rgba(217, 119, 6, 0.1);
+    color: var(--accent-warning);
+}
+
+.model-details {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.model-detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-sm) 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.model-detail-item:last-child {
+    border-bottom: none;
+}
+
+.model-detail-label {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.model-detail-value {
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-align: right;
+}
+
+.model-detail-value.time {
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
+    font-weight: 400;
+}
+
+.training-progress {
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--border-subtle);
+}
+
+.training-progress-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: var(--space-sm);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.training-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--bg-primary);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+}
+
+.training-progress-fill {
+    height: 100%;
+    background: var(--gradient-primary);
+    border-radius: var(--radius-full);
+    transition: width 0.3s ease;
+}
+
+.ensemble-status-summary {
+    grid-column: 1 / -1;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    margin-top: var(--space-lg);
+}
+
+.ensemble-status-summary h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--space-md);
+}
+
+.ensemble-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-md);
+}
+
+.ensemble-stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.ensemble-stat-label {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.ensemble-stat-value {
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.ensemble-stat-value.success {
+    color: var(--accent-success);
+}
+
+.ensemble-stat-value.warning {
+    color: var(--accent-warning);
+}
+
+.ensemble-stat-value.danger {
+    color: var(--accent-danger);
+}
+
+/* ============================================
    區塊載入進度（用於所有區塊）
    ============================================ */
 .section-loading {

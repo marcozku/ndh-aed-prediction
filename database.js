@@ -282,6 +282,18 @@ async function insertActualData(date, patientCount, source = 'manual_upload', no
         RETURNING *
     `;
     const result = await pool.query(query, [date, patientCount, source, notes]);
+    
+    // 觸發自動訓練檢查（異步，不阻塞）
+    try {
+        const { getAutoTrainManager } = require('./modules/auto-train-manager');
+        const trainManager = getAutoTrainManager();
+        trainManager.triggerTrainingCheck({ pool }).catch(err => {
+            console.warn('自動訓練檢查失敗:', err.message);
+        });
+    } catch (e) {
+        // 如果模組不可用，忽略
+    }
+    
     return result.rows[0];
 }
 
@@ -310,6 +322,18 @@ async function insertBulkActualData(dataArray) {
             results.push(result.rows[0]);
         }
         await client.query('COMMIT');
+        
+        // 觸發自動訓練檢查（異步，不阻塞）
+        try {
+            const { getAutoTrainManager } = require('./modules/auto-train-manager');
+            const trainManager = getAutoTrainManager();
+            trainManager.triggerTrainingCheck({ pool }).catch(err => {
+                console.warn('自動訓練檢查失敗:', err.message);
+            });
+        } catch (e) {
+            // 如果模組不可用，忽略
+        }
+        
         return results;
     } catch (error) {
         await client.query('ROLLBACK');

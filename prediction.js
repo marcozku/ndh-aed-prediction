@@ -427,7 +427,22 @@ class NDHAttendancePredictor {
         this.rollingWindowDays = 180; // 滾動窗口：180天（基於LSTM研究）
         this.recentWindowDays = 30; // 近期窗口：30天（用於趨勢計算）
         
+        // 集成預測器（可選）
+        this.ensemblePredictor = null;
+        this._initEnsemblePredictor();
+        
         this._calculateFactors();
+    }
+    
+    // 初始化集成預測器（懶加載）
+    _initEnsemblePredictor() {
+        try {
+            const { EnsemblePredictor } = require('./modules/ensemble-predictor');
+            this.ensemblePredictor = new EnsemblePredictor();
+        } catch (e) {
+            // 集成預測器不可用（Python 環境未設置）
+            this.ensemblePredictor = null;
+        }
     }
     
     // 更新歷史數據並重新計算因子
@@ -753,6 +768,81 @@ class NDHAttendancePredictor {
             targetMAPE: 1.5, // 目標 MAPE < 1.5%
             roadmap: '6-stage-improvement-plan' // 6階段改進計劃
         };
+    }
+    
+    /**
+     * 使用集成方法預測（XGBoost + LSTM + Prophet）
+     * @param {string} dateStr - 目標日期 (YYYY-MM-DD)
+     * @param {Object} options - 選項 { useEnsemble: true, fallbackToStatistical: true }
+     * @returns {Promise<Object>} 預測結果
+     */
+    async predictWithEnsemble(dateStr, options = {}) {
+        const { useEnsemble = true, fallbackToStatistical = true } = options;
+        
+        // 如果未啟用集成或集成預測器不可用，回退到統計方法
+        if (!useEnsemble || !this.ensemblePredictor) {
+            if (fallbackToStatistical) {
+                return this.predict(dateStr);
+            }
+            throw new Error('集成預測器不可用，且未啟用回退');
+        }
+        
+        try {
+            // 檢查模型是否可用
+            const status = this.ensemblePredictor.getModelStatus();
+            if (!status.available) {
+                if (fallbackToStatistical) {
+                    console.warn('⚠️ 集成模型未訓練，使用統計方法');
+                    return this.predict(dateStr);
+                }
+                throw new Error('集成模型未訓練。請先運行 python/train_all_models.py');
+            }
+            
+            // 準備歷史數據
+            const historicalData = this.data.map(d => ({
+                date: d.date,
+                attendance: d.attendance
+            }));
+            
+            // 調用集成預測
+            const result = await this.ensemblePredictor.predict(dateStr, historicalData);
+            
+            // 轉換格式以匹配現有預測結果格式
+            const date = new Date(dateStr);
+            const dayNames = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+            
+            return {
+                date: dateStr,
+                dayName: dayNames[date.getDay()],
+                predicted: Math.round(result.prediction),
+                ci80: {
+                    lower: Math.round(result.ci80.low),
+                    upper: Math.round(result.ci80.high)
+                },
+                ci95: {
+                    lower: Math.round(result.ci95.low),
+                    upper: Math.round(result.ci95.high)
+                },
+                method: 'hybrid_ensemble',
+                version: '2.4.0',
+                ensemble: {
+                    weights: result.weights_used,
+                    individual: result.individual
+                },
+                researchBased: true,
+                worldClassTarget: true,
+                targetMAE: 13.0, // 目標 MAE < 13
+                targetMAPE: 5.2, // 目標 MAPE < 5.2%
+                models: ['xgboost', 'lstm', 'prophet']
+            };
+        } catch (error) {
+            console.error('集成預測錯誤:', error);
+            if (fallbackToStatistical) {
+                console.warn('⚠️ 回退到統計方法');
+                return this.predict(dateStr);
+            }
+            throw error;
+        }
     }
     
     predictRange(startDate, days, weatherForecast = null, aiFactorsMap = null) {
@@ -5001,6 +5091,244 @@ async function checkDatabaseStatus() {
     }
 }
 
+// ============================================
+// 模型訓練狀態檢查
+// ============================================
+let trainingStatus = null;
+
+async function checkTrainingStatus() {
+    const container = document.getElementById('training-status-container');
+    if (!container) return;
+    
+    try {
+        // 獲取集成模型狀態（包含訓練信息）
+        const response = await fetch('/api/ensemble-status');
+        if (!response.ok) throw new Error('訓練狀態 API 錯誤');
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+            trainingStatus = data.data;
+            renderTrainingStatus(data.data);
+        } else {
+            container.innerHTML = `
+                <div style="text-align: center; padding: var(--space-xl); color: var(--text-secondary);">
+                    <p>⚠️ 無法獲取訓練狀態</p>
+                    <p style="font-size: 0.85rem; margin-top: var(--space-sm);">${data.error || '請檢查服務器配置'}</p>
+                </div>
+            `;
+        }
+        
+        console.log('🤖 訓練狀態:', JSON.stringify(data, null, 2));
+        return data;
+    } catch (error) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: var(--space-xl); color: var(--text-danger);">
+                <p>❌ 檢查訓練狀態失敗</p>
+                <p style="font-size: 0.85rem; margin-top: var(--space-sm);">${error.message}</p>
+            </div>
+        `;
+        console.error('❌ 訓練狀態檢查失敗:', error);
+        return null;
+    }
+}
+
+function renderTrainingStatus(data) {
+    const container = document.getElementById('training-status-container');
+    if (!container) return;
+    
+    const models = data.models || {};
+    const training = data.training || {};
+    const isTraining = training.isTraining || false;
+    const lastTrainingDate = training.lastTrainingDate;
+    
+    // 模型信息
+    const modelInfo = {
+        xgboost: {
+            name: 'XGBoost',
+            icon: '🚀',
+            description: '梯度提升樹模型',
+            weight: '40%'
+        },
+        lstm: {
+            name: 'LSTM',
+            icon: '🧠',
+            description: '長短期記憶網絡',
+            weight: '35%'
+        },
+        prophet: {
+            name: 'Prophet',
+            icon: '📈',
+            description: '時間序列預測',
+            weight: '25%'
+        }
+    };
+    
+    let html = '<div class="training-status-grid">';
+    
+    // 顯示每個模型的狀態
+    for (const [modelKey, modelData] of Object.entries(modelInfo)) {
+        const isAvailable = models[modelKey] || false;
+        const cardClass = isTraining && modelKey === 'xgboost' ? 'training' : (isAvailable ? 'available' : 'unavailable');
+        const statusBadge = isTraining && modelKey === 'xgboost' ? 'training' : (isAvailable ? 'available' : 'unavailable');
+        const statusText = isTraining && modelKey === 'xgboost' ? '訓練中' : (isAvailable ? '可用' : '不可用');
+        
+        html += `
+            <div class="model-status-card ${cardClass}">
+                <div class="model-status-header">
+                    <div class="model-name">
+                        <span class="model-icon">${modelData.icon}</span>
+                        <span>${modelData.name}</span>
+                    </div>
+                    <span class="model-status-badge ${statusBadge}">${statusText}</span>
+                </div>
+                <div class="model-details">
+                    <div class="model-detail-item">
+                        <span class="model-detail-label">描述</span>
+                        <span class="model-detail-value">${modelData.description}</span>
+                    </div>
+                    <div class="model-detail-item">
+                        <span class="model-detail-label">集成權重</span>
+                        <span class="model-detail-value">${modelData.weight}</span>
+                    </div>
+                    <div class="model-detail-item">
+                        <span class="model-detail-label">狀態</span>
+                        <span class="model-detail-value ${isAvailable ? 'success' : 'danger'}">${isAvailable ? '✅ 已訓練' : '❌ 未訓練'}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    
+    // 添加集成狀態摘要
+    const allAvailable = Object.values(models).every(v => v);
+    const someAvailable = Object.values(models).some(v => v);
+    
+    html += `
+        <div class="ensemble-status-summary">
+            <h3>集成系統狀態</h3>
+            <div class="ensemble-stats">
+                <div class="ensemble-stat-item">
+                    <span class="ensemble-stat-label">整體狀態</span>
+                    <span class="ensemble-stat-value ${allAvailable ? 'success' : (someAvailable ? 'warning' : 'danger')}">
+                        ${allAvailable ? '✅ 完全可用' : (someAvailable ? '⚠️ 部分可用' : '❌ 不可用')}
+                    </span>
+                </div>
+                <div class="ensemble-stat-item">
+                    <span class="ensemble-stat-label">訓練狀態</span>
+                    <span class="ensemble-stat-value ${isTraining ? 'warning' : 'success'}">
+                        ${isTraining ? '🔄 訓練中' : '✅ 閒置'}
+                    </span>
+                </div>
+                <div class="ensemble-stat-item">
+                    <span class="ensemble-stat-label">上次訓練</span>
+                    <span class="ensemble-stat-value ${lastTrainingDate ? '' : 'danger'}">
+                        ${lastTrainingDate ? formatTrainingDate(lastTrainingDate) : '從未訓練'}
+                    </span>
+                </div>
+                <div class="ensemble-stat-item">
+                    <span class="ensemble-stat-label">可用模型</span>
+                    <span class="ensemble-stat-value">
+                        ${Object.values(models).filter(v => v).length} / 3
+                    </span>
+                </div>
+            </div>
+            ${isTraining ? `
+                <div class="training-progress" style="margin-top: var(--space-md);">
+                    <div class="training-progress-label">
+                        <span>訓練進度</span>
+                        <span>進行中...</span>
+                    </div>
+                    <div class="training-progress-bar">
+                        <div class="training-progress-fill" style="width: 50%; animation: pulse 2s ease-in-out infinite;"></div>
+                    </div>
+                </div>
+            ` : ''}
+            ${training.config ? `
+                <div style="margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border-subtle);">
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                        <strong>自動訓練配置：</strong><br>
+                        最少新數據: ${training.config.minNewDataRecords || 7} 筆<br>
+                        訓練間隔: ${training.config.minDaysSinceLastTrain || 1} 天<br>
+                        最大間隔: ${training.config.maxTrainingInterval || 7} 天<br>
+                        自動訓練: ${training.config.enableAutoTrain !== false ? '✅ 啟用' : '❌ 禁用'}
+                    </div>
+                </div>
+            ` : ''}
+        </div>
+    `;
+    
+    container.innerHTML = html;
+}
+
+function formatTrainingDate(dateString) {
+    if (!dateString) return '從未訓練';
+    
+    try {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+        
+        if (diffMins < 1) return '剛剛';
+        if (diffMins < 60) return `${diffMins} 分鐘前`;
+        if (diffHours < 24) return `${diffHours} 小時前`;
+        if (diffDays < 7) return `${diffDays} 天前`;
+        
+        // 格式化日期
+        const hkDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' }));
+        return hkDate.toLocaleDateString('zh-HK', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (e) {
+        return dateString;
+    }
+}
+
+// 初始化時檢查訓練狀態
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        checkTrainingStatus();
+        // 每 30 秒自動刷新
+        setInterval(checkTrainingStatus, 30000);
+        
+        // 刷新按鈕
+        const refreshBtn = document.getElementById('refresh-training-status');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                refreshBtn.style.transform = 'rotate(360deg)';
+                refreshBtn.style.transition = 'transform 0.5s';
+                setTimeout(() => {
+                    refreshBtn.style.transform = 'rotate(0deg)';
+                }, 500);
+                checkTrainingStatus();
+            });
+        }
+    });
+} else {
+    checkTrainingStatus();
+    setInterval(checkTrainingStatus, 30000);
+    
+    const refreshBtn = document.getElementById('refresh-training-status');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            refreshBtn.style.transform = 'rotate(360deg)';
+            refreshBtn.style.transition = 'transform 0.5s';
+            setTimeout(() => {
+                refreshBtn.style.transform = 'rotate(0deg)';
+            }, 500);
+            checkTrainingStatus();
+        });
+    }
+}
+
 // 更新頁腳的數據來源信息
 function updateDataSourceFooter(dateRange) {
     if (!dateRange) return;
@@ -6370,6 +6698,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 檢查 AI 狀態
     updateSectionProgress('today-prediction', 8);
     await checkAIStatus();
+    
+    // 檢查訓練狀態
+    await checkTrainingStatus();
     
     // 獲取並顯示天氣
     updateSectionProgress('today-prediction', 10);

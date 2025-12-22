@@ -139,9 +139,10 @@ const apiHandlers = {
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         const data = await parseBody(req);
+        let results;
         if (Array.isArray(data)) {
             // Bulk upload
-            const results = await db.insertBulkActualData(data);
+            results = await db.insertBulkActualData(data);
             
             // Calculate accuracy for any dates that now have both prediction and actual
             // Also calculate final daily predictions for dates that have daily_predictions
@@ -159,7 +160,7 @@ const apiHandlers = {
             sendJson(res, { success: true, inserted: results.length, data: results });
         } else {
             // Single record
-            const result = await db.insertActualData(data.date, data.patient_count, data.source, data.notes);
+            results = [await db.insertActualData(data.date, data.patient_count, data.source, data.notes)];
             await db.calculateAccuracy(data.date);
             // 如果該日期有 daily_predictions，計算最終預測
             try {
@@ -168,7 +169,23 @@ const apiHandlers = {
                 // 如果沒有預測數據，忽略錯誤
                 console.log(`ℹ️ ${data.date} 沒有預測數據，跳過最終預測計算`);
             }
-            sendJson(res, { success: true, data: result });
+            sendJson(res, { success: true, data: results[0] });
+        }
+        
+        // 觸發自動訓練檢查（異步，不阻塞響應）
+        try {
+            const { getAutoTrainManager } = require('./modules/auto-train-manager');
+            const trainManager = getAutoTrainManager();
+            trainManager.triggerTrainingCheck(db).then(result => {
+                if (result.triggered) {
+                    console.log(`✅ 自動訓練已觸發: ${result.reason}`);
+                }
+            }).catch(err => {
+                console.error('自動訓練檢查失敗:', err);
+            });
+        } catch (err) {
+            // 如果自動訓練模組不可用，忽略錯誤
+            console.warn('自動訓練模組不可用:', err.message);
         }
     },
 
@@ -1142,6 +1159,131 @@ const apiHandlers = {
         }
     },
 
+    // 集成預測（Hybrid Ensemble）
+    'POST /api/ensemble-predict': async (req, res) => {
+        try {
+            const data = await parseBody(req);
+            const { target_date, use_ensemble = true, fallback_to_statistical = true } = data;
+            
+            if (!target_date) {
+                return sendJson(res, { error: '需要提供 target_date' }, 400);
+            }
+            
+            // 獲取歷史數據
+            let historicalData = [];
+            if (db && db.pool) {
+                const result = await db.getActualData(null, null);
+                historicalData = result || [];
+            }
+            
+            // 創建預測器
+            const { NDHAttendancePredictor } = require('./prediction');
+            const predictor = new NDHAttendancePredictor(historicalData);
+            
+            // 執行集成預測
+            const prediction = await predictor.predictWithEnsemble(target_date, {
+                useEnsemble: use_ensemble,
+                fallbackToStatistical: fallback_to_statistical
+            });
+            
+            sendJson(res, {
+                success: true,
+                data: prediction
+            });
+        } catch (err) {
+            console.error('集成預測錯誤:', err);
+            sendJson(res, { 
+                success: false, 
+                error: err.message 
+            }, 500);
+        }
+    },
+    
+    // 獲取集成模型狀態
+    'GET /api/ensemble-status': async (req, res) => {
+        try {
+            const { EnsemblePredictor } = require('./modules/ensemble-predictor');
+            const predictor = new EnsemblePredictor();
+            const status = predictor.getModelStatus();
+            
+            // 添加訓練狀態
+            try {
+                const { getAutoTrainManager } = require('./modules/auto-train-manager');
+                const trainManager = getAutoTrainManager();
+                status.training = trainManager.getStatus();
+            } catch (e) {
+                status.training = { error: '訓練管理器不可用' };
+            }
+            
+            sendJson(res, {
+                success: true,
+                data: status
+            });
+        } catch (err) {
+            sendJson(res, {
+                success: false,
+                error: err.message,
+                data: {
+                    available: false,
+                    error: '集成預測器模組不可用'
+                }
+            });
+        }
+    },
+    
+    // 手動觸發模型訓練
+    'POST /api/train-models': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        
+        try {
+            const { getAutoTrainManager } = require('./modules/auto-train-manager');
+            const trainManager = getAutoTrainManager();
+            
+            // 異步執行訓練，立即返回
+            trainManager.manualTrain(db).then(result => {
+                console.log('手動訓練完成:', result);
+            }).catch(err => {
+                console.error('手動訓練失敗:', err);
+            });
+            
+            sendJson(res, {
+                success: true,
+                message: '模型訓練已開始（後台執行）',
+                status: trainManager.getStatus()
+            });
+        } catch (err) {
+            console.error('觸發訓練失敗:', err);
+            sendJson(res, {
+                success: false,
+                error: err.message
+            }, 500);
+        }
+    },
+    
+    // 獲取訓練狀態
+    'GET /api/training-status': async (req, res) => {
+        try {
+            const { getAutoTrainManager } = require('./modules/auto-train-manager');
+            const trainManager = getAutoTrainManager();
+            const status = trainManager.getStatus();
+            
+            sendJson(res, {
+                success: true,
+                data: status
+            });
+        } catch (err) {
+            sendJson(res, {
+                success: false,
+                error: err.message,
+                data: {
+                    error: '訓練管理器不可用'
+                }
+            });
+        }
+    },
+    
     // 更新 AI 因素緩存（保存到數據庫）
     'POST /api/convert-to-traditional': async (req, res) => {
         try {
