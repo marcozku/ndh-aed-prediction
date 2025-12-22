@@ -6788,6 +6788,22 @@ async function updateAIFactors(force = false) {
                 errorData = { error: errorText || `HTTP ${response.status}` };
             }
             console.error('❌ AI 分析 API 錯誤:', response.status, errorData);
+            
+            // 如果是 502/503/504 等服務器錯誤，嘗試使用緩存數據
+            if (response.status >= 500 && response.status < 600) {
+                console.warn('⚠️ 服務器錯誤，嘗試使用緩存數據...');
+                const cacheData = await loadAIFactorsFromCache();
+                if (cacheData.cached && cacheData.factors && cacheData.factors.length > 0) {
+                    console.log('✅ 使用緩存 AI 分析數據');
+                    updateFactorsLoadingProgress(100);
+                    return {
+                        ...cacheData,
+                        error: `服務器暫時無法響應 (HTTP ${response.status})，已使用緩存數據`,
+                        cached: true
+                    };
+                }
+            }
+            
             updateFactorsLoadingProgress(100);
             throw new Error(errorData.error || `AI 分析 API 錯誤 (HTTP ${response.status})`);
         }
@@ -6934,6 +6950,23 @@ async function updateAIFactors(force = false) {
             name: error.name
         });
         
+        // 嘗試使用緩存數據作為回退
+        try {
+            console.warn('⚠️ 嘗試使用緩存 AI 分析數據...');
+            const cacheData = await loadAIFactorsFromCache();
+            if (cacheData.cached && cacheData.factors && cacheData.factors.length > 0) {
+                console.log('✅ 使用緩存 AI 分析數據');
+                updateFactorsLoadingProgress(100);
+                return {
+                    ...cacheData,
+                    error: `服務器錯誤: ${error.message}，已使用緩存數據`,
+                    cached: true
+                };
+            }
+        } catch (cacheError) {
+            console.warn('⚠️ 無法載入緩存數據:', cacheError);
+        }
+        
         // 根據錯誤類型提供更友好的錯誤訊息
         let errorMessage = error.message || '未知錯誤';
         let errorSummary = '無法獲取 AI 分析';
@@ -6947,6 +6980,9 @@ async function updateAIFactors(force = false) {
         } else if (error.message.includes('AbortError')) {
             errorMessage = '請求被取消或超時';
             errorSummary = '請求超時，請稍後重試';
+        } else if (error.message.includes('502') || error.message.includes('503') || error.message.includes('504')) {
+            errorMessage = '服務器暫時無法響應，請稍後重試';
+            errorSummary = '服務器暫時無法響應';
         }
         
         updateFactorsLoadingProgress(100);
