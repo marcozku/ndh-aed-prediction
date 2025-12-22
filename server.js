@@ -132,6 +132,43 @@ function sendJson(res, data, statusCode = 200) {
     res.end(JSON.stringify(data));
 }
 
+// 生成 Python 環境建議
+function generatePythonRecommendations(python3, python, dependencies) {
+    const recommendations = [];
+    
+    if (!python3.available && !python.available) {
+        recommendations.push({
+            level: 'error',
+            message: 'Python 未安裝',
+            action: '請安裝 Python 3.8+'
+        });
+    } else {
+        const available = python3.available ? python3 : python;
+        recommendations.push({
+            level: 'success',
+            message: `Python 可用: ${available.command} ${available.version}`,
+            action: null
+        });
+        
+        if (!dependencies || !dependencies.available) {
+            recommendations.push({
+                level: 'error',
+                message: 'Python 依賴缺失',
+                action: '運行: cd python && pip install -r requirements.txt',
+                error: dependencies ? dependencies.error : '無法檢查依賴'
+            });
+        } else {
+            recommendations.push({
+                level: 'success',
+                message: '所有 Python 依賴已安裝',
+                action: null
+            });
+        }
+    }
+    
+    return recommendations;
+}
+
 // 生成診斷建議
 function generateRecommendations(status, pythonInfo) {
     const recommendations = [];
@@ -1299,6 +1336,106 @@ const apiHandlers = {
                     error: '集成預測器模組不可用'
                 }
             });
+        }
+    },
+    
+    // 檢查 Python 環境
+    'GET /api/python-env': async (req, res) => {
+        try {
+            const { spawn } = require('child_process');
+            const path = require('path');
+            
+            // 檢測 Python 命令
+            const checkPython = (cmd) => {
+                return new Promise((resolve) => {
+                    const python = spawn(cmd, ['--version'], {
+                        stdio: ['pipe', 'pipe', 'pipe']
+                    });
+                    
+                    let output = '';
+                    python.stdout.on('data', (data) => {
+                        output += data.toString();
+                    });
+                    
+                    python.on('close', (code) => {
+                        resolve({
+                            available: code === 0,
+                            version: output.trim(),
+                            command: cmd
+                        });
+                    });
+                    
+                    python.on('error', () => {
+                        resolve({
+                            available: false,
+                            version: null,
+                            command: cmd
+                        });
+                    });
+                });
+            };
+            
+            // 檢查依賴
+            const checkDependencies = (cmd) => {
+                return new Promise((resolve) => {
+                    const python = spawn(cmd, ['-c', 'import xgboost, tensorflow, prophet; print("OK")'], {
+                        stdio: ['pipe', 'pipe', 'pipe'],
+                        cwd: path.join(__dirname, 'python')
+                    });
+                    
+                    let output = '';
+                    let error = '';
+                    
+                    python.stdout.on('data', (data) => {
+                        output += data.toString();
+                    });
+                    
+                    python.stderr.on('data', (data) => {
+                        error += data.toString();
+                    });
+                    
+                    python.on('close', (code) => {
+                        resolve({
+                            available: code === 0,
+                            output: output.trim(),
+                            error: error.trim()
+                        });
+                    });
+                    
+                    python.on('error', (err) => {
+                        resolve({
+                            available: false,
+                            error: err.message
+                        });
+                    });
+                });
+            };
+            
+            const python3 = await checkPython('python3');
+            const python = await checkPython('python');
+            
+            const availableCmd = python3.available ? 'python3' : (python.available ? 'python' : null);
+            let dependencies = null;
+            
+            if (availableCmd) {
+                dependencies = await checkDependencies(availableCmd);
+            }
+            
+            sendJson(res, {
+                success: true,
+                data: {
+                    python3: python3,
+                    python: python,
+                    availableCommand: availableCmd,
+                    dependencies: dependencies,
+                    recommendations: generatePythonRecommendations(python3, python, dependencies)
+                }
+            });
+        } catch (err) {
+            sendJson(res, {
+                success: false,
+                error: err.message
+            }, 500);
         }
     },
     

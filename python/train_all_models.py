@@ -39,6 +39,15 @@ def run_training_script(script_name):
 
 def main():
     """主函數"""
+    import sys
+    import os
+    
+    # 確保模型目錄存在
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    models_dir = os.path.join(script_dir, 'models')
+    os.makedirs(models_dir, exist_ok=True)
+    print(f"📁 模型目錄: {models_dir}")
+    
     print("🚀 開始訓練所有模型...")
     print("這將依次訓練 XGBoost、LSTM 和 Prophet 模型")
     print("預計需要 10-30 分鐘（取決於數據量和硬件）\n")
@@ -51,8 +60,12 @@ def main():
     
     results = {}
     for script in scripts:
-        success = run_training_script(script)
-        results[script] = success
+        try:
+            success = run_training_script(script)
+            results[script] = success
+        except Exception as e:
+            print(f"❌ 執行 {script} 時發生異常: {e}")
+            results[script] = False
     
     # 總結
     print(f"\n{'='*60}")
@@ -62,12 +75,34 @@ def main():
         status = "✅ 成功" if success else "❌ 失敗"
         print(f"  {script}: {status}")
     
-    all_success = all(results.values())
-    if all_success:
-        print("\n🎉 所有模型訓練完成！")
+    # 檢查模型文件是否存在
+    print(f"\n{'='*60}")
+    print("模型文件檢查:")
+    print(f"{'='*60}")
+    model_files = {
+        'XGBoost': ['xgboost_model.json', 'xgboost_features.json'],
+        'LSTM': ['lstm_model.h5', 'lstm_scaler_X.pkl', 'lstm_scaler_y.pkl'],
+        'Prophet': ['prophet_model.pkl']
+    }
+    
+    all_files_exist = True
+    for model_name, files in model_files.items():
+        for file in files:
+            file_path = os.path.join(models_dir, file)
+            exists = os.path.exists(file_path)
+            status = "✅" if exists else "❌"
+            print(f"  {status} {file}")
+            if not exists:
+                all_files_exist = False
+    
+    if all_success and all_files_exist:
+        print("\n🎉 所有模型訓練完成且文件完整！")
         print("現在可以使用 ensemble_predict.py 進行預測")
+        sys.exit(0)
     else:
-        print("\n⚠️  部分模型訓練失敗，請檢查錯誤信息")
+        print("\n⚠️  部分模型訓練失敗或文件缺失，請檢查錯誤信息")
+        if not all_files_exist:
+            print("⚠️  某些模型文件未找到，請檢查訓練日誌")
         sys.exit(1)
 
 if __name__ == '__main__':

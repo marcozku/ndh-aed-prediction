@@ -187,62 +187,160 @@ class AutoTrainManager {
         }
 
         return new Promise((resolve) => {
+            // 確保模型目錄存在
+            const modelsDir = path.join(__dirname, '../python/models');
+            if (!fs.existsSync(modelsDir)) {
+                fs.mkdirSync(modelsDir, { recursive: true });
+                console.log(`📁 創建模型目錄: ${modelsDir}`);
+            }
+            
             const pythonScript = path.join(__dirname, '../python/train_all_models.py');
-            const python = spawn('python3', [pythonScript], {
-                cwd: path.join(__dirname, '../python'),  // 在 python 目錄下運行
-                stdio: ['pipe', 'pipe', 'pipe']
-            });
-
-            let output = '';
-            let error = '';
-
-            python.stdout.on('data', (data) => {
-                const text = data.toString();
-                output += text;
-                console.log(`[訓練] ${text.trim()}`);
-            });
-
-            python.stderr.on('data', (data) => {
-                const text = data.toString();
-                error += text;
-                console.error(`[訓練錯誤] ${text.trim()}`);
-            });
-
-            // 設置超時
-            const timeout = setTimeout(() => {
-                python.kill();
-                this.isTraining = false;
-                console.error('❌ 訓練超時（1小時）');
-                resolve({ success: false, reason: '訓練超時' });
-            }, this.config.trainingTimeout);
-
-            python.on('close', (code) => {
-                clearTimeout(timeout);
-                this.isTraining = false;
-                this.trainingStartTime = null;
-                const duration = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
-
-                if (code === 0) {
-                    console.log(`✅ 模型訓練完成（耗時 ${duration} 分鐘）`);
+            
+            // 檢測可用的 Python 命令
+            const detectPython = () => {
+                return new Promise((resolveCmd) => {
+                    const commands = ['python3', 'python'];
+                    let currentIndex = 0;
+                    
+                    const tryNext = () => {
+                        if (currentIndex >= commands.length) {
+                            resolveCmd(null);
+                            return;
+                        }
+                        
+                        const cmd = commands[currentIndex];
+                        const test = spawn(cmd, ['--version'], { stdio: 'pipe' });
+                        
+                        test.on('close', (code) => {
+                            if (code === 0) {
+                                resolveCmd(cmd);
+                            } else {
+                                currentIndex++;
+                                tryNext();
+                            }
+                        });
+                        
+                        test.on('error', () => {
+                            currentIndex++;
+                            tryNext();
+                        });
+                    };
+                    
+                    tryNext();
+                });
+            };
+            
+            // 使用檢測到的 Python 命令
+            detectPython().then((pythonCmd) => {
+                if (!pythonCmd) {
+                    const error = '無法找到 Python 命令（嘗試了 python3 和 python）';
+                    console.error(`❌ ${error}`);
+                    this.isTraining = false;
+                    this.trainingStartTime = null;
                     this._saveTrainingStatus(dataCount, false);
-                    resolve({ success: true, duration: duration });
-                } else {
-                    console.error(`❌ 模型訓練失敗（退出碼 ${code}）`);
-                    console.error('錯誤輸出:', error);
-                    this._saveTrainingStatus(dataCount, false);
-                    resolve({ success: false, reason: `訓練失敗（退出碼 ${code}）`, error: error });
+                    resolve({ success: false, reason: error });
+                    return;
                 }
+                
+                console.log(`🐍 使用 Python 命令: ${pythonCmd}`);
+                console.log(`📝 訓練腳本: ${pythonScript}`);
+                console.log(`📂 工作目錄: ${path.join(__dirname, '../python')}`);
+                console.log(`📁 模型目錄: ${modelsDir}`);
+                
+                const python = spawn(pythonCmd, [pythonScript], {
+                    cwd: path.join(__dirname, '../python'),  // 在 python 目錄下運行
+                    stdio: ['pipe', 'pipe', 'pipe'],
+                    env: { ...process.env, PYTHONUNBUFFERED: '1' }  // 確保輸出不被緩衝
+                });
+                
+                this._attachPythonHandlers(python, resolve, startTime, dataCount, modelsDir);
             });
 
-            python.on('error', (err) => {
-                clearTimeout(timeout);
-                this.isTraining = false;
-                this.trainingStartTime = null;
-                this._saveTrainingStatus(dataCount, false);
-                console.error('❌ 無法執行訓練腳本:', err.message);
-                resolve({ success: false, reason: `無法執行訓練腳本: ${err.message}` });
-            });
+    /**
+     * 附加 Python 進程處理器
+     */
+    _attachPythonHandlers(python, resolve, startTime, dataCount, modelsDir) {
+        let output = '';
+        let error = '';
+
+        python.stdout.on('data', (data) => {
+            const text = data.toString();
+            output += text;
+            console.log(`[訓練] ${text.trim()}`);
         });
+
+        python.stderr.on('data', (data) => {
+            const text = data.toString();
+            error += text;
+            console.error(`[訓練錯誤] ${text.trim()}`);
+        });
+
+        // 設置超時
+        const timeout = setTimeout(() => {
+            python.kill();
+            this.isTraining = false;
+            console.error('❌ 訓練超時（1小時）');
+            resolve({ success: false, reason: '訓練超時', output: output, error: error });
+        }, this.config.trainingTimeout);
+
+        python.on('close', (code) => {
+            clearTimeout(timeout);
+            this.isTraining = false;
+            this.trainingStartTime = null;
+            const duration = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
+
+            // 檢查模型文件是否存在
+            const { EnsemblePredictor } = require('./ensemble-predictor');
+            const predictor = new EnsemblePredictor();
+            const modelStatus = predictor.getModelStatus();
+
+            if (code === 0) {
+                if (modelStatus.available) {
+                    console.log(`✅ 模型訓練完成（耗時 ${duration} 分鐘）`);
+                    console.log(`✅ 模型文件驗證通過`);
+                    this._saveTrainingStatus(dataCount, false);
+                    resolve({ success: true, duration: duration, models: modelStatus });
+                } else {
+                    console.warn(`⚠️ 訓練腳本退出成功，但模型文件未找到`);
+                    console.warn(`模型目錄存在: ${modelStatus.modelsDirExists}`);
+                    console.warn(`可用模型: ${Object.values(modelStatus.models).filter(Boolean).length}/3`);
+                    console.warn(`完整輸出:\n${output}`);
+                    if (error) {
+                        console.warn(`錯誤輸出:\n${error}`);
+                    }
+                    this._saveTrainingStatus(dataCount, false);
+                    resolve({ 
+                        success: false, 
+                        reason: '訓練完成但模型文件缺失', 
+                        error: error,
+                        output: output,
+                        modelStatus: modelStatus
+                    });
+                }
+            } else {
+                console.error(`❌ 模型訓練失敗（退出碼 ${code}）`);
+                console.error('標準輸出:', output);
+                console.error('錯誤輸出:', error);
+                this._saveTrainingStatus(dataCount, false);
+                resolve({ 
+                    success: false, 
+                    reason: `訓練失敗（退出碼 ${code}）`, 
+                    error: error || output,
+                    output: output,
+                    modelStatus: modelStatus
+                });
+            }
+        });
+
+        python.on('error', (err) => {
+            clearTimeout(timeout);
+            this.isTraining = false;
+            this.trainingStartTime = null;
+            this._saveTrainingStatus(dataCount, false);
+            console.error('❌ 無法執行訓練腳本:', err.message);
+            resolve({ success: false, reason: `無法執行訓練腳本: ${err.message}` });
+        });
+    }
     }
 
     /**
