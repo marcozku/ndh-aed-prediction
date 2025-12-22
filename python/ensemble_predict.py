@@ -145,6 +145,30 @@ def ensemble_predict(target_date, historical_data):
             last_row['Is_Monday'] = 1 if target_dt.dayofweek == 0 else 0
             last_row['Is_Weekend'] = 1 if target_dt.dayofweek >= 5 else 0
             
+            # 為目標日期添加 AI 因子（如果有的話）
+            target_date_str = target_date
+            if target_date_str in ai_factors and ai_factors[target_date_str]:
+                ai_factor_data = ai_factors[target_date_str]
+                if isinstance(ai_factor_data, dict):
+                    last_row['AI_Factor'] = ai_factor_data.get('impactFactor', 1.0)
+                    last_row['Has_AI_Factor'] = 1
+                    # 編碼 AI 因子類型
+                    ai_type = ai_factor_data.get('type', '').lower()
+                    if 'positive' in ai_type or '增加' in ai_type or '上升' in ai_type:
+                        last_row['AI_Factor_Type'] = 1
+                    elif 'negative' in ai_type or '減少' in ai_type or '下降' in ai_type:
+                        last_row['AI_Factor_Type'] = -1
+                    else:
+                        last_row['AI_Factor_Type'] = 0
+                else:
+                    last_row['AI_Factor'] = 1.0
+                    last_row['Has_AI_Factor'] = 0
+                    last_row['AI_Factor_Type'] = 0
+            else:
+                last_row['AI_Factor'] = 1.0
+                last_row['Has_AI_Factor'] = 0
+                last_row['AI_Factor_Type'] = 0
+            
             features_df = pd.DataFrame([last_row])
         else:
             features_df = None
