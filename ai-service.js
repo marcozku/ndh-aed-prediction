@@ -459,16 +459,20 @@ async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord
  */
 async function callAI(prompt, model = null, temperature = 0.7) {
     const triedModels = [];
+    const errors = [];
+    
+    console.log('🚀 開始調用 AI API，將依次嘗試所有可用模型...');
     
     // 如果指定了模型，先嘗試指定的模型
     if (model) {
         triedModels.push(model);
         try {
-            console.log(`🤖 嘗試使用指定模型: ${model}`);
-            const result = await callSingleModel(prompt, model, temperature);
+            console.log(`🤖 [1/?] 嘗試使用指定模型: ${model}`);
+            const result = await callSingleModel(prompt, model, temperature, false);
             console.log(`✅ 模型 ${model} 調用成功`);
             return result;
         } catch (error) {
+            errors.push({ model, error: error.message });
             console.warn(`⚠️ 指定模型 ${model} 失敗: ${error.message}`);
             // 無論什麼錯誤，都繼續嘗試其他模型（包括使用限制錯誤）
             if (isRateLimitError(error.message)) {
@@ -483,11 +487,20 @@ async function callAI(prompt, model = null, temperature = 0.7) {
     let availableModels = getAllAvailableModels(triedModels);
     
     if (availableModels.length === 0) {
-        throw new Error('所有 AI 模型今日使用次數已達上限或無可用模型');
+        const errorMsg = '所有 AI 模型今日使用次數已達上限或無可用模型';
+        console.error(`❌ ${errorMsg}`);
+        console.error('已嘗試的模型:', triedModels);
+        console.error('錯誤記錄:', errors);
+        throw new Error(errorMsg);
     }
+    
+    const totalModels = availableModels.length + (model ? 1 : 0);
+    console.log(`📋 找到 ${availableModels.length} 個可用模型，將依次嘗試（總共最多 ${totalModels} 個模型）...`);
     
     // 依次嘗試每個模型
     let lastError = null;
+    let attemptCount = triedModels.length;
+    
     for (const { model: modelName, tier } of availableModels) {
         // 檢查是否已經嘗試過
         if (triedModels.includes(modelName)) {
@@ -495,14 +508,18 @@ async function callAI(prompt, model = null, temperature = 0.7) {
         }
         
         triedModels.push(modelName);
+        attemptCount++;
+        
         try {
-            console.log(`🤖 嘗試使用模型: ${modelName} (${tier})`);
-            const result = await callSingleModel(prompt, modelName, temperature);
-            console.log(`✅ 模型 ${modelName} 調用成功`);
+            console.log(`🤖 [${attemptCount}/${totalModels}] 嘗試使用模型: ${modelName} (${tier})`);
+            const result = await callSingleModel(prompt, modelName, temperature, false);
+            console.log(`✅ 模型 ${modelName} (${tier}) 調用成功！`);
+            console.log(`📊 總共嘗試了 ${attemptCount} 個模型，最終成功使用: ${modelName}`);
             return result;
         } catch (error) {
             lastError = error;
-            console.warn(`⚠️ 模型 ${modelName} 失敗: ${error.message}`);
+            errors.push({ model: modelName, tier, error: error.message });
+            console.warn(`⚠️ 模型 ${modelName} (${tier}) 失敗: ${error.message}`);
             
             // 檢查是否為使用次數限制錯誤
             if (isRateLimitError(error.message)) {
@@ -515,29 +532,40 @@ async function callAI(prompt, model = null, temperature = 0.7) {
             console.log(`⏭️ 模型 ${modelName} 失敗 (${error.message})，嘗試下一個模型...`);
             
             // 重新獲取可用模型列表（可能因為錯誤而變化）
-            availableModels = getAllAvailableModels(triedModels);
+            const remainingModels = getAllAvailableModels(triedModels);
             
             // 如果還有其他模型可嘗試，繼續
-            if (availableModels.length > 0) {
+            if (remainingModels.length > 0) {
+                console.log(`📋 還有 ${remainingModels.length} 個模型可嘗試...`);
                 continue;
             }
             
             // 如果沒有更多模型可嘗試，跳出循環
+            console.warn(`⚠️ 沒有更多模型可嘗試，已嘗試 ${triedModels.length} 個模型`);
             break;
         }
     }
     
     // 如果所有模型都嘗試過了但都失敗
     if (lastError) {
-        throw new Error(`所有 AI 模型都嘗試失敗。最後錯誤: ${lastError.message}`);
+        const errorMsg = `所有 AI 模型都嘗試失敗（已嘗試 ${triedModels.length} 個模型）。最後錯誤: ${lastError.message}`;
+        console.error(`❌ ${errorMsg}`);
+        console.error('已嘗試的模型:', triedModels);
+        console.error('所有錯誤記錄:', errors);
+        throw new Error(errorMsg);
     }
-    throw new Error('所有 AI 模型都嘗試失敗');
+    
+    const errorMsg = `所有 AI 模型都嘗試失敗（已嘗試 ${triedModels.length} 個模型）`;
+    console.error(`❌ ${errorMsg}`);
+    console.error('已嘗試的模型:', triedModels);
+    throw new Error(errorMsg);
 }
 
 /**
  * 搜索可能影響北區醫院病人數量的新聞和事件
  */
 async function searchRelevantNewsAndEvents() {
+    console.log('🔍 開始搜索相關新聞和事件...');
     const today = getHKDateStr();
     const hkTime = new Date().toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' });
     
@@ -599,7 +627,9 @@ async function searchRelevantNewsAndEvents() {
 }`;
 
     try {
+        console.log('🤖 調用 AI 分析服務（將自動嘗試所有可用模型）...');
         const response = await callAI(prompt, null, 0.5);
+        console.log('✅ AI 調用成功，開始解析響應...');
         
         // 先轉換響應中的簡體中文到繁體中文
         const convertedResponse = convertToTraditional(response);
@@ -611,12 +641,14 @@ async function searchRelevantNewsAndEvents() {
             const jsonMatch = convertedResponse.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 result = JSON.parse(jsonMatch[0]);
+                console.log('✅ JSON 解析成功');
             } else {
                 throw new Error('無法找到 JSON 格式');
             }
         } catch (parseError) {
             // 如果無法解析，創建一個基本結構
             console.warn('⚠️ AI 響應無法解析為 JSON，使用文本響應');
+            console.warn('原始響應（前500字符）:', convertedResponse.substring(0, 500));
             result = {
                 factors: [],
                 summary: convertedResponse,
@@ -627,6 +659,7 @@ async function searchRelevantNewsAndEvents() {
         // 轉換結果中的所有字符串為繁體中文
         result = convertObjectToTraditional(result);
         
+        console.log(`✅ AI 分析完成，找到 ${result.factors ? result.factors.length : 0} 個影響因素`);
         return result;
     } catch (error) {
         console.error('❌ 搜索新聞和事件失敗:', error);
@@ -635,6 +668,7 @@ async function searchRelevantNewsAndEvents() {
             stack: error.stack,
             name: error.name
         });
+        console.error('⚠️ 所有 AI 模型都嘗試失敗，返回錯誤結果');
         return {
             factors: [],
             summary: `無法獲取 AI 分析: ${error.message}`,

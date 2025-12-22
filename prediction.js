@@ -5540,10 +5540,10 @@ function startRealtimeTrainingLogs() {
                     appendTrainingLogs(error, 'error');
                 }
                 
-                // 如果訓練已完成，停止更新
+                // 如果訓練已完成，停止更新並顯示總結
                 if (!training.isTraining) {
                     stopRealtimeTrainingLogs();
-                    appendTrainingLogs('\n✅ 訓練已完成', 'success');
+                    appendTrainingSummary(training, data.data);
                 }
             }
         } catch (error) {
@@ -5638,6 +5638,120 @@ function clearTrainingLogs() {
         logsContent.innerHTML = '<div style="color: var(--text-tertiary); font-style: italic;">日誌已清除...</div>';
         lastLogLength = 0;
         trainingLogsBuffer = [];
+    }
+}
+
+// 追加訓練總結
+function appendTrainingSummary(training, statusData) {
+    const logsContent = document.getElementById('training-logs-content');
+    if (!logsContent) return;
+    
+    // 解析訓練輸出以提取信息
+    const output = training.lastTrainingOutput || '';
+    const error = training.lastTrainingError || '';
+    
+    // 計算訓練時間
+    let duration = '未知';
+    if (training.trainingStartTime) {
+        const startTime = new Date(training.trainingStartTime);
+        const endTime = new Date();
+        const elapsed = (endTime - startTime) / 1000 / 60; // 分鐘
+        duration = `${elapsed.toFixed(1)} 分鐘`;
+    }
+    
+    // 檢查模型狀態
+    const models = statusData?.details || {};
+    const modelStatus = {
+        xgboost: models.xgboost?.exists || false,
+        lstm: models.lstm?.exists || false,
+        prophet: models.prophet?.exists || false
+    };
+    
+    const successCount = Object.values(modelStatus).filter(Boolean).length;
+    const totalCount = 3;
+    
+    // 提取性能指標
+    const extractMetrics = (modelName, output) => {
+        const metrics = {};
+        const lines = output.split('\n');
+        for (const line of lines) {
+            if (line.includes(modelName) || line.includes(modelName.toUpperCase())) {
+                if (line.includes('MAE:')) {
+                    const match = line.match(/MAE:\s*([\d.]+)/);
+                    if (match) metrics.mae = parseFloat(match[1]);
+                }
+                if (line.includes('RMSE:')) {
+                    const match = line.match(/RMSE:\s*([\d.]+)/);
+                    if (match) metrics.rmse = parseFloat(match[1]);
+                }
+                if (line.includes('MAPE:')) {
+                    const match = line.match(/MAPE:\s*([\d.]+)/);
+                    if (match) metrics.mape = parseFloat(match[1]);
+                }
+            }
+        }
+        return metrics;
+    };
+    
+    const xgboostMetrics = extractMetrics('XGBoost', output);
+    const lstmMetrics = extractMetrics('LSTM', output);
+    const prophetMetrics = extractMetrics('Prophet', output);
+    
+    // 創建總結
+    const summaryDiv = document.createElement('div');
+    summaryDiv.style.marginTop = '12px';
+    summaryDiv.style.padding = '12px';
+    summaryDiv.style.background = 'rgba(34, 197, 94, 0.1)';
+    summaryDiv.style.border = '1px solid var(--accent-success)';
+    summaryDiv.style.borderRadius = 'var(--radius-md)';
+    summaryDiv.style.fontSize = '0.85rem';
+    
+    let summaryHTML = `<div style="color: var(--accent-success); font-weight: 600; margin-bottom: 8px;">✅ 訓練完成總結</div>`;
+    summaryHTML += `<div style="margin-bottom: 8px;"><strong>⏱️ 訓練時間:</strong> ${duration}</div>`;
+    summaryHTML += `<div style="margin-bottom: 8px;"><strong>📊 模型狀態:</strong> ${successCount}/${totalCount} 個模型成功</div>`;
+    
+    // 模型詳細狀態
+    summaryHTML += `<div style="margin-top: 8px; margin-bottom: 4px;"><strong>模型詳情:</strong></div>`;
+    
+    // XGBoost
+    if (modelStatus.xgboost) {
+        summaryHTML += `<div style="margin-left: 12px; margin-bottom: 4px;">✅ XGBoost: 已訓練`;
+        if (xgboostMetrics.mae) summaryHTML += ` (MAE: ${xgboostMetrics.mae.toFixed(2)})`;
+        summaryHTML += `</div>`;
+    } else {
+        summaryHTML += `<div style="margin-left: 12px; margin-bottom: 4px; color: var(--text-danger);">❌ XGBoost: 訓練失敗或文件缺失</div>`;
+    }
+    
+    // LSTM
+    if (modelStatus.lstm) {
+        summaryHTML += `<div style="margin-left: 12px; margin-bottom: 4px;">✅ LSTM: 已訓練`;
+        if (lstmMetrics.mae) summaryHTML += ` (MAE: ${lstmMetrics.mae.toFixed(2)})`;
+        summaryHTML += `</div>`;
+    } else {
+        summaryHTML += `<div style="margin-left: 12px; margin-bottom: 4px; color: var(--text-danger);">❌ LSTM: 訓練失敗或文件缺失</div>`;
+    }
+    
+    // Prophet
+    if (modelStatus.prophet) {
+        summaryHTML += `<div style="margin-left: 12px; margin-bottom: 4px;">✅ Prophet: 已訓練`;
+        if (prophetMetrics.mae) summaryHTML += ` (MAE: ${prophetMetrics.mae.toFixed(2)})`;
+        summaryHTML += `</div>`;
+    } else {
+        summaryHTML += `<div style="margin-left: 12px; margin-bottom: 4px; color: var(--text-danger);">❌ Prophet: 訓練失敗或文件缺失</div>`;
+    }
+    
+    // 如果有錯誤
+    if (error && error.trim()) {
+        summaryHTML += `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color); color: var(--text-danger);"><strong>⚠️ 錯誤信息:</strong> ${error.substring(0, 200)}${error.length > 200 ? '...' : ''}</div>`;
+    }
+    
+    summaryDiv.innerHTML = summaryHTML;
+    logsContent.appendChild(summaryDiv);
+    
+    // 自動滾動到底部
+    const logsContainer = document.getElementById('realtime-training-logs');
+    if (logsContainer) {
+        logsContainer.scrollTop = logsContainer.scrollHeight;
     }
 }
 
