@@ -92,89 +92,105 @@ def create_sequences(X, y, seq_length=60):
 
 def train_lstm_model(train_data, test_data, feature_cols, seq_length=60):
     """訓練 LSTM 模型"""
-    # 準備特徵
-    X_train_raw = train_data[feature_cols].fillna(0).values
-    y_train_raw = train_data['Attendance'].values
-    X_test_raw = test_data[feature_cols].fillna(0).values
-    y_test_raw = test_data['Attendance'].values
-    
-    # 標準化
-    scaler_X = MinMaxScaler()
-    scaler_y = MinMaxScaler()
-    
-    X_train_scaled = scaler_X.fit_transform(X_train_raw)
-    X_test_scaled = scaler_X.transform(X_test_raw)
-    y_train_scaled = scaler_y.fit_transform(y_train_raw.reshape(-1, 1)).flatten()
-    y_test_scaled = scaler_y.transform(y_test_raw.reshape(-1, 1)).flatten()
-    
-    # 創建序列
-    X_train_seq, y_train_seq = create_sequences(X_train_scaled, y_train_scaled, seq_length)
-    X_test_seq, y_test_seq = create_sequences(X_test_scaled, y_test_scaled, seq_length)
-    
-    if len(X_train_seq) == 0 or len(X_test_seq) == 0:
-        print("錯誤: 數據不足以創建序列")
+    try:
+        print("準備特徵數據...")
+        # 準備特徵
+        X_train_raw = train_data[feature_cols].fillna(0).values
+        y_train_raw = train_data['Attendance'].values
+        X_test_raw = test_data[feature_cols].fillna(0).values
+        y_test_raw = test_data['Attendance'].values
+        
+        print(f"訓練數據形狀: X={X_train_raw.shape}, y={y_train_raw.shape}")
+        print(f"測試數據形狀: X={X_test_raw.shape}, y={y_test_raw.shape}")
+        
+        # 標準化
+        print("標準化數據...")
+        scaler_X = MinMaxScaler()
+        scaler_y = MinMaxScaler()
+        
+        X_train_scaled = scaler_X.fit_transform(X_train_raw)
+        X_test_scaled = scaler_X.transform(X_test_raw)
+        y_train_scaled = scaler_y.fit_transform(y_train_raw.reshape(-1, 1)).flatten()
+        y_test_scaled = scaler_y.transform(y_test_raw.reshape(-1, 1)).flatten()
+        
+        # 創建序列
+        print(f"創建序列（序列長度: {seq_length}）...")
+        X_train_seq, y_train_seq = create_sequences(X_train_scaled, y_train_scaled, seq_length)
+        X_test_seq, y_test_seq = create_sequences(X_test_scaled, y_test_scaled, seq_length)
+        
+        if len(X_train_seq) == 0 or len(X_test_seq) == 0:
+            print(f"錯誤: 數據不足以創建序列。訓練序列: {len(X_train_seq)}, 測試序列: {len(X_test_seq)}")
+            return None, None, None, None
+        
+        print(f"訓練序列: {X_train_seq.shape}")
+        print(f"測試序列: {X_test_seq.shape}")
+        
+        # 構建 LSTM 模型
+        print("構建 LSTM 模型...")
+        model = Sequential([
+            Bidirectional(LSTM(128, return_sequences=True, 
+                              input_shape=(seq_length, len(feature_cols)))),
+            Dropout(0.2),
+            Bidirectional(LSTM(64, return_sequences=True)),
+            Dropout(0.2),
+            LSTM(32, return_sequences=False),
+            Dropout(0.2),
+            Dense(64, activation='relu'),
+            Dropout(0.1),
+            Dense(32, activation='relu'),
+            Dense(1)
+        ])
+        
+        print("編譯模型...")
+        model.compile(
+            optimizer=Adam(learning_rate=0.001),
+            loss='mae',
+            metrics=['mae', 'mse']
+        )
+        
+        # 訓練
+        print("開始訓練模型...")
+        history = model.fit(
+            X_train_seq, y_train_seq,
+            epochs=100,
+            batch_size=32,
+            validation_data=(X_test_seq, y_test_seq),
+            callbacks=[
+                EarlyStopping(
+                    monitor='val_loss',
+                    patience=15,
+                    restore_best_weights=True,
+                    verbose=1
+                )
+            ],
+            verbose=1
+        )
+        
+        # 評估
+        print("評估模型...")
+        y_pred_scaled = model.predict(X_test_seq, verbose=0).flatten()
+        y_pred = scaler_y.inverse_transform(y_pred_scaled.reshape(-1, 1)).flatten()
+        
+        # 只評估有對應實際值的預測
+        min_len = min(len(y_pred), len(y_test_raw[seq_length:]))
+        y_pred_eval = y_pred[:min_len]
+        y_test_eval = y_test_raw[seq_length:seq_length+min_len]
+        
+        mae = mean_absolute_error(y_test_eval, y_pred_eval)
+        rmse = np.sqrt(mean_squared_error(y_test_eval, y_pred_eval))
+        mape = np.mean(np.abs((y_test_eval - y_pred_eval) / y_test_eval)) * 100
+        
+        print(f"LSTM 模型性能:")
+        print(f"  MAE: {mae:.2f} 病人")
+        print(f"  RMSE: {rmse:.2f} 病人")
+        print(f"  MAPE: {mape:.2f}%")
+        
+        return model, scaler_X, scaler_y, {'mae': mae, 'rmse': rmse, 'mape': mape}
+    except Exception as e:
+        print(f"錯誤: LSTM 模型訓練過程中發生異常: {e}")
+        import traceback
+        traceback.print_exc()
         return None, None, None, None
-    
-    print(f"訓練序列: {X_train_seq.shape}")
-    print(f"測試序列: {X_test_seq.shape}")
-    
-    # 構建 LSTM 模型
-    model = Sequential([
-        Bidirectional(LSTM(128, return_sequences=True, 
-                          input_shape=(seq_length, len(feature_cols)))),
-        Dropout(0.2),
-        Bidirectional(LSTM(64, return_sequences=True)),
-        Dropout(0.2),
-        LSTM(32, return_sequences=False),
-        Dropout(0.2),
-        Dense(64, activation='relu'),
-        Dropout(0.1),
-        Dense(32, activation='relu'),
-        Dense(1)
-    ])
-    
-    model.compile(
-        optimizer=Adam(learning_rate=0.001),
-        loss='mae',
-        metrics=['mae', 'mse']
-    )
-    
-    # 訓練
-    history = model.fit(
-        X_train_seq, y_train_seq,
-        epochs=100,
-        batch_size=32,
-        validation_data=(X_test_seq, y_test_seq),
-        callbacks=[
-            EarlyStopping(
-                monitor='val_loss',
-                patience=15,
-                restore_best_weights=True,
-                verbose=1
-            )
-        ],
-        verbose=1
-    )
-    
-    # 評估
-    y_pred_scaled = model.predict(X_test_seq, verbose=0).flatten()
-    y_pred = scaler_y.inverse_transform(y_pred_scaled.reshape(-1, 1)).flatten()
-    
-    # 只評估有對應實際值的預測
-    min_len = min(len(y_pred), len(y_test_raw[seq_length:]))
-    y_pred_eval = y_pred[:min_len]
-    y_test_eval = y_test_raw[seq_length:seq_length+min_len]
-    
-    mae = mean_absolute_error(y_test_eval, y_pred_eval)
-    rmse = np.sqrt(mean_squared_error(y_test_eval, y_pred_eval))
-    mape = np.mean(np.abs((y_test_eval - y_pred_eval) / y_test_eval)) * 100
-    
-    print(f"LSTM 模型性能:")
-    print(f"  MAE: {mae:.2f} 病人")
-    print(f"  RMSE: {rmse:.2f} 病人")
-    print(f"  MAPE: {mape:.2f}%")
-    
-    return model, scaler_X, scaler_y, {'mae': mae, 'rmse': rmse, 'mape': mape}
 
 def main():
     try:
@@ -238,24 +254,47 @@ def main():
         traceback.print_exc()
         sys.exit(1)
     
-    # 保存模型（使用絕對路徑）
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    models_dir = os.path.join(script_dir, 'models')
-    
-    model_path = os.path.join(models_dir, 'lstm_model.h5')
-    model.save(model_path)
-    print(f"模型已保存到 {model_path}")
-    
-    # 保存 scaler（需要序列化）
-    import pickle
-    with open(os.path.join(models_dir, 'lstm_scaler_X.pkl'), 'wb') as f:
-        pickle.dump(scaler_X, f)
-    with open(os.path.join(models_dir, 'lstm_scaler_y.pkl'), 'wb') as f:
-        pickle.dump(scaler_y, f)
-    
-    # 保存特徵列和參數
-    with open(os.path.join(models_dir, 'lstm_features.json'), 'w') as f:
-        json.dump(feature_cols, f)
+        # 保存模型（使用絕對路徑）
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        models_dir = os.path.join(script_dir, 'models')
+        
+        print("保存模型文件...")
+        model_path = os.path.join(models_dir, 'lstm_model.h5')
+        model.save(model_path)
+        print(f"模型已保存到 {model_path}")
+        
+        # 保存 scaler（需要序列化）
+        import pickle
+        scaler_X_path = os.path.join(models_dir, 'lstm_scaler_X.pkl')
+        scaler_y_path = os.path.join(models_dir, 'lstm_scaler_y.pkl')
+        with open(scaler_X_path, 'wb') as f:
+            pickle.dump(scaler_X, f)
+        print(f"Scaler X 已保存到 {scaler_X_path}")
+        with open(scaler_y_path, 'wb') as f:
+            pickle.dump(scaler_y, f)
+        print(f"Scaler y 已保存到 {scaler_y_path}")
+        
+        # 保存特徵列和參數
+        features_path = os.path.join(models_dir, 'lstm_features.json')
+        with open(features_path, 'w') as f:
+            json.dump(feature_cols, f)
+        print(f"特徵列表已保存到 {features_path}")
+        
+        params_path = os.path.join(models_dir, 'lstm_params.json')
+        with open(params_path, 'w') as f:
+            json.dump({
+                'seq_length': seq_length,
+                'feature_count': len(feature_cols)
+            }, f)
+        print(f"模型參數已保存到 {params_path}")
+        
+        # 保存指標
+        metrics_path = os.path.join(models_dir, 'lstm_metrics.json')
+        with open(metrics_path, 'w') as f:
+            json.dump(metrics, f)
+        print(f"模型指標已保存到 {metrics_path}")
+        
+        print("✅ LSTM 模型訓練完成！")
     with open(os.path.join(models_dir, 'lstm_metrics.json'), 'w') as f:
         json.dump(metrics, f)
     with open(os.path.join(models_dir, 'lstm_params.json'), 'w') as f:
