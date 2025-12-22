@@ -2,41 +2,101 @@
 LSTM 模型訓練腳本
 根據 AI-AED-Algorithm-Specification.txt Section 6.2
 """
-import pandas as pd
-import numpy as np
+# ============================================================================
+# 關鍵：在導入任何其他模塊之前，必須先設置所有 CUDA/TensorFlow 環境變數
+# 這可以防止 TensorFlow 嘗試初始化 CUDA，從而避免 free(): invalid pointer 錯誤
+# ============================================================================
 import os
 import sys
+
+# 在所有導入之前設置環境變數（必須在 import tensorflow 之前）
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # 減少 TensorFlow 日誌
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # 完全禁用 GPU
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'false'
+os.environ['TF_USE_GPU'] = '0'  # 明確禁用 GPU
+os.environ['TF_GPU_ALLOCATOR'] = ''  # 禁用 GPU 分配器
+os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices=false'  # 禁用 XLA GPU
+
+# 嘗試禁用 CUDA 庫加載（如果可能）
+try:
+    # 在 Linux 上，可以通過設置 LD_LIBRARY_PATH 來阻止 CUDA 庫加載
+    # 但這可能不適用於所有環境，所以我們只嘗試設置，不強制
+    if 'LD_LIBRARY_PATH' in os.environ:
+        # 從 LD_LIBRARY_PATH 中移除 CUDA 相關路徑
+        ld_path = os.environ['LD_LIBRARY_PATH']
+        paths = ld_path.split(':')
+        filtered_paths = [p for p in paths if 'cuda' not in p.lower() and 'cudnn' not in p.lower()]
+        if filtered_paths:
+            os.environ['LD_LIBRARY_PATH'] = ':'.join(filtered_paths)
+except:
+    pass  # 忽略錯誤，繼續執行
+
+import pandas as pd
+import numpy as np
 import json
 import pickle
 import gc
 import traceback
 
-# 配置 TensorFlow 內存使用，避免內存問題
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # 減少 TensorFlow 日誌
-# 強制使用 CPU 以避免 GPU 內存分配器衝突（這是 free(): invalid pointer 錯誤的主要原因）
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # 禁用 GPU
-os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'false'
-
+# 現在導入 TensorFlow，並進行嚴格的 CPU-only 配置
 try:
     import tensorflow as tf
-    # 強制使用 CPU 以避免內存分配器衝突
-    tf.config.set_visible_devices([], 'GPU')
     
-    # 限制 TensorFlow 內存使用（CPU 模式）
+    # 強制使用 CPU - 在 TensorFlow 初始化之前設置
+    # 這必須在任何 TensorFlow 操作之前執行
     try:
-        # 設置 TensorFlow 使用固定內存分配，避免動態分配導致的衝突
+        # 列出所有物理設備
+        physical_devices = tf.config.list_physical_devices()
+        print(f"檢測到的 TensorFlow 設備: {[d.name for d in physical_devices]}")
+        
+        # 強制設置只使用 CPU
+        tf.config.set_visible_devices([], 'GPU')
+        
+        # 如果意外檢測到 GPU，嘗試禁用它
+        gpus = tf.config.list_physical_devices('GPU')
+        if gpus:
+            print(f"警告: 檢測到 {len(gpus)} 個 GPU，但將強制使用 CPU")
+            try:
+                # 嘗試禁用所有 GPU
+                for gpu in gpus:
+                    tf.config.experimental.set_memory_growth(gpu, False)
+                tf.config.set_visible_devices([], 'GPU')
+            except Exception as e:
+                print(f"警告: 無法禁用 GPU: {e}")
+        
+        # 限制 TensorFlow 線程數，減少內存壓力
         tf.config.threading.set_inter_op_parallelism_threads(2)
         tf.config.threading.set_intra_op_parallelism_threads(2)
-    except Exception as e:
-        print(f"TensorFlow 線程配置警告: {e}")
+        
+        # 驗證配置
+        visible_devices = tf.config.get_visible_devices()
+        print(f"TensorFlow 可見設備: {[d.name for d in visible_devices]}")
+        if any('GPU' in d.name for d in visible_devices):
+            print("錯誤: GPU 仍然可見，這可能導致 CUDA 錯誤")
+            # 強制退出，避免後續錯誤
+            sys.exit(1)
+            
+    except Exception as config_error:
+        print(f"TensorFlow 配置錯誤: {config_error}")
+        print("嘗試繼續執行，但可能遇到 CUDA 相關問題...")
+        traceback.print_exc()
     
+    # 導入 Keras 組件
     from tensorflow.keras.models import Sequential
     from tensorflow.keras.layers import LSTM, Dense, Dropout
     from tensorflow.keras.optimizers import Adam
     from tensorflow.keras.callbacks import EarlyStopping
     from tensorflow.keras import backend as K
+    
+    print("✅ TensorFlow 已成功配置為 CPU-only 模式")
+    
 except ImportError as e:
     print(f"錯誤: 無法導入 TensorFlow: {e}")
+    sys.exit(1)
+except Exception as tf_init_error:
+    print(f"錯誤: TensorFlow 初始化失敗: {tf_init_error}")
+    print("這可能是由於 CUDA 相關問題導致的")
+    traceback.print_exc()
     sys.exit(1)
 
 from sklearn.preprocessing import MinMaxScaler
@@ -190,6 +250,12 @@ def train_lstm_model(train_data, test_data, feature_cols, seq_length=60):
         print("開始訓練模型...")
         try:
             # 使用較小的 batch_size 以減少內存壓力
+            # 在訓練前再次確認沒有 GPU 被使用
+            visible_devices = tf.config.get_visible_devices()
+            if any('GPU' in d.name for d in visible_devices):
+                print("錯誤: 檢測到 GPU 設備，這可能導致 CUDA 錯誤")
+                raise RuntimeError("GPU 設備仍然可見，無法安全訓練")
+            
             history = model.fit(
                 X_train_seq, y_train_seq,
                 epochs=100,
@@ -208,8 +274,38 @@ def train_lstm_model(train_data, test_data, feature_cols, seq_length=60):
             # 訓練完成後立即清理 TensorFlow 會話
             K.clear_session()
             gc.collect()
+        except RuntimeError as rt_error:
+            # 捕獲 CUDA 相關的 RuntimeError
+            error_msg = str(rt_error)
+            if 'CUDA' in error_msg or 'cuda' in error_msg.lower() or 'GPU' in error_msg:
+                print(f"❌ CUDA/GPU 相關錯誤: {error_msg}")
+                print("這可能是由於 TensorFlow 嘗試使用 GPU 導致的")
+                print("建議: 確保環境變數 CUDA_VISIBLE_DEVICES=-1 已設置")
+            else:
+                print(f"模型訓練過程中發生 RuntimeError: {rt_error}")
+            traceback.print_exc()
+            # 清理模型和 TensorFlow 會話
+            if model is not None:
+                try:
+                    K.clear_session()
+                except:
+                    pass
+                del model
+            gc.collect()
+            return None, None, None, None
         except Exception as fit_error:
-            print(f"模型訓練過程中發生錯誤: {fit_error}")
+            error_msg = str(fit_error)
+            # 檢查是否為 CUDA 相關錯誤
+            if 'CUDA' in error_msg or 'cuda' in error_msg.lower() or 'free()' in error_msg or 'invalid pointer' in error_msg:
+                print(f"❌ 檢測到 CUDA/內存相關錯誤: {error_msg}")
+                print("這可能是由於 TensorFlow 嘗試初始化 CUDA 但失敗導致的")
+                print("已嘗試強制使用 CPU，但可能環境中仍有 CUDA 庫被加載")
+                print("建議解決方案:")
+                print("  1. 確保環境變數 CUDA_VISIBLE_DEVICES=-1 已設置")
+                print("  2. 檢查是否安裝了 CPU-only 版本的 TensorFlow")
+                print("  3. 考慮使用 Docker 容器隔離 CUDA 環境")
+            else:
+                print(f"模型訓練過程中發生錯誤: {fit_error}")
             traceback.print_exc()
             # 清理模型和 TensorFlow 會話
             if model is not None:
@@ -281,6 +377,34 @@ def main():
     seq_length = 60
     
     try:
+        # 驗證環境變數設置
+        cuda_visible = os.environ.get('CUDA_VISIBLE_DEVICES', '')
+        if cuda_visible != '-1':
+            print(f"⚠️  警告: CUDA_VISIBLE_DEVICES={cuda_visible}，預期為 '-1'")
+            print("強制設置 CUDA_VISIBLE_DEVICES=-1")
+            os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+        
+        # 再次驗證 TensorFlow 配置
+        try:
+            visible_devices = tf.config.get_visible_devices()
+            gpu_devices = [d for d in visible_devices if 'GPU' in d.name]
+            if gpu_devices:
+                print(f"❌ 錯誤: 仍然檢測到 GPU 設備: {[d.name for d in gpu_devices]}")
+                print("這可能導致 CUDA 初始化錯誤")
+                print("嘗試強制禁用 GPU...")
+                tf.config.set_visible_devices([], 'GPU')
+                # 再次檢查
+                visible_devices = tf.config.get_visible_devices()
+                gpu_devices = [d for d in visible_devices if 'GPU' in d.name]
+                if gpu_devices:
+                    print("❌ 無法禁用 GPU，退出以避免 CUDA 錯誤")
+                    sys.exit(1)
+            else:
+                print("✅ 確認: 沒有 GPU 設備可見，將使用 CPU")
+        except Exception as verify_error:
+            print(f"⚠️  環境驗證警告: {verify_error}")
+            print("繼續執行，但可能遇到問題...")
+        
         # 創建模型目錄（相對於當前腳本目錄）
         script_dir = os.path.dirname(os.path.abspath(__file__))
         models_dir = os.path.join(script_dir, 'models')

@@ -76,13 +76,26 @@ def run_training_script(script_name):
     print(f"工作目錄: {script_dir}")
     print(f"腳本路徑: {script_path}")
     
+    # 對於 LSTM 訓練，設置環境變數以強制使用 CPU
+    env = os.environ.copy()
+    if 'train_lstm' in script_name:
+        print("🔧 為 LSTM 訓練設置 CPU-only 環境變數...")
+        env['CUDA_VISIBLE_DEVICES'] = '-1'
+        env['TF_CPP_MIN_LOG_LEVEL'] = '2'
+        env['TF_USE_GPU'] = '0'
+        env['TF_FORCE_GPU_ALLOW_GROWTH'] = 'false'
+        env['TF_GPU_ALLOCATOR'] = ''
+        env['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices=false'
+        print("✅ 環境變數已設置（強制 CPU-only 模式）")
+    
     start_time = time.time()
     
     result = subprocess.run(
         [sys.executable, script_path],
         cwd=script_dir,  # 在 python 目錄下運行
         capture_output=True,
-        text=True
+        text=True,
+        env=env  # 使用修改後的環境變數
     )
     
     elapsed_time = time.time() - start_time

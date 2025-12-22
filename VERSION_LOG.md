@@ -1,5 +1,51 @@
 # 版本更新日誌
 
+## v2.4.14 - 2025-12-23 04:09 (HKT)
+
+### 🔧 修復：LSTM 訓練 CUDA 錯誤和 free(): invalid pointer 問題
+
+**問題修復**：
+1. **更嚴格的環境變數設置**：
+   - 在文件最頂部（任何導入之前）設置所有 CUDA 相關環境變數
+   - 新增多個環境變數以完全禁用 GPU：
+     - `CUDA_VISIBLE_DEVICES=-1`
+     - `TF_USE_GPU=0`
+     - `TF_GPU_ALLOCATOR=''`
+     - `TF_XLA_FLAGS='--tf_xla_enable_xla_devices=false'`
+   - 嘗試從 `LD_LIBRARY_PATH` 中移除 CUDA 相關路徑
+
+2. **TensorFlow 配置驗證**：
+   - 導入 TensorFlow 後立即檢查並禁用所有 GPU 設備
+   - 驗證配置，確保沒有 GPU 可見
+   - 如果檢測到 GPU，強制退出以避免 CUDA 錯誤
+   - 限制 TensorFlow 線程數（inter_op: 2, intra_op: 2）
+
+3. **改進的錯誤處理**：
+   - 在訓練函數中捕獲 CUDA 相關錯誤
+   - 提供更清晰的錯誤訊息和建議
+   - 識別 `free(): invalid pointer` 錯誤並提供診斷信息
+   - 在訓練前再次確認沒有 GPU 被使用
+
+4. **環境驗證**：
+   - 在 `main()` 函數開始時驗證環境變數設置
+   - 再次確認沒有 GPU 設備可見
+   - 如果檢測到問題，提前退出
+
+5. **子進程環境變數**：
+   - 在 `train_all_models.py` 中，調用 LSTM 訓練腳本前設置環境變數
+   - 確保子進程也使用 CPU-only 模式
+
+**修改文件**：
+- `python/train_lstm.py` - 全面的 CUDA/GPU 禁用和錯誤處理
+- `python/train_all_models.py` - 為 LSTM 訓練設置環境變數
+- `styles.css` - 確保標題和副標題在所有屏幕尺寸下保持單行顯示
+
+**技術細節**：
+- 環境變數必須在導入 TensorFlow 之前設置
+- 使用 `tf.config.set_visible_devices([], 'GPU')` 強制禁用 GPU
+- 驗證配置確保沒有 GPU 設備可見
+- 如果問題仍然存在，可能需要使用 CPU-only 版本的 TensorFlow 或 Docker 容器完全隔離 CUDA 環境
+
 ## v2.4.13 - 2025-12-23 02:25 (HKT)
 
 ### 🔧 修復：AI 因素分析載入卡在 10% 的問題
