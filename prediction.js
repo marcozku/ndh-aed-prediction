@@ -5268,6 +5268,17 @@ function renderTrainingStatus(data) {
         setTrainingDetailsExpanded(isExpanded);
     }
     
+    // 先從 data 中提取所有需要的變數
+    const models = data.models || {};
+    const training = data.training || {};
+    const isTraining = training.isTraining || false;
+    const lastTrainingDate = training.lastTrainingDate;
+    const trainingStartTime = training.trainingStartTime;
+    const estimatedRemainingTime = training.estimatedRemainingTime;
+    const elapsedTime = training.elapsedTime;
+    const lastTrainingOutput = training.lastTrainingOutput || '';
+    const lastTrainingError = training.lastTrainingError || '';
+    
     // 保存 details 元素的展開狀態和滾動位置
     const logDetails = document.getElementById('training-log-details');
     let logDetailsOpen = false;
@@ -5298,16 +5309,6 @@ function renderTrainingStatus(data) {
     // 保存當前輸出內容，用於比較是否需要更新
     const currentOutput = lastTrainingOutput || '';
     const currentError = lastTrainingError || '';
-    
-    const models = data.models || {};
-    const training = data.training || {};
-    const isTraining = training.isTraining || false;
-    const lastTrainingDate = training.lastTrainingDate;
-    const trainingStartTime = training.trainingStartTime;
-    const estimatedRemainingTime = training.estimatedRemainingTime;
-    const elapsedTime = training.elapsedTime;
-    const lastTrainingOutput = training.lastTrainingOutput || '';
-    const lastTrainingError = training.lastTrainingError || '';
     const details = data.details || {};
     const diagnostics = data.diagnostics || {};
     
