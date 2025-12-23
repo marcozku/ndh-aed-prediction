@@ -5952,7 +5952,7 @@ function appendTrainingSummary(training, statusData) {
     
     const xgboostMetrics = extractMetrics('XGBoost', output);
     
-    // 創建總結
+    // 創建總結容器
     const summaryDiv = document.createElement('div');
     summaryDiv.style.marginTop = '12px';
     summaryDiv.style.padding = '12px';
@@ -5977,9 +5977,24 @@ function appendTrainingSummary(training, statusData) {
         summaryHTML += `<div style="margin-left: 12px; margin-bottom: 4px; color: var(--text-danger);">❌ XGBoost: 訓練失敗或文件缺失</div>`;
     }
     
-    // 如果有錯誤
+    // 顯示完整的訓練輸出（類似命令行）
+    if (output && output.trim()) {
+        summaryHTML += `<details style="margin-top: 12px;" open>`;
+        summaryHTML += `<summary style="cursor: pointer; padding: 8px; background: rgba(59, 130, 246, 0.1); border-radius: var(--radius-sm); font-weight: 600; color: var(--accent-primary); user-select: none;">💻 完整訓練過程輸出（點擊展開/收起）</summary>`;
+        summaryHTML += `<div style="margin-top: 8px; padding: 12px; background: #1e1e1e; border-radius: var(--radius-sm); border: 1px solid var(--border-color); max-height: 600px; overflow-y: auto;">`;
+        summaryHTML += `<pre style="margin: 0; padding: 0; font-family: 'Courier New', 'Consolas', 'Monaco', monospace; font-size: 0.8rem; line-height: 1.5; color: #d4d4d4; white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(output)}</pre>`;
+        summaryHTML += `</div>`;
+        summaryHTML += `</details>`;
+    }
+    
+    // 如果有錯誤，也顯示完整錯誤輸出
     if (error && error.trim()) {
-        summaryHTML += `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color); color: var(--text-danger);"><strong>⚠️ 錯誤信息:</strong> ${error.substring(0, 200)}${error.length > 200 ? '...' : ''}</div>`;
+        summaryHTML += `<details style="margin-top: 12px;">`;
+        summaryHTML += `<summary style="cursor: pointer; padding: 8px; background: rgba(220, 53, 69, 0.1); border-radius: var(--radius-sm); font-weight: 600; color: var(--text-danger); user-select: none;">⚠️ 錯誤輸出（點擊展開/收起）</summary>`;
+        summaryHTML += `<div style="margin-top: 8px; padding: 12px; background: #1e1e1e; border-radius: var(--radius-sm); border: 1px solid var(--border-color); max-height: 400px; overflow-y: auto;">`;
+        summaryHTML += `<pre style="margin: 0; padding: 0; font-family: 'Courier New', 'Consolas', 'Monaco', monospace; font-size: 0.8rem; line-height: 1.5; color: #f48771; white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(error)}</pre>`;
+        summaryHTML += `</div>`;
+        summaryHTML += `</details>`;
     }
     
     summaryDiv.innerHTML = summaryHTML;
