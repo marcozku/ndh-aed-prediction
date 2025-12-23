@@ -5420,15 +5420,15 @@ function renderTrainingStatus(data) {
                     ` : ''}
                     
                     <!-- 實時訓練日誌 -->
-                    <div id="realtime-training-logs" style="margin-top: var(--space-md); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-md); border: 1px solid var(--border-color); max-height: 400px; overflow-y: auto;">
+                    <div style="margin-top: var(--space-md);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-xs);">
                             <h5 style="margin: 0; color: var(--text-primary); font-size: 0.9rem;">📋 實時訓練日誌</h5>
                             <button onclick="clearTrainingLogs()" style="padding: 4px 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; font-size: 0.75rem; color: var(--text-secondary);">
                                 清除
                             </button>
                         </div>
-                        <div id="training-logs-content" style="font-family: 'Courier New', monospace; font-size: 0.8rem; line-height: 1.6; color: var(--text-primary); white-space: pre-wrap; word-wrap: break-word;">
-                            <div style="color: var(--text-tertiary); font-style: italic;">等待訓練輸出...</div>
+                        <div id="realtime-training-logs" style="background: #1e1e1e; border: 1px solid #3c3c3c; border-radius: var(--radius-md); padding: 12px; max-height: 500px; overflow-y: auto; font-family: 'Courier New', 'Consolas', 'Monaco', monospace; font-size: 0.85rem; line-height: 1.5;">
+                            <pre id="training-logs-content" style="margin: 0; padding: 0; color: #d4d4d4; white-space: pre-wrap; word-wrap: break-word; font-family: inherit; font-size: inherit;">等待訓練輸出...</pre>
                         </div>
                     </div>
                 </div>
@@ -5773,7 +5773,7 @@ function stopRealtimeTrainingLogs() {
     }
 }
 
-// 追加訓練日誌
+// 追加訓練日誌（終端樣式，靜態追加）
 function appendTrainingLogs(content, type = 'output') {
     if (!content || content.trim() === '') return;
     
@@ -5782,142 +5782,24 @@ function appendTrainingLogs(content, type = 'output') {
     
     // 移除"等待訓練輸出..."提示
     if (logsContent.textContent.includes('等待訓練輸出...')) {
-        logsContent.innerHTML = '';
+        logsContent.textContent = '';
     }
     
-    // 將內容按行分割
-    const lines = content.split('\n');
-    
-    lines.forEach(line => {
-        // 錯誤類型總是顯示
-        if (type === 'error') {
-            const lineDiv = document.createElement('div');
-            lineDiv.style.marginBottom = '2px';
-            lineDiv.style.padding = '2px 4px';
-            lineDiv.style.color = 'var(--text-danger)';
-            lineDiv.style.background = 'rgba(220, 53, 69, 0.1)';
-            lineDiv.textContent = `[錯誤] ${line}`;
-            logsContent.appendChild(lineDiv);
-            return;
-        }
-        
-        // 對於輸出類型，過濾掉無用的行
-        const trimmed = line.trim();
-        if (trimmed === '') return;
-        
-        // 過濾掉無用的行（只過濾明顯無用的，保留更多細節）
-        const uselessPatterns = [
-            /^[\s=]+$/,  // 只有分隔符（空行或純分隔符）
-            /^WARNING:.*tensorflow.*deprecated/i,  // TensorFlow 棄用警告
-            /^INFO:.*tensorflow.*already/i,  // TensorFlow 重複信息
-            /^DEBUG:/i,  // 調試信息
-        ];
-        
-        // 檢查是否匹配無用模式
-        let isUseless = false;
-        for (const pattern of uselessPatterns) {
-            if (pattern.test(trimmed)) {
-                isUseless = true;
-                break;
+    // 直接追加內容到 pre 元素，保持原始格式
+    // 錯誤類型使用紅色標記
+    if (type === 'error') {
+        // 為錯誤內容添加標記
+        const errorText = content.split('\n').map(line => {
+            if (line.trim()) {
+                return `[錯誤] ${line}`;
             }
-        }
-        
-        // 如果無用，跳過
-        if (isUseless) {
-            return;
-        }
-        
-        // 保留有用的行（擴展模式，包含數學/編碼細節）
-        const usefulPatterns = [
-            /✅|成功|完成|Finished|Done|完成/i,  // 成功信息
-            /❌|失敗|錯誤|Error|Exception|Failed/i,  // 錯誤信息
-            /開始|Starting|開始訓練|Training|訓練/i,  // 開始信息
-            /MAE|RMSE|MAPE|準確度|Accuracy|Performance|性能|loss|error|metric/i,  // 性能指標和損失函數
-            /模型|Model|訓練|Train|train/i,  // 模型相關
-            /保存|Saved|保存到|saved to|save/i,  // 保存信息
-            /XGBoost|訓練完成|訓練失敗/i,  // 關鍵狀態
-            /耗時|時間|Time|Duration|分鐘|elapsed/i,  // 時間信息
-            /數據|Data|記錄|Records|筆|rows|samples|features/i,  // 數據信息
-            /警告.*重要|Warning.*important/i,  // 重要警告
-            /🚀|📊|⏱️|✅|❌|⚠️/,  // 特殊符號
-            // 數學/編碼相關細節
-            /n_estimators|max_depth|learning_rate|subsample|colsample|alpha|lambda|regularization/i,  // 模型參數
-            /feature|特徵|features|feature_engineering|特徵工程/i,  // 特徵工程
-            /train_data|test_data|訓練集|測試集|training set|test set/i,  // 數據集
-            /split|分割|split_idx|TimeSeriesSplit/i,  // 數據分割
-            /fit|predict|evaluate|評估|訓練|fitting/i,  // 訓練過程
-            /gradient|boost|tree|樹|葉子|leaf|node/i,  // 模型結構
-            /epoch|iteration|iter|輪|迭代/i,  // 迭代過程
-            /optimization|優化|optimize|minimize/i,  // 優化過程
-            /validation|驗證|val_|eval_/i,  // 驗證相關
-            /early_stopping|early stopping|提前停止/i,  // 早停
-            /score|得分|分數|r2|r_squared/i,  // 評分
-            /參數|parameter|config|配置|hyperparameter/i,  // 參數配置
-            /計算|calculate|compute|process|處理/i,  // 計算過程
-            /加載|load|讀取|read|讀取數據/i,  // 數據加載
-            /目錄|directory|dir|path|路徑/i,  // 路徑信息
-            /工作目錄|工作|working|script|腳本/i,  // 工作信息
-        ];
-        
-        // 檢查是否匹配有用模式
-        let isUseful = false;
-        for (const pattern of usefulPatterns) {
-            if (pattern.test(trimmed)) {
-                isUseful = true;
-                break;
-            }
-        }
-        
-        // 如果包含數字和關鍵詞（可能是數學計算結果），也保留
-        if (!isUseful && /[\d.]+/.test(trimmed) && (
-            /病人|patient|筆|rows|samples|features|特徵|數據|data|時間|time|分鐘|min|秒|sec|大小|size|MB|KB/i.test(trimmed) ||
-            /MAE|RMSE|MAPE|loss|error|score|accuracy|準確/i.test(trimmed)
-        )) {
-            isUseful = true;
-        }
-        
-        // 如果沒有匹配有用模式，跳過（減少噪音）
-        if (!isUseful) {
-            return;
-        }
-        
-        const lineDiv = document.createElement('div');
-        lineDiv.style.marginBottom = '2px';
-        lineDiv.style.padding = '2px 4px';
-        
-        // 根據內容類型設置顏色和樣式
-        if (trimmed.includes('✅') || trimmed.includes('成功') || trimmed.includes('完成') || trimmed.match(/Finished|Done/i)) {
-            lineDiv.style.color = 'var(--accent-success)';
-            lineDiv.style.background = 'rgba(34, 197, 94, 0.1)';
-            lineDiv.style.fontWeight = '500';
-        } else if (trimmed.includes('❌') || trimmed.includes('失敗') || trimmed.includes('錯誤') || trimmed.match(/Error|Exception|Failed/i)) {
-            lineDiv.style.color = 'var(--text-danger)';
-            lineDiv.style.background = 'rgba(220, 53, 69, 0.1)';
-            lineDiv.style.fontWeight = '500';
-        } else if (trimmed.includes('⚠️') || trimmed.match(/警告|Warning/i)) {
-            lineDiv.style.color = 'var(--accent-warning)';
-            lineDiv.style.background = 'rgba(251, 191, 36, 0.1)';
-        } else if (trimmed.match(/開始|開始訓練|Starting|Training|訓練/i)) {
-            lineDiv.style.color = 'var(--accent-primary)';
-            lineDiv.style.fontWeight = '600';
-            lineDiv.style.background = 'rgba(59, 130, 246, 0.1)';
-        } else if (trimmed.match(/MAE|RMSE|MAPE|準確度|Accuracy|Performance|性能/i)) {
-            lineDiv.style.color = 'var(--text-primary)';
-            lineDiv.style.fontWeight = '500';
-            lineDiv.style.background = 'rgba(59, 130, 246, 0.05)';
-        } else if (trimmed.match(/^\s*[=]+/)) {
-            // 分隔線
-            lineDiv.style.color = 'var(--text-tertiary)';
-            lineDiv.style.borderBottom = '1px solid var(--border-color)';
-            lineDiv.style.marginBottom = '4px';
-            lineDiv.style.paddingBottom = '4px';
-        } else {
-            lineDiv.style.color = 'var(--text-secondary)';
-        }
-        
-        lineDiv.textContent = trimmed;
-        logsContent.appendChild(lineDiv);
-    });
+            return line;
+        }).join('\n');
+        logsContent.textContent += errorText;
+    } else {
+        // 直接追加原始輸出，保留所有格式和細節
+        logsContent.textContent += content;
+    }
     
     // 智能自動滾動：只有在用戶已經在底部附近且沒有手動滾動時才自動滾動
     const logsContainer = document.getElementById('realtime-training-logs');
@@ -5936,7 +5818,7 @@ function appendTrainingLogs(content, type = 'output') {
 function clearTrainingLogs() {
     const logsContent = document.getElementById('training-logs-content');
     if (logsContent) {
-        logsContent.innerHTML = '<div style="color: var(--text-tertiary); font-style: italic;">日誌已清除...</div>';
+        logsContent.textContent = '日誌已清除...\n';
         lastLogLength = 0;
         trainingLogsBuffer = [];
     }
