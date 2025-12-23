@@ -3648,6 +3648,9 @@ async function initComparisonTable() {
         if (comparisonData.length > 0) {
             console.log('🔍 比較數據結構檢查（第一筆）:', comparisonData[0]);
             console.log('🔍 字段列表:', Object.keys(comparisonData[0]));
+            console.log('🔍 日期值:', comparisonData[0].date, '類型:', typeof comparisonData[0].date);
+            console.log('🔍 實際人數值:', comparisonData[0].actual, '類型:', typeof comparisonData[0].actual);
+            console.log('🔍 所有字段值:', JSON.stringify(comparisonData[0], null, 2));
         }
         
         // 過濾出有效的比較數據（必須同時有實際和預測）
@@ -3679,32 +3682,54 @@ async function initComparisonTable() {
         tableBody.innerHTML = validComparisonData.map(d => {
             // 確保正確提取日期和實際人數
             // 處理可能的字段名變體（date, Date, target_date等）
-            const dateValue = d.date || d.Date || d.target_date || null;
+            let dateValue = d.date || d.Date || d.target_date || null;
             // 處理可能的字段名變體（actual, patient_count, attendance等）
-            const actualValue = d.actual !== undefined && d.actual !== null ? d.actual : 
+            let actualValue = d.actual !== undefined && d.actual !== null ? d.actual : 
                                (d.patient_count !== undefined && d.patient_count !== null ? d.patient_count : 
                                (d.attendance !== undefined && d.attendance !== null ? d.attendance : null));
             
             // 檢測並修復數據錯位問題
+            // 檢查：如果 date 字段是數字（100-1000範圍，可能是實際人數），而 actual 是日期字符串，則交換
+            const isDateValueNumber = dateValue !== null && typeof dateValue === 'number' && 
+                                      dateValue >= 100 && dateValue <= 1000; // 合理的實際人數範圍
+            const isActualValueDateString = actualValue !== null && typeof actualValue === 'string' && 
+                                           (actualValue.match(/^\d{4}-\d{2}-\d{2}/) || 
+                                            actualValue.match(/^\d{2}\/\d{2}\/\d{4}/) ||
+                                            actualValue.match(/^\d{4}-\d{2}-\d{2}T/)); // 支持 ISO 格式
+            const isDateValueDateString = dateValue !== null && typeof dateValue === 'string' && 
+                                         (dateValue.match(/^\d{4}-\d{2}-\d{2}/) || 
+                                          dateValue.match(/^\d{2}\/\d{2}\/\d{4}/) ||
+                                          dateValue.match(/^\d{4}-\d{2}-\d{2}T/)); // 支持 ISO 格式
+            const isActualValueNumber = actualValue !== null && typeof actualValue === 'number' && 
+                                       actualValue >= 100 && actualValue <= 1000; // 合理的實際人數範圍
+            
+            // 如果 date 是數字（可能是實際人數），而 actual 是日期字符串，則交換
+            if (isDateValueNumber && isActualValueDateString) {
+                console.warn('⚠️ 檢測到數據錯位（date是數字，actual是日期），正在修復:', { 
+                    originalDate: dateValue, 
+                    originalActual: actualValue,
+                    swapped: true
+                });
+                const temp = dateValue;
+                dateValue = actualValue;
+                actualValue = temp;
+            }
+            // 如果 date 是日期字符串，而 actual 是數字，這是正確的，不需要交換
+            // 但如果 date 是日期字符串，而 actual 也是日期字符串，可能有問題
+            else if (isDateValueDateString && isActualValueDateString) {
+                console.warn('⚠️ 兩個字段都是日期字符串，可能有問題:', d);
+            }
+            // 如果 date 是數字，而 actual 也是數字，可能是兩個都錯位了
+            else if (isDateValueNumber && isActualValueNumber) {
+                console.warn('⚠️ 兩個字段都是數字，可能有問題:', d);
+            }
+            // 如果 date 是字符串但不是日期格式，而 actual 是數字，可能是 date 字段有問題
+            else if (dateValue !== null && typeof dateValue === 'string' && !isDateValueDateString && isActualValueNumber) {
+                console.warn('⚠️ date 字段是字符串但不是日期格式，actual 是數字:', d);
+            }
+            
             let finalDate = dateValue;
             let finalActual = actualValue;
-            
-            // 如果日期是數字（可能是錯位的實際人數），而實際人數是日期字符串，則交換
-            if (dateValue && typeof dateValue === 'number' && 
-                actualValue && typeof actualValue === 'string' && actualValue.match(/^\d{4}-\d{2}-\d{2}/)) {
-                console.warn('⚠️ 檢測到數據錯位，正在修復:', { originalDate: dateValue, originalActual: actualValue });
-                // 交換值
-                finalDate = actualValue;
-                finalActual = dateValue;
-            }
-            
-            // 如果日期是數字但實際人數不是日期字符串，可能是日期字段為空
-            if (dateValue && typeof dateValue === 'number' && 
-                (!actualValue || (typeof actualValue !== 'string' || !actualValue.match(/^\d{4}-\d{2}-\d{2}/)))) {
-                // 日期字段是數字，可能是錯位的實際人數
-                // 但我們不能確定，所以記錄警告
-                console.warn('⚠️ 日期字段是數字，但無法確定是否錯位:', d);
-            }
             
             const error = d.error || (d.predicted && finalActual ? d.predicted - finalActual : null);
             const errorRate = d.error_percentage || (error && finalActual ? ((error / finalActual) * 100).toFixed(2) : null);

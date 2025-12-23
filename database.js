@@ -589,6 +589,19 @@ async function getComparisonData(limit = 100) {
     try {
         const result = await queryWithRetry(query, [limit]);
         console.log(`📊 比較數據查詢: 找到 ${result.rows.length} 筆有效數據`);
+        
+        // 調試：檢查第一筆數據的結構
+        if (result.rows.length > 0) {
+            const firstRow = result.rows[0];
+            console.log('🔍 數據庫返回的第一筆數據:', {
+                date: firstRow.date,
+                dateType: typeof firstRow.date,
+                actual: firstRow.actual,
+                actualType: typeof firstRow.actual,
+                allKeys: Object.keys(firstRow)
+            });
+        }
+        
         return result.rows;
     } catch (error) {
         console.error('❌ 查詢比較數據失敗:', error);
