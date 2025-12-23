@@ -3181,34 +3181,30 @@ section h2 {
 }
 
 .loading-spinner {
-    width: 48px;
-    height: 48px;
-    border: 3px solid var(--border-subtle);
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(79, 70, 229, 0.1);
     border-top-color: var(--accent-primary);
     border-right-color: var(--accent-primary);
     border-radius: 50%;
-    animation: spin 0.8s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+    animation: spin 0.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
     margin-bottom: var(--space-md);
     position: relative;
+    will-change: transform;
 }
 
+/* 移除內層圓圈，使用更簡潔的設計 */
 .loading-spinner::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 20px;
-    height: 20px;
-    border: 2px solid var(--accent-primary);
-    border-top-color: transparent;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    animation: spin 0.6s linear infinite reverse;
-    opacity: 0.5;
+    display: none;
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 .loading-text {
