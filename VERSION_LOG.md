@@ -1,5 +1,43 @@
 # 版本更新日誌
 
+## v2.4.19 - 2025-12-23 20:45 (HKT)
+
+### 📱 修復：iPhone Dynamic Island 遮擋問題
+
+**問題修復**：
+1. **適配 iPhone Dynamic Island**：
+   - 使用 `env(safe-area-inset-top)` 自動檢測安全區域
+   - 為 header 添加動態頂部 padding，避免被 Dynamic Island 遮擋
+   - 為 app-container 添加安全區域適配
+   - 為 body 添加安全區域 padding
+
+2. **響應式安全區域處理**：
+   - 使用 `max()` 函數確保最小間距
+   - 在所有設備上都有適當的頂部間距
+   - 自動適配不同 iPhone 型號（有/無 Dynamic Island）
+
+3. **視圖配置優化**：
+   - 更新 viewport meta 標籤
+   - 確保 `viewport-fit=cover` 正確設置
+   - 添加 `user-scalable=no` 防止意外縮放
+
+**技術細節**：
+- 使用 CSS `env()` 函數讀取安全區域
+- `safe-area-inset-top` 自動檢測頂部安全區域（包括 Dynamic Island）
+- `safe-area-inset-bottom` 適配底部安全區域（如 iPhone X 系列）
+- 使用 `max()` 確保在所有設備上都有足夠間距
+
+**影響範圍**：
+- `styles.css` - 添加安全區域適配
+- `index.html` - 更新 viewport meta 標籤
+- 所有使用 header 的頁面
+
+**優勢**：
+- ✅ 標題不再被 Dynamic Island 遮擋
+- ✅ 自動適配所有 iPhone 型號
+- ✅ 在其他設備上保持正常顯示
+- ✅ 更好的移動端體驗
+
 ## v2.4.18 - 2025-12-23 20:30 (HKT)
 
 ### 📊 重大圖表和表格升級：世界級 Apple 風格設計
