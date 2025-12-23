@@ -2470,62 +2470,23 @@ section h2 {
 
 .comparison-table {
     width: 100%;
-    max-width: 100%;
-    min-width: 600px;
-    table-layout: fixed;
     border-collapse: collapse;
     border-spacing: 0;
-    table-layout: fixed;
     font-size: clamp(0.75rem, 1.6vw, 0.9rem);
-    box-sizing: border-box;
     font-family: 'Inter', 'DM Sans', -apple-system, sans-serif;
 }
 
-/* 強制統一欄寬，避免表頭與數據列錯位 */
-.comparison-table th:nth-child(1),
-.comparison-table td:nth-child(1) { width: 13%; }
-.comparison-table th:nth-child(2),
-.comparison-table td:nth-child(2) { width: 13%; }
-.comparison-table th:nth-child(3),
-.comparison-table td:nth-child(3) { width: 13%; }
-.comparison-table th:nth-child(4),
-.comparison-table td:nth-child(4) { width: 9%; }
-.comparison-table th:nth-child(5),
-.comparison-table td:nth-child(5) { width: 9%; }
-.comparison-table th:nth-child(6),
-.comparison-table td:nth-child(6) { width: 14%; }
-.comparison-table th:nth-child(7),
-.comparison-table td:nth-child(7) { width: 14%; }
-.comparison-table th:nth-child(8),
-.comparison-table td:nth-child(8) { width: 15%; }
-
 .comparison-table thead {
     background: linear-gradient(135deg, rgba(79, 70, 229, 0.06) 0%, rgba(124, 58, 237, 0.04) 100%);
-    backdrop-filter: var(--blur-sm);
-    -webkit-backdrop-filter: var(--blur-sm);
     border-bottom: 2px solid var(--border-medium);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .comparison-table th,
 .comparison-table td {
-    padding: var(--space-sm) var(--space-sm);
-    padding-left: var(--space-sm);
-    padding-right: var(--space-sm);
+    padding: 10px 12px;
     text-align: left;
     white-space: nowrap;
     vertical-align: middle;
-    box-sizing: border-box;
-}
-
-/* 確保第一列完全對齊 */
-.comparison-table th:first-child,
-.comparison-table td:first-child {
-    padding-left: var(--space-sm);
-    padding-right: var(--space-sm);
 }
 
 .comparison-table th {
@@ -2534,7 +2495,6 @@ section h2 {
     color: var(--text-primary);
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    background: transparent;
 }
 
 .comparison-table td {
@@ -2544,33 +2504,8 @@ section h2 {
     background: var(--bg-secondary);
 }
 
-.comparison-table tbody tr {
-    transition: background-color var(--transition-base), box-shadow var(--transition-base);
-    position: relative;
-}
-
-.comparison-table tbody tr::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background: var(--gradient-primary);
-    opacity: 0;
-    transition: var(--transition-base);
-    transform: scaleY(0);
-    transform-origin: center;
-}
-
 .comparison-table tbody tr:hover {
-    background: linear-gradient(135deg, rgba(79, 70, 229, 0.04) 0%, rgba(124, 58, 237, 0.02) 100%);
-    box-shadow: var(--shadow-sm);
-}
-
-.comparison-table tbody tr:hover::before {
-    opacity: 1;
-    transform: scaleY(1);
+    background: rgba(79, 70, 229, 0.04);
 }
 
 .comparison-table tbody tr:hover td {
