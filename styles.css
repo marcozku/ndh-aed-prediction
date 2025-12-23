@@ -2571,7 +2571,9 @@ section h2 {
 
     .comparison-table th,
     .comparison-table td {
-        padding: var(--space-xs) var(--space-sm);
+        padding: var(--space-xs) var(--space-xs);
+        padding-left: var(--space-xs);
+        padding-right: var(--space-xs);
     }
 }
 
