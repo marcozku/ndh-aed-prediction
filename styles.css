@@ -2555,10 +2555,12 @@ section h2 {
 
 .comparison-table td {
     padding: var(--space-md) var(--space-lg);
+    padding-left: var(--space-sm);
     border-bottom: 1px solid var(--border-subtle);
     color: var(--text-secondary);
     font-weight: 500;
     background: var(--bg-secondary);
+    text-align: left;
 }
 
 .comparison-table tbody tr {
