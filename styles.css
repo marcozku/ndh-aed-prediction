@@ -2555,7 +2555,8 @@ section h2 {
 
 .comparison-table th {
     padding: var(--space-md) var(--space-lg);
-    padding-left: var(--space-lg);
+    padding-left: var(--space-md) !important;
+    padding-right: var(--space-md) !important;
     text-align: left !important;
     font-weight: 700;
     font-size: clamp(0.8rem, 1.8vw, 0.95rem);
@@ -2569,6 +2570,8 @@ section h2 {
 
 .comparison-table td {
     padding: var(--space-md) var(--space-lg);
+    padding-left: var(--space-md) !important;
+    padding-right: var(--space-md) !important;
     padding-left: var(--space-sm) !important;
     border-bottom: 1px solid var(--border-subtle);
     color: var(--text-secondary);
