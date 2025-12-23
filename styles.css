@@ -2446,6 +2446,9 @@ section h2 {
 }
 
 /* 比較表格 - Premium Apple-like Design */
+/* ============================================
+   比較表格 - 重新創建，確保完全左對齊
+   ============================================ */
 .comparison-table-container {
     overflow-x: auto;
     overflow-y: visible;
@@ -2468,78 +2471,11 @@ section h2 {
     width: 100%;
     max-width: 100%;
     min-width: 600px;
-    border-collapse: separate;
+    border-collapse: collapse;
     border-spacing: 0;
     font-size: clamp(0.75rem, 1.6vw, 0.9rem);
     box-sizing: border-box;
     font-family: 'Inter', 'DM Sans', -apple-system, sans-serif;
-}
-
-.comparison-table th,
-.comparison-table td {
-    padding: clamp(0.75rem, 1.2vw, var(--space-md));
-    white-space: nowrap;
-    transition: var(--transition-fast);
-}
-
-/* 確保表頭和數據行的左側 padding 完全一致 */
-.comparison-table thead th {
-    padding-left: var(--space-md) !important;
-    padding-right: var(--space-md) !important;
-    text-align: left !important;
-}
-
-.comparison-table tbody td {
-    padding-left: var(--space-md) !important;
-    padding-right: var(--space-md) !important;
-    text-align: left !important;
-}
-
-@media (max-width: 600px) {
-    .comparison-table-container {
-        overflow-x: auto !important; /* 移動端優化：允許水平滾動 */
-        -webkit-overflow-scrolling: touch; /* iOS 平滑滾動 */
-        padding: var(--space-xs) 0; /* 移動端優化：減少上下 padding */
-    }
-    
-    .comparison-table {
-        min-width: 500px;
-        font-size: 0.7rem;
-        width: 100%;
-    }
-
-    .comparison-table th,
-    .comparison-table td {
-        padding: var(--space-xs) var(--space-sm);
-        white-space: nowrap; /* 移動端優化：防止文字換行 */
-    }
-}
-
-@media (max-width: 380px) {
-    .comparison-table-container {
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch;
-        padding: var(--space-xs) 0;
-        border-radius: var(--radius-sm);
-    }
-    
-    .comparison-table {
-        min-width: 450px;
-        font-size: 0.7rem;
-        width: 100%;
-    }
-    
-    .comparison-table th,
-    .comparison-table td {
-        padding: var(--space-xs) var(--space-sm);
-        white-space: nowrap;
-        font-size: 0.7rem;
-    }
-    
-    .comparison-table th {
-        font-size: 0.65rem;
-        padding: var(--space-xs) var(--space-sm);
-    }
 }
 
 .comparison-table thead {
@@ -2553,31 +2489,28 @@ section h2 {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.comparison-table th {
-    padding: var(--space-md) var(--space-lg);
-    padding-left: var(--space-md) !important;
-    padding-right: var(--space-md) !important;
-    text-align: left !important;
-    font-weight: 700;
-    font-size: clamp(0.8rem, 1.8vw, 0.95rem);
-    color: var(--text-primary);
+.comparison-table th,
+.comparison-table td {
+    padding: var(--space-sm) var(--space-md);
+    text-align: left;
     white-space: nowrap;
-    letter-spacing: -0.01em;
-    text-transform: uppercase;
+    vertical-align: middle;
+}
+
+.comparison-table th {
+    font-weight: 700;
     font-size: 0.75rem;
+    color: var(--text-primary);
     letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: transparent;
 }
 
 .comparison-table td {
-    padding: var(--space-md) var(--space-lg);
-    padding-left: var(--space-md) !important;
-    padding-right: var(--space-md) !important;
-    padding-left: var(--space-sm) !important;
     border-bottom: 1px solid var(--border-subtle);
     color: var(--text-secondary);
     font-weight: 500;
     background: var(--bg-secondary);
-    text-align: left !important;
 }
 
 .comparison-table tbody tr {
@@ -2620,6 +2553,47 @@ section h2 {
 
 .comparison-table tbody tr:nth-child(even) td {
     background: rgba(248, 250, 252, 0.5);
+}
+
+@media (max-width: 600px) {
+    .comparison-table-container {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        padding: var(--space-xs) 0;
+    }
+    
+    .comparison-table {
+        min-width: 500px;
+        font-size: 0.7rem;
+    }
+
+    .comparison-table th,
+    .comparison-table td {
+        padding: var(--space-xs) var(--space-sm);
+    }
+}
+
+@media (max-width: 380px) {
+    .comparison-table-container {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        padding: var(--space-xs) 0;
+        border-radius: var(--radius-sm);
+    }
+    
+    .comparison-table {
+        min-width: 450px;
+        font-size: 0.7rem;
+    }
+    
+    .comparison-table th,
+    .comparison-table td {
+        padding: var(--space-xs) var(--space-sm);
+    }
+    
+    .comparison-table th {
+        font-size: 0.65rem;
+    }
 }
 
 /* ============================================
