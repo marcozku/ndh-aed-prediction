@@ -5268,16 +5268,36 @@ function renderTrainingStatus(data) {
         setTrainingDetailsExpanded(isExpanded);
     }
     
-    // 保存 details 元素的展開狀態
+    // 保存 details 元素的展開狀態和滾動位置
     const logDetails = document.getElementById('training-log-details');
+    let logDetailsOpen = false;
+    let logDetailsScrollTop = 0;
     if (logDetails) {
-        setTrainingLogDetailsOpen(logDetails.open);
+        logDetailsOpen = logDetails.open;
+        setTrainingLogDetailsOpen(logDetailsOpen);
+        // 保存滾動位置
+        const preElement = logDetails.querySelector('pre');
+        if (preElement) {
+            logDetailsScrollTop = preElement.scrollTop;
+        }
     }
     
     const errorDetails = document.getElementById('training-error-details');
+    let errorDetailsOpen = false;
+    let errorDetailsScrollTop = 0;
     if (errorDetails) {
-        setTrainingErrorDetailsOpen(errorDetails.open);
+        errorDetailsOpen = errorDetails.open;
+        setTrainingErrorDetailsOpen(errorDetailsOpen);
+        // 保存滾動位置
+        const preElement = errorDetails.querySelector('pre');
+        if (preElement) {
+            errorDetailsScrollTop = preElement.scrollTop;
+        }
     }
+    
+    // 保存當前輸出內容，用於比較是否需要更新
+    const currentOutput = lastTrainingOutput || '';
+    const currentError = lastTrainingError || '';
     
     const models = data.models || {};
     const training = data.training || {};
@@ -5524,13 +5544,44 @@ function renderTrainingStatus(data) {
                         <div style="margin-bottom: var(--space-md); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid var(--accent-success);">
                             <h5 style="margin: 0 0 var(--space-xs) 0; color: var(--text-primary); font-size: 0.95rem;">訓練總結</h5>
                             <div style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6;">
-                                ${filteredSummary.map(item => `
-                                    <div style="margin: var(--space-xs) 0; display: flex; align-items: center;">
-                                        <span style="margin-right: var(--space-xs);">✅</span>
-                                        <span><strong>${item.name}:</strong> 成功</span>
-                                        ${item.metrics ? `<span style="margin-left: var(--space-sm); color: var(--text-tertiary);">${item.metrics}</span>` : ''}
-                                    </div>
-                                `).join('')}
+                                ${filteredSummary.map(item => {
+                                    // 如果有完整指標對象，顯示詳細的性能指標
+                                    if (item.fullMetrics) {
+                                        return `
+                                            <div style="margin: var(--space-xs) 0;">
+                                                <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                                                    <span style="margin-right: var(--space-xs);">✅</span>
+                                                    <span><strong>${item.name}:</strong> 成功</span>
+                                                </div>
+                                                <div style="margin-left: 24px; margin-top: 4px; padding: 8px; background: rgba(59, 130, 246, 0.05); border-radius: var(--radius-sm);">
+                                                    <div style="font-weight: 600; margin-bottom: 4px; color: var(--text-primary);">📊 XGBoost 模型性能指標:</div>
+                                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; font-size: 0.85rem;">
+                                                        <div>
+                                                            <span style="color: var(--text-tertiary);">MAE:</span>
+                                                            <span style="color: var(--text-primary); font-weight: 600; margin-left: 4px;">${item.fullMetrics.MAE || 'N/A'}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span style="color: var(--text-tertiary);">RMSE:</span>
+                                                            <span style="color: var(--text-primary); font-weight: 600; margin-left: 4px;">${item.fullMetrics.RMSE || 'N/A'}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span style="color: var(--text-tertiary);">MAPE:</span>
+                                                            <span style="color: var(--text-primary); font-weight: 600; margin-left: 4px;">${item.fullMetrics.MAPE || 'N/A'}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }
+                                    // 否則顯示簡化版本
+                                    return `
+                                        <div style="margin: var(--space-xs) 0; display: flex; align-items: center;">
+                                            <span style="margin-right: var(--space-xs);">✅</span>
+                                            <span><strong>${item.name}:</strong> 成功</span>
+                                            ${item.metrics ? `<span style="margin-left: var(--space-sm); color: var(--text-tertiary);">${item.metrics}</span>` : ''}
+                                        </div>
+                                    `;
+                                }).join('')}
                             </div>
                         </div>
                     ` : ''}
@@ -5572,9 +5623,9 @@ function renderTrainingStatus(data) {
                     ${lastTrainingOutput ? `
                         <div style="margin-bottom: var(--space-md);">
                             <h5 style="margin: 0 0 var(--space-sm) 0; color: var(--text-primary); font-size: 0.95rem;">完整輸出日誌</h5>
-                            <details id="training-log-details" style="margin-top: var(--space-xs);" ${getTrainingLogDetailsOpen() ? 'open' : ''}>
+                            <details id="training-log-details" style="margin-top: var(--space-xs);" ${logDetailsOpen ? 'open' : ''}>
                                 <summary style="cursor: pointer; padding: var(--space-xs); color: var(--text-secondary); font-size: 0.85rem; user-select: none;">點擊展開完整日誌</summary>
-                                <pre style="margin-top: var(--space-xs); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.8rem; overflow-x: auto; max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', monospace;">${escapeHtml(lastTrainingOutput)}</pre>
+                                <pre id="training-log-pre" style="margin-top: var(--space-xs); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.8rem; overflow-x: auto; max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', monospace;">${escapeHtml(lastTrainingOutput)}</pre>
                             </details>
                         </div>
                     ` : ''}
@@ -5582,9 +5633,9 @@ function renderTrainingStatus(data) {
                     ${lastTrainingError ? `
                         <div>
                             <h5 style="margin: 0 0 var(--space-sm) 0; color: var(--text-danger); font-size: 0.95rem;">錯誤日誌</h5>
-                            <details id="training-error-details" style="margin-top: var(--space-xs);" ${getTrainingErrorDetailsOpen() ? 'open' : ''}>
+                            <details id="training-error-details" style="margin-top: var(--space-xs);" ${errorDetailsOpen ? 'open' : ''}>
                                 <summary style="cursor: pointer; padding: var(--space-xs); color: var(--text-danger); font-size: 0.85rem; user-select: none;">點擊展開錯誤詳情</summary>
-                                <pre style="margin-top: var(--space-xs); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.8rem; overflow-x: auto; max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; color: var(--text-danger); font-family: 'Courier New', monospace;">${escapeHtml(lastTrainingError)}</pre>
+                                <pre id="training-error-pre" style="margin-top: var(--space-xs); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.8rem; overflow-x: auto; max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; color: var(--text-danger); font-family: 'Courier New', monospace;">${escapeHtml(lastTrainingError)}</pre>
                             </details>
                         </div>
                     ` : ''}
@@ -5612,13 +5663,23 @@ function renderTrainingStatus(data) {
                 }
             }
             
-            // 恢復 details 元素的展開狀態
+            // 恢復 details 元素的展開狀態和滾動位置
             const logDetails = document.getElementById('training-log-details');
             if (logDetails) {
-                const shouldOpenLog = getTrainingLogDetailsOpen();
+                const shouldOpenLog = logDetailsOpen || getTrainingLogDetailsOpen();
                 if (shouldOpenLog) {
                     logDetails.open = true;
                 }
+                
+                // 恢復滾動位置（如果內容沒有改變）
+                const preElement = logDetails.querySelector('pre#training-log-pre');
+                if (preElement && logDetailsScrollTop > 0 && currentOutput === lastTrainingOutput) {
+                    // 使用 setTimeout 確保 DOM 完全渲染後再恢復滾動位置
+                    setTimeout(() => {
+                        preElement.scrollTop = logDetailsScrollTop;
+                    }, 50);
+                }
+                
                 // 監聽 details 元素的 toggle 事件，保存狀態
                 // 先移除可能存在的舊監聽器，避免重複
                 logDetails.removeEventListener('toggle', logDetails._toggleHandler);
@@ -5626,14 +5687,37 @@ function renderTrainingStatus(data) {
                     setTrainingLogDetailsOpen(this.open);
                 };
                 logDetails.addEventListener('toggle', logDetails._toggleHandler);
+                
+                // 為 pre 元素添加滾動監聽，防止自動滾動重置用戶位置
+                if (preElement) {
+                    preElement.addEventListener('scroll', () => {
+                        userScrolling = true;
+                        if (scrollTimeout) {
+                            clearTimeout(scrollTimeout);
+                        }
+                        scrollTimeout = setTimeout(() => {
+                            userScrolling = false;
+                        }, 1500);
+                    }, { passive: true });
+                }
             }
             
             const errorDetails = document.getElementById('training-error-details');
             if (errorDetails) {
-                const shouldOpenError = getTrainingErrorDetailsOpen();
+                const shouldOpenError = errorDetailsOpen || getTrainingErrorDetailsOpen();
                 if (shouldOpenError) {
                     errorDetails.open = true;
                 }
+                
+                // 恢復滾動位置（如果內容沒有改變）
+                const preElement = errorDetails.querySelector('pre#training-error-pre');
+                if (preElement && errorDetailsScrollTop > 0 && currentError === lastTrainingError) {
+                    // 使用 setTimeout 確保 DOM 完全渲染後再恢復滾動位置
+                    setTimeout(() => {
+                        preElement.scrollTop = errorDetailsScrollTop;
+                    }, 50);
+                }
+                
                 // 監聽 details 元素的 toggle 事件，保存狀態
                 // 先移除可能存在的舊監聽器，避免重複
                 errorDetails.removeEventListener('toggle', errorDetails._toggleHandler);
@@ -5641,6 +5725,19 @@ function renderTrainingStatus(data) {
                     setTrainingErrorDetailsOpen(this.open);
                 };
                 errorDetails.addEventListener('toggle', errorDetails._toggleHandler);
+                
+                // 為 pre 元素添加滾動監聽，防止自動滾動重置用戶位置
+                if (preElement) {
+                    preElement.addEventListener('scroll', () => {
+                        userScrolling = true;
+                        if (scrollTimeout) {
+                            clearTimeout(scrollTimeout);
+                        }
+                        scrollTimeout = setTimeout(() => {
+                            userScrolling = false;
+                        }, 1500);
+                    }, { passive: true });
+                }
             }
         });
     });
@@ -6009,7 +6106,8 @@ function parseTrainingOutput(output) {
             result.summary.push({
                 name: 'XGBoost',
                 status: model.success ? 'success' : 'failed',
-                metrics: model.metrics ? `MAE: ${model.metrics.MAE}, MAPE: ${model.metrics.MAPE}` : null
+                metrics: model.metrics ? `MAE: ${model.metrics.MAE}, RMSE: ${model.metrics.RMSE}, MAPE: ${model.metrics.MAPE}` : null,
+                fullMetrics: model.metrics // 保存完整指標對象
             });
         }
         
