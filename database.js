@@ -520,45 +520,45 @@ async function getComparisonData(limit = 100) {
     // 改進查詢：使用子查詢來獲取預測數據，確保能找到所有有實際數據的日期
     const query = `
         SELECT 
-            a.date,
-            a.patient_count as actual,
+            a.date::text as date,
+            a.patient_count::integer as actual,
             COALESCE(
                 fdp.predicted_count,
                 (SELECT predicted_count FROM daily_predictions 
                  WHERE target_date = a.date 
                  ORDER BY created_at DESC LIMIT 1),
                 p.predicted_count
-            ) as predicted,
+            )::integer as predicted,
             COALESCE(
                 fdp.ci80_low,
                 (SELECT ci80_low FROM daily_predictions 
                  WHERE target_date = a.date 
                  ORDER BY created_at DESC LIMIT 1),
                 p.ci80_low
-            ) as ci80_low,
+            )::integer as ci80_low,
             COALESCE(
                 fdp.ci80_high,
                 (SELECT ci80_high FROM daily_predictions 
                  WHERE target_date = a.date 
                  ORDER BY created_at DESC LIMIT 1),
                 p.ci80_high
-            ) as ci80_high,
+            )::integer as ci80_high,
             COALESCE(
                 fdp.ci95_low,
                 (SELECT ci95_low FROM daily_predictions 
                  WHERE target_date = a.date 
                  ORDER BY created_at DESC LIMIT 1),
                 p.ci95_low
-            ) as ci95_low,
+            )::integer as ci95_low,
             COALESCE(
                 fdp.ci95_high,
                 (SELECT ci95_high FROM daily_predictions 
                  WHERE target_date = a.date 
                  ORDER BY created_at DESC LIMIT 1),
                 p.ci95_high
-            ) as ci95_high,
-            pa.error,
-            pa.error_percentage
+            )::integer as ci95_high,
+            pa.error::numeric as error,
+            pa.error_percentage::numeric as error_percentage
         FROM actual_data a
         LEFT JOIN final_daily_predictions fdp ON a.date = fdp.target_date
         LEFT JOIN predictions p ON a.date = p.target_date

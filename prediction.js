@@ -3644,8 +3644,28 @@ async function initComparisonTable() {
         // 從數據庫獲取比較數據
         const comparisonData = await fetchComparisonData(100);
         
+        // 調試：檢查第一筆數據的結構
+        if (comparisonData.length > 0) {
+            console.log('🔍 比較數據結構檢查（第一筆）:', comparisonData[0]);
+            console.log('🔍 字段列表:', Object.keys(comparisonData[0]));
+        }
+        
         // 過濾出有效的比較數據（必須同時有實際和預測）
-        const validComparisonData = comparisonData.filter(d => d.actual != null && d.predicted != null);
+        const validComparisonData = comparisonData.filter(d => {
+            // 檢查數據結構，確保字段正確
+            const hasDate = d.date || d.Date || d.target_date;
+            const hasActual = d.actual !== undefined && d.actual !== null;
+            const hasPredicted = d.predicted !== undefined && d.predicted !== null;
+            
+            if (!hasDate) {
+                console.warn('⚠️ 數據缺少日期字段:', d);
+            }
+            if (!hasActual) {
+                console.warn('⚠️ 數據缺少實際人數字段:', d);
+            }
+            
+            return hasActual && hasPredicted;
+        });
         
         if (validComparisonData.length === 0) {
             console.warn('⚠️ 沒有有效的比較數據（需要同時有實際和預測數據）');
@@ -3657,16 +3677,63 @@ async function initComparisonTable() {
         
         // 生成表格行
         tableBody.innerHTML = validComparisonData.map(d => {
-            const error = d.error || (d.predicted && d.actual ? d.predicted - d.actual : null);
-            const errorRate = d.error_percentage || (error && d.actual ? ((error / d.actual) * 100).toFixed(2) : null);
+            // 確保正確提取日期和實際人數
+            // 處理可能的字段名變體（date, Date, target_date等）
+            const dateValue = d.date || d.Date || d.target_date || null;
+            // 處理可能的字段名變體（actual, patient_count, attendance等）
+            const actualValue = d.actual !== undefined && d.actual !== null ? d.actual : 
+                               (d.patient_count !== undefined && d.patient_count !== null ? d.patient_count : 
+                               (d.attendance !== undefined && d.attendance !== null ? d.attendance : null));
+            
+            // 檢測並修復數據錯位問題
+            let finalDate = dateValue;
+            let finalActual = actualValue;
+            
+            // 如果日期是數字（可能是錯位的實際人數），而實際人數是日期字符串，則交換
+            if (dateValue && typeof dateValue === 'number' && 
+                actualValue && typeof actualValue === 'string' && actualValue.match(/^\d{4}-\d{2}-\d{2}/)) {
+                console.warn('⚠️ 檢測到數據錯位，正在修復:', { originalDate: dateValue, originalActual: actualValue });
+                // 交換值
+                finalDate = actualValue;
+                finalActual = dateValue;
+            }
+            
+            // 如果日期是數字但實際人數不是日期字符串，可能是日期字段為空
+            if (dateValue && typeof dateValue === 'number' && 
+                (!actualValue || (typeof actualValue !== 'string' || !actualValue.match(/^\d{4}-\d{2}-\d{2}/)))) {
+                // 日期字段是數字，可能是錯位的實際人數
+                // 但我們不能確定，所以記錄警告
+                console.warn('⚠️ 日期字段是數字，但無法確定是否錯位:', d);
+            }
+            
+            const error = d.error || (d.predicted && finalActual ? d.predicted - finalActual : null);
+            const errorRate = d.error_percentage || (error && finalActual ? ((error / finalActual) * 100).toFixed(2) : null);
             const ci80 = d.ci80_low && d.ci80_high ? `${d.ci80_low}-${d.ci80_high}` : '--';
             const ci95 = d.ci95_low && d.ci95_high ? `${d.ci95_low}-${d.ci95_high}` : '--';
             const accuracy = errorRate ? (100 - Math.abs(parseFloat(errorRate))).toFixed(2) + '%' : '--';
             
+            // 格式化日期，確保處理各種日期格式
+            let formattedDate = '--';
+            if (finalDate) {
+                try {
+                    // 如果是字符串，嘗試解析
+                    if (typeof finalDate === 'string') {
+                        formattedDate = formatDateDDMM(finalDate, true);
+                    } else if (finalDate instanceof Date) {
+                        formattedDate = formatDateDDMM(finalDate.toISOString().split('T')[0], true);
+                    } else {
+                        formattedDate = formatDateDDMM(finalDate, true);
+                    }
+                } catch (e) {
+                    console.warn('日期格式化失敗:', finalDate, e);
+                    formattedDate = String(finalDate);
+                }
+            }
+            
             return `
                 <tr>
-                    <td>${formatDateDDMM(d.date, true)}</td>
-                    <td>${d.actual || '--'}</td>
+                    <td>${formattedDate}</td>
+                    <td>${finalActual !== null && finalActual !== undefined ? finalActual : '--'}</td>
                     <td>${d.predicted || '--'}</td>
                     <td>${error !== null ? (error > 0 ? '+' : '') + error : '--'}</td>
                     <td>${errorRate !== null ? (errorRate > 0 ? '+' : '') + errorRate + '%' : '--'}</td>
