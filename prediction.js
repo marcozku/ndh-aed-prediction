@@ -5681,12 +5681,48 @@ function renderTrainingStatus(data) {
 let realtimeLogsInterval = null;
 let lastLogLength = 0;
 let trainingLogsBuffer = [];
+let userScrolling = false; // 追蹤用戶是否正在手動滾動
+let scrollTimeout = null; // 滾動超時計時器
 
 // 啟動實時訓練日誌更新
 function startRealtimeTrainingLogs() {
     stopRealtimeTrainingLogs();
     lastLogLength = 0;
     trainingLogsBuffer = [];
+    userScrolling = false;
+    
+    // 監聽滾動事件，檢測用戶是否正在手動滾動
+    const logsContainer = document.getElementById('realtime-training-logs');
+    const logDetails = document.getElementById('training-log-details');
+    
+    const handleScroll = (element) => {
+        if (!element) return;
+        
+        userScrolling = true;
+        
+        // 清除之前的超時計時器
+        if (scrollTimeout) {
+            clearTimeout(scrollTimeout);
+        }
+        
+        // 1.5 秒後認為用戶停止滾動
+        scrollTimeout = setTimeout(() => {
+            userScrolling = false;
+        }, 1500);
+    };
+    
+    // 為實時日誌容器添加滾動監聽
+    if (logsContainer) {
+        logsContainer.addEventListener('scroll', () => handleScroll(logsContainer), { passive: true });
+    }
+    
+    // 為完整輸出日誌的 details 內的 pre 元素添加滾動監聽
+    if (logDetails) {
+        const preElement = logDetails.querySelector('pre');
+        if (preElement) {
+            preElement.addEventListener('scroll', () => handleScroll(preElement), { passive: true });
+        }
+    }
     
     const updateLogs = async () => {
         try {
@@ -5883,10 +5919,16 @@ function appendTrainingLogs(content, type = 'output') {
         logsContent.appendChild(lineDiv);
     });
     
-    // 自動滾動到底部
+    // 智能自動滾動：只有在用戶已經在底部附近且沒有手動滾動時才自動滾動
     const logsContainer = document.getElementById('realtime-training-logs');
-    if (logsContainer) {
-        logsContainer.scrollTop = logsContainer.scrollHeight;
+    if (logsContainer && !userScrolling) {
+        // 計算是否接近底部（允許 50px 的誤差）
+        const isNearBottom = logsContainer.scrollHeight - logsContainer.scrollTop - logsContainer.clientHeight < 50;
+        
+        // 只有在接近底部時才自動滾動（用戶正在查看最新內容）
+        if (isNearBottom) {
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
     }
 }
 
@@ -6000,10 +6042,35 @@ function appendTrainingSummary(training, statusData) {
     summaryDiv.innerHTML = summaryHTML;
     logsContent.appendChild(summaryDiv);
     
-    // 自動滾動到底部
+    // 為動態創建的 pre 元素添加滾動監聽
+    setTimeout(() => {
+        const preElements = summaryDiv.querySelectorAll('pre');
+        preElements.forEach(pre => {
+            const container = pre.closest('div[style*="overflow-y: auto"]');
+            if (container) {
+                container.addEventListener('scroll', () => {
+                    userScrolling = true;
+                    if (scrollTimeout) {
+                        clearTimeout(scrollTimeout);
+                    }
+                    scrollTimeout = setTimeout(() => {
+                        userScrolling = false;
+                    }, 1500);
+                }, { passive: true });
+            }
+        });
+    }, 100);
+    
+    // 智能自動滾動：只有在用戶已經在底部附近且沒有手動滾動時才自動滾動
     const logsContainer = document.getElementById('realtime-training-logs');
-    if (logsContainer) {
-        logsContainer.scrollTop = logsContainer.scrollHeight;
+    if (logsContainer && !userScrolling) {
+        // 計算是否接近底部（允許 50px 的誤差）
+        const isNearBottom = logsContainer.scrollHeight - logsContainer.scrollTop - logsContainer.clientHeight < 50;
+        
+        // 只有在接近底部時才自動滾動（用戶正在查看最新內容）
+        if (isNearBottom) {
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
     }
 }
 
