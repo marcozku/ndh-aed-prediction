@@ -5465,16 +5465,17 @@ function renderTrainingStatus(data) {
     const currentModelStatus = models.xgboost || false;
     
     // 只保留成功的訓練記錄，或者如果當前模型存在，則顯示最後一次訓練（無論成功失敗）
-    const filteredSummary = currentModelStatus 
+    let filteredSummary = currentModelStatus 
         ? trainingDetails.summary.filter(item => item.status === 'success')
         : trainingDetails.summary;
     
-    const filteredModels = currentModelStatus
+    let filteredModels = currentModelStatus
         ? trainingDetails.models.filter(model => model.success)
         : trainingDetails.models;
     
-    // 如果當前模型存在但沒有成功的記錄，顯示當前狀態
-    if (currentModelStatus && filteredSummary.length === 0 && filteredModels.length === 0) {
+    // 如果當前模型存在但沒有成功的記錄，且 parseTrainingOutput 也沒有解析出記錄，才創建一個
+    // 避免重複：只有在完全沒有記錄時才創建
+    if (currentModelStatus && filteredSummary.length === 0 && filteredModels.length === 0 && !trainingDetails.hasDetails) {
         // 根據當前模型文件狀態創建一個成功的記錄
         filteredSummary.push({
             name: 'XGBoost',
@@ -5489,6 +5490,23 @@ function renderTrainingStatus(data) {
             error: null
         });
     }
+    
+    // 去重：確保 summary 和 models 中沒有重複的記錄
+    const seenSummary = new Set();
+    filteredSummary = filteredSummary.filter(item => {
+        const key = `${item.name}-${item.status}-${item.metrics || ''}`;
+        if (seenSummary.has(key)) return false;
+        seenSummary.add(key);
+        return true;
+    });
+    
+    const seenModels = new Set();
+    filteredModels = filteredModels.filter(model => {
+        const key = `${model.key}-${model.success}-${JSON.stringify(model.metrics || {})}`;
+        if (seenModels.has(key)) return false;
+        seenModels.add(key);
+        return true;
+    });
     
     // 顯示訓練詳情（無論是否訓練完成）
     if (lastTrainingOutput || lastTrainingError || trainingDetails.hasDetails) {
@@ -5751,21 +5769,12 @@ function appendTrainingLogs(content, type = 'output') {
         const trimmed = line.trim();
         if (trimmed === '') return;
         
-        // 過濾掉無用的行
+        // 過濾掉無用的行（只過濾明顯無用的，保留更多細節）
         const uselessPatterns = [
-            /^[\s=]+$/,  // 只有分隔符
-            /^Loading\s+/i,  // Loading 信息
-            /^Using\s+/i,  // Using 信息
-            /^Reading\s+/i,  // Reading 信息
-            /^Processing\s+/i,  // Processing 信息
-            /^Found\s+\d+\s+rows/i,  // Found X rows
-            /^\d+\/\d+\s+\[.*\]\s+-\s+[0-9]+s\s+[0-9]+ms\/step/,  // TensorFlow 訓練步驟詳情
-            /^Epoch\s+\d+\/\d+.*loss.*val_loss/,  // Epoch 詳細進度
-            /^[0-9]+\/[0-9]+\s+\[.*\]\s+loss/,  // TensorFlow 訓練詳情
-            /^WARNING:.*tensorflow/i,  // TensorFlow 一般警告
-            /^INFO:.*tensorflow/i,  // TensorFlow 一般信息
+            /^[\s=]+$/,  // 只有分隔符（空行或純分隔符）
+            /^WARNING:.*tensorflow.*deprecated/i,  // TensorFlow 棄用警告
+            /^INFO:.*tensorflow.*already/i,  // TensorFlow 重複信息
             /^DEBUG:/i,  // 調試信息
-            /^Using.*backend/i,  // 後端信息
         ];
         
         // 檢查是否匹配無用模式
@@ -5782,19 +5791,36 @@ function appendTrainingLogs(content, type = 'output') {
             return;
         }
         
-        // 保留有用的行
+        // 保留有用的行（擴展模式，包含數學/編碼細節）
         const usefulPatterns = [
             /✅|成功|完成|Finished|Done|完成/i,  // 成功信息
             /❌|失敗|錯誤|Error|Exception|Failed/i,  // 錯誤信息
             /開始|Starting|開始訓練|Training|訓練/i,  // 開始信息
-            /MAE|RMSE|MAPE|準確度|Accuracy|Performance|性能/i,  // 性能指標
-            /模型|Model|訓練|Train/i,  // 模型相關
-            /保存|Saved|保存到|saved to/i,  // 保存信息
+            /MAE|RMSE|MAPE|準確度|Accuracy|Performance|性能|loss|error|metric/i,  // 性能指標和損失函數
+            /模型|Model|訓練|Train|train/i,  // 模型相關
+            /保存|Saved|保存到|saved to|save/i,  // 保存信息
             /XGBoost|訓練完成|訓練失敗/i,  // 關鍵狀態
-            /耗時|時間|Time|Duration|分鐘/i,  // 時間信息
-            /數據|Data|記錄|Records|筆/i,  // 數據信息
+            /耗時|時間|Time|Duration|分鐘|elapsed/i,  // 時間信息
+            /數據|Data|記錄|Records|筆|rows|samples|features/i,  // 數據信息
             /警告.*重要|Warning.*important/i,  // 重要警告
             /🚀|📊|⏱️|✅|❌|⚠️/,  // 特殊符號
+            // 數學/編碼相關細節
+            /n_estimators|max_depth|learning_rate|subsample|colsample|alpha|lambda|regularization/i,  // 模型參數
+            /feature|特徵|features|feature_engineering|特徵工程/i,  // 特徵工程
+            /train_data|test_data|訓練集|測試集|training set|test set/i,  // 數據集
+            /split|分割|split_idx|TimeSeriesSplit/i,  // 數據分割
+            /fit|predict|evaluate|評估|訓練|fitting/i,  // 訓練過程
+            /gradient|boost|tree|樹|葉子|leaf|node/i,  // 模型結構
+            /epoch|iteration|iter|輪|迭代/i,  // 迭代過程
+            /optimization|優化|optimize|minimize/i,  // 優化過程
+            /validation|驗證|val_|eval_/i,  // 驗證相關
+            /early_stopping|early stopping|提前停止/i,  // 早停
+            /score|得分|分數|r2|r_squared/i,  // 評分
+            /參數|parameter|config|配置|hyperparameter/i,  // 參數配置
+            /計算|calculate|compute|process|處理/i,  // 計算過程
+            /加載|load|讀取|read|讀取數據/i,  // 數據加載
+            /目錄|directory|dir|path|路徑/i,  // 路徑信息
+            /工作目錄|工作|working|script|腳本/i,  // 工作信息
         ];
         
         // 檢查是否匹配有用模式
@@ -5804,6 +5830,14 @@ function appendTrainingLogs(content, type = 'output') {
                 isUseful = true;
                 break;
             }
+        }
+        
+        // 如果包含數字和關鍵詞（可能是數學計算結果），也保留
+        if (!isUseful && /[\d.]+/.test(trimmed) && (
+            /病人|patient|筆|rows|samples|features|特徵|數據|data|時間|time|分鐘|min|秒|sec|大小|size|MB|KB/i.test(trimmed) ||
+            /MAE|RMSE|MAPE|loss|error|score|accuracy|準確/i.test(trimmed)
+        )) {
+            isUseful = true;
         }
         
         // 如果沒有匹配有用模式，跳過（減少噪音）

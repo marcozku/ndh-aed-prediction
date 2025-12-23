@@ -1,5 +1,54 @@
 # 版本更新日誌
 
+## v2.4.16 - 2025-12-23 18:17 (HKT)
+
+### 🔧 修復：訓練詳情重複顯示和即時訊息過濾問題
+
+**問題修復**：
+1. **修復重複成功記錄**：
+   - 修復訓練詳情中出現兩個相同成功記錄的問題
+   - 添加去重邏輯，確保 summary 和 models 中沒有重複記錄
+   - 改進記錄創建邏輯，只有在 `parseTrainingOutput` 沒有解析出記錄時才自動創建
+   - 使用 Set 進行去重，基於 name-status-metrics 組合
+
+2. **顯示更多數學/編碼細節**：
+   - 改進即時訓練訊息過濾邏輯，減少過濾規則，只過濾明顯無用的信息
+   - 擴展有用模式，包含更多數學/編碼相關關鍵詞：
+     - 模型參數（n_estimators, max_depth, learning_rate, subsample, colsample, alpha, lambda, regularization）
+     - 特徵工程（feature, features, feature_engineering, 特徵工程）
+     - 數據集（train_data, test_data, 訓練集, 測試集）
+     - 數據分割（split, split_idx, TimeSeriesSplit）
+     - 訓練過程（fit, predict, evaluate, 評估, 訓練, fitting）
+     - 模型結構（gradient, boost, tree, 樹, 葉子, leaf, node）
+     - 迭代過程（epoch, iteration, iter, 輪, 迭代）
+     - 優化過程（optimization, 優化, optimize, minimize）
+     - 驗證相關（validation, 驗證, val_, eval_）
+     - 早停（early_stopping, early stopping, 提前停止）
+     - 評分（score, 得分, 分數, r2, r_squared）
+     - 參數配置（參數, parameter, config, 配置, hyperparameter）
+     - 計算過程（計算, calculate, compute, process, 處理）
+   - 添加對包含數字和關鍵詞的行的保留邏輯（可能是數學計算結果）
+
+3. **訓練腳本輸出增強**：
+   - 在 `train_xgboost.py` 中添加詳細的模型參數配置輸出
+   - 添加訓練過程信息（數據範圍、訓練時間、實際訓練輪數）
+   - 添加詳細評估指標（MAE, RMSE, MAPE, R², 誤差統計等）
+   - 添加特徵工程過程信息（列數變化、數據分割詳情等）
+
+**修改文件**：
+- `prediction.js` - 修復重複記錄問題，改進即時訊息過濾邏輯
+- `python/train_xgboost.py` - 添加詳細的訓練過程和數學細節輸出
+
+**技術細節**：
+- 使用 Set 進行去重，基於唯一鍵（name-status-metrics）
+- 擴展有用模式匹配，包含 20+ 個數學/編碼相關關鍵詞
+- 訓練腳本現在輸出完整的模型參數、訓練過程和評估指標
+
+**優勢**：
+- 消除重複的成功記錄顯示
+- 即時訓練訊息現在顯示更多數學和編碼細節，而不是只顯示 "push"
+- 用戶可以實時看到訓練過程的詳細信息（參數、特徵、評估指標等）
+
 ## v2.4.15 - 2025-12-23 04:26 (HKT)
 
 ### 🔄 重大變更：改為只使用 XGBoost 模型

@@ -138,16 +138,40 @@ def load_data_from_csv(csv_path):
 
 def train_xgboost_model(train_data, test_data, feature_cols):
     """訓練 XGBoost 模型"""
+    print(f"\n📊 開始訓練 XGBoost 模型...")
+    print(f"訓練集大小: {len(train_data)} 筆")
+    print(f"測試集大小: {len(test_data)} 筆")
+    print(f"特徵數量: {len(feature_cols)} 個")
+    
     X_train = train_data[feature_cols].fillna(0)
     y_train = train_data['Attendance']
     X_test = test_data[feature_cols].fillna(0)
     y_test = test_data['Attendance']
+    
+    print(f"訓練集目標值範圍: {y_train.min():.1f} - {y_train.max():.1f} 病人 (平均: {y_train.mean():.1f})")
+    print(f"測試集目標值範圍: {y_test.min():.1f} - {y_test.max():.1f} 病人 (平均: {y_test.mean():.1f})")
     
     # 創建自定義 XGBoost 類以修復 _estimator_type 錯誤
     class XGBoostModel(xgb.XGBRegressor):
         _estimator_type = "regressor"
     
     # 根據算法規格文件配置
+    print(f"\n🔧 模型參數配置:")
+    print(f"  n_estimators (樹的數量): 500")
+    print(f"  max_depth (最大深度): 6")
+    print(f"  learning_rate (學習率): 0.05")
+    print(f"  subsample (樣本採樣率): 0.8")
+    print(f"  colsample_bytree (特徵採樣率): 0.8")
+    print(f"  colsample_bylevel (層級特徵採樣率): 0.8")
+    print(f"  objective (目標函數): reg:squarederror (均方誤差)")
+    print(f"  alpha (L1 正則化): 1.0")
+    print(f"  reg_lambda (L2 正則化): 1.0")
+    print(f"  tree_method (樹構建方法): hist (直方圖)")
+    print(f"  grow_policy (生長策略): depthwise (深度優先)")
+    print(f"  early_stopping_rounds (早停輪數): 50")
+    print(f"  eval_metric (評估指標): mae (平均絕對誤差)")
+    print(f"  random_state (隨機種子): 42")
+    
     model = XGBoostModel(
         n_estimators=500,
         max_depth=6,
@@ -166,22 +190,42 @@ def train_xgboost_model(train_data, test_data, feature_cols):
         n_jobs=-1
     )
     
+    print(f"\n🚀 開始模型訓練 (梯度提升過程)...")
+    import time
+    fit_start = time.time()
+    
     model.fit(
         X_train, y_train,
         eval_set=[(X_test, y_test)],
         verbose=False
     )
     
+    fit_time = time.time() - fit_start
+    print(f"訓練完成，耗時: {fit_time:.2f} 秒")
+    print(f"實際訓練輪數: {model.n_estimators} 輪")
+    
     # 評估
+    print(f"\n📈 開始模型評估...")
     y_pred = model.predict(X_test)
+    
+    # 計算各種誤差指標
     mae = mean_absolute_error(y_test, y_pred)
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
     mape = np.mean(np.abs((y_test - y_pred) / y_test)) * 100
     
-    print(f"XGBoost 模型性能:")
-    print(f"  MAE: {mae:.2f} 病人")
-    print(f"  RMSE: {rmse:.2f} 病人")
-    print(f"  MAPE: {mape:.2f}%")
+    # 計算其他統計指標
+    mean_error = np.mean(y_pred - y_test)
+    std_error = np.std(y_pred - y_test)
+    r2_score = 1 - (np.sum((y_test - y_pred) ** 2) / np.sum((y_test - np.mean(y_test)) ** 2))
+    
+    print(f"\nXGBoost 模型性能指標:")
+    print(f"  MAE (平均絕對誤差): {mae:.2f} 病人")
+    print(f"  RMSE (均方根誤差): {rmse:.2f} 病人")
+    print(f"  MAPE (平均絕對百分比誤差): {mape:.2f}%")
+    print(f"  平均誤差: {mean_error:.2f} 病人")
+    print(f"  誤差標準差: {std_error:.2f} 病人")
+    print(f"  R² 得分: {r2_score:.4f}")
+    print(f"  預測值範圍: {y_pred.min():.1f} - {y_pred.max():.1f} 病人")
     
     return model, {'mae': mae, 'rmse': rmse, 'mape': mape}
 
@@ -216,26 +260,42 @@ def main():
     # 獲取 AI 因子數據（如果有的話）
     ai_factors = df.attrs.get('ai_factors', {}) if hasattr(df, 'attrs') else {}
     
+    if ai_factors:
+        print(f"✅ 加載了 {len(ai_factors)} 個日期的 AI 因子數據")
+    else:
+        print(f"ℹ️ 沒有找到 AI 因子數據，將使用默認值")
+    
     # 創建特徵（包含 AI 因子）
+    print(f"\n🔨 開始特徵工程 (Feature Engineering)...")
+    print(f"原始數據列數: {len(df.columns)}")
     df = create_comprehensive_features(df, ai_factors_dict=ai_factors if ai_factors else None)
+    print(f"特徵工程後列數: {len(df.columns)}")
     
     # 移除包含 NaN 的行（除了我們已經填充的列）
+    original_len = len(df)
     df = df.dropna(subset=['Attendance'])
+    if len(df) < original_len:
+        print(f"移除了 {original_len - len(df)} 筆包含 NaN 的數據")
     
     # 時間序列分割（不能隨機分割！）
+    print(f"\n✂️ 數據分割 (Time Series Split)...")
     split_idx = int(len(df) * 0.8)
+    print(f"分割點索引: {split_idx} (80% 訓練, 20% 測試)")
     train_data = df[:split_idx].copy()
     test_data = df[split_idx:].copy()
     
-    print(f"訓練集: {len(train_data)} 筆")
-    print(f"測試集: {len(test_data)} 筆")
+    print(f"訓練集: {len(train_data)} 筆 (日期範圍: {train_data['Date'].min()} 至 {train_data['Date'].max()})")
+    print(f"測試集: {len(test_data)} 筆 (日期範圍: {test_data['Date'].min()} 至 {test_data['Date'].max()})")
     
     # 獲取特徵列
     feature_cols = get_feature_columns()
     # 只保留實際存在的列
+    original_feature_count = len(feature_cols)
     feature_cols = [col for col in feature_cols if col in df.columns]
+    if len(feature_cols) < original_feature_count:
+        print(f"⚠️ 警告: {original_feature_count - len(feature_cols)} 個預期特徵在數據中不存在")
     
-    print(f"使用 {len(feature_cols)} 個特徵")
+    print(f"使用 {len(feature_cols)} 個特徵進行訓練")
     
     # 訓練模型
     model, metrics = train_xgboost_model(train_data, test_data, feature_cols)
