@@ -2472,12 +2472,32 @@ section h2 {
     width: 100%;
     max-width: 100%;
     min-width: 600px;
+    table-layout: fixed;
     border-collapse: collapse;
     border-spacing: 0;
+    table-layout: fixed;
     font-size: clamp(0.75rem, 1.6vw, 0.9rem);
     box-sizing: border-box;
     font-family: 'Inter', 'DM Sans', -apple-system, sans-serif;
 }
+
+/* 強制統一欄寬，避免表頭與數據列錯位 */
+.comparison-table th:nth-child(1),
+.comparison-table td:nth-child(1) { width: 13%; }
+.comparison-table th:nth-child(2),
+.comparison-table td:nth-child(2) { width: 13%; }
+.comparison-table th:nth-child(3),
+.comparison-table td:nth-child(3) { width: 13%; }
+.comparison-table th:nth-child(4),
+.comparison-table td:nth-child(4) { width: 9%; }
+.comparison-table th:nth-child(5),
+.comparison-table td:nth-child(5) { width: 9%; }
+.comparison-table th:nth-child(6),
+.comparison-table td:nth-child(6) { width: 14%; }
+.comparison-table th:nth-child(7),
+.comparison-table td:nth-child(7) { width: 14%; }
+.comparison-table th:nth-child(8),
+.comparison-table td:nth-child(8) { width: 15%; }
 
 .comparison-table thead {
     background: linear-gradient(135deg, rgba(79, 70, 229, 0.06) 0%, rgba(124, 58, 237, 0.04) 100%);
