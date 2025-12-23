@@ -1798,14 +1798,18 @@ section h2 {
     position: relative;
     width: 100%;
     max-width: 100%;
-    height: min(50vh, 500px); /* 增加高度：視窗高度的50%，最大500px */
-    min-height: min(45vh, 450px); /* 增加最小高度：視窗高度的45%，最小450px */
+    height: min(50vh, 500px);
+    min-height: min(45vh, 450px);
     box-sizing: border-box;
-    overflow: visible; /* 改為 visible，允許工具提示和圖例完整顯示 */
-    overflow-x: hidden; /* 明確防止水平溢出 */
+    overflow: visible;
+    overflow-x: hidden;
     margin: 0;
-    padding: 0; /* 移除 padding，由 Chart.js layout.padding 控制 */
-    z-index: 1; /* 確保圖表在正確的層級 */
+    padding: 0;
+    z-index: 1;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.1) 100%);
+    border-radius: var(--radius-lg);
+    backdrop-filter: var(--blur-sm);
+    -webkit-backdrop-filter: var(--blur-sm);
 }
 
 /* 對比圖容器特殊處理 - 固定高度防止無限增長 */
@@ -1940,7 +1944,14 @@ section h2 {
     margin: 0;
     padding: 0;
     position: relative;
-    z-index: 2; /* 確保 canvas 在正確的層級，但低於工具提示 */
+    z-index: 2;
+    border-radius: var(--radius-lg);
+    transition: var(--transition-base);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.04));
+}
+
+.chart-container canvas:hover {
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.06));
 }
 
 /* 確保所有圖表容器正確約束寬度，但允許工具提示顯示 */
@@ -2425,32 +2436,41 @@ section h2 {
     opacity: 1;
 }
 
-/* 比較表格 */
+/* 比較表格 - Premium Apple-like Design */
 .comparison-table-container {
-    overflow-x: auto; /* 允許表格水平滾動 */
-    overflow-y: visible; /* 允許垂直內容完整顯示 */
+    overflow-x: auto;
+    overflow-y: visible;
     margin-top: var(--space-md);
-    max-height: none; /* 移除最大高度限制 */
-    padding-bottom: var(--space-md); /* 為表格底部留出空間 */
+    max-height: none;
+    padding-bottom: var(--space-md);
     width: 100%;
-    max-width: 100%; /* 確保容器不超出父元素 */
+    max-width: 100%;
     box-sizing: border-box;
-    -webkit-overflow-scrolling: touch; /* iOS 平滑滾動 */
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius-lg);
+    background: var(--bg-glass);
+    backdrop-filter: var(--blur-sm);
+    -webkit-backdrop-filter: var(--blur-sm);
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-sm);
 }
 
 .comparison-table {
     width: 100%;
     max-width: 100%;
-    min-width: 600px; /* 最小寬度，但會在容器內滾動 */
-    border-collapse: collapse;
-    font-size: clamp(0.7rem, 1.5vw, 0.875rem);
+    min-width: 600px;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: clamp(0.75rem, 1.6vw, 0.9rem);
     box-sizing: border-box;
+    font-family: 'Inter', 'DM Sans', -apple-system, sans-serif;
 }
 
 .comparison-table th,
 .comparison-table td {
-    padding: clamp(0.5rem, 1vw, var(--space-md));
+    padding: clamp(0.75rem, 1.2vw, var(--space-md));
     white-space: nowrap;
+    transition: var(--transition-fast);
 }
 
 @media (max-width: 600px) {
@@ -2475,49 +2495,103 @@ section h2 {
 
 @media (max-width: 380px) {
     .comparison-table-container {
-        overflow-x: auto !important; /* 小屏幕優化：允許水平滾動 */
-        -webkit-overflow-scrolling: touch; /* iOS 平滑滾動 */
-        padding: var(--space-xs) 0; /* 小屏幕優化：減少上下 padding */
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        padding: var(--space-xs) 0;
+        border-radius: var(--radius-sm);
     }
     
     .comparison-table {
         min-width: 450px;
-        font-size: 0.65rem;
+        font-size: 0.7rem;
         width: 100%;
     }
     
     .comparison-table th,
     .comparison-table td {
-        padding: 4px var(--space-xs); /* 小屏幕優化：進一步減少 padding */
-        white-space: nowrap; /* 小屏幕優化：防止文字換行 */
+        padding: var(--space-xs) var(--space-sm);
+        white-space: nowrap;
+        font-size: 0.7rem;
+    }
+    
+    .comparison-table th {
+        font-size: 0.65rem;
+        padding: var(--space-xs) var(--space-sm);
     }
 }
 
 .comparison-table thead {
-    background: var(--bg-primary);
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.06) 0%, rgba(124, 58, 237, 0.04) 100%);
+    backdrop-filter: var(--blur-sm);
+    -webkit-backdrop-filter: var(--blur-sm);
     border-bottom: 2px solid var(--border-medium);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .comparison-table th {
-    padding: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
     text-align: left;
-    font-weight: 600;
+    font-weight: 700;
+    font-size: clamp(0.8rem, 1.8vw, 0.95rem);
     color: var(--text-primary);
     white-space: nowrap;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
 }
 
 .comparison-table td {
-    padding: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
     border-bottom: 1px solid var(--border-subtle);
     color: var(--text-secondary);
+    font-weight: 500;
+    background: var(--bg-secondary);
+}
+
+.comparison-table tbody tr {
+    transition: all var(--transition-base);
+    position: relative;
+}
+
+.comparison-table tbody tr::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--gradient-primary);
+    opacity: 0;
+    transition: var(--transition-base);
+    transform: scaleY(0);
+    transform-origin: center;
 }
 
 .comparison-table tbody tr:hover {
-    background: var(--bg-primary);
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.04) 0%, rgba(124, 58, 237, 0.02) 100%);
+    transform: translateX(2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.comparison-table tbody tr:hover::before {
+    opacity: 1;
+    transform: scaleY(1);
+}
+
+.comparison-table tbody tr:hover td {
+    color: var(--text-primary);
 }
 
 .comparison-table tbody tr:last-child td {
     border-bottom: none;
+}
+
+.comparison-table tbody tr:nth-child(even) td {
+    background: rgba(248, 250, 252, 0.5);
 }
 
 /* ============================================
@@ -3026,20 +3100,58 @@ section h2 {
         margin-bottom: var(--space-sm) !important; /* 減少標題底部間距 */
     }
 
-/* Chart.js 工具提示樣式 - 確保在所有設備上清晰可見 */
+/* Chart.js 工具提示樣式 - Premium Apple-like */
 .chartjs-tooltip {
-    z-index: 9999 !important; /* 確保工具提示在最上層 */
-    pointer-events: none !important; /* 不阻擋鼠標事件 */
+    z-index: 9999 !important;
+    pointer-events: none !important;
     position: absolute !important;
-    background: rgba(30, 41, 59, 0.95) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    border-radius: 10px !important;
-    padding: 10px 12px !important;
-    color: #fff !important;
+    background: rgba(15, 23, 42, 0.96) !important;
+    backdrop-filter: var(--blur-lg) !important;
+    -webkit-backdrop-filter: var(--blur-lg) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 12px 16px !important;
+    color: #ffffff !important;
+    font-family: 'Inter', -apple-system, sans-serif !important;
     font-size: 12px !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-    max-width: 90vw !important; /* 確保在小屏幕上不會超出視窗 */
+    font-weight: 500 !important;
+    box-shadow: var(--shadow-xl), 0 0 0 1px rgba(255, 255, 255, 0.1) inset !important;
+    max-width: 90vw !important;
     word-wrap: break-word !important;
+    letter-spacing: -0.01em !important;
+    line-height: 1.5 !important;
+    animation: tooltipFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.chartjs-tooltip-title {
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    margin-bottom: 6px !important;
+    color: #ffffff !important;
+    letter-spacing: -0.01em !important;
+}
+
+.chartjs-tooltip-body {
+    font-size: 12px !important;
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.chartjs-tooltip-body-item {
+    margin: 4px 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+@keyframes tooltipFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 /* 確保圖表容器不會裁剪工具提示 */

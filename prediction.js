@@ -977,26 +977,62 @@ let forecastChart, dowChart, monthChart, historyChart, comparisonChart;
 let currentHistoryRange = '1月'; // 當前選擇的歷史趨勢時間範圍
 let historyPageOffset = 0; // 分頁偏移量（0 = 當前時間範圍，1 = 上一頁，-1 = 下一頁）
 
-// Chart.js 全域設定 - 專業風格
-Chart.defaults.font.family = "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif";
+// Chart.js 全域設定 - Premium Apple-like Professional Style
+Chart.defaults.font.family = "'Inter', 'DM Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif";
 Chart.defaults.font.weight = 500;
-Chart.defaults.color = '#64748b';
+Chart.defaults.font.size = 12;
+Chart.defaults.color = '#475569';
+Chart.defaults.borderColor = 'rgba(0, 0, 0, 0.08)';
+Chart.defaults.backgroundColor = 'rgba(79, 70, 229, 0.1)';
+Chart.defaults.elements.point.radius = 0;
+Chart.defaults.elements.point.hoverRadius = 6;
+Chart.defaults.elements.point.hoverBorderWidth = 2;
+Chart.defaults.elements.line.tension = 0.4;
+Chart.defaults.elements.line.borderWidth = 2.5;
+Chart.defaults.elements.line.borderCapStyle = 'round';
+Chart.defaults.elements.line.borderJoinStyle = 'round';
+Chart.defaults.plugins.tooltip.enabled = true;
+Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 23, 42, 0.95)';
+Chart.defaults.plugins.tooltip.titleFont.family = "'Inter', -apple-system, sans-serif";
+Chart.defaults.plugins.tooltip.titleFont.weight = 600;
+Chart.defaults.plugins.tooltip.titleFont.size = 13;
+Chart.defaults.plugins.tooltip.bodyFont.family = "'Inter', -apple-system, sans-serif";
+Chart.defaults.plugins.tooltip.bodyFont.size = 12;
+Chart.defaults.plugins.tooltip.padding = 12;
+Chart.defaults.plugins.tooltip.cornerRadius = 10;
+Chart.defaults.plugins.tooltip.displayColors = true;
+Chart.defaults.plugins.tooltip.borderColor = 'rgba(255, 255, 255, 0.1)';
+Chart.defaults.plugins.tooltip.borderWidth = 1;
+Chart.defaults.plugins.legend.display = true;
+Chart.defaults.plugins.legend.labels.font.family = "'Inter', -apple-system, sans-serif";
+Chart.defaults.plugins.legend.labels.font.weight = 500;
+Chart.defaults.plugins.legend.labels.font.size = 11;
+Chart.defaults.plugins.legend.labels.padding = 12;
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+Chart.defaults.plugins.legend.labels.pointStyle = 'circle';
 
-// 專業配色方案
+// Premium 配色方案 - Apple-like
 const chartColors = {
     primary: '#4f46e5',
-    primaryLight: 'rgba(79, 70, 229, 0.1)',
+    primaryLight: 'rgba(79, 70, 229, 0.12)',
+    primaryGradient: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
     success: '#059669',
-    successLight: 'rgba(5, 150, 105, 0.08)',
+    successLight: 'rgba(5, 150, 105, 0.12)',
+    successGradient: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
     danger: '#dc2626',
-    dangerLight: 'rgba(220, 38, 38, 0.1)',
+    dangerLight: 'rgba(220, 38, 38, 0.12)',
     warning: '#d97706',
+    warningLight: 'rgba(217, 119, 6, 0.12)',
+    info: '#2563eb',
+    infoLight: 'rgba(37, 99, 235, 0.12)',
     muted: '#94a3b8',
     mutedLight: 'rgba(148, 163, 184, 0.15)',
-    text: '#1e293b',
-    textSecondary: '#64748b',
-    grid: 'rgba(0, 0, 0, 0.06)',
-    border: 'rgba(0, 0, 0, 0.1)'
+    text: '#0f172a',
+    textSecondary: '#475569',
+    textTertiary: '#94a3b8',
+    grid: 'rgba(0, 0, 0, 0.05)',
+    border: 'rgba(0, 0, 0, 0.08)',
+    background: 'rgba(255, 255, 255, 0.6)'
 };
 
 // 獲取響應式 layout padding（根據屏幕寬度）
@@ -1048,115 +1084,182 @@ function getResponsiveMaxTicksLimit() {
     }
 }
 
-// 專業圖表選項 - 手機友好，確保所有元素清晰可見
+// Premium 專業圖表選項 - Apple-like World-Class Design
 const professionalOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    animation: {
+        duration: 800,
+        easing: 'easeOutQuart'
+    },
     interaction: {
         intersect: false,
         mode: 'index'
     },
     layout: {
         padding: getResponsivePadding(),
-        autoPadding: true // 啟用自動 padding，確保圖表元素不被裁剪
+        autoPadding: true
     },
     plugins: {
         legend: {
             display: true,
             position: 'top',
             align: 'center',
-            fullSize: true, // 確保圖例有完整空間
+            fullSize: true,
             labels: {
                 usePointStyle: true,
                 pointStyle: 'circle',
-                padding: window.innerWidth <= 600 ? 10 : 15, // 響應式 padding
+                padding: window.innerWidth <= 600 ? 12 : 16,
                 color: chartColors.text,
                 font: {
-                    size: window.innerWidth <= 600 ? 11 : 12 // 響應式字體大小
+                    family: "'Inter', -apple-system, sans-serif",
+                    size: window.innerWidth <= 600 ? 11 : 12,
+                    weight: 600
                 },
-                font: { size: 11, weight: 600 },
-                boxWidth: 8,
-                boxHeight: 8
+                boxWidth: 10,
+                boxHeight: 10,
+                generateLabels: function(chart) {
+                    const original = Chart.defaults.plugins.legend.labels.generateLabels;
+                    const labels = original.call(this, chart);
+                    labels.forEach(label => {
+                        label.fontStyle = 'normal';
+                        label.textAlign = 'left';
+                    });
+                    return labels;
+                }
+            },
+            onHover: function(e, legendItem) {
+                e.native.target.style.cursor = 'pointer';
+            },
+            onLeave: function(e, legendItem) {
+                e.native.target.style.cursor = 'default';
             }
         },
         tooltip: {
             enabled: true,
-            backgroundColor: 'rgba(30, 41, 59, 0.95)',
-            titleColor: '#fff',
-            bodyColor: 'rgba(255,255,255,0.85)',
-            borderColor: 'rgba(255, 255, 255, 0.1)',
+            backgroundColor: 'rgba(15, 23, 42, 0.96)',
+            backdropFilter: 'blur(12px)',
+            titleColor: '#ffffff',
+            bodyColor: 'rgba(255, 255, 255, 0.9)',
+            borderColor: 'rgba(255, 255, 255, 0.15)',
             borderWidth: 1,
-            cornerRadius: 10,
-            padding: window.innerWidth <= 600 ? 10 : 12, // 響應式 padding
-            boxPadding: 4,
+            cornerRadius: 12,
+            padding: window.innerWidth <= 600 ? 12 : 14,
+            boxPadding: 6,
             usePointStyle: true,
-            titleFont: { 
-                size: window.innerWidth <= 600 ? 12 : 13, 
-                weight: 700 
+            titleFont: {
+                family: "'Inter', -apple-system, sans-serif",
+                size: window.innerWidth <= 600 ? 13 : 14,
+                weight: 700,
+                lineHeight: 1.4
             },
-            bodyFont: { 
-                size: window.innerWidth <= 600 ? 11 : 12, 
-                weight: 500 
+            bodyFont: {
+                family: "'Inter', -apple-system, sans-serif",
+                size: window.innerWidth <= 600 ? 12 : 13,
+                weight: 500,
+                lineHeight: 1.5
+            },
+            footerFont: {
+                family: "'Inter', -apple-system, sans-serif",
+                size: 11,
+                weight: 400
             },
             displayColors: true,
-            // 確保工具提示不會被裁剪，自動調整位置
+            boxWidth: 10,
+            boxHeight: 10,
             position: 'nearest',
             xAlign: 'center',
             yAlign: 'bottom',
-            // 確保工具提示在正確的 z-index 層級
+            caretSize: 6,
+            caretPadding: 8,
+            multiKeyBackground: 'rgba(255, 255, 255, 0.1)',
+            callbacks: {
+                title: function(tooltipItems) {
+                    return tooltipItems.map(item => item.label || '').join(', ');
+                },
+                label: function(context) {
+                    let label = context.dataset.label || '';
+                    if (label) {
+                        label += ': ';
+                    }
+                    if (context.parsed.y !== null) {
+                        label += Math.round(context.parsed.y);
+                    }
+                    return label;
+                },
+                labelColor: function(context) {
+                    return {
+                        borderColor: context.dataset.borderColor || context.dataset.backgroundColor,
+                        backgroundColor: context.dataset.borderColor || context.dataset.backgroundColor
+                    };
+                }
+            },
             external: null
         }
     },
-        scales: {
-            x: {
-                ticks: { 
-                    color: chartColors.text,
-                    font: { 
-                        size: window.innerWidth <= 600 ? 10 : 11, 
-                        weight: 600 
-                    },
-                    padding: window.innerWidth <= 600 ? 6 : 8, // 響應式 padding
-                    maxRotation: window.innerWidth <= 600 ? 45 : 0, // 小屏幕允許旋轉
-                    minRotation: 0,
-                    autoSkip: true,
-                    autoSkipPadding: 10,
-                    maxTicksLimit: getResponsiveMaxTicksLimit()
+    scales: {
+        x: {
+            ticks: {
+                color: chartColors.text,
+                font: {
+                    family: "'Inter', -apple-system, sans-serif",
+                    size: window.innerWidth <= 600 ? 10 : 11,
+                    weight: 600
                 },
-                grid: { 
-                    display: false,
-                    drawBorder: true,
-                    borderColor: chartColors.border
-                },
-                border: {
-                    display: false
+                padding: window.innerWidth <= 600 ? 8 : 10,
+                maxRotation: window.innerWidth <= 600 ? 45 : 0,
+                minRotation: 0,
+                autoSkip: true,
+                autoSkipPadding: 12,
+                maxTicksLimit: getResponsiveMaxTicksLimit(),
+                callback: function(value, index) {
+                    return this.getLabelForValue(value);
                 }
             },
-            y: {
-                ticks: { 
-                    color: chartColors.textSecondary,
-                    font: { 
-                        size: window.innerWidth <= 600 ? 10 : 11, 
-                        weight: 500 
-                    },
-                    padding: window.innerWidth <= 600 ? 6 : 10, // 響應式 padding
-                    callback: function(value) {
-                        // 格式化為整數，避免顯示浮點數（如 315.66666666666663）
-                        return Math.round(value);
-                    },
-                    // 確保 Y 軸標籤有足夠空間
-                    maxTicksLimit: window.innerWidth <= 600 ? 6 : 10
+            grid: {
+                display: false,
+                drawBorder: true,
+                borderColor: chartColors.border,
+                borderWidth: 1,
+                lineWidth: 0
+            },
+            border: {
+                display: false,
+                color: chartColors.border,
+                width: 1
+            }
+        },
+        y: {
+            ticks: {
+                color: chartColors.textSecondary,
+                font: {
+                    family: "'Inter', -apple-system, sans-serif",
+                    size: window.innerWidth <= 600 ? 10 : 11,
+                    weight: 500
                 },
-                grid: { 
-                    color: 'rgba(0, 0, 0, 0.04)',
-                    drawBorder: true,
-                    borderColor: chartColors.border,
-                    lineWidth: 1
+                padding: window.innerWidth <= 600 ? 8 : 12,
+                callback: function(value) {
+                    return Math.round(value);
                 },
-                border: {
-                    display: false
-                }
+                maxTicksLimit: window.innerWidth <= 600 ? 6 : 10,
+                stepSize: undefined
+            },
+            grid: {
+                color: chartColors.grid,
+                drawBorder: true,
+                borderColor: chartColors.border,
+                lineWidth: 1,
+                drawOnChartArea: true,
+                drawTicks: false,
+                tickLength: 0
+            },
+            border: {
+                display: false,
+                color: chartColors.border,
+                width: 1
             }
         }
+    }
 };
 
 // 更新載入進度
