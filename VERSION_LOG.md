@@ -1,5 +1,37 @@
 # 版本更新日誌
 
+## v2.4.27 - 2025-12-24 02:39 (HKT)
+
+### 🎯 修復：比較表格表頭與數據列對齊問題
+
+**問題修復**：
+1. **修復表頭與數據列對齊**：
+   - 移除 `tbody tr:hover` 的 `transform: translateX(2px)`，避免影響對齊
+   - 確保表格容器沒有左側 padding（設置 `padding: 0`）
+   - 添加明確的第一列對齊規則，確保表頭和數據行的第一列完全對齊
+
+2. **統一 box-sizing**：
+   - 為所有 `th` 和 `td` 添加 `box-sizing: border-box`，確保 padding 計算一致
+   - 添加第一列專用的對齊規則，確保完全對齊
+
+3. **優化 hover 效果**：
+   - 移除可能影響對齊的 `transform` 效果
+   - 保留背景色和陰影效果
+
+**技術細節**：
+- 移除 `tbody tr:hover` 的 `transform: translateX(2px)`
+- 表格容器設置 `padding: 0`，避免額外的左側空白
+- 添加 `.comparison-table th:first-child` 和 `.comparison-table td:first-child` 對齊規則
+- 所有單元格使用 `box-sizing: border-box`
+
+**影響範圍**：
+- `styles.css` - 比較表格對齊修復
+
+**優勢**：
+- ✅ 表頭和數據列完全對齊
+- ✅ 移除影響對齊的 transform 效果
+- ✅ 統一的 box-sizing 計算
+
 ## v2.4.26 - 2025-12-24 02:20 (HKT)
 
 ### 🎯 修復：移除表頭和數據行的多餘空白

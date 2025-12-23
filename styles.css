@@ -2454,6 +2454,7 @@ section h2 {
     overflow-y: visible;
     margin-top: var(--space-md);
     max-height: none;
+    padding: 0;
     padding-bottom: var(--space-md);
     width: 100%;
     max-width: 100%;
@@ -2497,6 +2498,14 @@ section h2 {
     text-align: left;
     white-space: nowrap;
     vertical-align: middle;
+    box-sizing: border-box;
+}
+
+/* 確保第一列完全對齊 */
+.comparison-table th:first-child,
+.comparison-table td:first-child {
+    padding-left: var(--space-sm);
+    padding-right: var(--space-sm);
 }
 
 .comparison-table th {
@@ -2516,7 +2525,7 @@ section h2 {
 }
 
 .comparison-table tbody tr {
-    transition: all var(--transition-base);
+    transition: background-color var(--transition-base), box-shadow var(--transition-base);
     position: relative;
 }
 
@@ -2536,7 +2545,6 @@ section h2 {
 
 .comparison-table tbody tr:hover {
     background: linear-gradient(135deg, rgba(79, 70, 229, 0.04) 0%, rgba(124, 58, 237, 0.02) 100%);
-    transform: translateX(2px);
     box-shadow: var(--shadow-sm);
 }
 
