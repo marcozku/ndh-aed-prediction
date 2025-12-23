@@ -2482,12 +2482,16 @@ section h2 {
     transition: var(--transition-fast);
 }
 
+/* 確保表頭和數據行的左側 padding 完全一致 */
 .comparison-table thead th {
-    padding-left: var(--space-lg) !important;
+    padding-left: var(--space-md) !important;
+    padding-right: var(--space-md) !important;
+    text-align: left !important;
 }
 
 .comparison-table tbody td {
-    padding-left: var(--space-xs) !important;
+    padding-left: var(--space-md) !important;
+    padding-right: var(--space-md) !important;
     text-align: left !important;
 }
 
