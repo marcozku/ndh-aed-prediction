@@ -978,38 +978,82 @@ let currentHistoryRange = '1月'; // 當前選擇的歷史趨勢時間範圍
 let historyPageOffset = 0; // 分頁偏移量（0 = 當前時間範圍，1 = 上一頁，-1 = 下一頁）
 
 // Chart.js 全域設定 - Premium Apple-like Professional Style
-Chart.defaults.font.family = "'Inter', 'DM Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif";
-Chart.defaults.font.weight = 500;
-Chart.defaults.font.size = 12;
-Chart.defaults.color = '#475569';
-Chart.defaults.borderColor = 'rgba(0, 0, 0, 0.08)';
-Chart.defaults.backgroundColor = 'rgba(79, 70, 229, 0.1)';
-Chart.defaults.elements.point.radius = 0;
-Chart.defaults.elements.point.hoverRadius = 6;
-Chart.defaults.elements.point.hoverBorderWidth = 2;
-Chart.defaults.elements.line.tension = 0.4;
-Chart.defaults.elements.line.borderWidth = 2.5;
-Chart.defaults.elements.line.borderCapStyle = 'round';
-Chart.defaults.elements.line.borderJoinStyle = 'round';
-Chart.defaults.plugins.tooltip.enabled = true;
-Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 23, 42, 0.95)';
-Chart.defaults.plugins.tooltip.titleFont.family = "'Inter', -apple-system, sans-serif";
-Chart.defaults.plugins.tooltip.titleFont.weight = 600;
-Chart.defaults.plugins.tooltip.titleFont.size = 13;
-Chart.defaults.plugins.tooltip.bodyFont.family = "'Inter', -apple-system, sans-serif";
-Chart.defaults.plugins.tooltip.bodyFont.size = 12;
-Chart.defaults.plugins.tooltip.padding = 12;
-Chart.defaults.plugins.tooltip.cornerRadius = 10;
-Chart.defaults.plugins.tooltip.displayColors = true;
-Chart.defaults.plugins.tooltip.borderColor = 'rgba(255, 255, 255, 0.1)';
-Chart.defaults.plugins.tooltip.borderWidth = 1;
-Chart.defaults.plugins.legend.display = true;
-Chart.defaults.plugins.legend.labels.font.family = "'Inter', -apple-system, sans-serif";
-Chart.defaults.plugins.legend.labels.font.weight = 500;
-Chart.defaults.plugins.legend.labels.font.size = 11;
-Chart.defaults.plugins.legend.labels.padding = 12;
-Chart.defaults.plugins.legend.labels.usePointStyle = true;
-Chart.defaults.plugins.legend.labels.pointStyle = 'circle';
+// 安全地設置 Chart.js 默認值，確保所有對象都已初始化
+if (typeof Chart !== 'undefined') {
+    // 基本字體設置
+    if (Chart.defaults && Chart.defaults.font) {
+        Chart.defaults.font.family = "'Inter', 'DM Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif";
+        Chart.defaults.font.weight = 500;
+        Chart.defaults.font.size = 12;
+    }
+    
+    Chart.defaults.color = '#475569';
+    Chart.defaults.borderColor = 'rgba(0, 0, 0, 0.08)';
+    Chart.defaults.backgroundColor = 'rgba(79, 70, 229, 0.1)';
+    
+    // 元素設置
+    if (Chart.defaults && Chart.defaults.elements) {
+        if (Chart.defaults.elements.point) {
+            Chart.defaults.elements.point.radius = 0;
+            Chart.defaults.elements.point.hoverRadius = 6;
+            Chart.defaults.elements.point.hoverBorderWidth = 2;
+        }
+        if (Chart.defaults.elements.line) {
+            Chart.defaults.elements.line.tension = 0.4;
+            Chart.defaults.elements.line.borderWidth = 2.5;
+            Chart.defaults.elements.line.borderCapStyle = 'round';
+            Chart.defaults.elements.line.borderJoinStyle = 'round';
+        }
+    }
+    
+    // 插件設置 - 安全地初始化嵌套對象
+    if (Chart.defaults && Chart.defaults.plugins) {
+        // Tooltip 設置
+        if (!Chart.defaults.plugins.tooltip) {
+            Chart.defaults.plugins.tooltip = {};
+        }
+        Chart.defaults.plugins.tooltip.enabled = true;
+        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 23, 42, 0.95)';
+        Chart.defaults.plugins.tooltip.padding = 12;
+        Chart.defaults.plugins.tooltip.cornerRadius = 10;
+        Chart.defaults.plugins.tooltip.displayColors = true;
+        Chart.defaults.plugins.tooltip.borderColor = 'rgba(255, 255, 255, 0.1)';
+        Chart.defaults.plugins.tooltip.borderWidth = 1;
+        
+        // Tooltip 字體設置
+        if (!Chart.defaults.plugins.tooltip.titleFont) {
+            Chart.defaults.plugins.tooltip.titleFont = {};
+        }
+        Chart.defaults.plugins.tooltip.titleFont.family = "'Inter', -apple-system, sans-serif";
+        Chart.defaults.plugins.tooltip.titleFont.weight = 600;
+        Chart.defaults.plugins.tooltip.titleFont.size = 13;
+        
+        if (!Chart.defaults.plugins.tooltip.bodyFont) {
+            Chart.defaults.plugins.tooltip.bodyFont = {};
+        }
+        Chart.defaults.plugins.tooltip.bodyFont.family = "'Inter', -apple-system, sans-serif";
+        Chart.defaults.plugins.tooltip.bodyFont.size = 12;
+        
+        // Legend 設置
+        if (!Chart.defaults.plugins.legend) {
+            Chart.defaults.plugins.legend = {};
+        }
+        Chart.defaults.plugins.legend.display = true;
+        
+        if (!Chart.defaults.plugins.legend.labels) {
+            Chart.defaults.plugins.legend.labels = {};
+        }
+        if (!Chart.defaults.plugins.legend.labels.font) {
+            Chart.defaults.plugins.legend.labels.font = {};
+        }
+        Chart.defaults.plugins.legend.labels.font.family = "'Inter', -apple-system, sans-serif";
+        Chart.defaults.plugins.legend.labels.font.weight = 500;
+        Chart.defaults.plugins.legend.labels.font.size = 11;
+        Chart.defaults.plugins.legend.labels.padding = 12;
+        Chart.defaults.plugins.legend.labels.usePointStyle = true;
+        Chart.defaults.plugins.legend.labels.pointStyle = 'circle';
+    }
+}
 
 // Premium 配色方案 - Apple-like
 const chartColors = {
