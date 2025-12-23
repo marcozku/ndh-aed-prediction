@@ -2482,6 +2482,15 @@ section h2 {
     transition: var(--transition-fast);
 }
 
+.comparison-table thead th {
+    padding-left: var(--space-lg) !important;
+}
+
+.comparison-table tbody td {
+    padding-left: var(--space-xs) !important;
+    text-align: left !important;
+}
+
 @media (max-width: 600px) {
     .comparison-table-container {
         overflow-x: auto !important; /* 移動端優化：允許水平滾動 */
@@ -2542,7 +2551,8 @@ section h2 {
 
 .comparison-table th {
     padding: var(--space-md) var(--space-lg);
-    text-align: left;
+    padding-left: var(--space-lg);
+    text-align: left !important;
     font-weight: 700;
     font-size: clamp(0.8rem, 1.8vw, 0.95rem);
     color: var(--text-primary);
@@ -2555,12 +2565,12 @@ section h2 {
 
 .comparison-table td {
     padding: var(--space-md) var(--space-lg);
-    padding-left: var(--space-sm);
+    padding-left: var(--space-sm) !important;
     border-bottom: 1px solid var(--border-subtle);
     color: var(--text-secondary);
     font-weight: 500;
     background: var(--bg-secondary);
-    text-align: left;
+    text-align: left !important;
 }
 
 .comparison-table tbody tr {
