@@ -6202,18 +6202,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const response = await fetch('/api/train-models', { method: 'POST' });
                 const result = await response.json();
                 if (result.success) {
-                    alert('✅ 訓練完成！');
+                    // 訓練已開始（後台執行），不是完成
+                    console.log('🚀 訓練已開始（後台執行）');
+                    trainingWasInProgress = true;
+                    // 立即刷新狀態並開始輪詢
+                    await loadTrainingStatus();
+                    startTrainingPolling();
                 } else {
                     alert('❌ 訓練失敗：' + (result.error || '未知錯誤'));
+                    startTrainingBtn.disabled = false;
+                    startTrainingBtn.innerHTML = '<span>🚀</span><span>開始訓練</span>';
                 }
             } catch (error) {
                 console.error('訓練失敗:', error);
                 alert('❌ 訓練時發生錯誤');
-            } finally {
                 startTrainingBtn.disabled = false;
                 startTrainingBtn.innerHTML = '<span>🚀</span><span>開始訓練</span>';
-                loadTrainingStatus();
             }
+            // 不再在 finally 中重置按鈕，由輪詢完成時處理
         });
     }
     
@@ -6230,6 +6236,43 @@ document.addEventListener('DOMContentLoaded', async () => {
 // 模型訓練狀態檢查
 // ============================================
 let trainingStatus = null;
+let trainingPollingInterval = null;
+let trainingWasInProgress = false;  // 追蹤之前是否在訓練中
+
+// 開始訓練狀態輪詢
+function startTrainingPolling() {
+    if (trainingPollingInterval) return; // 已經在輪詢中
+    console.log('🔄 開始訓練狀態輪詢...');
+    trainingPollingInterval = setInterval(async () => {
+        const status = await loadTrainingStatus();
+        if (status && status.data && !status.data.training?.isTraining) {
+            // 訓練完成，停止輪詢
+            stopTrainingPolling();
+            // 如果之前在訓練中，現在完成了，顯示提示
+            if (trainingWasInProgress) {
+                trainingWasInProgress = false;
+                const btn = document.getElementById('start-training-btn');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<span>🚀</span><span>開始訓練</span>';
+                }
+                // 檢查是否訓練成功
+                if (status.data.models?.xgboost) {
+                    console.log('✅ 訓練完成！');
+                }
+            }
+        }
+    }, 2000); // 每 2 秒檢查一次
+}
+
+// 停止訓練狀態輪詢
+function stopTrainingPolling() {
+    if (trainingPollingInterval) {
+        clearInterval(trainingPollingInterval);
+        trainingPollingInterval = null;
+        console.log('⏹️ 停止訓練狀態輪詢');
+    }
+}
 
 async function loadTrainingStatus() {
     const container = document.getElementById('training-status-container');
@@ -6244,6 +6287,22 @@ async function loadTrainingStatus() {
         if (data.success && data.data) {
             trainingStatus = data.data;
             renderTrainingStatus(data.data);
+            
+            // 如果正在訓練，確保輪詢已啟動
+            const isTraining = data.data.training?.isTraining;
+            if (isTraining) {
+                trainingWasInProgress = true;
+                // 更新按鈕狀態
+                const btn = document.getElementById('start-training-btn');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<span>⏳</span><span>訓練中...</span>';
+                }
+                // 確保輪詢在運行
+                if (!trainingPollingInterval) {
+                    startTrainingPolling();
+                }
+            }
         } else {
             container.innerHTML = `
                 <div style="text-align: center; padding: var(--space-xl); color: var(--text-secondary);">
@@ -6372,13 +6431,45 @@ function renderTrainingStatus(data) {
     
     // 訓練進度/狀態區
     if (isTraining) {
+        // 計算進度百分比（基於估計的訓練時間，預設 5-10 分鐘）
+        const estimatedDuration = training.estimatedDuration || (10 * 60 * 1000); // 預設 10 分鐘
+        const progress = elapsedTime ? Math.min(95, Math.round((elapsedTime / estimatedDuration) * 100)) : 0;
+        const elapsedSeconds = elapsedTime ? Math.round(elapsedTime / 1000) : 0;
+        const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+        const remainingSeconds = elapsedSeconds % 60;
+        const elapsedTimeStr = elapsedMinutes > 0 ? `${elapsedMinutes}分${remainingSeconds}秒` : `${elapsedSeconds}秒`;
+        
         html += `
-            <div class="training-progress-section" style="margin-top: var(--space-lg); padding: var(--space-lg); background: rgba(99, 102, 241, 0.1); border-radius: var(--radius-md); border: 1px solid rgba(99, 102, 241, 0.3);">
-                <div style="display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-md);">
-                    <div class="loading-spinner" style="width: 20px; height: 20px;"></div>
-                    <span style="font-weight: 600; color: var(--accent-primary);">🔄 訓練進行中...</span>
+            <div class="training-progress-section" style="margin-top: var(--space-lg); padding: var(--space-lg); background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%); border-radius: var(--radius-md); border: 1px solid rgba(99, 102, 241, 0.3);">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-md);">
+                    <div style="display: flex; align-items: center; gap: var(--space-sm);">
+                        <div class="loading-spinner" style="width: 24px; height: 24px;"></div>
+                        <span style="font-weight: 600; color: var(--accent-primary); font-size: 1.1rem;">🚀 訓練進行中</span>
+                    </div>
+                    <span style="font-weight: 600; color: var(--accent-primary); font-size: 1.1rem;">${progress}%</span>
                 </div>
-                ${elapsedTime ? `<p style="font-size: 0.85rem; color: var(--text-secondary);">已用時間: ${Math.round(elapsedTime / 1000)}秒</p>` : ''}
+                
+                <!-- 進度條 -->
+                <div style="width: 100%; height: 8px; background: rgba(0, 0, 0, 0.1); border-radius: 4px; overflow: hidden; margin-bottom: var(--space-md);">
+                    <div style="width: ${progress}%; height: 100%; background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary)); border-radius: 4px; transition: width 0.5s ease;"></div>
+                </div>
+                
+                <div style="display: flex; gap: var(--space-lg); font-size: 0.9rem; color: var(--text-secondary);">
+                    <div>⏱️ 已用時間: <strong>${elapsedTimeStr}</strong></div>
+                    <div>📊 預計總時長: <strong>5-10 分鐘</strong></div>
+                </div>
+                
+                <!-- 實時訓練輸出 -->
+                ${lastTrainingOutput ? `
+                    <div style="margin-top: var(--space-md);">
+                        <div style="font-size: 0.85rem; color: var(--text-tertiary); margin-bottom: var(--space-sm);">📋 實時訓練日誌：</div>
+                        <pre id="live-training-log" style="padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); overflow-x: auto; font-size: 0.75rem; max-height: 300px; overflow-y: auto; font-family: 'Fira Code', 'Monaco', 'Consolas', monospace; line-height: 1.5; border: 1px solid var(--border-subtle);">${escapeHtml(lastTrainingOutput)}</pre>
+                    </div>
+                ` : `
+                    <div style="margin-top: var(--space-md); padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); text-align: center; color: var(--text-tertiary); font-size: 0.85rem;">
+                        ⏳ 等待訓練輸出...
+                    </div>
+                `}
             </div>
         `;
     } else if (lastTrainingDate) {
@@ -6392,14 +6483,14 @@ function renderTrainingStatus(data) {
         `;
     }
     
-    // 訓練日誌
-    if (lastTrainingOutput) {
+    // 訓練日誌（訓練完成後顯示）
+    if (!isTraining && lastTrainingOutput) {
         html += `
-            <details id="training-log-details" style="margin-top: var(--space-lg);">
+            <details id="training-log-details" style="margin-top: var(--space-lg);" open>
                 <summary style="cursor: pointer; padding: var(--space-sm); background: var(--bg-secondary); border-radius: var(--radius-sm); font-weight: 500;">
                     📋 訓練日誌
                 </summary>
-                <pre style="margin-top: var(--space-sm); padding: var(--space-md); background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; font-size: 0.75rem; max-height: 200px; overflow-y: auto;">${lastTrainingOutput}</pre>
+                <pre style="margin-top: var(--space-sm); padding: var(--space-md); background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; font-size: 0.75rem; max-height: 300px; overflow-y: auto; font-family: 'Fira Code', 'Monaco', 'Consolas', monospace; line-height: 1.5;">${escapeHtml(lastTrainingOutput)}</pre>
             </details>
         `;
     }
@@ -6407,16 +6498,22 @@ function renderTrainingStatus(data) {
     // 訓練錯誤
     if (lastTrainingError) {
         html += `
-            <details id="training-error-details" style="margin-top: var(--space-md);">
+            <details id="training-error-details" style="margin-top: var(--space-md);" open>
                 <summary style="cursor: pointer; padding: var(--space-sm); background: rgba(239, 68, 68, 0.1); border-radius: var(--radius-sm); font-weight: 500; color: var(--text-danger);">
-                    ⚠️ 訓練錯誤
+                    ⚠️ 訓練錯誤/警告
                 </summary>
-                <pre style="margin-top: var(--space-sm); padding: var(--space-md); background: rgba(239, 68, 68, 0.05); border-radius: var(--radius-sm); overflow-x: auto; font-size: 0.75rem; color: var(--text-danger); max-height: 150px; overflow-y: auto;">${lastTrainingError}</pre>
+                <pre style="margin-top: var(--space-sm); padding: var(--space-md); background: rgba(239, 68, 68, 0.05); border-radius: var(--radius-sm); overflow-x: auto; font-size: 0.75rem; color: var(--text-danger); max-height: 200px; overflow-y: auto; font-family: 'Fira Code', 'Monaco', 'Consolas', monospace; line-height: 1.5;">${escapeHtml(lastTrainingError)}</pre>
             </details>
         `;
     }
     
     container.innerHTML = html;
+    
+    // 自動滾動到訓練日誌底部
+    const liveLog = document.getElementById('live-training-log');
+    if (liveLog) {
+        liveLog.scrollTop = liveLog.scrollHeight;
+    }
 }
 
 function initAlgorithmContent() {
