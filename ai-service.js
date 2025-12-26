@@ -413,6 +413,22 @@ async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord
                             return reject(new Error('AI API 響應格式異常'));
                         }
                         
+                        // 檢查回應內容是否為空
+                        const content = jsonData.choices[0].message.content;
+                        if (!content || content.trim().length === 0) {
+                            console.error(`❌ AI API 返回空內容 (${model})`);
+                            console.error('完整響應:', JSON.stringify(jsonData).substring(0, 500));
+                            return reject(new Error('AI API 返回空內容，需要嘗試其他模型'));
+                        }
+                        
+                        // 檢查回應是否包含有效的 JSON（基本檢查）
+                        if (!content.includes('{') || !content.includes('}')) {
+                            console.warn(`⚠️ AI 回應可能不是 JSON 格式 (${model}):`, content.substring(0, 200));
+                            // 不拒絕，因為可能是純文本回應，讓上層處理
+                        }
+                        
+                        console.log(`📝 AI 回應長度: ${content.length} 字符`);
+                        
                         // 成功後，如果使用的是備用主機，嘗試切換回主主機（下次使用）
                         if (currentAPIHost === API_HOSTS.fallback) {
                             console.log(`✅ 備用主機 ${currentAPIHost} 工作正常，下次將嘗試主主機`);
@@ -802,6 +818,14 @@ ${getVerifiedPolicyFactsPrompt()}
         console.log('🤖 調用 AI 分析服務（將自動嘗試所有可用模型）...');
         const response = await callAI(prompt, null, 0.5);
         console.log('✅ AI 調用成功，開始解析響應...');
+        console.log('📝 原始 AI 響應長度:', response?.length || 0);
+        console.log('📝 原始 AI 響應前 300 字符:', (response || '').substring(0, 300));
+        
+        // 檢查 AI 回應是否為空
+        if (!response || response.trim().length === 0) {
+            console.error('❌ AI 返回空回應！');
+            throw new Error('AI 返回空回應，將嘗試其他模型');
+        }
         
         // 先轉換響應中的簡體中文到繁體中文
         const convertedResponse = convertToTraditional(response);

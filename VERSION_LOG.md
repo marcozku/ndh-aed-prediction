@@ -1,5 +1,32 @@
 # 版本更新日誌
 
+## v2.4.42 - 2025-12-27 00:18 HKT
+
+### 🔧 修復：AI 空回應時自動降級到其他模型
+
+**問題描述**：
+- AI API 返回成功 (`success: true`) 但內容為空 (`rawResponse: ""`)
+- 空回應沒有觸發模型降級機制，導致返回空的 factors
+
+**修復內容**：
+
+1. **在 `callSingleModel` 中檢查空內容**：
+   - 檢查 `content` 是否為空或只有空白
+   - 空內容視為錯誤，觸發模型降級
+   - 添加 JSON 格式基本檢查警告
+
+2. **在 `searchRelevantNewsAndEvents` 中增強日誌**：
+   - 記錄原始 AI 響應長度和前 300 字符
+   - 空回應時拋出錯誤觸發重試
+
+**技術細節**：
+- `ai-service.js`: 
+  - `callSingleModel` 添加空內容檢查
+  - `searchRelevantNewsAndEvents` 添加原始響應日誌
+- 空回應現在會觸發模型降級（premium → standard → basic）
+
+---
+
 ## v2.4.41 - 2025-12-27 00:10 HKT
 
 ### 🔧 修復：AI 強制刷新返回空數據 + 增強診斷日誌
