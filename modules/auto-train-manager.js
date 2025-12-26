@@ -172,14 +172,31 @@ class AutoTrainManager {
 
     /**
      * 觸發訓練檢查（在數據更新後調用）
+     * @param {Object} db - 數據庫連接
+     * @param {boolean} forceOnDataChange - 如果為 true，無論數據數量變化如何都會觸發訓練
      */
-    async triggerTrainingCheck(db) {
+    async triggerTrainingCheck(db, forceOnDataChange = false) {
         if (!this.config.enableAutoTrain) {
             return { triggered: false, reason: '自動訓練已禁用' };
         }
 
+        // 如果正在訓練，不重複觸發
+        if (this.isTraining) {
+            return { triggered: false, reason: '正在訓練中' };
+        }
+
         try {
             const currentDataCount = await this.getCurrentDataCount(db);
+            
+            // 強制訓練模式：用戶數據變更時觸發
+            if (forceOnDataChange) {
+                console.log(`🤖 用戶數據更新，強制觸發訓練（當前數據: ${currentDataCount} 筆）`);
+                this.startTraining(db, currentDataCount).catch(err => {
+                    console.error('自動訓練失敗:', err);
+                });
+                return { triggered: true, reason: '用戶數據更新，強制訓練' };
+            }
+            
             const checkResult = await this.shouldTrain(currentDataCount);
 
             if (checkResult.shouldTrain) {
