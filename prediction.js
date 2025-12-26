@@ -6289,31 +6289,292 @@ async function loadTrainingStatus() {
     }
 }
 
-// 載入算法說明
-function loadAlgorithmDescription() {
-    const container = document.getElementById('algorithm-content');
-    if (!container) return;
+function initAlgorithmContent() {
+    const algorithmContentEl = document.getElementById('algorithm-content');
+    if (!algorithmContentEl) {
+        console.warn('⚠️ 找不到 algorithm-content 元素');
+        return;
+    }
     
-    container.innerHTML = `
-        <div class="algorithm-description">
-            <div class="algorithm-item">
-                <h4>📊 混合預測模型</h4>
-                <p>結合多種預測方法：時間序列分析、星期效應、季節性調整、天氣影響因素，以及 AI 實時事件分析。</p>
+    algorithmContentEl.innerHTML = `
+        <div class="algorithm-formula" style="margin-bottom: var(--space-xl);">
+            <h4>核心預測算法（v2.4.15+）</h4>
+            <div style="background: var(--bg-secondary); padding: var(--space-lg); border-radius: var(--radius-md); margin-top: var(--space-md); margin-bottom: var(--space-lg);">
+                <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">機器學習模型：XGBoost</h5>
+                <div style="padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.9rem; line-height: 1.8; color: var(--text-secondary);">
+                    <p style="margin-bottom: var(--space-sm);">
+                        本系統使用 <strong style="color: var(--text-primary);">XGBoost（極端梯度提升）</strong> 機器學習模型進行預測。
+                        XGBoost 是一種基於決策樹的集成學習算法，通過梯度提升框架優化模型性能。
+                    </p>
+                    <div style="margin-top: var(--space-md);">
+                        <strong style="color: var(--text-primary);">XGBoost 模型特點：</strong>
+                        <ul style="margin-top: var(--space-xs); padding-left: var(--space-lg);">
+                            <li>捕捉複雜的非線性關係和特徵交互</li>
+                            <li>自動特徵工程：處理 53+ 特徵（時間特徵、滯後特徵、滾動統計、事件指標、AI 因子等）</li>
+                            <li>整合 AI 分析數據：使用實時 AI 分析結果作為特徵，提高預測準確度</li>
+                            <li>高準確度：基於法國醫院研究，MAE 可達 2.63-2.64 病人</li>
+                            <li>快速訓練和預測：訓練時間 5-10 分鐘，預測時間 < 1 秒</li>
+                            <li>處理缺失值和異常值</li>
+                            <li>提供預測不確定性量化</li>
+                        </ul>
+                    </div>
+                    <div style="margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border-color);">
+                        <strong style="color: var(--text-primary);">特徵工程（53+ 特徵）：</strong>
+                        <ul style="margin-top: var(--space-xs); padding-left: var(--space-lg); font-size: 0.85rem;">
+                            <li><strong>時間特徵</strong>：年、月、星期、季度、一年中的第幾天等</li>
+                            <li><strong>循環編碼</strong>：月份和星期的正弦/餘弦編碼（捕捉周期性）</li>
+                            <li><strong>滯後特徵</strong>：Lag1（昨天）、Lag7（上週同一天）、Lag14、Lag30、Lag365</li>
+                            <li><strong>滾動統計</strong>：7天/14天/30天移動平均、標準差、最大值、最小值</li>
+                            <li><strong>事件指標</strong>：COVID 期間、流感季節、週一、週末、假期</li>
+                            <li><strong>交互特徵</strong>：COVID × 冬季、週一 × 冬季等</li>
+                            <li><strong>AI 因子特徵</strong>：AI_Factor（影響因子數值）、Has_AI_Factor（是否存在）、AI_Factor_Type（類型編碼）</li>
+                        </ul>
+                    </div>
+                    <div style="margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border-color); background: rgba(59, 130, 246, 0.05); padding: var(--space-md); border-radius: var(--radius-sm);">
+                        <strong style="color: var(--text-primary);">🤖 AI 因子在 XGBoost 中的使用：</strong>
+                        <div style="margin-top: var(--space-sm); font-size: 0.85rem; line-height: 1.8; color: var(--text-secondary);">
+                            <p style="margin-bottom: var(--space-xs);">
+                                XGBoost 模型整合了 AI 分析數據作為特徵，讓模型能夠學習和利用實時事件對就診人數的影響。
+                            </p>
+                            <p style="margin-bottom: var(--space-xs);"><strong>AI 因子特徵包括：</strong></p>
+                            <ul style="margin-left: var(--space-lg); margin-top: var(--space-xs);">
+                                <li><strong>AI_Factor</strong>：影響因子數值（通常範圍 0.85-1.15），表示 AI 分析預測的事件對就診人數的影響程度</li>
+                                <li><strong>Has_AI_Factor</strong>：二進制指標（0/1），表示該日期是否有 AI 分析數據</li>
+                                <li><strong>AI_Factor_Type</strong>：類型編碼（1=正向影響，-1=負向影響，0=中性/無數據）</li>
+                            </ul>
+                            <p style="margin-top: var(--space-sm); margin-bottom: var(--space-xs);"><strong>工作原理：</strong></p>
+                            <ul style="margin-left: var(--space-lg); margin-top: var(--space-xs);">
+                                <li>訓練時：系統從數據庫的 <code>ai_factors_cache</code> 表自動加載歷史 AI 因子數據，並將其作為特徵加入訓練</li>
+                                <li>預測時：系統自動加載目標日期的 AI 因子（如果有的話），並用於預測</li>
+                                <li>如果某個日期沒有 AI 數據，模型會使用默認值（AI_Factor=1.0, Has_AI_Factor=0, AI_Factor_Type=0）</li>
+                                <li>XGBoost 會自動學習 AI 因子與就診人數之間的關係，並在預測時應用這些學習到的模式</li>
+                            </ul>
+                            <p style="margin-top: var(--space-sm); margin-bottom: 0; color: var(--accent-primary);">
+                                <strong>優勢：</strong>通過整合 AI 分析，模型能夠捕捉到傳統統計方法難以發現的實時事件影響，提高預測準確度和實用性。
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="algorithm-item">
-                <h4>🔬 基於研究的參數</h4>
-                <p>參考香港急症室研究文獻，針對北區醫院特點優化預測參數，包括假期效應、流感季節等。</p>
+            
+            <h4>統計預測公式（備用方法）</h4>
+            <div style="background: var(--bg-secondary); padding: var(--space-lg); border-radius: var(--radius-md); margin-top: var(--space-md);">
+                <div style="margin-bottom: var(--space-lg);">
+                    <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">總公式</h5>
+                    <code style="display: block; padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.95rem; line-height: 1.8;">
+                        最終預測值 = 基礎預測值 + 滯後特徵調整 + 移動平均調整 + 趨勢調整
+                    </code>
+                </div>
+                
+                <div style="margin-bottom: var(--space-lg);">
+                    <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">步驟 1：基礎預測值（乘法模型）</h5>
+                    <code style="display: block; padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.95rem; line-height: 1.8;">
+                        基礎預測值 = 基準值 × 星期因子 × 假期因子 × 流感季節因子 × 天氣因子 × AI因子<br>
+                        其中：基準值 = 全局平均 × 月份因子
+                    </code>
+                    <div style="margin-top: var(--space-sm); padding-left: var(--space-md); color: var(--text-secondary); font-size: 0.85rem; line-height: 1.6;">
+                        • 全局平均：加權平均（180天窗口，指數衰減權重 w = e^(-0.02 × days_ago)）<br>
+                        • 月份因子：基於最近180天同月份的加權平均，範圍 0.85 - 1.25<br>
+                        • 星期因子：優先使用月份-星期交互因子，範圍 0.70 - 1.30<br>
+                        • 假期因子：範圍 0.60 - 1.40<br>
+                        • 流感季節因子：1.004（適用於 1, 2, 3, 7, 8 月）<br>
+                        • 天氣因子：範圍 0.90 - 1.15（溫度 × 濕度 × 降雨 × 警告）<br>
+                        • AI因子：範圍 0.85 - 1.15
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: var(--space-lg);">
+                    <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">步驟 2：滯後特徵調整（加法模型）</h5>
+                    <code style="display: block; padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.95rem; line-height: 1.8;">
+                        滯後調整 = Lag1調整 + Lag7調整 + 移動平均調整
+                    </code>
+                    <div style="margin-top: var(--space-sm); padding-left: var(--space-md); color: var(--text-secondary); font-size: 0.85rem; line-height: 1.6;">
+                        <strong>Lag1調整</strong> = (昨天就診人數 - 全局平均) × 0.18<br>
+                        <span style="color: var(--text-tertiary);">權重18%，基於研究：lag1係數約 0.15-0.20</span><br><br>
+                        <strong>Lag7調整</strong> = (上週同一天就診人數 - 全局平均) × 0.10<br>
+                        <span style="color: var(--text-tertiary);">權重10%，基於研究：lag7係數約 0.08-0.12</span><br><br>
+                        <strong>移動平均調整</strong> = (7天移動平均 - 30天移動平均) × 0.14<br>
+                        <span style="color: var(--text-tertiary);">權重14%，基於研究：rolling7係數約 0.12-0.16</span>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: var(--space-lg);">
+                    <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">步驟 3：趨勢調整</h5>
+                    <code style="display: block; padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.95rem; line-height: 1.8;">
+                        趨勢 = (7天移動平均 - 30天移動平均) / 30天移動平均<br>
+                        趨勢調整 = 基礎預測值 × 趨勢 × 0.3
+                    </code>
+                    <div style="margin-top: var(--space-sm); padding-left: var(--space-md); color: var(--text-secondary); font-size: 0.85rem; line-height: 1.6;">
+                        權重30%，基於Prophet模型研究（2017）
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: var(--space-lg);">
+                    <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">步驟 4：異常檢測和調整</h5>
+                    <div style="padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.85rem; line-height: 1.6; color: var(--text-secondary);">
+                        計算歷史5%和95%分位數，如果預測值超出合理範圍（150-350人），進行部分調整（50%權重）
+                    </div>
+                </div>
+                
+                <div>
+                    <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">步驟 5：信賴區間</h5>
+                    <code style="display: block; padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.95rem; line-height: 1.8;">
+                        調整標準差 = 加權標準差 × 1.2（20%不確定性調整）<br>
+                        80% CI: 預測值 ± 1.5 × 調整標準差<br>
+                        95% CI: 預測值 ± 2.5 × 調整標準差
+                    </code>
+                </div>
             </div>
-            <div class="algorithm-item">
-                <h4>📈 信賴區間估算</h4>
-                <p>使用歷史數據的標準差計算 80% 和 95% 信賴區間，提供預測不確定性的量化評估。</p>
-            </div>
-            <div class="algorithm-item">
-                <h4>🤖 AI 實時分析</h4>
-                <p>利用 GPT-4o 分析新聞事件、公共衛生狀況等實時因素，動態調整預測值。</p>
+        </div>
+        
+        <div class="factors-table">
+            <h4>主要影響因子</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>因子類型</th>
+                        <th>影響範圍</th>
+                        <th>說明</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="positive">月份效應</td>
+                        <td>0.85 - 1.25</td>
+                        <td>基於歷史數據分析，不同月份的就診模式有顯著差異</td>
+                    </tr>
+                    <tr>
+                        <td class="positive">星期效應</td>
+                        <td>0.70 - 1.30</td>
+                        <td>考慮月份-星期交互作用，週末和工作日的就診模式不同</td>
+                    </tr>
+                    <tr>
+                        <td class="positive">假期效應</td>
+                        <td>0.60 - 1.40</td>
+                        <td>香港公眾假期對就診人數有顯著影響</td>
+                    </tr>
+                    <tr>
+                        <td class="positive">流感季節</td>
+                        <td>1.10 - 1.30</td>
+                        <td>1-3月和7-8月為流感高峰期，就診人數增加</td>
+                    </tr>
+                    <tr>
+                        <td class="positive">天氣因素</td>
+                        <td>0.90 - 1.15</td>
+                        <td>溫度、濕度、降雨量等天氣條件影響就診模式</td>
+                    </tr>
+                    <tr>
+                        <td class="positive">AI 分析因素</td>
+                        <td>0.85 - 1.15</td>
+                        <td>基於實時新聞和事件分析，動態調整預測值</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div style="grid-column: 1 / -1; margin-top: var(--space-lg);">
+            <h4 style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600; margin-bottom: var(--space-md);">算法特點</h4>
+            <ul style="color: var(--text-primary); line-height: 1.8; padding-left: var(--space-lg);">
+                <li><strong>XGBoost 機器學習模型</strong>：使用梯度提升樹算法，自動學習複雜模式和非線性關係</li>
+                <li><strong>53+ 特徵工程</strong>：時間特徵、滯後特徵、滾動統計、事件指標、交互特徵、AI 因子特徵</li>
+                <li><strong>AI 因子整合</strong>：將實時 AI 分析結果作為特徵，讓模型學習事件對就診人數的影響</li>
+                <li>基於真實歷史數據（3,431+ 筆記錄）進行訓練和驗證</li>
+                <li>考慮多維度影響因子，包括時間、天氣、假期等</li>
+                <li>使用月份-星期交互因子，提高預測準確度</li>
+                <li>整合滯後特徵（lag1, lag7）和移動平均，捕捉時間依賴性</li>
+                <li>整合 AI 分析，動態調整預測值</li>
+                <li>提供 80% 和 95% 信賴區間，量化預測不確定性</li>
+                <li>持續學習和優化，根據實際數據反饋重新訓練模型</li>
+                <li>基於最新研究（2024-2025）持續改進，目標 MAE < 2.0</li>
+            </ul>
+        </div>
+        
+        <div style="grid-column: 1 / -1; margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: 1px solid var(--border-subtle);">
+            <h4 style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600; margin-bottom: var(--space-md);">研究參考文獻</h4>
+            <div style="color: var(--text-primary); line-height: 1.8; font-size: 0.85rem;">
+                <p style="margin-bottom: var(--space-sm);"><strong>1. 法國醫院 XGBoost 研究（2025）⭐ 本系統採用</strong></p>
+                <p style="margin-bottom: var(--space-md); margin-left: var(--space-md); color: var(--text-secondary);">
+                    BMC Emergency Medicine (2025). "Predicting Emergency Department Admissions Using a Machine-Learning Algorithm: A Proof of Concept with Retrospective Study". 
+                    <br><strong>方法</strong>：XGBoost 梯度提升樹模型 + 超參數調優
+                    <br><strong>性能</strong>：MAE: 2.63-2.64 病人（約 2-3% MAPE）
+                    <br><strong>特點</strong>：捕捉複雜模式、非線性關係，處理多種特徵類型
+                    <br>
+                    <a href="https://bmcemergmed.biomedcentral.com/articles/10.1186/s12873-024-01141-4" target="_blank" style="color: var(--accent-primary);">查看研究</a>
+                </p>
+                
+                <p style="margin-bottom: var(--space-sm);"><strong>2. 特徵工程增強預測研究（2024）</strong></p>
+                <p style="margin-bottom: var(--space-md); margin-left: var(--space-md); color: var(--text-secondary);">
+                    BMC Medical Informatics and Decision Making (2024). "Enhanced Forecasting of Emergency Department Patient Arrivals Using Feature Engineering Approach and Machine Learning".
+                    <br>方法：特徵工程 + 六種機器學習算法 | 數據：11個急診室，三個國家 |
+                    <a href="https://bmcmedinformdecismak.biomedcentral.com/articles/10.1186/s12911-024-02788-6" target="_blank" style="color: var(--accent-primary);">查看研究</a>
+                </p>
+                
+                <p style="margin-bottom: var(--space-sm);"><strong>3. 深度學習登機預測（2025）</strong></p>
+                <p style="margin-bottom: var(--space-md); margin-left: var(--space-md); color: var(--text-secondary);">
+                    arXiv (2025). "Deep Learning-Based Forecasting of Boarding Patient Counts to Address ED Overcrowding".
+                    <br>方法：深度學習模型，提前6小時預測 | 數據整合：急診室追蹤系統 + 住院患者數據 + 天氣 + 本地事件 |
+                    <a href="https://arxiv.org/abs/2505.14765" target="_blank" style="color: var(--accent-primary);">查看研究</a>
+                </p>
+                
+                <p style="margin-bottom: var(--space-sm);"><strong>4. 時間序列預測深度學習研究（2019）</strong></p>
+                <p style="margin-bottom: var(--space-md); margin-left: var(--space-md); color: var(--text-secondary);">
+                    Chen, Y., Kang, Y., Chen, Y., & Wang, Z. (2019). "Probabilistic Forecasting with Temporal Convolutional Neural Network". 
+                    <br>arXiv preprint arXiv:1906.04397. 方法：時間卷積神經網絡（TCN），捕捉季節性和假日效應等複雜模式 |
+                    <a href="https://arxiv.org/abs/1906.04397" target="_blank" style="color: var(--accent-primary);">查看研究</a>
+                </p>
+                
+                <p style="margin-bottom: var(--space-sm);"><strong>5. 深度自回歸循環網絡研究（2017）</strong></p>
+                <p style="margin-bottom: var(--space-md); margin-left: var(--space-md); color: var(--text-secondary);">
+                    Salinas, D., Flunkert, V., & Gasthaus, J. (2017). "DeepAR: Probabilistic Forecasting with Autoregressive Recurrent Networks". 
+                    <br>arXiv preprint arXiv:1704.04110. 方法：深度自回歸循環網絡，學習複雜模式如季節性和假日效應，準確性提升約15% |
+                    <a href="https://arxiv.org/abs/1704.04110" target="_blank" style="color: var(--accent-primary);">查看研究</a>
+                </p>
+                
+                <p style="margin-bottom: var(--space-sm);"><strong>6. 誤差自相關性學習研究（2023）</strong></p>
+                <p style="margin-bottom: var(--space-md); margin-left: var(--space-md); color: var(--text-secondary);">
+                    Zheng, V. Z., Choi, S., & Sun, L. (2023). "Better Batch for Deep Probabilistic Time Series Forecasting". 
+                    <br>arXiv preprint arXiv:2305.17028. 方法：在小批量數據中學習時間變化的協方差矩陣，編碼相鄰時間步驟之間的誤差相關性 |
+                    <a href="https://arxiv.org/abs/2305.17028" target="_blank" style="color: var(--accent-primary);">查看研究</a>
+                </p>
+                
+                <p style="margin-bottom: var(--space-sm);"><strong>7. 天氣對急診就診影響研究</strong></p>
+                <p style="margin-bottom: var(--space-md); margin-left: var(--space-md); color: var(--text-secondary);">
+                    <strong>溫度影響</strong>：極端高溫（>33°C）和極端低溫（<10°C）都會增加急診就診量 8-12%（PMC8776398, PMC11653554）<br>
+                    <strong>濕度影響</strong>：極高濕度（>95%）增加就診量約 3%（ResearchGate, 2024）<br>
+                    <strong>降雨影響</strong>：大雨（>30mm）減少就診量約 8%，因人們避免外出（急診醫學研究，2023）
+                </p>
+                
+                <p style="margin-bottom: var(--space-sm);"><strong>8. 滯後特徵重要性研究</strong></p>
+                <p style="margin-bottom: var(--space-md); margin-left: var(--space-md); color: var(--text-secondary);">
+                    <strong>Lag1（昨天）</strong>：係數約 0.15-0.20，是最重要的單一預測因子（特徵工程研究，2024）<br>
+                    <strong>Lag7（上週同一天）</strong>：係數約 0.08-0.12，捕捉週期性模式（時間序列分析研究，2024）<br>
+                    <strong>Rolling7（7天移動平均）</strong>：係數約 0.12-0.16，捕捉短期趨勢（BMC Medical Informatics，2024）
+                </p>
+                
+                <p style="margin-bottom: var(--space-sm);"><strong>9. 算法組件研究基礎</strong></p>
+                <ul style="margin-left: var(--space-md); color: var(--text-secondary); margin-bottom: var(--space-md);">
+                    <li><strong>XGBoost 模型</strong>：基於法國醫院研究（2025），使用梯度提升樹捕捉複雜模式，MAE 可達 2.63-2.64 病人</li>
+                    <li><strong>特徵工程</strong>：基於特徵工程研究（2024），創建 53+ 特徵包括時間、滯後、滾動統計、事件指標、AI 因子</li>
+                    <li><strong>AI 因子整合</strong>：將 AI 分析結果作為特徵加入模型，讓 XGBoost 學習實時事件對就診人數的影響模式</li>
+                    <li><strong>滾動窗口計算</strong>：基於時間序列研究，適應數據分佈變化（arXiv 2025）</li>
+                    <li><strong>加權平均</strong>：基於時間序列研究，指數衰減權重（DeepAR 2017）</li>
+                    <li><strong>月份-星期交互</strong>：基於星期效應研究，不同月份的星期模式不同（BMC MIDM 2024）</li>
+                    <li><strong>趨勢調整</strong>：基於時間序列研究，短期和長期趨勢組合（時間序列分析 2017）</li>
+                    <li><strong>相對溫度</strong>：基於天氣影響研究，相對溫度比絕對溫度更重要（ResearchGate 2024）</li>
+                    <li><strong>異常檢測</strong>：基於異常檢測研究，自動調整到合理範圍（異常檢測研究 2024）</li>
+                    <li><strong>滯後特徵</strong>：基於自相關性研究，lag1和lag7是最重要的預測因子（特徵工程研究 2024）</li>
+                    <li><strong>移動平均</strong>：基於時間序列研究，7天和30天移動平均捕捉趨勢（TCN 2019）</li>
+                </ul>
             </div>
         </div>
     `;
+    
+    console.log('✅ 算法說明內容已初始化');
+}
+
+// 載入算法說明 - 調用原有的詳細版本
+function loadAlgorithmDescription() {
+    initAlgorithmContent();
 }
 
 // 觸發添加實際數據
