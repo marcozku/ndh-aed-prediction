@@ -799,8 +799,17 @@ ${getVerifiedPolicyFactsPrompt()}
                 .trim();
             
             const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                result = JSON.parse(jsonMatch[0]);
+            
+            // 修復 AI 常見的 JSON 格式問題
+            let jsonStr = jsonMatch ? jsonMatch[0] : null;
+            if (jsonStr) {
+                // 移除 trailing commas（結尾逗號）- JSON 不允許
+                jsonStr = jsonStr
+                    .replace(/,\s*}/g, '}')  // 移除 object 結尾的逗號
+                    .replace(/,\s*]/g, ']'); // 移除 array 結尾的逗號
+            }
+            if (jsonStr) {
+                result = JSON.parse(jsonStr);
                 console.log('✅ JSON 解析成功');
                 console.log('📊 解析後的 factors 數量:', result.factors?.length || 0);
                 console.log('📊 解析後的 summary 長度:', result.summary?.length || 0);
