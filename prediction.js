@@ -4228,9 +4228,16 @@ function updateUI(predictor) {
     document.getElementById('stat-min').textContent = stats.min.value;
     document.getElementById('stat-std').textContent = stats.stdDev.toFixed(1);
     
-    // 未來7天預測（包含天氣和 AI 因素）
+    // 未來7天預測（從明天開始，不包含今天）
     updateSectionProgress('forecast', 10);
-    const forecasts = predictor.predictRange(today, 7, weatherForecastData, aiFactors);
+    
+    // 計算明天的日期
+    const todayDate = new Date(`${today}T00:00:00+08:00`);
+    const tomorrowDate = new Date(todayDate);
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    const tomorrow = tomorrowDate.toISOString().split('T')[0];
+    
+    const forecasts = predictor.predictRange(tomorrow, 7, weatherForecastData, aiFactors);
     updateSectionProgress('forecast', 50);
     
     // 保存未來7天的預測到數據庫（每次更新都保存）
@@ -4248,8 +4255,8 @@ function updateUI(predictor) {
     if (forecastCardsEl) {
         forecastCardsEl.innerHTML = forecasts.map((p, i) => {
         let cardClass = 'forecast-day-card';
-        if (i === 0) cardClass += ' today';
-        else if (p.isWeekend) cardClass += ' weekend';
+        // 未來7天不包含今天，所以不需要 'today' 類
+        if (p.isWeekend) cardClass += ' weekend';
         if (p.isHoliday) cardClass += ' holiday';
         
         let badges = '';
@@ -4257,8 +4264,8 @@ function updateUI(predictor) {
         if (p.isHoliday) badges += `<span class="forecast-badge holiday-badge">${p.holidayName}</span>`;
         if (p.isFluSeason) badges += '<span class="forecast-badge flu-badge">流感季</span>';
         
-        // 如果是今天（第一個卡片），顯示完整日期以與今日預測卡片一致
-        const dateFormat = i === 0 ? formatDateDDMM(p.date, true) : formatDateDDMM(p.date);
+        // 未來7天卡片使用簡短日期格式
+        const dateFormat = formatDateDDMM(p.date);
         
         return `
             <div class="${cardClass}">
