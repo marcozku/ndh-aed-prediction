@@ -928,6 +928,75 @@ section h2 {
     gap: var(--space-sm);
 }
 
+/* Section Header with Refresh Button */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: clamp(16px, 3vw, 32px);
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.section-header .section-title {
+    margin-bottom: 0;
+}
+
+/* Refresh Button */
+.refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary, #4CAF50));
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+}
+
+.refresh-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+.refresh-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.refresh-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.refresh-btn.loading .refresh-icon {
+    animation: spin 1s linear infinite;
+}
+
+.refresh-icon {
+    font-size: 1rem;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@media (max-width: 480px) {
+    .refresh-btn {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+    }
+    
+    .refresh-btn .refresh-text {
+        display: none;
+    }
+}
+
 /* ============================================
    Today's Prediction Section - Full Width Responsive (World Class)
    ============================================ */

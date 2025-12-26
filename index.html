@@ -117,7 +117,13 @@
 
         <!-- 實時影響因素 -->
         <section class="factors-section" id="factors-section">
-            <h2 class="section-title">實時影響因素</h2>
+            <div class="section-header">
+                <h2 class="section-title">實時影響因素</h2>
+                <button class="refresh-btn" id="ai-refresh-btn" onclick="forceRefreshAI()" title="強制重新分析">
+                    <span class="refresh-icon">🔄</span>
+                    <span class="refresh-text">重新分析</span>
+                </button>
+            </div>
             <div class="section-loading" id="factors-loading">
                 <div class="loading-spinner"></div>
                 <div class="loading-text">載入中... <span class="loading-percent" id="factors-percent">0%</span></div>

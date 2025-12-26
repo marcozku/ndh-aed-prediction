@@ -7284,4 +7284,66 @@ function initCSVUpload() {
     }
 }
 
+// ============================================
+// 強制刷新 AI 分析
+// ============================================
+async function forceRefreshAI() {
+    const refreshBtn = document.getElementById('ai-refresh-btn');
+    const factorsLoadingEl = document.getElementById('factors-loading');
+    const factorsContentEl = document.getElementById('factors-content');
+    
+    // 禁用按鈕並顯示載入狀態
+    if (refreshBtn) {
+        refreshBtn.disabled = true;
+        refreshBtn.classList.add('loading');
+        refreshBtn.querySelector('.refresh-text').textContent = '分析中...';
+    }
+    
+    // 顯示載入狀態
+    if (factorsLoadingEl) {
+        factorsLoadingEl.style.display = 'block';
+    }
+    if (factorsContentEl) {
+        factorsContentEl.style.display = 'none';
+    }
+    
+    try {
+        console.log('🔄 強制刷新 AI 分析...');
+        updateFactorsLoadingProgress(5, '🔄 強制重新分析中...');
+        
+        // 調用 updateAIFactors 並強制刷新
+        const result = await updateAIFactors(true);
+        
+        // 更新顯示
+        updateRealtimeFactors(result);
+        
+        console.log('✅ AI 強制刷新完成');
+    } catch (error) {
+        console.error('❌ AI 強制刷新失敗:', error);
+        updateRealtimeFactors({
+            factors: [],
+            summary: `AI 分析失敗: ${error.message}`,
+            error: error.message
+        });
+    } finally {
+        // 恢復按鈕狀態
+        if (refreshBtn) {
+            refreshBtn.disabled = false;
+            refreshBtn.classList.remove('loading');
+            refreshBtn.querySelector('.refresh-text').textContent = '重新分析';
+        }
+        
+        // 隱藏載入狀態
+        if (factorsLoadingEl) {
+            factorsLoadingEl.style.display = 'none';
+        }
+        if (factorsContentEl) {
+            factorsContentEl.style.display = 'block';
+        }
+    }
+}
+
+// 暴露到全局以供 HTML 調用
+window.forceRefreshAI = forceRefreshAI;
+
 // 觸發添加實際數據
