@@ -1,5 +1,42 @@
 # 版本更新日誌
 
+## v2.3.1 - 2025-12-26 18:35 HKT
+
+### 🐛 修復：AI 實時影響因素載入顯示問題
+
+**問題修復**：
+1. **修復進度條 ID 不匹配問題**：
+   - HTML 使用 `factors-percent` 和 `factors-progress`
+   - JavaScript 錯誤地查找 `factors-loading-percent` 和 `factors-loading-progress`
+   - 導致載入進度無法正確更新
+
+2. **添加詳細的載入狀態文字**：
+   - 🔌 正在連接 AI 服務...
+   - 📡 正在發送分析請求...
+   - 🤖 AI 正在分析影響因素...
+   - 📊 正在處理分析結果...
+   - 💾 正在保存分析結果...
+   - ✅ AI 分析完成
+
+3. **優化「正在載入中」狀態顯示**：
+   - 新增 `.factors-loading-state` 樣式
+   - 當 AI 正在分析時，顯示旋轉 spinner 和載入文字
+   - 避免誤顯示「暫無實時影響因素」
+
+4. **調整實時影響因素區域尺寸**：
+   - `.factors-container` 最小高度 300px，最大寬度 800px
+   - `.factors-loading` 最小高度 200px
+   - `.factors-empty` 改為 flexbox 居中佈局
+
+### 📊 技術細節
+
+- 修正 `updateFactorsLoadingProgress()` 函數中的元素 ID
+- 添加 `statusText` 參數支持動態更新載入狀態文字
+- 優化 AI 分析各階段的進度回報
+- 區分「正在載入」和「無數據」兩種不同狀態的 UI 顯示
+
+---
+
 ## v2.3.0 - 2025-12-17 17:34 HKT
 
 ### 🚀 從頭重建應用程式 - 世界級模組化架構

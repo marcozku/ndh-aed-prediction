@@ -5211,7 +5211,7 @@ async function updateAIFactors(force = false) {
     
     try {
         console.log('🤖 開始 AI 因素分析...');
-        updateFactorsLoadingProgress(10);
+        updateFactorsLoadingProgress(10, '🔌 正在連接 AI 服務...');
         
         // 添加超時和重試機制
         let response;
@@ -5223,7 +5223,7 @@ async function updateAIFactors(force = false) {
             try {
                 if (attempt > 1) {
                     console.log(`🔄 重試 AI 分析 (第 ${attempt} 次嘗試)...`);
-                    updateFactorsLoadingProgress(15);
+                    updateFactorsLoadingProgress(15, `🔄 重試連接中 (${attempt}/${maxRetries})...`);
                     // 等待後再重試
                     await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
                 }
@@ -5233,6 +5233,7 @@ async function updateAIFactors(force = false) {
                 const timeoutId = setTimeout(() => controller.abort(), timeout);
                 
                 try {
+                    updateFactorsLoadingProgress(20, '📡 正在發送分析請求...');
                     response = await fetch('/api/ai-analyze', {
                         signal: controller.signal,
                         headers: {
@@ -5248,7 +5249,7 @@ async function updateAIFactors(force = false) {
                     throw fetchError;
                 }
                 
-                updateFactorsLoadingProgress(30);
+                updateFactorsLoadingProgress(30, '🤖 AI 正在分析影響因素...');
                 break; // 成功，跳出重試循環
             } catch (error) {
                 lastError = error;
@@ -5279,7 +5280,7 @@ async function updateAIFactors(force = false) {
         }
         
         const data = await response.json();
-        updateFactorsLoadingProgress(60);
+        updateFactorsLoadingProgress(60, '📊 正在處理分析結果...');
         
         console.log('📊 AI 分析響應:', {
             success: data.success,
@@ -5343,7 +5344,7 @@ async function updateAIFactors(force = false) {
             }
             
             console.log('✅ AI 因素已更新:', Object.keys(aiFactors).length, '個日期');
-            updateFactorsLoadingProgress(90);
+            updateFactorsLoadingProgress(90, '💾 正在保存分析結果...');
             
             // 返回完整的分析數據供顯示使用（使用轉換後的數據）
             const result = {
@@ -5352,7 +5353,7 @@ async function updateAIFactors(force = false) {
                 timestamp: data.timestamp || new Date().toISOString(),
                 cached: false
             };
-            updateFactorsLoadingProgress(100);
+            updateFactorsLoadingProgress(100, '✅ AI 分析完成');
             return result;
         } else if (data.success && data.summary) {
             // 即使沒有 factors，如果有 summary，也保存到數據庫
@@ -5382,7 +5383,7 @@ async function updateAIFactors(force = false) {
             }
             
             lastAIUpdateTime = now;
-            updateFactorsLoadingProgress(100);
+            updateFactorsLoadingProgress(100, '✅ AI 分析完成');
             return {
                 factors: [],
                 summary: data.summary || '無分析數據',
@@ -5394,7 +5395,7 @@ async function updateAIFactors(force = false) {
         // 檢查是否有錯誤訊息
         if (data.error) {
             console.error('❌ AI 分析返回錯誤:', data.error);
-            updateFactorsLoadingProgress(100);
+            updateFactorsLoadingProgress(100, '❌ 分析出錯');
             return { 
                 factors: [], 
                 summary: `AI 分析失敗: ${data.error}`,
@@ -5404,7 +5405,7 @@ async function updateAIFactors(force = false) {
         }
         
         console.log('⚠️ AI 分析返回空數據:', data);
-        updateFactorsLoadingProgress(100);
+        updateFactorsLoadingProgress(100, '⚠️ 無分析數據');
         return { factors: [], summary: '無分析數據', cached: false };
     } catch (error) {
         console.error('❌ AI 因素更新失敗:', error);
@@ -5429,7 +5430,7 @@ async function updateAIFactors(force = false) {
             errorSummary = '請求超時，請稍後重試';
         }
         
-        updateFactorsLoadingProgress(100);
+        updateFactorsLoadingProgress(100, '❌ 連接失敗');
         return { 
             factors: [], 
             summary: `${errorSummary}: ${errorMessage}`,
@@ -5439,16 +5440,22 @@ async function updateAIFactors(force = false) {
 }
 
 // 更新 factors-loading 進度
-function updateFactorsLoadingProgress(percent) {
-    const percentEl = document.getElementById('factors-loading-percent');
-    const progressFill = document.getElementById('factors-loading-progress');
+function updateFactorsLoadingProgress(percent, statusText = null) {
+    // 修復 ID 問題：HTML 使用 factors-percent 和 factors-progress
+    const percentEl = document.getElementById('factors-percent');
+    const progressFill = document.getElementById('factors-progress');
     const loadingEl = document.getElementById('factors-loading');
+    const loadingTextEl = loadingEl?.querySelector('.loading-text');
     
     if (percentEl) {
         percentEl.textContent = `${Math.round(percent)}%`;
     }
     if (progressFill) {
         progressFill.style.width = `${percent}%`;
+    }
+    // 更新狀態文字
+    if (loadingTextEl && statusText) {
+        loadingTextEl.innerHTML = `${statusText} <span class="loading-percent" id="factors-percent">${Math.round(percent)}%</span>`;
     }
     if (percent >= 100 && loadingEl) {
         loadingEl.style.display = 'none';
@@ -5509,12 +5516,27 @@ function updateRealtimeFactors(aiAnalysisData = null) {
                 </div>
             `;
         } else {
-            factorsEl.innerHTML = `
-                <div class="factors-empty">
-                    <span>📊 暫無實時影響因素</span>
-                    <p>系統會自動分析可能影響預測的新聞和事件${aiAnalysisData?.cached ? '（使用緩存數據）' : ''}</p>
-                </div>
-            `;
+            // 檢查是否正在載入中（根據 summary 判斷）
+            const isLoading = aiAnalysisData?.summary?.includes('正在') || 
+                              aiAnalysisData?.summary?.includes('載入') ||
+                              aiAnalysisData?.summary?.includes('生成');
+            
+            if (isLoading) {
+                factorsEl.innerHTML = `
+                    <div class="factors-loading-state">
+                        <div class="loading-spinner"></div>
+                        <span>🤖 ${aiAnalysisData?.summary || '正在分析中...'}</span>
+                        <p>AI 正在分析可能影響預測的新聞和事件</p>
+                    </div>
+                `;
+            } else {
+                factorsEl.innerHTML = `
+                    <div class="factors-empty">
+                        <span>📊 暫無實時影響因素</span>
+                        <p>系統會自動分析可能影響預測的新聞和事件${aiAnalysisData?.cached ? '（使用緩存數據）' : ''}</p>
+                    </div>
+                `;
+            }
         }
         // 即使沒有有效數據，也要更新動態表格和列表（清空顯示）
         updateDynamicFactorsAndConsiderations(aiAnalysisData, []);
@@ -5999,10 +6021,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (factorsEl) {
         factorsEl.style.display = 'block';
     }
-    updateFactorsLoadingProgress(5);
+    updateFactorsLoadingProgress(5, '📂 載入緩存數據...');
     let aiAnalysisData = await loadAIFactorsFromCache();
     updateSectionProgress('realtime-factors', 15);
-    updateFactorsLoadingProgress(15);
+    updateFactorsLoadingProgress(15, '🔍 檢查緩存數據...');
     
     // 檢查是否需要生成 AI 數據
     // 檢查緩存數據是否真正有效（factors 或有意義的 summary）
@@ -6018,12 +6040,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 如果沒有有效的緩存數據，立即生成一次 AI 數據並保存到數據庫
     if (!hasValidData || aiAnalysisData?.needsGeneration) {
         console.log('🔄 沒有有效的 AI 緩存數據，立即生成一次...');
-        updateFactorsLoadingProgress(20);
+        updateFactorsLoadingProgress(20, '🤖 準備 AI 分析...');
         updateRealtimeFactors({ factors: [], summary: '正在生成 AI 分析數據...' });
         // 強制生成一次 AI 數據（force = true）
         aiAnalysisData = await updateAIFactors(true);
         updateSectionProgress('realtime-factors', 30);
-        updateFactorsLoadingProgress(30);
+        updateFactorsLoadingProgress(30, '📊 處理分析結果...');
         
         // 如果生成成功，更新顯示
         // 檢查是否有有效的數據（factors 或有意義的 summary）
@@ -6077,7 +6099,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (hasData) {
             // 已經有數據，只檢查是否需要更新（基於時間間隔）
             updateSectionProgress('realtime-factors', 50);
-            updateFactorsLoadingProgress(50);
+            updateFactorsLoadingProgress(50, '🔄 檢查更新...');
             const freshAIAnalysisData = await updateAIFactors(false); // 不強制，基於時間間隔
             if (freshAIAnalysisData && !freshAIAnalysisData.cached) {
                 // 如果有新的數據（超過時間間隔），更新顯示
@@ -6100,7 +6122,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // 如果初始化時生成失敗，這裡再試一次
             console.log('🔄 初始化時生成失敗，再次嘗試生成 AI 數據...');
             updateSectionProgress('realtime-factors', 50);
-            updateFactorsLoadingProgress(50);
+            updateFactorsLoadingProgress(50, '🔄 重新生成 AI 分析...');
             const freshAIAnalysisData = await updateAIFactors(true); // 強制生成
             if (freshAIAnalysisData && (freshAIAnalysisData.factors && freshAIAnalysisData.factors.length > 0 || freshAIAnalysisData.summary)) {
                 updateRealtimeFactors(freshAIAnalysisData);
@@ -6117,7 +6139,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
         updateSectionProgress('realtime-factors', 100);
-        updateFactorsLoadingProgress(100);
+        updateFactorsLoadingProgress(100, '✅ 分析完成');
     }, 1000); // 1秒後在背景執行，確保初始化完成
     
     // 每秒更新時間 (使用真實 HKT)
