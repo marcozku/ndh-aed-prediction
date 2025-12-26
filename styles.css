@@ -1691,6 +1691,44 @@ section h2 {
     color: var(--text-primary);
 }
 
+/* 因素來源顯示 */
+.factor-source {
+    margin-top: var(--space-sm);
+    padding-top: var(--space-sm);
+    border-top: 1px dashed var(--border-subtle);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    font-size: 0.8rem;
+}
+
+.source-label {
+    color: var(--text-secondary);
+}
+
+.source-link {
+    color: var(--accent-primary);
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.source-link:hover {
+    text-decoration: underline;
+}
+
+.source-text {
+    color: var(--text-secondary);
+}
+
+.source-unverified {
+    color: #f59e0b;
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    background: rgba(245, 158, 11, 0.1);
+    border-radius: 4px;
+}
+
 .factors-summary {
     margin-top: var(--space-lg);
     padding: var(--space-md);

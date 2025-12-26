@@ -5733,6 +5733,13 @@ function updateRealtimeFactors(aiAnalysisData = null) {
                     <span class="impact-label">影響因子：</span>
                     <span class="impact-value">×${impactFactor.toFixed(3)}</span>
                 </div>
+                ${factor.source || factor.sourceUrl ? `
+                <div class="factor-source">
+                    <span class="source-label">📚 來源：</span>
+                    ${factor.sourceUrl ? `<a href="${escapeHtml(factor.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="source-link">${escapeHtml(factor.source || factor.sourceUrl)}</a>` : `<span class="source-text">${escapeHtml(factor.source)}</span>`}
+                    ${factor.unverified ? '<span class="source-unverified">⚠️ 未驗證</span>' : ''}
+                </div>
+                ` : ''}
             </div>
         `;
     });
