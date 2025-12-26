@@ -4219,18 +4219,16 @@ function updateUI(predictor) {
     updateSectionProgress('today-prediction', 80);
     
     // 統計摘要
-    updateSectionProgress('stats', 10);
     const stats = predictor.getStatistics();
     document.getElementById('stat-mean').textContent = Math.round(stats.globalMean);
     document.getElementById('stat-max').textContent = stats.max.value;
     document.getElementById('stat-min').textContent = stats.min.value;
     document.getElementById('stat-std').textContent = stats.stdDev.toFixed(1);
-    updateSectionProgress('stats', 100);
     
     // 未來7天預測（包含天氣和 AI 因素）
-    updateSectionProgress('forecast-cards', 10);
+    updateSectionProgress('forecast', 10);
     const forecasts = predictor.predictRange(today, 7, weatherForecastData, aiFactors);
-    updateSectionProgress('forecast-cards', 50);
+    updateSectionProgress('forecast', 50);
     
     // 保存未來7天的預測到數據庫（每次更新都保存）
     forecasts.forEach((forecast, index) => {
@@ -4270,7 +4268,7 @@ function updateUI(predictor) {
         `;
         }).join('');
     }
-    updateSectionProgress('forecast-cards', 100);
+    updateSectionProgress('forecast', 100);
     updateSectionProgress('today-prediction', 100);
 }
 
@@ -5473,7 +5471,7 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         return;
     }
     
-    updateSectionProgress('realtime-factors', 20);
+    updateSectionProgress('factors', 20);
     
     // 檢查 AI 分析數據
     console.log('📊 AI 分析數據:', JSON.stringify(aiAnalysisData, null, 2));
@@ -5489,7 +5487,7 @@ function updateRealtimeFactors(aiAnalysisData = null) {
           aiAnalysisData.summary.trim().length > 0));
     
     if (!hasValidData) {
-        updateSectionProgress('realtime-factors', 100);
+        updateSectionProgress('factors', 100);
         updateFactorsLoadingProgress(100);
         if (loadingEl) loadingEl.style.display = 'none';
         factorsEl.style.display = 'block';
@@ -5543,7 +5541,7 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         return;
     }
     
-    updateSectionProgress('realtime-factors', 40);
+    updateSectionProgress('factors', 40);
     updateFactorsLoadingProgress(40);
     
     // 確保 factors 是數組
@@ -5568,7 +5566,7 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         summary.trim().length > 0;
     
     if (factors.length === 0 && hasValidSummary) {
-        updateSectionProgress('realtime-factors', 100);
+        updateSectionProgress('factors', 100);
         updateFactorsLoadingProgress(100);
         if (loadingEl) loadingEl.style.display = 'none';
         // 確保隱藏 factors-loading 元素
@@ -5591,7 +5589,7 @@ function updateRealtimeFactors(aiAnalysisData = null) {
     
     // 如果完全沒有數據，顯示空狀態
     if (factors.length === 0) {
-        updateSectionProgress('realtime-factors', 100);
+        updateSectionProgress('factors', 100);
         updateFactorsLoadingProgress(100);
         if (loadingEl) loadingEl.style.display = 'none';
         // 確保隱藏 factors-loading 元素
@@ -5739,7 +5737,7 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         ${summaryHtml}
     `;
     
-    updateSectionProgress('realtime-factors', 100);
+    updateSectionProgress('factors', 100);
     updateFactorsLoadingProgress(100);
     if (loadingEl) loadingEl.style.display = 'none';
     
@@ -6016,14 +6014,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateSectionProgress('today-prediction', 15);
     
     // 立即從數據庫載入緩存的 AI 因素（快速顯示，不等待 API）
-    updateSectionProgress('realtime-factors', 5);
+    updateSectionProgress('factors', 5);
     const factorsEl = document.getElementById('realtime-factors');
     if (factorsEl) {
         factorsEl.style.display = 'block';
     }
     updateFactorsLoadingProgress(5, '📂 載入緩存數據...');
     let aiAnalysisData = await loadAIFactorsFromCache();
-    updateSectionProgress('realtime-factors', 15);
+    updateSectionProgress('factors', 15);
     updateFactorsLoadingProgress(15, '🔍 檢查緩存數據...');
     
     // 檢查是否需要生成 AI 數據
@@ -6044,7 +6042,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateRealtimeFactors({ factors: [], summary: '正在生成 AI 分析數據...' });
         // 強制生成一次 AI 數據（force = true）
         aiAnalysisData = await updateAIFactors(true);
-        updateSectionProgress('realtime-factors', 30);
+        updateSectionProgress('factors', 30);
         updateFactorsLoadingProgress(30, '📊 處理分析結果...');
         
         // 如果生成成功，更新顯示
@@ -6098,7 +6096,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         if (hasData) {
             // 已經有數據，只檢查是否需要更新（基於時間間隔）
-            updateSectionProgress('realtime-factors', 50);
+            updateSectionProgress('factors', 50);
             updateFactorsLoadingProgress(50, '🔄 檢查更新...');
             const freshAIAnalysisData = await updateAIFactors(false); // 不強制，基於時間間隔
             if (freshAIAnalysisData && !freshAIAnalysisData.cached) {
@@ -6121,7 +6119,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             // 如果初始化時生成失敗，這裡再試一次
             console.log('🔄 初始化時生成失敗，再次嘗試生成 AI 數據...');
-            updateSectionProgress('realtime-factors', 50);
+            updateSectionProgress('factors', 50);
             updateFactorsLoadingProgress(50, '🔄 重新生成 AI 分析...');
             const freshAIAnalysisData = await updateAIFactors(true); // 強制生成
             if (freshAIAnalysisData && (freshAIAnalysisData.factors && freshAIAnalysisData.factors.length > 0 || freshAIAnalysisData.summary)) {
@@ -6138,7 +6136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.log('✅ AI 因素已生成並保存到數據庫');
             }
         }
-        updateSectionProgress('realtime-factors', 100);
+        updateSectionProgress('factors', 100);
         updateFactorsLoadingProgress(100, '✅ 分析完成');
     }, 1000); // 1秒後在背景執行，確保初始化完成
     
