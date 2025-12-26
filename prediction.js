@@ -1091,13 +1091,20 @@ async function initCharts(predictor) {
     const hk = getHKTime();
     const today = hk.dateStr;
     
+    // 計算明天的日期（未來預測從明天開始，不包含今天）
+    // 計算明天的日期（使用 HKT 時區）
+    const todayPartsForChart = today.split('-').map(Number);
+    const todayDateForChart = new Date(Date.UTC(todayPartsForChart[0], todayPartsForChart[1] - 1, todayPartsForChart[2]));
+    todayDateForChart.setUTCDate(todayDateForChart.getUTCDate() + 1);
+    const tomorrowForChart = `${todayDateForChart.getUTCFullYear()}-${String(todayDateForChart.getUTCMonth() + 1).padStart(2, '0')}-${String(todayDateForChart.getUTCDate()).padStart(2, '0')}`;
+    
     // 更新總體進度
     let totalProgress = 0;
     const totalCharts = 4;
     
-    // 未來30天預測（包含天氣和 AI 因素）
+    // 未來30天預測（從明天開始，不包含今天）
     updateLoadingProgress('forecast', 10);
-    const predictions = predictor.predictRange(today, 30, weatherForecastData, aiFactors);
+    const predictions = predictor.predictRange(tomorrowForChart, 30, weatherForecastData, aiFactors);
     updateLoadingProgress('forecast', 30);
     
     // 1. 預測趨勢圖 - 專業線圖
@@ -4242,9 +4249,16 @@ function updateUI(predictor) {
     document.getElementById('stat-min').textContent = stats.min.value;
     document.getElementById('stat-std').textContent = stats.stdDev.toFixed(1);
     
-    // 未來7天預測（包含天氣和 AI 因素）
+    // 未來7天預測（從明天開始，不包含今天）
     updateSectionProgress('forecast', 10);
-    const forecasts = predictor.predictRange(today, 7, weatherForecastData, aiFactors);
+    
+    // 計算明天的日期（使用 HKT 時區）
+    const todayParts = today.split('-').map(Number);
+    const todayDate = new Date(Date.UTC(todayParts[0], todayParts[1] - 1, todayParts[2]));
+    todayDate.setUTCDate(todayDate.getUTCDate() + 1);
+    const tomorrow = `${todayDate.getUTCFullYear()}-${String(todayDate.getUTCMonth() + 1).padStart(2, '0')}-${String(todayDate.getUTCDate()).padStart(2, '0')}`;
+    
+    const forecasts = predictor.predictRange(tomorrow, 7, weatherForecastData, aiFactors);
     updateSectionProgress('forecast', 50);
     
     // 保存未來7天的預測到數據庫（每次更新都保存）
@@ -4262,8 +4276,8 @@ function updateUI(predictor) {
     if (forecastCardsEl) {
         forecastCardsEl.innerHTML = forecasts.map((p, i) => {
         let cardClass = 'forecast-day-card';
-        if (i === 0) cardClass += ' today';
-        else if (p.isWeekend) cardClass += ' weekend';
+        // 未來7天不包含今天，所以不需要 'today' 類
+        if (p.isWeekend) cardClass += ' weekend';
         if (p.isHoliday) cardClass += ' holiday';
         
         let badges = '';
@@ -4271,8 +4285,8 @@ function updateUI(predictor) {
         if (p.isHoliday) badges += `<span class="forecast-badge holiday-badge">${p.holidayName}</span>`;
         if (p.isFluSeason) badges += '<span class="forecast-badge flu-badge">流感季</span>';
         
-        // 如果是今天（第一個卡片），顯示完整日期以與今日預測卡片一致
-        const dateFormat = i === 0 ? formatDateDDMM(p.date, true) : formatDateDDMM(p.date);
+        // 未來7天卡片使用簡短日期格式
+        const dateFormat = formatDateDDMM(p.date);
         
         return `
             <div class="${cardClass}">
