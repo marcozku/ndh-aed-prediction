@@ -26,40 +26,55 @@ db = require('./database');
 if (hasDbConfig) {
     db.initDatabase().then(async () => {
         // 數據庫初始化完成後，自動導入 CSV 數據
-        const defaultCsvPath = '/Users/yoyoau/Library/Containers/net.whatsapp.WhatsApp/Data/tmp/documents/86448351-FEDA-406E-B465-B7D0B0753234/NDH_AED_Attendance_Minimal.csv';
-        if (fs.existsSync(defaultCsvPath)) {
-            console.log('📊 檢測到 CSV 文件，開始自動導入...');
-            try {
-                const { importCSVData } = require('./import-csv-data');
-            const result = await importCSVData(defaultCsvPath, db);
-            if (result.success) {
-                console.log(`✅ 自動導入完成！成功導入 ${result.count} 筆數據`);
-                // 導入完成後，計算所有導入日期的準確度（如果有預測數據）
-                if (result.count > 0 && result.importedDates && db.calculateAccuracy) {
-                    console.log('📊 開始計算導入數據的準確度...');
-                    let accuracyCount = 0;
-                    for (const date of result.importedDates) {
-                        try {
-                            const accuracy = await db.calculateAccuracy(date);
-                            if (accuracy) {
-                                accuracyCount++;
+        // 優先檢查項目目錄中的 CSV 文件
+        const csvFiles = [
+            'NDH_AED_Attendance_2025-12-01_to_2025-12-21.csv',
+            'NDH_AED_Attendance_Minimal.csv',
+            '/Users/yoyoau/Library/Containers/net.whatsapp.WhatsApp/Data/tmp/documents/86448351-FEDA-406E-B465-B7D0B0753234/NDH_AED_Attendance_Minimal.csv'
+        ];
+        
+        let csvImported = false;
+        for (const csvFile of csvFiles) {
+            if (fs.existsSync(csvFile)) {
+                console.log(`📊 檢測到 CSV 文件: ${csvFile}，開始自動導入...`);
+                try {
+                    const { importCSVData } = require('./import-csv-data');
+                    const result = await importCSVData(csvFile, db);
+                    if (result.success) {
+                        console.log(`✅ 自動導入完成！成功導入 ${result.count} 筆數據`);
+                        csvImported = true;
+                        // 導入完成後，計算所有導入日期的準確度（如果有預測數據）
+                        if (result.count > 0 && result.importedDates && db.calculateAccuracy) {
+                            console.log('📊 開始計算導入數據的準確度...');
+                            let accuracyCount = 0;
+                            for (const date of result.importedDates) {
+                                try {
+                                    const accuracy = await db.calculateAccuracy(date);
+                                    if (accuracy) {
+                                        accuracyCount++;
+                                    }
+                                } catch (err) {
+                                    console.warn(`⚠️ 計算 ${date} 準確度時出錯:`, err.message);
+                                }
                             }
-                        } catch (err) {
-                            console.warn(`⚠️ 計算 ${date} 準確度時出錯:`, err.message);
+                            if (accuracyCount > 0) {
+                                console.log(`✅ 已計算 ${accuracyCount} 筆數據的準確度`);
+                            } else {
+                                console.log('ℹ️ 沒有找到對應的預測數據，跳過準確度計算');
+                            }
                         }
-                    }
-                    if (accuracyCount > 0) {
-                        console.log(`✅ 已計算 ${accuracyCount} 筆數據的準確度`);
+                        break; // 成功導入一個文件後停止
                     } else {
-                        console.log('ℹ️ 沒有找到對應的預測數據，跳過準確度計算');
+                        console.error(`❌ 自動導入失敗: ${result.error}`);
                     }
+                } catch (err) {
+                    console.error(`❌ 自動導入 CSV 時出錯:`, err.message);
                 }
-            } else {
-                console.error(`❌ 自動導入失敗: ${result.error}`);
             }
-            } catch (err) {
-                console.error('❌ 自動導入 CSV 時出錯:', err.message);
-            }
+        }
+        
+        if (!csvImported) {
+            console.log('ℹ️ 未找到 CSV 文件，跳過自動導入');
         }
         
         // 自動添加 1/12 到 12/12 的實際數據（如果不存在）
@@ -117,6 +132,104 @@ function sendJson(res, data, statusCode = 200) {
     res.end(JSON.stringify(data));
 }
 
+// 生成 Python 環境建議
+function generatePythonRecommendations(python3, python, dependencies) {
+    const recommendations = [];
+    
+    if (!python3.available && !python.available) {
+        recommendations.push({
+            level: 'error',
+            message: 'Python 未安裝',
+            action: '請安裝 Python 3.8+'
+        });
+    } else {
+        const available = python3.available ? python3 : python;
+        recommendations.push({
+            level: 'success',
+            message: `Python 可用: ${available.command} ${available.version}`,
+            action: null
+        });
+        
+        if (!dependencies || !dependencies.available) {
+            recommendations.push({
+                level: 'error',
+                message: 'Python 依賴缺失',
+                action: '運行: cd python && pip install -r requirements.txt',
+                error: dependencies ? dependencies.error : '無法檢查依賴'
+            });
+        } else {
+            recommendations.push({
+                level: 'success',
+                message: '所有 Python 依賴已安裝',
+                action: null
+            });
+        }
+    }
+    
+    return recommendations;
+}
+
+// 生成診斷建議
+function generateRecommendations(status, pythonInfo) {
+    const recommendations = [];
+    
+    if (!pythonInfo.available) {
+        recommendations.push({
+            level: 'error',
+            message: 'Python 3 未安裝或不可用',
+            action: '請安裝 Python 3.8+ 並確保 python3 命令可用'
+        });
+    }
+    
+    if (!status.modelsDirExists) {
+        recommendations.push({
+            level: 'error',
+            message: '模型目錄不存在',
+            action: `創建目錄: ${status.modelsDir}`
+        });
+    }
+    
+    const missingModels = [];
+    if (!status.models.xgboost) missingModels.push('XGBoost');
+    
+    if (missingModels.length > 0) {
+        recommendations.push({
+            level: 'warning',
+            message: `缺少模型: ${missingModels.join(', ')}`,
+            action: '運行 python/train_all_models.py 訓練模型'
+        });
+    }
+    
+    // 檢查部分文件缺失
+    if (status.details) {
+        for (const [modelKey, details] of Object.entries(status.details)) {
+            if (details.exists) {
+                const missingFiles = Object.entries(details.requiredFiles)
+                    .filter(([key, file]) => !file.exists && key !== 'model')
+                    .map(([key, file]) => file.name);
+                
+                if (missingFiles.length > 0) {
+                    recommendations.push({
+                        level: 'warning',
+                        message: `${modelKey} 模型缺少輔助文件: ${missingFiles.join(', ')}`,
+                        action: '重新訓練模型以生成所有必需文件'
+                    });
+                }
+            }
+        }
+    }
+    
+    if (recommendations.length === 0) {
+        recommendations.push({
+            level: 'success',
+            message: '所有模型文件完整',
+            action: '模型已準備就緒，可以使用集成預測'
+        });
+    }
+    
+    return recommendations;
+}
+
 // API handlers
 const apiHandlers = {
     // Upload actual data
@@ -124,9 +237,10 @@ const apiHandlers = {
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         const data = await parseBody(req);
+        let results;
         if (Array.isArray(data)) {
             // Bulk upload
-            const results = await db.insertBulkActualData(data);
+            results = await db.insertBulkActualData(data);
             
             // Calculate accuracy for any dates that now have both prediction and actual
             // Also calculate final daily predictions for dates that have daily_predictions
@@ -144,7 +258,7 @@ const apiHandlers = {
             sendJson(res, { success: true, inserted: results.length, data: results });
         } else {
             // Single record
-            const result = await db.insertActualData(data.date, data.patient_count, data.source, data.notes);
+            results = [await db.insertActualData(data.date, data.patient_count, data.source, data.notes)];
             await db.calculateAccuracy(data.date);
             // 如果該日期有 daily_predictions，計算最終預測
             try {
@@ -153,7 +267,23 @@ const apiHandlers = {
                 // 如果沒有預測數據，忽略錯誤
                 console.log(`ℹ️ ${data.date} 沒有預測數據，跳過最終預測計算`);
             }
-            sendJson(res, { success: true, data: result });
+            sendJson(res, { success: true, data: results[0] });
+        }
+        
+        // 觸發自動訓練檢查（異步，不阻塞響應）
+        try {
+            const { getAutoTrainManager } = require('./modules/auto-train-manager');
+            const trainManager = getAutoTrainManager();
+            trainManager.triggerTrainingCheck(db).then(result => {
+                if (result.triggered) {
+                    console.log(`✅ 自動訓練已觸發: ${result.reason}`);
+                }
+            }).catch(err => {
+                console.error('自動訓練檢查失敗:', err);
+            });
+        } catch (err) {
+            // 如果自動訓練模組不可用，忽略錯誤
+            console.warn('自動訓練模組不可用:', err.message);
         }
     },
 
@@ -164,7 +294,9 @@ const apiHandlers = {
         try {
             const parsedUrl = url.parse(req.url, true);
             const { start, end } = parsedUrl.query;
+            console.log(`📅 API 接收日期範圍參數: start=${start}, end=${end}`);
             const data = await db.getActualData(start, end);
+            console.log(`📊 API 返回數據數量: ${data ? data.length : 0} (範圍: ${start} 至 ${end})`);
             sendJson(res, { success: true, data });
         } catch (error) {
             console.error('❌ 獲取實際數據失敗:', error);
@@ -297,6 +429,24 @@ const apiHandlers = {
         try {
             const { autoAddData } = require('./auto-add-data-on-deploy');
             await autoAddData();
+            
+            // 觸發自動訓練檢查（異步，不阻塞響應）
+            try {
+                const { getAutoTrainManager } = require('./modules/auto-train-manager');
+                const trainManager = getAutoTrainManager();
+                trainManager.triggerTrainingCheck(db).then(result => {
+                    if (result.triggered) {
+                        console.log(`✅ 自動訓練已觸發: ${result.reason}`);
+                    } else {
+                        console.log(`ℹ️ 自動訓練未觸發: ${result.reason}`);
+                    }
+                }).catch(err => {
+                    console.error('自動訓練檢查失敗:', err);
+                });
+            } catch (err) {
+                console.warn('自動訓練模組不可用:', err.message);
+            }
+            
             sendJson(res, { success: true, message: '實際數據已自動添加' });
         } catch (err) {
             console.error('自動添加實際數據失敗:', err);
@@ -452,6 +602,365 @@ const apiHandlers = {
             }
         } catch (err) {
             sendJson(res, { error: err.message }, 500);
+        }
+    },
+
+    // Upload CSV file
+    'POST /api/upload-csv': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        try {
+            const contentType = req.headers['content-type'] || '';
+            
+            if (contentType.includes('multipart/form-data')) {
+                // 處理文件上傳
+                const chunks = [];
+                for await (const chunk of req) {
+                    chunks.push(chunk);
+                }
+                const buffer = Buffer.concat(chunks);
+                
+                // 簡單的 multipart 解析（僅用於 CSV 文件）
+                const boundary = contentType.split('boundary=')[1];
+                const parts = buffer.toString('utf-8').split(`--${boundary}`);
+                
+                let csvContent = '';
+                for (const part of parts) {
+                    if (part.includes('Content-Disposition: form-data') && part.includes('name="csv"')) {
+                        const lines = part.split('\r\n');
+                        let startIndex = -1;
+                        for (let i = 0; i < lines.length; i++) {
+                            if (lines[i].trim() === '' && i < lines.length - 1) {
+                                startIndex = i + 1;
+                                break;
+                            }
+                        }
+                        if (startIndex > 0) {
+                            csvContent = lines.slice(startIndex, -1).join('\n').trim();
+                            break;
+                        }
+                    }
+                }
+                
+                if (!csvContent) {
+                    return sendJson(res, { error: '未找到 CSV 文件內容' }, 400);
+                }
+                
+                // 解析 CSV 內容
+                const { parseCSV } = require('./import-csv-data');
+                const lines = csvContent.trim().split('\n');
+                const data = [];
+                
+                // 跳過標題行
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    const parts = line.split(',');
+                    if (parts.length < 2) continue;
+                    
+                    const date = parts[0].trim().replace(/^"|"$/g, '');
+                    const attendance = parts[1].trim().replace(/^"|"$/g, '');
+                    
+                    if (date && attendance && !isNaN(parseInt(attendance, 10))) {
+                        data.push({
+                            date: date,
+                            patient_count: parseInt(attendance, 10),
+                            source: 'csv_upload',
+                            notes: `從網頁上傳的 CSV 數據 (${new Date().toISOString()})`
+                        });
+                    }
+                }
+                
+                if (data.length === 0) {
+                    return sendJson(res, { error: 'CSV 文件中沒有有效數據' }, 400);
+                }
+                
+                // 導入數據
+                const client = await db.pool.connect();
+                let successCount = 0;
+                let errorCount = 0;
+                const importedDates = [];
+                
+                try {
+                    await client.query('BEGIN');
+                    
+                    for (const record of data) {
+                        try {
+                                const query = `
+                                    INSERT INTO actual_data (date, patient_count, source, notes)
+                                    VALUES ($1, $2, $3, $4)
+                                    ON CONFLICT (date) DO UPDATE SET
+                                        patient_count = EXCLUDED.patient_count,
+                                        source = EXCLUDED.source,
+                                        notes = EXCLUDED.notes
+                                    RETURNING *, (xmax = 0) AS inserted
+                                `;
+                            const result = await client.query(query, [
+                                record.date,
+                                record.patient_count,
+                                record.source,
+                                record.notes
+                            ]);
+                            
+                            const row = result.rows[0];
+                            const isNew = row.inserted;
+                            successCount++;
+                            importedDates.push(record.date);
+                            
+                            if (isNew) {
+                                console.log(`✅ 已插入新數據 ${record.date}: ${record.patient_count} 人`);
+                            } else {
+                                console.log(`🔄 已更新現有數據 ${record.date}: ${record.patient_count} 人`);
+                            }
+                        } catch (err) {
+                            console.error(`❌ 導入失敗 ${record.date}:`, err.message);
+                            console.error(`   錯誤詳情:`, err.stack);
+                            console.error(`   錯誤代碼:`, err.code);
+                            console.error(`   錯誤詳情:`, err.detail);
+                            errorCount++;
+                            errors.push({ 
+                                date: record.date, 
+                                error: err.message,
+                                code: err.code,
+                                detail: err.detail
+                            });
+                        }
+                    }
+                    
+                    await client.query('COMMIT');
+                    console.log(`✅ 事務提交成功，成功導入 ${successCount} 筆數據`);
+                    
+                    // 計算準確度
+                    let accuracyCount = 0;
+                    if (importedDates.length > 0 && db.calculateAccuracy) {
+                        console.log('📊 開始計算準確度...');
+                        for (const date of importedDates) {
+                            try {
+                                const accuracy = await db.calculateAccuracy(date);
+                                if (accuracy) {
+                                    accuracyCount++;
+                                    console.log(`✅ 已計算 ${date} 的準確度`);
+                                }
+                            } catch (err) {
+                                console.warn(`⚠️ 計算 ${date} 準確度時出錯:`, err.message);
+                            }
+                        }
+                    }
+                    
+                    // 觸發自動訓練檢查（異步，不阻塞響應）
+                    if (successCount > 0) {
+                        try {
+                            const { getAutoTrainManager } = require('./modules/auto-train-manager');
+                            const trainManager = getAutoTrainManager();
+                            trainManager.triggerTrainingCheck(db).then(result => {
+                                if (result.triggered) {
+                                    console.log(`✅ 自動訓練已觸發: ${result.reason}`);
+                                } else {
+                                    console.log(`ℹ️ 自動訓練未觸發: ${result.reason}`);
+                                }
+                            }).catch(err => {
+                                console.error('自動訓練檢查失敗:', err);
+                            });
+                        } catch (err) {
+                            console.warn('自動訓練模組不可用:', err.message);
+                        }
+                    }
+                    
+                    sendJson(res, {
+                        success: true,
+                        message: `成功導入 ${successCount} 筆數據${accuracyCount > 0 ? `，已計算 ${accuracyCount} 筆準確度` : ''}`,
+                        count: successCount,
+                        errors: errorCount,
+                        errorDetails: errors.length > 0 ? errors : undefined,
+                        accuracyCalculated: accuracyCount
+                    });
+                } catch (err) {
+                    await client.query('ROLLBACK');
+                    throw err;
+                } finally {
+                    client.release();
+                }
+            } else {
+                // 處理 JSON 格式的 CSV 內容
+                const body = await parseBody(req);
+                if (body.csv) {
+                    // 直接使用 CSV 字符串
+                    const lines = body.csv.trim().split(/\r?\n/);
+                    const data = [];
+                    
+                    // 檢查第一行是否為標題行
+                    let startIndex = 0;
+                    if (lines[0] && lines[0].toLowerCase().includes('date')) {
+                        startIndex = 1;
+                    }
+                    
+                    console.log(`📊 解析 CSV: 總行數 ${lines.length}, 從第 ${startIndex + 1} 行開始`);
+                    
+                    for (let i = startIndex; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        if (!line) continue;
+                        
+                        const parts = line.split(',');
+                        if (parts.length < 2) {
+                            console.warn(`⚠️ 跳過無效行 ${i + 1}: 列數不足 - ${line}`);
+                            continue;
+                        }
+                        
+                        const date = parts[0].trim().replace(/^"|"$/g, '');
+                        const attendance = parts[1].trim().replace(/^"|"$/g, '');
+                        
+                        // 驗證日期格式 (YYYY-MM-DD)
+                        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+                        if (!dateRegex.test(date)) {
+                            console.warn(`⚠️ 跳過無效行 ${i + 1}: 日期格式錯誤 - ${date}`);
+                            continue;
+                        }
+                        
+                        const attendanceNum = parseInt(attendance, 10);
+                        if (isNaN(attendanceNum) || attendanceNum < 0) {
+                            console.warn(`⚠️ 跳過無效行 ${i + 1}: 人數無效 - ${attendance}`);
+                            continue;
+                        }
+                        
+                        // 驗證日期是否有效
+                        const dateObj = new Date(date + 'T00:00:00');
+                        if (isNaN(dateObj.getTime())) {
+                            console.warn(`⚠️ 跳過無效行 ${i + 1}: 日期無效 - ${date}`);
+                            continue;
+                        }
+                        
+                        data.push({
+                            date: date,
+                            patient_count: attendanceNum,
+                            source: 'csv_upload',
+                            notes: `從網頁上傳的 CSV 數據 (${new Date().toISOString()})`
+                        });
+                    }
+                    
+                    console.log(`📊 解析完成: ${data.length} 筆有效數據`);
+                    
+                    if (data.length === 0) {
+                        return sendJson(res, { error: 'CSV 內容中沒有有效數據' }, 400);
+                    }
+                    
+                    // 導入數據
+                    console.log(`📊 開始導入 ${data.length} 筆數據到數據庫...`);
+                    const client = await db.pool.connect();
+                    let successCount = 0;
+                    let errorCount = 0;
+                    const importedDates = [];
+                    const errors = [];
+                    
+                    try {
+                        await client.query('BEGIN');
+                        
+                        for (const record of data) {
+                            try {
+                                const query = `
+                                    INSERT INTO actual_data (date, patient_count, source, notes)
+                                    VALUES ($1, $2, $3, $4)
+                                    ON CONFLICT (date) DO UPDATE SET
+                                        patient_count = EXCLUDED.patient_count,
+                                        source = EXCLUDED.source,
+                                        notes = EXCLUDED.notes
+                                    RETURNING *, (xmax = 0) AS inserted
+                                `;
+                                const result = await client.query(query, [
+                                    record.date,
+                                    record.patient_count,
+                                    record.source,
+                                    record.notes
+                                ]);
+                                
+                                const row = result.rows[0];
+                                const isNew = row.inserted;
+                                successCount++;
+                                importedDates.push(record.date);
+                                
+                                if (isNew) {
+                                    console.log(`✅ 已插入新數據 ${record.date}: ${record.patient_count} 人`);
+                                } else {
+                                    console.log(`🔄 已更新現有數據 ${record.date}: ${record.patient_count} 人`);
+                                }
+                            } catch (err) {
+                                console.error(`❌ 導入失敗 ${record.date}:`, err.message);
+                                console.error(`   錯誤詳情:`, err.stack);
+                                console.error(`   錯誤代碼:`, err.code);
+                                console.error(`   錯誤詳情:`, err.detail);
+                                errorCount++;
+                                errors.push({ 
+                                    date: record.date, 
+                                    error: err.message,
+                                    code: err.code,
+                                    detail: err.detail
+                                });
+                            }
+                        }
+                        
+                        await client.query('COMMIT');
+                        console.log(`✅ 事務提交成功，成功導入 ${successCount} 筆數據`);
+                        
+                        // 計算準確度
+                        let accuracyCount = 0;
+                        if (importedDates.length > 0 && db.calculateAccuracy) {
+                            console.log('📊 開始計算準確度...');
+                            for (const date of importedDates) {
+                                try {
+                                    const accuracy = await db.calculateAccuracy(date);
+                                    if (accuracy) {
+                                        accuracyCount++;
+                                        console.log(`✅ 已計算 ${date} 的準確度`);
+                                    }
+                                } catch (err) {
+                                    console.warn(`⚠️ 計算 ${date} 準確度時出錯:`, err.message);
+                                }
+                            }
+                        }
+                        
+                        // 觸發自動訓練檢查（異步，不阻塞響應）
+                        if (successCount > 0) {
+                            try {
+                                const { getAutoTrainManager } = require('./modules/auto-train-manager');
+                                const trainManager = getAutoTrainManager();
+                                trainManager.triggerTrainingCheck(db).then(result => {
+                                    if (result.triggered) {
+                                        console.log(`✅ 自動訓練已觸發: ${result.reason}`);
+                                    } else {
+                                        console.log(`ℹ️ 自動訓練未觸發: ${result.reason}`);
+                                    }
+                                }).catch(err => {
+                                    console.error('自動訓練檢查失敗:', err);
+                                });
+                            } catch (err) {
+                                console.warn('自動訓練模組不可用:', err.message);
+                            }
+                        }
+                        
+                        sendJson(res, {
+                            success: true,
+                            message: `成功導入 ${successCount} 筆數據${accuracyCount > 0 ? `，已計算 ${accuracyCount} 筆準確度` : ''}`,
+                            count: successCount,
+                            errors: errorCount,
+                            errorDetails: errors.length > 0 ? errors : undefined,
+                            accuracyCalculated: accuracyCount
+                        });
+                    } catch (err) {
+                        await client.query('ROLLBACK');
+                        console.error('❌ 事務回滾:', err);
+                        throw err;
+                    } finally {
+                        client.release();
+                    }
+                } else {
+                    return sendJson(res, { error: '請提供 CSV 內容' }, 400);
+                }
+            }
+        } catch (err) {
+            console.error('❌ CSV 上傳失敗:', err);
+            console.error('錯誤詳情:', err.stack);
+            sendJson(res, { error: err.message || '上傳失敗', details: err.stack }, 500);
         }
     },
 
@@ -804,6 +1313,400 @@ const apiHandlers = {
         }
     },
 
+    // XGBoost 預測
+    'POST /api/ensemble-predict': async (req, res) => {
+        try {
+            const data = await parseBody(req);
+            const { target_date, use_ensemble = true, fallback_to_statistical = true } = data;
+            
+            if (!target_date) {
+                return sendJson(res, { error: '需要提供 target_date' }, 400);
+            }
+            
+            // 獲取歷史數據
+            let historicalData = [];
+            if (db && db.pool) {
+                const result = await db.getActualData(null, null);
+                historicalData = result || [];
+            }
+            
+            // 創建預測器
+            const { NDHAttendancePredictor } = require('./prediction');
+            const predictor = new NDHAttendancePredictor(historicalData);
+            
+            // 執行集成預測
+            const prediction = await predictor.predictWithEnsemble(target_date, {
+                useEnsemble: use_ensemble,
+                fallbackToStatistical: fallback_to_statistical
+            });
+            
+            sendJson(res, {
+                success: true,
+                data: prediction
+            });
+        } catch (err) {
+            console.error('集成預測錯誤:', err);
+            sendJson(res, { 
+                success: false, 
+                error: err.message 
+            }, 500);
+        }
+    },
+    
+    // 獲取集成模型狀態
+    'GET /api/ensemble-status': async (req, res) => {
+        try {
+            const { EnsemblePredictor } = require('./modules/ensemble-predictor');
+            const predictor = new EnsemblePredictor();
+            const status = predictor.getModelStatus();
+            
+            // 添加訓練狀態
+            try {
+                const { getAutoTrainManager } = require('./modules/auto-train-manager');
+                const trainManager = getAutoTrainManager();
+                status.training = trainManager.getStatus();
+            } catch (e) {
+                status.training = { error: '訓練管理器不可用' };
+            }
+            
+            // 添加診斷信息
+            status.diagnostics = {
+                modelsDir: status.modelsDir,
+                modelsDirExists: status.modelsDirExists,
+                allFiles: status.allFiles,
+                fileCount: status.allFiles ? status.allFiles.length : 0
+            };
+            
+            sendJson(res, {
+                success: true,
+                data: status
+            });
+        } catch (err) {
+            sendJson(res, {
+                success: false,
+                error: err.message,
+                data: {
+                    available: false,
+                    error: '集成預測器模組不可用'
+                }
+            });
+        }
+    },
+    
+    // 檢查 Python 環境
+    'GET /api/python-env': async (req, res) => {
+        try {
+            const { spawn } = require('child_process');
+            const path = require('path');
+            
+            // 檢測 Python 命令
+            const checkPython = (cmd) => {
+                return new Promise((resolve) => {
+                    const python = spawn(cmd, ['--version'], {
+                        stdio: ['pipe', 'pipe', 'pipe']
+                    });
+                    
+                    let output = '';
+                    python.stdout.on('data', (data) => {
+                        output += data.toString();
+                    });
+                    
+                    python.on('close', (code) => {
+                        resolve({
+                            available: code === 0,
+                            version: output.trim(),
+                            command: cmd
+                        });
+                    });
+                    
+                    python.on('error', () => {
+                        resolve({
+                            available: false,
+                            version: null,
+                            command: cmd
+                        });
+                    });
+                });
+            };
+            
+            // 檢查依賴
+            const checkDependencies = (cmd) => {
+                return new Promise((resolve) => {
+                    const python = spawn(cmd, ['-c', 'import xgboost; print("OK")'], {
+                        stdio: ['pipe', 'pipe', 'pipe'],
+                        cwd: path.join(__dirname, 'python')
+                    });
+                    
+                    let output = '';
+                    let error = '';
+                    
+                    python.stdout.on('data', (data) => {
+                        output += data.toString();
+                    });
+                    
+                    python.stderr.on('data', (data) => {
+                        error += data.toString();
+                    });
+                    
+                    python.on('close', (code) => {
+                        resolve({
+                            available: code === 0,
+                            output: output.trim(),
+                            error: error.trim()
+                        });
+                    });
+                    
+                    python.on('error', (err) => {
+                        resolve({
+                            available: false,
+                            error: err.message
+                        });
+                    });
+                });
+            };
+            
+            const python3 = await checkPython('python3');
+            const python = await checkPython('python');
+            
+            const availableCmd = python3.available ? 'python3' : (python.available ? 'python' : null);
+            let dependencies = null;
+            
+            if (availableCmd) {
+                dependencies = await checkDependencies(availableCmd);
+            }
+            
+            sendJson(res, {
+                success: true,
+                data: {
+                    python3: python3,
+                    python: python,
+                    availableCommand: availableCmd,
+                    dependencies: dependencies,
+                    recommendations: generatePythonRecommendations(python3, python, dependencies)
+                }
+            });
+        } catch (err) {
+            sendJson(res, {
+                success: false,
+                error: err.message
+            }, 500);
+        }
+    },
+    
+    // 診斷模型文件（詳細檢查）
+    'GET /api/model-diagnostics': async (req, res) => {
+        try {
+            const { EnsemblePredictor } = require('./modules/ensemble-predictor');
+            const predictor = new EnsemblePredictor();
+            const status = predictor.getModelStatus();
+            
+            // 檢查 Python 環境
+            const { spawn } = require('child_process');
+            const pythonCheck = new Promise((resolve) => {
+                const python = spawn('python3', ['--version'], {
+                    stdio: ['pipe', 'pipe', 'pipe']
+                });
+                
+                let output = '';
+                python.stdout.on('data', (data) => {
+                    output += data.toString();
+                });
+                
+                python.on('close', (code) => {
+                    resolve({
+                        available: code === 0,
+                        version: output.trim(),
+                        error: code !== 0 ? 'Python 3 不可用' : null
+                    });
+                });
+                
+                python.on('error', (err) => {
+                    resolve({
+                        available: false,
+                        version: null,
+                        error: err.message
+                    });
+                });
+            });
+            
+            const pythonInfo = await pythonCheck;
+            
+            sendJson(res, {
+                success: true,
+                data: {
+                    modelStatus: status,
+                    python: pythonInfo,
+                    recommendations: generateRecommendations(status, pythonInfo)
+                }
+            });
+        } catch (err) {
+            sendJson(res, {
+                success: false,
+                error: err.message
+            }, 500);
+        }
+    },
+    
+    // 手動觸發模型訓練
+    'POST /api/train-models': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { 
+                success: false,
+                error: 'Database not configured' 
+            }, 503);
+        }
+        
+        try {
+            let trainManager;
+            try {
+                const { getAutoTrainManager } = require('./modules/auto-train-manager');
+                trainManager = getAutoTrainManager();
+            } catch (requireErr) {
+                console.error('加載訓練管理器模組失敗:', requireErr);
+                return sendJson(res, {
+                    success: false,
+                    error: `無法加載訓練管理器: ${requireErr.message}`
+                }, 500);
+            }
+            
+            if (!trainManager) {
+                return sendJson(res, {
+                    success: false,
+                    error: '訓練管理器初始化失敗'
+                }, 500);
+            }
+            
+            // 檢查是否正在訓練
+            let currentStatus;
+            try {
+                currentStatus = trainManager.getStatus();
+            } catch (statusErr) {
+                console.error('獲取訓練狀態失敗:', statusErr);
+                return sendJson(res, {
+                    success: false,
+                    error: `無法獲取訓練狀態: ${statusErr.message}`
+                }, 500);
+            }
+            
+            if (currentStatus && currentStatus.isTraining) {
+                return sendJson(res, {
+                    success: false,
+                    error: '訓練已在進行中，請等待完成',
+                    status: currentStatus
+                });
+            }
+            
+            // 異步執行訓練，立即返回
+            trainManager.manualTrain(db).then(result => {
+                console.log('手動訓練完成:', result);
+                if (!result.success) {
+                    console.error('訓練失敗:', result.reason, result.error);
+                }
+            }).catch(err => {
+                console.error('手動訓練異常:', err);
+                console.error('錯誤堆棧:', err.stack);
+            });
+            
+            // 再次獲取狀態（可能已更新）
+            let finalStatus;
+            try {
+                finalStatus = trainManager.getStatus();
+            } catch (e) {
+                finalStatus = currentStatus || {
+                    isTraining: false,
+                    lastTrainingDate: null,
+                    lastDataCount: 0
+                };
+            }
+            
+            sendJson(res, {
+                success: true,
+                message: '模型訓練已開始（後台執行）',
+                status: finalStatus
+            });
+        } catch (err) {
+            console.error('觸發訓練失敗:', err);
+            console.error('錯誤堆棧:', err.stack);
+            if (!res.headersSent) {
+                sendJson(res, {
+                    success: false,
+                    error: err.message || '訓練啟動失敗',
+                    errorType: err.name || 'Error',
+                    details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+                }, 500);
+            }
+        }
+    },
+    
+    // 獲取訓練狀態
+    'GET /api/training-status': async (req, res) => {
+        try {
+            const { getAutoTrainManager } = require('./modules/auto-train-manager');
+            let trainManager;
+            try {
+                trainManager = getAutoTrainManager();
+            } catch (initErr) {
+                console.error('訓練管理器初始化失敗:', initErr);
+                return sendJson(res, {
+                    success: true,
+                    data: {
+                        isTraining: false,
+                        error: initErr.message || '訓練管理器初始化失敗',
+                        lastTrainingDate: null,
+                        lastDataCount: 0,
+                        trainingStartTime: null,
+                        estimatedRemainingTime: null,
+                        elapsedTime: null,
+                        estimatedDuration: 1800000,
+                        config: {
+                            minDaysSinceLastTrain: 1,
+                            minNewDataRecords: 7,
+                            maxTrainingInterval: 7,
+                            trainingTimeout: 3600000,
+                            enableAutoTrain: false
+                        },
+                        statusFile: null
+                    }
+                });
+            }
+            
+            if (!trainManager) {
+                throw new Error('訓練管理器初始化失敗');
+            }
+            
+            const status = trainManager.getStatus();
+            
+            sendJson(res, {
+                success: true,
+                data: status
+            });
+        } catch (err) {
+            console.error('獲取訓練狀態失敗:', err);
+            console.error('錯誤堆棧:', err.stack);
+            sendJson(res, {
+                success: true,
+                data: {
+                    isTraining: false,
+                    error: err.message || '訓練管理器不可用',
+                    lastTrainingDate: null,
+                    lastDataCount: 0,
+                    trainingStartTime: null,
+                    estimatedRemainingTime: null,
+                    elapsedTime: null,
+                    estimatedDuration: 1800000,
+                    config: {
+                        minDaysSinceLastTrain: 1,
+                        minNewDataRecords: 7,
+                        maxTrainingInterval: 7,
+                        trainingTimeout: 3600000,
+                        enableAutoTrain: false
+                    },
+                    statusFile: null
+                }
+            });
+        }
+    },
+    
     // 更新 AI 因素緩存（保存到數據庫）
     'POST /api/convert-to-traditional': async (req, res) => {
         try {
@@ -913,65 +1816,99 @@ const apiHandlers = {
 };
 
 const server = http.createServer(async (req, res) => {
-    // Handle CORS preflight
-    if (req.method === 'OPTIONS') {
-        res.writeHead(204, {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type'
-        });
-        return res.end();
-    }
-
-    // Check for API routes
-    const parsedUrl = url.parse(req.url, true);
-    const pathname = parsedUrl.pathname;
-    const routeKey = `${req.method} ${pathname}`;
-    
-    if (apiHandlers[routeKey]) {
-        try {
-            await apiHandlers[routeKey](req, res);
-        } catch (error) {
-            console.error('API Error:', error);
-            sendJson(res, { error: error.message }, 500);
+    // 全局錯誤處理 - 確保所有錯誤都返回 JSON
+    const handleError = (err, statusCode = 500) => {
+        console.error('服務器錯誤:', err);
+        if (!res.headersSent) {
+            sendJson(res, {
+                success: false,
+                error: err.message || '內部服務器錯誤',
+                errorType: err.name || 'Error',
+                details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+            }, statusCode);
         }
-        return;
-    }
-
-    // Static file serving
-    let filePath = pathname === '/' ? '/index.html' : pathname;
-    filePath = filePath.split('?')[0];
-    
-    const fullPath = path.join(__dirname, filePath);
-    const ext = path.extname(fullPath).toLowerCase();
-    const contentType = mimeTypes[ext] || 'application/octet-stream';
-    
-    // v1.1: Allow iframe embedding from roster app
-    const frameHeaders = {
-        'Content-Security-Policy': "frame-ancestors 'self' https://ndhaedduty.up.railway.app https://ndhaedroster.up.railway.app https://*.up.railway.app http://localhost:* http://127.0.0.1:*"
     };
-    
-    fs.readFile(fullPath, (err, content) => {
-        if (err) {
-            if (err.code === 'ENOENT') {
-                fs.readFile(path.join(__dirname, 'index.html'), (err, content) => {
-                    if (err) {
-                        res.writeHead(500);
-                        res.end('Server Error');
-                    } else {
-                        res.writeHead(200, { 'Content-Type': 'text/html', ...frameHeaders });
-                        res.end(content, 'utf-8');
-                    }
-                });
-            } else {
-                res.writeHead(500);
-                res.end('Server Error');
-            }
-        } else {
-            res.writeHead(200, { 'Content-Type': contentType, ...frameHeaders });
-            res.end(content, 'utf-8');
+
+    // 包裝異步處理
+    try {
+        // Handle CORS preflight
+        if (req.method === 'OPTIONS') {
+            res.writeHead(204, {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            });
+            return res.end();
         }
-    });
+
+        // Check for API routes
+        const parsedUrl = url.parse(req.url, true);
+        const pathname = parsedUrl.pathname;
+        const routeKey = `${req.method} ${pathname}`;
+        
+        if (apiHandlers[routeKey]) {
+            try {
+                await apiHandlers[routeKey](req, res);
+            } catch (error) {
+                console.error('API Error:', error);
+                console.error('錯誤堆棧:', error.stack);
+                if (!res.headersSent) {
+                    sendJson(res, { 
+                        success: false,
+                        error: error.message || '內部服務器錯誤',
+                        errorType: error.name || 'Error'
+                    }, 500);
+                }
+            }
+            return;
+        }
+
+        // Static file serving
+        let filePath = pathname === '/' ? '/index.html' : pathname;
+        filePath = filePath.split('?')[0];
+        
+        const fullPath = path.join(__dirname, filePath);
+        const ext = path.extname(fullPath).toLowerCase();
+        const contentType = mimeTypes[ext] || 'application/octet-stream';
+        
+        // v1.1: Allow iframe embedding from roster app
+        const frameHeaders = {
+            'Content-Security-Policy': "frame-ancestors 'self' https://ndhaedduty.up.railway.app https://ndhaedroster.up.railway.app https://*.up.railway.app http://localhost:* http://127.0.0.1:*"
+        };
+        
+        fs.readFile(fullPath, (err, content) => {
+            if (err) {
+                if (err.code === 'ENOENT') {
+                    fs.readFile(path.join(__dirname, 'index.html'), (err, content) => {
+                        if (err) {
+                            res.writeHead(500);
+                            res.end('Server Error');
+                        } else {
+                            res.writeHead(200, { 'Content-Type': 'text/html', ...frameHeaders });
+                            res.end(content, 'utf-8');
+                        }
+                    });
+                } else {
+                    res.writeHead(500);
+                    res.end('Server Error');
+                }
+            } else {
+                res.writeHead(200, { 'Content-Type': contentType, ...frameHeaders });
+                res.end(content, 'utf-8');
+            }
+        });
+    } catch (error) {
+        // 全局錯誤處理
+        console.error('服務器全局錯誤:', error);
+        console.error('錯誤堆棧:', error.stack);
+        if (!res.headersSent) {
+            sendJson(res, {
+                success: false,
+                error: error.message || '內部服務器錯誤',
+                errorType: error.name || 'Error'
+            }, 500);
+        }
+    }
 });
 
 // 獲取香港時間

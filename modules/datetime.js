@@ -38,15 +38,22 @@ export class DateTime {
         const hour = parseInt(getPart('hour'));
         const minute = parseInt(getPart('minute'));
         const second = parseInt(getPart('second'));
+        const year = parseInt(getPart('year'));
+        const month = parseInt(getPart('month'));
+        const day = parseInt(getPart('day'));
+        
+        // 計算星期幾（0=星期日, 6=星期六）
+        const hkDate = new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T12:00:00+08:00`);
+        const dayOfWeek = hkDate.getDay();
         
         return {
-            year: parseInt(getPart('year')),
-            month: parseInt(getPart('month')),
-            day: parseInt(getPart('day')),
+            year,
+            month,
+            day,
             hour,
             minute,
             second,
-            dayOfWeek: now.toLocaleDateString('zh-HK', { timeZone: 'Asia/Hong_Kong', weekday: 'long' }),
+            dayOfWeek, // 返回數字索引 (0-6)
             dateStr: `${getPart('year')}-${getPart('month')}-${getPart('day')}`,
             timeStr: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`
         };

@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta name="description" content="NDH AED 病人數量預測系統 - 北區醫院急症室人流預測">
     <meta name="theme-color" content="#f8fafc">
@@ -252,6 +252,26 @@
             </div>
         </section>
 
+        <!-- 模型訓練狀態 -->
+        <section class="model-training-section" id="model-training-section">
+            <div class="section-header">
+                <h2 class="section-title">模型訓練狀態</h2>
+                <div class="header-actions">
+                    <button class="train-btn" id="start-training-btn" title="開始訓練模型">
+                        <span>🚀</span>
+                        <span>開始訓練</span>
+                    </button>
+                    <button class="refresh-btn" id="refresh-training-status" title="刷新狀態">
+                        <span>🔄</span>
+                    </button>
+                </div>
+            </div>
+            <div class="training-status-container" id="training-status-container">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">載入訓練狀態...</div>
+            </div>
+        </section>
+
         <!-- 算法說明 -->
         <section class="algorithm-section" id="algorithm-section">
             <h2 class="section-title">預測算法說明（基於真實研究）</h2>
@@ -262,9 +282,56 @@
 
         <!-- 頁腳 -->
         <footer class="app-footer">
-            <p id="data-source-info">數據來源：載入中...</p>
-            <p>預測模型版本 2.3.0 · 🏆 獲獎級世界最佳算法開發中 · 香港時間 HKT</p>
+            <p id="data-source-info" style="cursor: pointer; text-decoration: underline;">數據來源：載入中...</p>
+            <p>預測模型版本 2.3.3 · 香港時間 HKT</p>
+            <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2025 Marco Ma. All Rights Reserved.</p>
         </footer>
+    </div>
+
+    <!-- CSV 上傳對話框 -->
+    <div id="csv-upload-modal" class="upload-modal" style="display: none;">
+        <div class="upload-modal-overlay"></div>
+        <div class="upload-modal-content">
+            <div class="upload-modal-header">
+                <h3>上傳歷史數據</h3>
+                <button class="upload-modal-close" id="csv-upload-close">&times;</button>
+            </div>
+            <div class="upload-modal-body">
+                <p class="upload-instructions">
+                    請輸入或貼上 CSV 格式的數據，格式如下：<br>
+                    <code>Date,Attendance<br>2025-12-01,276<br>2025-12-02,285<br>...</code>
+                </p>
+                <div class="upload-tabs">
+                    <button class="upload-tab active" data-tab="text">文本輸入</button>
+                    <button class="upload-tab" data-tab="file">文件上傳</button>
+                </div>
+                <div class="upload-tab-content active" id="upload-tab-text">
+                    <textarea id="csv-text-input" class="csv-textarea" placeholder="請貼上或輸入 CSV 數據，例如：&#10;Date,Attendance&#10;2025-12-01,276&#10;2025-12-02,285&#10;..."></textarea>
+                    <div class="upload-preview" id="csv-text-preview" style="display: none;">
+                        <h4>解析到的數據：</h4>
+                        <div id="csv-text-preview-content"></div>
+                    </div>
+                </div>
+                <div class="upload-tab-content" id="upload-tab-file" style="display: none;">
+                    <div class="upload-area" id="csv-upload-area">
+                        <input type="file" id="csv-file-input" accept=".csv,text/csv" style="display: none;">
+                        <label for="csv-file-input" class="upload-label">
+                            <span class="upload-icon">📁</span>
+                            <span class="upload-text">點擊選擇 CSV 文件或拖放文件到此處</span>
+                        </label>
+                    </div>
+                    <div class="upload-preview" id="csv-file-preview" style="display: none;">
+                        <h4>預覽數據：</h4>
+                        <textarea id="csv-file-preview-text" readonly></textarea>
+                    </div>
+                </div>
+                <div class="upload-status" id="csv-upload-status"></div>
+            </div>
+            <div class="upload-modal-footer">
+                <button class="upload-btn upload-btn-cancel" id="csv-upload-cancel">取消</button>
+                <button class="upload-btn upload-btn-submit" id="csv-upload-submit" disabled>上傳</button>
+            </div>
+        </div>
     </div>
 
     <!-- 原始預測邏輯（保留所有功能） -->

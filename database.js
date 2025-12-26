@@ -282,6 +282,18 @@ async function insertActualData(date, patientCount, source = 'manual_upload', no
         RETURNING *
     `;
     const result = await pool.query(query, [date, patientCount, source, notes]);
+    
+    // 觸發自動訓練檢查（異步，不阻塞）
+    try {
+        const { getAutoTrainManager } = require('./modules/auto-train-manager');
+        const trainManager = getAutoTrainManager();
+        trainManager.triggerTrainingCheck({ pool }).catch(err => {
+            console.warn('自動訓練檢查失敗:', err.message);
+        });
+    } catch (e) {
+        // 如果模組不可用，忽略
+    }
+    
     return result.rows[0];
 }
 
@@ -310,6 +322,18 @@ async function insertBulkActualData(dataArray) {
             results.push(result.rows[0]);
         }
         await client.query('COMMIT');
+        
+        // 觸發自動訓練檢查（異步，不阻塞）
+        try {
+            const { getAutoTrainManager } = require('./modules/auto-train-manager');
+            const trainManager = getAutoTrainManager();
+            trainManager.triggerTrainingCheck({ pool }).catch(err => {
+                console.warn('自動訓練檢查失敗:', err.message);
+            });
+        } catch (e) {
+            // 如果模組不可用，忽略
+        }
+        
         return results;
     } catch (error) {
         await client.query('ROLLBACK');
@@ -352,19 +376,25 @@ async function getActualData(startDate = null, endDate = null) {
     const params = [];
     
     if (startDate && endDate) {
-        query += ' WHERE date BETWEEN $1 AND $2';
+        query += ' WHERE date >= $1 AND date <= $2';
         params.push(startDate, endDate);
+        console.log(`🔍 數據庫查詢: WHERE date >= '${startDate}' AND date <= '${endDate}'`);
     } else if (startDate) {
         query += ' WHERE date >= $1';
         params.push(startDate);
+        console.log(`🔍 數據庫查詢: WHERE date >= '${startDate}'`);
     } else if (endDate) {
         query += ' WHERE date <= $1';
         params.push(endDate);
+        console.log(`🔍 數據庫查詢: WHERE date <= '${endDate}'`);
+    } else {
+        console.log(`⚠️ 數據庫查詢: 沒有日期範圍限制，將返回所有數據`);
     }
     
     query += ' ORDER BY date DESC';
     try {
         const result = await queryWithRetry(query, params);
+        console.log(`✅ 數據庫返回 ${result.rows.length} 筆數據`);
         return result.rows;
     } catch (error) {
         console.error('❌ getActualData 查詢失敗:', error);
@@ -490,45 +520,45 @@ async function getComparisonData(limit = 100) {
     // 改進查詢：使用子查詢來獲取預測數據，確保能找到所有有實際數據的日期
     const query = `
         SELECT 
-            a.date,
-            a.patient_count as actual,
+            a.date::text as date,
+            a.patient_count::integer as actual,
             COALESCE(
                 fdp.predicted_count,
                 (SELECT predicted_count FROM daily_predictions 
                  WHERE target_date = a.date 
                  ORDER BY created_at DESC LIMIT 1),
                 p.predicted_count
-            ) as predicted,
+            )::integer as predicted,
             COALESCE(
                 fdp.ci80_low,
                 (SELECT ci80_low FROM daily_predictions 
                  WHERE target_date = a.date 
                  ORDER BY created_at DESC LIMIT 1),
                 p.ci80_low
-            ) as ci80_low,
+            )::integer as ci80_low,
             COALESCE(
                 fdp.ci80_high,
                 (SELECT ci80_high FROM daily_predictions 
                  WHERE target_date = a.date 
                  ORDER BY created_at DESC LIMIT 1),
                 p.ci80_high
-            ) as ci80_high,
+            )::integer as ci80_high,
             COALESCE(
                 fdp.ci95_low,
                 (SELECT ci95_low FROM daily_predictions 
                  WHERE target_date = a.date 
                  ORDER BY created_at DESC LIMIT 1),
                 p.ci95_low
-            ) as ci95_low,
+            )::integer as ci95_low,
             COALESCE(
                 fdp.ci95_high,
                 (SELECT ci95_high FROM daily_predictions 
                  WHERE target_date = a.date 
                  ORDER BY created_at DESC LIMIT 1),
                 p.ci95_high
-            ) as ci95_high,
-            pa.error,
-            pa.error_percentage
+            )::integer as ci95_high,
+            pa.error::numeric as error,
+            pa.error_percentage::numeric as error_percentage
         FROM actual_data a
         LEFT JOIN final_daily_predictions fdp ON a.date = fdp.target_date
         LEFT JOIN predictions p ON a.date = p.target_date
@@ -559,6 +589,19 @@ async function getComparisonData(limit = 100) {
     try {
         const result = await queryWithRetry(query, [limit]);
         console.log(`📊 比較數據查詢: 找到 ${result.rows.length} 筆有效數據`);
+        
+        // 調試：檢查第一筆數據的結構
+        if (result.rows.length > 0) {
+            const firstRow = result.rows[0];
+            console.log('🔍 數據庫返回的第一筆數據:', {
+                date: firstRow.date,
+                dateType: typeof firstRow.date,
+                actual: firstRow.actual,
+                actualType: typeof firstRow.actual,
+                allKeys: Object.keys(firstRow)
+            });
+        }
+        
         return result.rows;
     } catch (error) {
         console.error('❌ 查詢比較數據失敗:', error);
