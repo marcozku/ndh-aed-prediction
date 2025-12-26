@@ -3943,14 +3943,58 @@ async function convertToTraditionalAsync(text) {
     return await conversionPromise;
 }
 
+// 清理問題 Unicode 字符（修復顯示為 ? 的字符）
+function cleanProblematicCharacters(text) {
+    if (!text || typeof text !== 'string') return text;
+    
+    // 移除零寬字符和控制字符
+    let cleaned = text
+        .replace(/[\u200B-\u200D\uFEFF]/g, '') // 零寬字符
+        .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // 控制字符
+        .replace(/\uFFFD/g, '') // 替換字符 (�)
+        .replace(/[◆●■▲▼★☆]/g, ''); // 裝飾性字符
+    
+    // 移除孤立的代理對（會顯示為 ?）- 使用兼容所有瀏覽器的方法
+    // 匹配高代理後面沒有低代理的情況
+    cleaned = cleaned.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, '');
+    // 匹配孤立的低代理（前面沒有高代理）- 逐字符處理
+    let result = '';
+    for (let i = 0; i < cleaned.length; i++) {
+        const code = cleaned.charCodeAt(i);
+        // 如果是低代理，檢查前一個是否是高代理
+        if (code >= 0xDC00 && code <= 0xDFFF) {
+            if (i > 0) {
+                const prevCode = cleaned.charCodeAt(i - 1);
+                if (prevCode >= 0xD800 && prevCode <= 0xDBFF) {
+                    // 前一個是高代理，這是有效的代理對
+                    result += cleaned[i];
+                }
+                // 否則跳過這個孤立的低代理
+            }
+            // i == 0 時跳過
+        } else {
+            result += cleaned[i];
+        }
+    }
+    cleaned = result;
+    
+    // 標準化 Unicode（將兼容字符轉換為標準形式）
+    try {
+        cleaned = cleaned.normalize('NFC');
+    } catch (e) {
+        // 忽略標準化錯誤
+    }
+    
+    return cleaned;
+}
+
 // 同步版本的轉換函數（用於需要立即返回的場景）
 // 如果文本已在緩存中，立即返回；否則返回原文並在後台轉換
 function convertToTraditional(text) {
     if (!text || typeof text !== 'string') return text;
     
-    // 清理特殊字符，但保留所有中文字符
-    // 只移除裝飾性字符，不影響中文字符
-    let cleaned = text.replace(/[◆●■▲▼★☆]/g, '');
+    // 先清理問題字符
+    let cleaned = cleanProblematicCharacters(text);
     
     // 確保文本是有效的 UTF-8 字符串
     try {

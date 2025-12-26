@@ -43,9 +43,33 @@ function hasSimplifiedChinese(text) {
     return false;
 }
 
+// 清理問題 Unicode 字符（修復顯示為 ? 的字符）
+function cleanProblematicCharacters(text) {
+    if (!text || typeof text !== 'string') return text;
+    
+    // 移除零寬字符和控制字符
+    let cleaned = text
+        .replace(/[\u200B-\u200D\uFEFF]/g, '') // 零寬字符
+        .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // 控制字符
+        .replace(/\uFFFD/g, '') // 替換字符 (�)
+        .replace(/[\uD800-\uDFFF]/g, ''); // 孤立的代理對
+    
+    // 標準化 Unicode（將兼容字符轉換為標準形式）
+    try {
+        cleaned = cleaned.normalize('NFC');
+    } catch (e) {
+        // 忽略標準化錯誤
+    }
+    
+    return cleaned;
+}
+
 // 轉換簡體中文到繁體中文的輔助函數
 function convertToTraditional(text) {
     if (!text || typeof text !== 'string') return text;
+    
+    // 先清理問題字符
+    text = cleanProblematicCharacters(text);
     
     // 檢測是否包含簡體中文（轉換前）
     const hadSimplified = hasSimplifiedChinese(text);
