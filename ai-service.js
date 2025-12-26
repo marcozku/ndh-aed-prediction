@@ -589,6 +589,50 @@ const POLICY_MONITORING_SOURCES = {
 };
 
 /**
+ * 已驗證的政策事實 - 必須提供來源參考
+ * 所有政策資訊必須經過事實核查，並附上官方來源
+ */
+const VERIFIED_POLICY_FACTS = {
+    haEmergencyFeeReform: {
+        title: '醫管局急症室分級收費制度',
+        effectiveDate: '2026-01-01',
+        description: '醫院管理局將於2026年1月1日起實施急症室分級收費制度，收費由現時180元增至400元。被評為「危殆」和「危急」的病人可獲豁免收費。',
+        impact: '預計非緊急求診人數將下降約15-20%',
+        sources: [
+            'https://www.ha.org.hk',
+            'https://www.info.gov.hk/gia/general/202412/17/P2024121700356.htm',
+            'https://www.tkww.hk/a/202512/17/AP6941f995e4b032040a155f4e.html'
+        ],
+        lastVerified: '2025-12-26'
+    }
+};
+
+/**
+ * 生成已驗證政策事實的提示文本
+ */
+function getVerifiedPolicyFactsPrompt() {
+    const facts = Object.values(VERIFIED_POLICY_FACTS).map(fact => {
+        return `- ${fact.title}：
+  - 生效日期：${fact.effectiveDate}
+  - 描述：${fact.description}
+  - 影響：${fact.impact}
+  - 來源：${fact.sources.join(', ')}
+  - 最後驗證日期：${fact.lastVerified}`;
+    }).join('\n');
+    
+    return `
+**⚠️ 已驗證的政策事實（請使用這些經過核實的資料）：**
+${facts}
+
+**⚠️ 事實核查要求：**
+1. 對於政策變更，必須使用上述已驗證的資料
+2. 如果資訊與已驗證事實不符，以已驗證事實為準
+3. 不要憑記憶或推測政策日期，必須引用確切來源
+4. 所有政策資訊必須附上來源 URL 或官方機構名稱
+`;
+}
+
+/**
  * 搜索相關新聞和政策（使用 web search）
  */
 async function searchNewsAndPolicies() {
@@ -678,7 +722,14 @@ async function searchRelevantNewsAndEvents() {
 - 衛生署網站：https://www.dh.gov.hk
 - 衛生防護中心：https://www.chp.gov.hk
 
+${getVerifiedPolicyFactsPrompt()}
+
 請基於當前日期（${today}，香港時間 ${hkTime}）和最新資訊，分析是否有任何已知或可能發生的因素（特別是政策變更）會影響未來幾天北區醫院的病人數量。
+
+**⚠️ 來源要求（必須遵守）：**
+- 每個因素必須在 "source" 欄位提供具體來源（官方網站 URL 或機構名稱）
+- 對於政策變更，必須提供 "sourceUrl" 欄位包含官方公告連結
+- 不確定的資訊必須標註 "unverified": true
 
 **⚠️ 極其重要的語言要求（最高優先級）：**
 
@@ -708,7 +759,9 @@ async function searchRelevantNewsAndEvents() {
       "confidence": "高/中/低",
       "affectedDays": ["2025-01-XX", "2025-01-YY"],  // 受影響的日期
       "reasoning": "分析理由（如果是政策變更，請說明政策如何影響求診人數）",
-      "source": "政策來源（如：醫院管理局、衛生署、新聞媒體等，如果適用）"
+      "source": "政策來源（如：醫院管理局、衛生署、新聞媒體等）",
+      "sourceUrl": "來源網址（必須提供官方公告連結）",
+      "unverified": false  // 如果資訊未經核實則設為 true
     }
   ],
   "policyChanges": [
@@ -720,7 +773,8 @@ async function searchRelevantNewsAndEvents() {
       "impact": "增加/減少/無影響",
       "impactFactor": 1.05,
       "reasoning": "政策如何影響急症室求診人數",
-      "source": "政策來源"
+      "source": "政策來源",
+      "sourceUrl": "來源網址（必須提供）"
     }
   ],
   "summary": "總結說明（特別強調是否有政策變更）"
@@ -820,6 +874,8 @@ ${weatherData ? `當前天氣狀況：
 7. 季節性模式
 8. 其他可能導致急症室病人數量異常的因素
 
+${getVerifiedPolicyFactsPrompt()}
+
 **⚠️ 極其重要的語言要求（最高優先級）：**
 
 你必須只使用繁體中文（Traditional Chinese / 正體中文）進行回應，絕對不能使用簡體中文（Simplified Chinese / 簡體中文）。
@@ -847,7 +903,8 @@ ${weatherData ? `當前天氣狀況：
       "impactFactor": 1.05,
       "confidence": "高/中/低",
       "reasoning": "分析理由（如果是政策變更，請說明政策如何影響求診人數）",
-      "source": "政策來源（如適用）"
+      "source": "政策來源（如適用）",
+      "sourceUrl": "來源網址（必須提供）"
     }
   ],
   "policyChanges": [
@@ -857,7 +914,8 @@ ${weatherData ? `當前天氣狀況：
       "description": "政策變更詳細描述",
       "impactFactor": 1.05,
       "reasoning": "政策如何影響急症室求診人數",
-      "source": "政策來源"
+      "source": "政策來源",
+      "sourceUrl": "來源網址（必須提供）"
     }
   ],
   "overallImpact": "整體影響評估（特別強調政策變更的影響）"

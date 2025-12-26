@@ -1,5 +1,41 @@
 # 版本更新日誌
 
+## v2.4.38 - 2025-12-26 22:37 HKT
+
+### 🔧 修復：政策日期錯誤 + 事實核查機制
+
+**問題描述**：
+- 急症室分級收費制度日期顯示錯誤（顯示 2025-12-27，正確為 2026-01-01）
+- AI 生成的政策資訊缺乏來源驗證
+
+**修復內容**：
+1. **新增已驗證政策事實資料庫**：
+   - 添加 `VERIFIED_POLICY_FACTS` 常量儲存經過核實的政策資訊
+   - 急症室分級收費制度：2026年1月1日生效，收費由180元增至400元
+   - 包含官方來源連結和最後驗證日期
+
+2. **強化 AI Prompt 事實核查**：
+   - 在 prompt 中注入已驗證的政策事實
+   - 要求 AI 使用已驗證資料，不憑記憶推測
+   - 資訊與已驗證事實不符時以已驗證事實為準
+
+3. **新增來源要求**：
+   - 每個因素必須提供 `sourceUrl` 欄位
+   - 對於政策變更必須提供官方公告連結
+   - 不確定資訊須標註 `unverified: true`
+
+**參考來源**：
+- 醫管局官網：https://www.ha.org.hk
+- 政府新聞公報：https://www.info.gov.hk/gia/general/202412/17/P2024121700356.htm
+- 大公文匯：https://www.tkww.hk/a/202512/17/AP6941f995e4b032040a155f4e.html
+
+**技術細節**：
+- 新增 `getVerifiedPolicyFactsPrompt()` 函數生成驗證政策提示
+- 更新 `searchRelevantNewsAndEvents()` 和 `analyzeDateRangeFactors()` 的 prompts
+- JSON schema 新增 `sourceUrl` 和 `unverified` 欄位
+
+---
+
 ## v2.4.37 - 2025-12-26 21:40 HKT
 
 ### 🐛 修復：字符編碼問題（避免亂碼）
