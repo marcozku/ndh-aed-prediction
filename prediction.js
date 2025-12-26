@@ -6229,64 +6229,197 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// 載入訓練狀態
+// ============================================
+// 模型訓練狀態檢查
+// ============================================
+let trainingStatus = null;
+
 async function loadTrainingStatus() {
     const container = document.getElementById('training-status-container');
     if (!container) return;
     
     try {
-        const response = await fetch('/api/training-status');
+        // 獲取集成模型狀態（包含訓練信息）
+        const response = await fetch('/api/ensemble-status');
+        if (!response.ok) throw new Error('訓練狀態 API 錯誤');
         const data = await response.json();
         
-        if (data.success) {
-            const status = data.status;
-            container.innerHTML = `
-                <div class="training-info">
-                    <div class="training-stat">
-                        <span class="stat-label">狀態</span>
-                        <span class="stat-value ${status.isTraining ? 'training' : 'idle'}">${status.isTraining ? '🔄 訓練中' : '✅ 就緒'}</span>
-                    </div>
-                    <div class="training-stat">
-                        <span class="stat-label">數據量</span>
-                        <span class="stat-value">${status.lastDataCount || 'N/A'} 筆</span>
-                    </div>
-                    <div class="training-stat">
-                        <span class="stat-label">自動訓練</span>
-                        <span class="stat-value">${status.config?.enableAutoTrain ? '✅ 啟用' : '❌ 停用'}</span>
-                    </div>
-                    ${status.lastTrainTime ? `
-                    <div class="training-stat">
-                        <span class="stat-label">上次訓練</span>
-                        <span class="stat-value">${new Date(status.lastTrainTime).toLocaleString('zh-HK')}</span>
-                    </div>
-                    ` : ''}
-                </div>
-            `;
+        if (data.success && data.data) {
+            trainingStatus = data.data;
+            renderTrainingStatus(data.data);
         } else {
             container.innerHTML = `
-                <div class="training-info">
-                    <div class="training-stat">
-                        <span class="stat-label">狀態</span>
-                        <span class="stat-value">✅ 模型已就緒</span>
-                    </div>
-                    <div class="training-stat">
-                        <span class="stat-label">模式</span>
-                        <span class="stat-value">📊 預測模式</span>
-                    </div>
+                <div style="text-align: center; padding: var(--space-xl); color: var(--text-secondary);">
+                    <p>⚠️ 無法獲取訓練狀態</p>
+                    <p style="font-size: 0.85rem; margin-top: var(--space-sm);">${data.error || '請檢查服務器配置'}</p>
                 </div>
             `;
         }
+        
+        console.log('🤖 訓練狀態:', JSON.stringify(data, null, 2));
+        return data;
     } catch (error) {
-        console.error('載入訓練狀態失敗:', error);
         container.innerHTML = `
-            <div class="training-info">
-                <div class="training-stat">
-                    <span class="stat-label">狀態</span>
-                    <span class="stat-value">✅ 模型已就緒</span>
+            <div style="text-align: center; padding: var(--space-xl); color: var(--text-danger);">
+                <p>❌ 檢查訓練狀態失敗</p>
+                <p style="font-size: 0.85rem; margin-top: var(--space-sm);">${error.message}</p>
+            </div>
+        `;
+        console.error('❌ 訓練狀態檢查失敗:', error);
+        return null;
+    }
+}
+
+// 格式化文件大小
+function formatFileSize(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// 格式化訓練日期
+function formatTrainingDate(dateStr) {
+    if (!dateStr) return '未知';
+    try {
+        const date = new Date(dateStr);
+        return date.toLocaleString('zh-HK', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (e) {
+        return dateStr;
+    }
+}
+
+function renderTrainingStatus(data) {
+    const container = document.getElementById('training-status-container');
+    if (!container) return;
+    
+    // 從 data 中提取變數
+    const models = data.models || {};
+    const training = data.training || {};
+    const isTraining = training.isTraining || false;
+    const lastTrainingDate = training.lastTrainingDate;
+    const elapsedTime = training.elapsedTime;
+    const lastTrainingOutput = training.lastTrainingOutput || '';
+    const lastTrainingError = training.lastTrainingError || '';
+    const details = data.details || {};
+    
+    // 模型信息
+    const modelInfo = {
+        xgboost: {
+            name: 'XGBoost',
+            icon: '🚀',
+            description: '梯度提升樹模型',
+            weight: '100%'
+        }
+    };
+    
+    let html = '<div class="training-status-grid">';
+    
+    // 顯示每個模型的狀態
+    for (const [modelKey, modelData] of Object.entries(modelInfo)) {
+        const isAvailable = models[modelKey] || false;
+        const isCurrentlyTraining = isTraining && modelKey === 'xgboost';
+        const cardClass = isCurrentlyTraining ? 'training' : (isAvailable ? 'available' : 'unavailable');
+        const statusBadge = isCurrentlyTraining ? 'training' : (isAvailable ? 'available' : 'unavailable');
+        const statusText = isCurrentlyTraining ? '訓練中' : (isAvailable ? '可用' : '不可用');
+        
+        html += `
+            <div class="model-status-card ${cardClass}">
+                <div class="model-status-header">
+                    <div class="model-name">
+                        <span class="model-icon">${modelData.icon}</span>
+                        <span>${modelData.name}</span>
+                    </div>
+                    <span class="model-status-badge ${statusBadge}">${statusText}</span>
+                </div>
+                <div class="model-details">
+                    <div class="model-detail-item">
+                        <span class="model-detail-label">描述</span>
+                        <span class="model-detail-value">${modelData.description}</span>
+                    </div>
+                    <div class="model-detail-item">
+                        <span class="model-detail-label">集成權重</span>
+                        <span class="model-detail-value">${modelData.weight}</span>
+                    </div>
+                    <div class="model-detail-item">
+                        <span class="model-detail-label">狀態</span>
+                        <span class="model-detail-value ${isAvailable ? 'success' : 'danger'}">${isAvailable ? '✅ 已訓練' : '❌ 未訓練'}</span>
+                    </div>
+                    ${details[modelKey] ? `
+                        ${details[modelKey].exists ? `
+                            <div class="model-detail-item" style="font-size: 0.75rem; color: var(--text-tertiary);">
+                                <span class="model-detail-label">文件大小</span>
+                                <span class="model-detail-value">${formatFileSize(details[modelKey].fileSize)}</span>
+                            </div>
+                            ${details[modelKey].lastModified ? `
+                                <div class="model-detail-item" style="font-size: 0.75rem; color: var(--text-tertiary);">
+                                    <span class="model-detail-label">最後修改</span>
+                                    <span class="model-detail-value time">${formatTrainingDate(details[modelKey].lastModified)}</span>
+                                </div>
+                            ` : ''}
+                        ` : ''}
+                    ` : ''}
                 </div>
             </div>
         `;
     }
+    
+    html += '</div>';
+    
+    // 訓練進度/狀態區
+    if (isTraining) {
+        html += `
+            <div class="training-progress-section" style="margin-top: var(--space-lg); padding: var(--space-lg); background: rgba(99, 102, 241, 0.1); border-radius: var(--radius-md); border: 1px solid rgba(99, 102, 241, 0.3);">
+                <div style="display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-md);">
+                    <div class="loading-spinner" style="width: 20px; height: 20px;"></div>
+                    <span style="font-weight: 600; color: var(--accent-primary);">🔄 訓練進行中...</span>
+                </div>
+                ${elapsedTime ? `<p style="font-size: 0.85rem; color: var(--text-secondary);">已用時間: ${Math.round(elapsedTime / 1000)}秒</p>` : ''}
+            </div>
+        `;
+    } else if (lastTrainingDate) {
+        html += `
+            <div class="training-info-section" style="margin-top: var(--space-lg); padding: var(--space-md); background: var(--bg-secondary); border-radius: var(--radius-md);">
+                <div class="training-stat" style="display: flex; justify-content: space-between; padding: var(--space-xs) 0;">
+                    <span style="color: var(--text-tertiary);">上次訓練</span>
+                    <span style="color: var(--text-primary);">${formatTrainingDate(lastTrainingDate)}</span>
+                </div>
+            </div>
+        `;
+    }
+    
+    // 訓練日誌
+    if (lastTrainingOutput) {
+        html += `
+            <details id="training-log-details" style="margin-top: var(--space-lg);">
+                <summary style="cursor: pointer; padding: var(--space-sm); background: var(--bg-secondary); border-radius: var(--radius-sm); font-weight: 500;">
+                    📋 訓練日誌
+                </summary>
+                <pre style="margin-top: var(--space-sm); padding: var(--space-md); background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow-x: auto; font-size: 0.75rem; max-height: 200px; overflow-y: auto;">${lastTrainingOutput}</pre>
+            </details>
+        `;
+    }
+    
+    // 訓練錯誤
+    if (lastTrainingError) {
+        html += `
+            <details id="training-error-details" style="margin-top: var(--space-md);">
+                <summary style="cursor: pointer; padding: var(--space-sm); background: rgba(239, 68, 68, 0.1); border-radius: var(--radius-sm); font-weight: 500; color: var(--text-danger);">
+                    ⚠️ 訓練錯誤
+                </summary>
+                <pre style="margin-top: var(--space-sm); padding: var(--space-md); background: rgba(239, 68, 68, 0.05); border-radius: var(--radius-sm); overflow-x: auto; font-size: 0.75rem; color: var(--text-danger); max-height: 150px; overflow-y: auto;">${lastTrainingError}</pre>
+            </details>
+        `;
+    }
+    
+    container.innerHTML = html;
 }
 
 function initAlgorithmContent() {
