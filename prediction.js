@@ -6143,13 +6143,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateFactorsLoadingProgress(100, '✅ 分析完成');
     }, 1000); // 1秒後在背景執行，確保初始化完成
     
-    // 每秒更新時間 (使用真實 HKT)
-    setInterval(() => {
-        const hk = getHKTime();
-        const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
-        const datetimeEl = document.getElementById('current-datetime');
-        datetimeEl.textContent = `🕐 ${hk.year}年${hk.month}月${hk.day}日 ${weekdays[hk.dayOfWeek]} ${hk.timeStr} HKT`;
-    }, 1000);
+    // 時間更新由 modules/datetime.js 處理，避免重複
     
     // 每分鐘更新天氣並觸發預測更新
     setInterval(async () => {

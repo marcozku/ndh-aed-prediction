@@ -12,10 +12,8 @@ export class DateTime {
         const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
         const datetimeEl = document.getElementById('current-datetime');
         if (datetimeEl) {
-            datetimeEl.innerHTML = `
-                <span class="datetime-icon">⏱️</span>
-                <span class="datetime-text">${hk.year}年${hk.month}月${hk.day}日 ${weekdays[hk.dayOfWeek]} ${hk.timeStr} HKT</span>
-            `;
+            // 使用 textContent 避免 DOM 重新渲染造成跳動
+            datetimeEl.textContent = `🕐 ${hk.year}年${hk.month}月${hk.day}日 ${weekdays[hk.dayOfWeek]} ${hk.timeStr} HKT`;
         }
     }
 
