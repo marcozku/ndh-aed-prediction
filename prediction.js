@@ -5489,7 +5489,7 @@ function updateFactorsLoadingProgress(percent, statusText = null) {
     if (percent >= 100 && loadingEl) {
         loadingEl.style.display = 'none';
     } else if (loadingEl && percent < 100) {
-        loadingEl.style.display = 'block';
+        loadingEl.style.display = 'flex';  // 使用 flex 而不是 block，匹配 CSS
     }
 }
 
@@ -7301,7 +7301,7 @@ async function forceRefreshAI() {
     
     // 顯示載入狀態
     if (factorsLoadingEl) {
-        factorsLoadingEl.style.display = 'block';
+        factorsLoadingEl.style.display = 'flex';  // 使用 flex 而不是 block
     }
     if (factorsContentEl) {
         factorsContentEl.style.display = 'none';
