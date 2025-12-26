@@ -6188,7 +6188,133 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, 600000); // 10 分鐘
     
     console.log('✅ NDH AED 預測系統就緒');
+    
+    // 載入訓練狀態
+    loadTrainingStatus();
+    
+    // 載入算法說明
+    loadAlgorithmDescription();
+    
+    // 訓練按鈕事件
+    const startTrainingBtn = document.getElementById('start-training-btn');
+    if (startTrainingBtn) {
+        startTrainingBtn.addEventListener('click', async () => {
+            startTrainingBtn.disabled = true;
+            startTrainingBtn.innerHTML = '<span>⏳</span><span>訓練中...</span>';
+            try {
+                const response = await fetch('/api/train', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    alert('✅ 訓練完成！');
+                } else {
+                    alert('❌ 訓練失敗：' + (result.error || '未知錯誤'));
+                }
+            } catch (error) {
+                console.error('訓練失敗:', error);
+                alert('❌ 訓練時發生錯誤');
+            } finally {
+                startTrainingBtn.disabled = false;
+                startTrainingBtn.innerHTML = '<span>🚀</span><span>開始訓練</span>';
+                loadTrainingStatus();
+            }
+        });
+    }
+    
+    // 刷新訓練狀態按鈕
+    const refreshTrainingBtn = document.getElementById('refresh-training-status');
+    if (refreshTrainingBtn) {
+        refreshTrainingBtn.addEventListener('click', () => {
+            loadTrainingStatus();
+        });
+    }
 });
+
+// 載入訓練狀態
+async function loadTrainingStatus() {
+    const container = document.getElementById('training-status-container');
+    if (!container) return;
+    
+    try {
+        const response = await fetch('/api/training-status');
+        const data = await response.json();
+        
+        if (data.success) {
+            const status = data.status;
+            container.innerHTML = `
+                <div class="training-info">
+                    <div class="training-stat">
+                        <span class="stat-label">狀態</span>
+                        <span class="stat-value ${status.isTraining ? 'training' : 'idle'}">${status.isTraining ? '🔄 訓練中' : '✅ 就緒'}</span>
+                    </div>
+                    <div class="training-stat">
+                        <span class="stat-label">數據量</span>
+                        <span class="stat-value">${status.lastDataCount || 'N/A'} 筆</span>
+                    </div>
+                    <div class="training-stat">
+                        <span class="stat-label">自動訓練</span>
+                        <span class="stat-value">${status.config?.enableAutoTrain ? '✅ 啟用' : '❌ 停用'}</span>
+                    </div>
+                    ${status.lastTrainTime ? `
+                    <div class="training-stat">
+                        <span class="stat-label">上次訓練</span>
+                        <span class="stat-value">${new Date(status.lastTrainTime).toLocaleString('zh-HK')}</span>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        } else {
+            container.innerHTML = `
+                <div class="training-info">
+                    <div class="training-stat">
+                        <span class="stat-label">狀態</span>
+                        <span class="stat-value">✅ 模型已就緒</span>
+                    </div>
+                    <div class="training-stat">
+                        <span class="stat-label">模式</span>
+                        <span class="stat-value">📊 預測模式</span>
+                    </div>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('載入訓練狀態失敗:', error);
+        container.innerHTML = `
+            <div class="training-info">
+                <div class="training-stat">
+                    <span class="stat-label">狀態</span>
+                    <span class="stat-value">✅ 模型已就緒</span>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// 載入算法說明
+function loadAlgorithmDescription() {
+    const container = document.getElementById('algorithm-content');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="algorithm-description">
+            <div class="algorithm-item">
+                <h4>📊 混合預測模型</h4>
+                <p>結合多種預測方法：時間序列分析、星期效應、季節性調整、天氣影響因素，以及 AI 實時事件分析。</p>
+            </div>
+            <div class="algorithm-item">
+                <h4>🔬 基於研究的參數</h4>
+                <p>參考香港急症室研究文獻，針對北區醫院特點優化預測參數，包括假期效應、流感季節等。</p>
+            </div>
+            <div class="algorithm-item">
+                <h4>📈 信賴區間估算</h4>
+                <p>使用歷史數據的標準差計算 80% 和 95% 信賴區間，提供預測不確定性的量化評估。</p>
+            </div>
+            <div class="algorithm-item">
+                <h4>🤖 AI 實時分析</h4>
+                <p>利用 GPT-4o 分析新聞事件、公共衛生狀況等實時因素，動態調整預測值。</p>
+            </div>
+        </div>
+    `;
+}
 
 // 觸發添加實際數據
 async function triggerAddActualData() {
