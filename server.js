@@ -125,11 +125,15 @@ function parseBody(req) {
 
 // Helper to send JSON response
 function sendJson(res, data, statusCode = 200) {
+    // 確保所有字符串都正確編碼為 UTF-8
+    const jsonString = JSON.stringify(data, null, 0);
+    const buffer = Buffer.from(jsonString, 'utf-8');
+    
     res.writeHead(statusCode, { 
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
         'Access-Control-Allow-Origin': '*'
     });
-    res.end(JSON.stringify(data));
+    res.end(buffer);
 }
 
 // 生成 Python 環境建議

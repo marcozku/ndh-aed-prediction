@@ -3941,7 +3941,21 @@ async function convertToTraditionalAsync(text) {
 function convertToTraditional(text) {
     if (!text || typeof text !== 'string') return text;
     
+    // 清理特殊字符，但保留所有中文字符
+    // 只移除裝飾性字符，不影響中文字符
     let cleaned = text.replace(/[◆●■▲▼★☆]/g, '');
+    
+    // 確保文本是有效的 UTF-8 字符串
+    try {
+        // 檢查是否包含有效的 UTF-8 字符
+        const testEncoding = encodeURIComponent(cleaned);
+        if (testEncoding.includes('%EF%BF%BD')) {
+            // 包含替換字符，可能編碼有問題
+            console.warn('⚠️ 檢測到可能的編碼問題:', cleaned.substring(0, 50));
+        }
+    } catch (e) {
+        console.warn('⚠️ 文本編碼檢查失敗:', e.message);
+    }
     
     // 如果已在緩存中，立即返回
     if (conversionCache.has(cleaned)) {
@@ -5700,7 +5714,20 @@ function updateRealtimeFactors(aiAnalysisData = null) {
     let summaryHtml = '';
     if (summary && summary !== '無法獲取 AI 分析') {
         // 確保 summary 是字符串並轉換為繁體中文
-        const summaryStr = String(summary);
+        let summaryStr = String(summary);
+        
+        // 確保文本編碼正確（修復可能的亂碼）
+        try {
+            // 如果包含替換字符，嘗試修復
+            if (summaryStr.includes('\uFFFD')) {
+                console.warn('⚠️ 檢測到替換字符，嘗試修復編碼...');
+                // 嘗試從原始數據重新編碼
+                summaryStr = decodeURIComponent(encodeURIComponent(summaryStr).replace(/%EF%BF%BD/g, ''));
+            }
+        } catch (e) {
+            console.warn('⚠️ 編碼修復失敗，使用原始文本:', e.message);
+        }
+        
         const convertedSummary = convertToTraditional(summaryStr);
         summaryHtml = `
             <div class="factors-summary">

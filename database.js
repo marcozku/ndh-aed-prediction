@@ -44,6 +44,15 @@ function initPool() {
         console.log(`📍 Connecting to ${poolConfig.host}:${poolConfig.port}/${poolConfig.database}`);
         const pool = new Pool(poolConfig);
         
+        // 設置連接編碼為 UTF-8
+        pool.on('connect', async (client) => {
+            try {
+                await client.query('SET client_encoding TO \'UTF8\'');
+            } catch (err) {
+                console.warn('⚠️ 設置數據庫編碼失敗:', err.message);
+            }
+        });
+        
         // 添加連接錯誤處理
         pool.on('error', (err) => {
             console.error('❌ 數據庫連接池錯誤:', err.message);
@@ -74,6 +83,15 @@ function initPool() {
             
             console.log(`📍 Connecting to ${poolConfig.host}:${poolConfig.port}/${poolConfig.database}`);
             const pool = new Pool(poolConfig);
+            
+            // 設置連接編碼為 UTF-8
+            pool.on('connect', async (client) => {
+                try {
+                    await client.query('SET client_encoding TO \'UTF8\'');
+                } catch (err) {
+                    console.warn('⚠️ 設置數據庫編碼失敗:', err.message);
+                }
+            });
             
             // 添加連接錯誤處理
             pool.on('error', (err) => {

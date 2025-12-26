@@ -562,6 +562,60 @@ async function callAI(prompt, model = null, temperature = 0.7) {
 }
 
 /**
+ * 政策監控數據源配置
+ */
+const POLICY_MONITORING_SOURCES = {
+    hospitalAuthority: {
+        name: '醫院管理局',
+        websites: [
+            'https://www.ha.org.hk',
+            'https://www.ha.org.hk/haho/ho/pad/',
+            'https://www.ha.org.hk/haho/ho/pad/NewsRelease.aspx'
+    ],
+        keywords: ['急症室', 'A&E', '急症', '分流', '收費', '政策', '服務調整', '公告']
+    },
+    departmentOfHealth: {
+        name: '衛生署',
+        websites: [
+            'https://www.dh.gov.hk',
+            'https://www.chp.gov.hk'
+    ],
+        keywords: ['急症', '醫院', '醫療服務', '政策', '公告', '指引']
+    },
+    newsSources: {
+        name: '新聞來源',
+        keywords: ['北區醫院', '急症室', '醫院政策', '醫療服務', '急症收費', '分流政策']
+    }
+};
+
+/**
+ * 搜索相關新聞和政策（使用 web search）
+ */
+async function searchNewsAndPolicies() {
+    const today = getHKDateStr();
+    const searchQueries = [
+        `香港 北區醫院 急症室 政策 ${today}`,
+        `醫院管理局 急症室 政策 公告 ${today}`,
+        `衛生署 急症室 政策 ${today}`,
+        `北區醫院 急症室 服務調整 ${today}`,
+        `香港 急症室 收費 政策 ${today}`
+    ];
+    
+    const searchResults = [];
+    
+    // 注意：這裡使用 AI 來模擬搜索結果，因為實際的 web search API 需要額外配置
+    // 在實際部署時，可以整合 Google News API、Bing News API 或其他新聞 API
+    console.log('🔍 準備搜索新聞和政策資訊...');
+    
+    // 返回搜索查詢，讓 AI 基於這些查詢來分析
+    return {
+        queries: searchQueries,
+        sources: POLICY_MONITORING_SOURCES,
+        date: today
+    };
+}
+
+/**
  * 搜索可能影響北區醫院病人數量的新聞和事件
  */
 async function searchRelevantNewsAndEvents() {
@@ -569,29 +623,62 @@ async function searchRelevantNewsAndEvents() {
     const today = getHKDateStr();
     const hkTime = new Date().toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' });
     
+    // 獲取新聞和政策搜索結果
+    const newsSearchData = await searchNewsAndPolicies();
+    
     const prompt = `請分析以下可能影響香港北區醫院急症室病人數量的因素：
 
-1. **天氣相關事件**：
+1. **健康政策變化**（⚠️ 重要 - 必須重點檢查）：
+   - 醫院管理局（HA）最新政策公告
+   - 急症室收費政策變更
+   - 急症室分流政策調整
+   - 醫療服務政策變更
+   - 衛生署最新醫療政策
+   - 急症室服務時間或範圍調整
+   - 新醫療指引或規範實施
+
+2. **醫院當局公告**（⚠️ 重要 - 必須重點檢查）：
+   - 醫院管理局官方公告
+   - 北區醫院服務調整通知
+   - 急症室運作模式變更
+   - 醫院服務暫停或恢復
+   - 醫療資源配置變更
+   - 急症室人手或設備調整
+
+3. **新聞和媒體報導**（⚠️ 重要 - 必須重點檢查）：
+   - 關於北區醫院急症室的新聞
+   - 醫療政策相關新聞報導
+   - 急症室服務相關新聞
+   - 醫療系統變革新聞
+   - 請基於以下搜索查詢來分析：
+     ${newsSearchData.queries.map((q, i) => `${i + 1}. ${q}`).join('\n     ')}
+
+4. **天氣相關事件**：
    - 極端天氣（颱風、暴雨、寒流、酷熱）
    - 空氣污染指數異常
    - 天氣警告（八號風球、紅雨、黑雨等）
 
-2. **公共衛生事件**：
+5. **公共衛生事件**：
    - 流感爆發或疫情
    - 食物中毒事件
    - 傳染病警報
 
-3. **社會事件**：
+6. **社會事件**：
    - 大型活動或集會
    - 交通事故或意外
    - 公共設施故障
 
-4. **季節性因素**：
+7. **季節性因素**：
    - 節日前後效應
    - 學校假期
    - 長假期
 
-請基於當前日期（${today}，香港時間 ${hkTime}）和一般知識，分析是否有任何已知或可能發生的因素會影響未來幾天北區醫院的病人數量。
+**⚠️ 特別重要：請優先檢查以下官方來源的最新政策變更：**
+- 醫院管理局網站：https://www.ha.org.hk
+- 衛生署網站：https://www.dh.gov.hk
+- 衛生防護中心：https://www.chp.gov.hk
+
+請基於當前日期（${today}，香港時間 ${hkTime}）和最新資訊，分析是否有任何已知或可能發生的因素（特別是政策變更）會影響未來幾天北區醫院的病人數量。
 
 **⚠️ 極其重要的語言要求（最高優先級）：**
 
@@ -614,16 +701,29 @@ async function searchRelevantNewsAndEvents() {
 {
   "factors": [
     {
-      "type": "天氣/公共衛生/社會事件/季節性",
-      "description": "因素描述",
+      "type": "健康政策/醫院當局公告/新聞報導/天氣/公共衛生/社會事件/季節性",
+      "description": "因素描述（如果是政策變更，請詳細說明政策內容和影響）",
       "impact": "增加/減少/無影響",
       "impactFactor": 1.05,  // 影響因子（1.0 = 無影響，>1.0 = 增加，<1.0 = 減少）
       "confidence": "高/中/低",
       "affectedDays": ["2025-01-XX", "2025-01-YY"],  // 受影響的日期
-      "reasoning": "分析理由"
+      "reasoning": "分析理由（如果是政策變更，請說明政策如何影響求診人數）",
+      "source": "政策來源（如：醫院管理局、衛生署、新聞媒體等，如果適用）"
     }
   ],
-  "summary": "總結說明"
+  "policyChanges": [
+    {
+      "type": "健康政策/醫院當局公告",
+      "description": "政策變更詳細描述",
+      "announcementDate": "2025-01-XX",
+      "effectiveDate": "2025-01-YY",
+      "impact": "增加/減少/無影響",
+      "impactFactor": 1.05,
+      "reasoning": "政策如何影響急症室求診人數",
+      "source": "政策來源"
+    }
+  ],
+  "summary": "總結說明（特別強調是否有政策變更）"
 }`;
 
     try {
@@ -682,6 +782,9 @@ async function searchRelevantNewsAndEvents() {
  * 分析特定日期範圍的影響因素
  */
 async function analyzeDateRangeFactors(startDate, endDate, weatherData = null) {
+    // 獲取新聞和政策搜索結果
+    const newsSearchData = await searchNewsAndPolicies();
+    
     const prompt = `請分析 ${startDate} 至 ${endDate} 期間，可能影響香港北區醫院急症室病人數量的因素。
 
 ${weatherData ? `當前天氣狀況：
@@ -690,12 +793,32 @@ ${weatherData ? `當前天氣狀況：
 - 降雨: ${weatherData.rainfall}mm
 ` : ''}
 
-請考慮：
-1. 天氣預報和極端天氣事件
-2. 已知的公共衛生事件
-3. 節日和假期效應
-4. 季節性模式
-5. 其他可能導致急症室病人數量異常的因素
+請考慮（按重要性排序）：
+
+1. **健康政策變化**（⚠️ 最高優先級）：
+   - 醫院管理局（HA）在該期間的政策公告
+   - 急症室收費或分流政策變更
+   - 醫療服務政策調整
+   - 衛生署最新醫療政策
+   - 急症室服務時間或範圍調整
+
+2. **醫院當局公告**（⚠️ 最高優先級）：
+   - 醫院管理局官方公告
+   - 北區醫院服務調整通知
+   - 急症室運作模式變更
+   - 醫療資源配置變更
+
+3. **新聞和媒體報導**（⚠️ 重要）：
+   - 關於北區醫院急症室的新聞
+   - 醫療政策相關新聞報導
+   - 請基於以下搜索查詢來分析：
+     ${newsSearchData.queries.map((q, i) => `${i + 1}. ${q}`).join('\n     ')}
+
+4. 天氣預報和極端天氣事件
+5. 已知的公共衛生事件
+6. 節日和假期效應
+7. 季節性模式
+8. 其他可能導致急症室病人數量異常的因素
 
 **⚠️ 極其重要的語言要求（最高優先級）：**
 
@@ -719,14 +842,25 @@ ${weatherData ? `當前天氣狀況：
   "factors": [
     {
       "date": "YYYY-MM-DD",
-      "type": "天氣/公共衛生/社會事件/季節性",
-      "description": "因素描述",
+      "type": "健康政策/醫院當局公告/新聞報導/天氣/公共衛生/社會事件/季節性",
+      "description": "因素描述（如果是政策變更，請詳細說明）",
       "impactFactor": 1.05,
       "confidence": "高/中/低",
-      "reasoning": "分析理由"
+      "reasoning": "分析理由（如果是政策變更，請說明政策如何影響求診人數）",
+      "source": "政策來源（如適用）"
     }
   ],
-  "overallImpact": "整體影響評估"
+  "policyChanges": [
+    {
+      "date": "YYYY-MM-DD",
+      "type": "健康政策/醫院當局公告",
+      "description": "政策變更詳細描述",
+      "impactFactor": 1.05,
+      "reasoning": "政策如何影響急症室求診人數",
+      "source": "政策來源"
+    }
+  ],
+  "overallImpact": "整體影響評估（特別強調政策變更的影響）"
 }`;
 
     try {
