@@ -726,9 +726,41 @@ ${getVerifiedPolicyFactsPrompt()}
 
 請基於當前日期（${today}，香港時間 ${hkTime}）和最新資訊，分析是否有任何已知或可能發生的因素（特別是政策變更）會影響未來幾天北區醫院的病人數量。
 
+**🚨🚨🚨 極度重要 - 嚴禁捏造事實（ANTI-HALLUCINATION RULES）🚨🚨🚨**
+
+你必須嚴格遵守以下規則，違反這些規則會導致嚴重後果：
+
+1. **絕對禁止捏造政策或公告**：
+   - 不要編造任何醫院政策、分流通道、服務調整等
+   - 不要假設或推測可能存在的政策
+   - 如果你不確定某政策是否存在，就不要提及它
+
+2. **只使用可驗證的官方來源**：
+   - 只能引用來自 ha.org.hk、dh.gov.hk、chp.gov.hk 或主流新聞媒體的資訊
+   - 必須能夠提供真實可訪問的 URL
+   - 不能憑記憶或推測提供來源
+
+3. **如果沒有確實資訊，就說沒有**：
+   - 如果找不到相關政策變更，返回空的 factors 數組
+   - 不要為了填充內容而編造因素
+   - 寧願返回「暫無已知影響因素」也不要捏造
+
+4. **季節性因素必須基於事實**：
+   - 節日效應可以提及（如聖誕節、農曆新年），但不要編造具體的醫院措施
+   - 天氣影響必須基於實際天氣預報
+   - 公共衛生事件必須有官方確認
+
+5. **北區醫院特定資訊**：
+   - 除非有官方公告，不要假設北區醫院有任何特殊安排
+   - 不要編造「快速分流通道」、「夜間通道」等不存在的措施
+   - 醫院內部政策只有官方公佈才能引用
+
+**違反以上規則的後果**：系統會將你的回應標記為不可信，用戶將無法信任預測結果。
+
 **⚠️ 來源要求（必須遵守）：**
 - 每個因素必須在 "source" 欄位提供具體來源（官方網站 URL 或機構名稱）
-- 對於政策變更，必須提供 "sourceUrl" 欄位包含官方公告連結
+- 對於政策變更，必須提供 "sourceUrl" 欄位包含真實可訪問的官方公告連結
+- 如果無法提供真實來源，請勿包含該因素
 - 不確定的資訊必須標註 "unverified": true
 
 **⚠️ 極其重要的語言要求（最高優先級）：**
@@ -898,6 +930,16 @@ ${weatherData ? `當前天氣狀況：
 
 ${getVerifiedPolicyFactsPrompt()}
 
+**🚨🚨🚨 極度重要 - 嚴禁捏造事實（ANTI-HALLUCINATION RULES）🚨🚨🚨**
+
+你必須嚴格遵守以下規則：
+
+1. **絕對禁止捏造政策或公告**：不要編造任何醫院政策、分流通道、服務調整等
+2. **只使用可驗證的官方來源**：只能引用來自 ha.org.hk、dh.gov.hk 或主流新聞媒體的真實資訊
+3. **如果沒有確實資訊，就說沒有**：返回空的 factors 數組，不要為了填充內容而編造
+4. **北區醫院特定資訊**：除非有官方公告，不要假設北區醫院有任何特殊安排
+5. **不要編造「快速分流通道」、「夜間通道」等不存在的措施**
+
 **⚠️ 極其重要的語言要求（最高優先級）：**
 
 你必須只使用繁體中文（Traditional Chinese / 正體中文）進行回應，絕對不能使用簡體中文（Simplified Chinese / 簡體中文）。
@@ -925,8 +967,8 @@ ${getVerifiedPolicyFactsPrompt()}
       "impactFactor": 1.05,
       "confidence": "高/中/低",
       "reasoning": "分析理由（如果是政策變更，請說明政策如何影響求診人數）",
-      "source": "政策來源（如適用）",
-      "sourceUrl": "來源網址（必須提供）"
+      "source": "政策來源（必須是真實官方來源）",
+      "sourceUrl": "來源網址（必須是真實可訪問的 URL，如無法提供則不要包含該因素）"
     }
   ],
   "policyChanges": [
@@ -936,11 +978,11 @@ ${getVerifiedPolicyFactsPrompt()}
       "description": "政策變更詳細描述",
       "impactFactor": 1.05,
       "reasoning": "政策如何影響急症室求診人數",
-      "source": "政策來源",
-      "sourceUrl": "來源網址（必須提供）"
+      "source": "政策來源（必須是真實官方來源）",
+      "sourceUrl": "來源網址（必須是真實可訪問的 URL）"
     }
   ],
-  "overallImpact": "整體影響評估（特別強調政策變更的影響）"
+  "overallImpact": "整體影響評估（如無確實影響因素，請說明「暫無已知影響因素」）"
 }`;
 
     try {
@@ -951,14 +993,26 @@ ${getVerifiedPolicyFactsPrompt()}
         
         let result;
         try {
-            const jsonMatch = convertedResponse.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                result = JSON.parse(jsonMatch[0]);
+            // 移除 markdown 代碼塊標記
+            let cleanedResponse = convertedResponse
+                .replace(/```json\s*/gi, '')
+                .replace(/```\s*/g, '')
+                .trim();
+            
+            const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
+            let jsonStr = jsonMatch ? jsonMatch[0] : null;
+            
+            if (jsonStr) {
+                // 移除 trailing commas
+                jsonStr = jsonStr
+                    .replace(/,\s*}/g, '}')
+                    .replace(/,\s*]/g, ']');
+                result = JSON.parse(jsonStr);
             } else {
                 throw new Error('無法找到 JSON 格式');
             }
         } catch (parseError) {
-            console.warn('⚠️ AI 響應無法解析為 JSON');
+            console.warn('⚠️ AI 響應無法解析為 JSON:', parseError.message);
             result = {
                 factors: [],
                 overallImpact: convertedResponse,
