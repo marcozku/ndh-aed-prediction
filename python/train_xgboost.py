@@ -304,6 +304,16 @@ def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     models_dir = os.path.join(script_dir, 'models')
     
+    # 加載舊模型指標（用於比較）
+    metrics_path = os.path.join(models_dir, 'xgboost_metrics.json')
+    old_metrics = None
+    if os.path.exists(metrics_path):
+        try:
+            with open(metrics_path, 'r') as f:
+                old_metrics = json.load(f)
+        except:
+            old_metrics = None
+    
     model_path = os.path.join(models_dir, 'xgboost_model.json')
     model.save_model(model_path)
     print(f"模型已保存到 {model_path}")
@@ -313,12 +323,105 @@ def main():
     with open(features_path, 'w') as f:
         json.dump(feature_cols, f)
     
-    # 保存評估指標
-    metrics_path = os.path.join(models_dir, 'xgboost_metrics.json')
-    with open(metrics_path, 'w') as f:
-        json.dump(metrics, f)
+    # 添加更多訓練信息到指標
+    import datetime
+    training_info = {
+        'mae': metrics['mae'],
+        'rmse': metrics['rmse'],
+        'mape': metrics['mape'],
+        'training_date': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'data_count': len(df),
+        'train_count': len(train_data),
+        'test_count': len(test_data),
+        'feature_count': len(feature_cols),
+        'ai_factors_count': len(ai_factors) if ai_factors else 0
+    }
     
-    print("✅ XGBoost 模型訓練完成！")
+    # 保存評估指標
+    with open(metrics_path, 'w') as f:
+        json.dump(training_info, f, indent=2)
+    
+    # 計算特徵重要性
+    print(f"\n{'='*60}")
+    print("📊 特徵重要性分析 (Top 15 最重要特徵):")
+    print(f"{'='*60}")
+    
+    importance = model.feature_importances_
+    feature_importance = list(zip(feature_cols, importance))
+    feature_importance.sort(key=lambda x: x[1], reverse=True)
+    
+    for i, (feat, imp) in enumerate(feature_importance[:15]):
+        bar_length = int(imp / max(importance) * 30)
+        bar = "█" * bar_length + "░" * (30 - bar_length)
+        print(f"  {i+1:2}. {feat:25} {bar} {imp:.4f}")
+    
+    # 顯示訓練前後對比
+    print(f"\n{'='*60}")
+    print("📈 模型性能變化:")
+    print(f"{'='*60}")
+    
+    if old_metrics:
+        old_mae = old_metrics.get('mae', 0)
+        old_rmse = old_metrics.get('rmse', 0)
+        old_mape = old_metrics.get('mape', 0)
+        
+        mae_change = metrics['mae'] - old_mae
+        rmse_change = metrics['rmse'] - old_rmse
+        mape_change = metrics['mape'] - old_mape
+        
+        mae_icon = "✅ 改善" if mae_change < 0 else ("⚠️ 下降" if mae_change > 0 else "➡️ 無變化")
+        rmse_icon = "✅ 改善" if rmse_change < 0 else ("⚠️ 下降" if rmse_change > 0 else "➡️ 無變化")
+        mape_icon = "✅ 改善" if mape_change < 0 else ("⚠️ 下降" if mape_change > 0 else "➡️ 無變化")
+        
+        print(f"\n  📊 MAE (平均絕對誤差):")
+        print(f"     舊模型: {old_mae:.2f} 病人")
+        print(f"     新模型: {metrics['mae']:.2f} 病人")
+        print(f"     變化: {mae_change:+.2f} 病人 {mae_icon}")
+        
+        print(f"\n  📊 RMSE (均方根誤差):")
+        print(f"     舊模型: {old_rmse:.2f} 病人")
+        print(f"     新模型: {metrics['rmse']:.2f} 病人")
+        print(f"     變化: {rmse_change:+.2f} 病人 {rmse_icon}")
+        
+        print(f"\n  📊 MAPE (平均絕對百分比誤差):")
+        print(f"     舊模型: {old_mape:.2f}%")
+        print(f"     新模型: {metrics['mape']:.2f}%")
+        print(f"     變化: {mape_change:+.2f}% {mape_icon}")
+        
+        # 計算總體改善
+        improvements = sum([1 for c in [mae_change, rmse_change, mape_change] if c < 0])
+        degradations = sum([1 for c in [mae_change, rmse_change, mape_change] if c > 0])
+        
+        print(f"\n  📋 總結:")
+        if improvements > degradations:
+            print(f"     🎉 模型整體性能提升！({improvements}/3 指標改善)")
+        elif degradations > improvements:
+            print(f"     ⚠️ 模型整體性能下降 ({degradations}/3 指標下降)")
+            print(f"     💡 建議：檢查新數據質量或增加訓練數據")
+        else:
+            print(f"     ➡️ 模型性能維持穩定")
+    else:
+        print(f"\n  ℹ️ 這是首次訓練，無舊模型可比較")
+        print(f"\n  📊 當前模型性能:")
+        print(f"     MAE: {metrics['mae']:.2f} 病人")
+        print(f"     RMSE: {metrics['rmse']:.2f} 病人")
+        print(f"     MAPE: {metrics['mape']:.2f}%")
+    
+    # 訓練總結
+    print(f"\n{'='*60}")
+    print("🎯 訓練總結:")
+    print(f"{'='*60}")
+    print(f"  📅 訓練時間: {training_info['training_date']}")
+    print(f"  📊 數據量: {training_info['data_count']} 筆")
+    print(f"  🔧 特徵數: {training_info['feature_count']} 個")
+    if training_info['ai_factors_count'] > 0:
+        print(f"  🤖 AI因子: {training_info['ai_factors_count']} 個日期")
+    print(f"  📈 MAE: {metrics['mae']:.2f} 病人")
+    print(f"  📈 RMSE: {metrics['rmse']:.2f} 病人")
+    print(f"  📈 MAPE: {metrics['mape']:.2f}%")
+    print(f"{'='*60}")
+    
+    print("\n✅ XGBoost 模型訓練完成！")
 
 if __name__ == '__main__':
     main()
