@@ -4095,7 +4095,10 @@ function updateSectionProgress(sectionId, percent) {
     const percentEl = document.getElementById(`${sectionId}-percent`);
     const progressFill = document.getElementById(`${sectionId}-progress`);
     // 嘗試多種可能的內容元素 ID
-    const contentEl = document.getElementById(`${sectionId}-card`) || 
+    const contentEl = document.getElementById(`${sectionId}-grid`) ||
+                      document.getElementById(`${sectionId}-cards`) ||
+                      document.getElementById(`${sectionId}-content`) ||
+                      document.getElementById(`${sectionId}-card`) || 
                       document.getElementById(sectionId) ||
                       document.getElementById(sectionId.replace('-loading', '')) ||
                       document.getElementById(sectionId.replace('-card', ''));
@@ -4106,9 +4109,9 @@ function updateSectionProgress(sectionId, percent) {
     if (progressFill) {
         progressFill.style.width = `${percent}%`;
     }
-    if (percent >= 100 && contentEl) {
+    if (percent >= 100) {
         if (loadingEl) loadingEl.style.display = 'none';
-        contentEl.style.display = 'block';
+        if (contentEl) contentEl.style.display = 'block';
     }
 }
 
@@ -4241,7 +4244,7 @@ function updateUI(predictor) {
         });
     });
     
-    const forecastCardsEl = document.getElementById('forecast-cards');
+    const forecastCardsEl = document.getElementById('forecast-content');
     if (forecastCardsEl) {
         forecastCardsEl.innerHTML = forecasts.map((p, i) => {
         let cardClass = 'forecast-day-card';
@@ -5464,7 +5467,7 @@ function updateFactorsLoadingProgress(percent, statusText = null) {
 
 // 更新實時因素顯示
 function updateRealtimeFactors(aiAnalysisData = null) {
-    const factorsEl = document.getElementById('realtime-factors');
+    const factorsEl = document.getElementById('factors-content');
     const loadingEl = document.getElementById('realtime-factors-loading');
     if (!factorsEl) {
         console.warn('⚠️ 找不到 realtime-factors 元素');
@@ -6015,7 +6018,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // 立即從數據庫載入緩存的 AI 因素（快速顯示，不等待 API）
     updateSectionProgress('factors', 5);
-    const factorsEl = document.getElementById('realtime-factors');
+    const factorsEl = document.getElementById('factors-content');
     if (factorsEl) {
         factorsEl.style.display = 'block';
     }
