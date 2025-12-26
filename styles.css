@@ -315,6 +315,7 @@ body::before {
 .current-datetime {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: clamp(4px, 1vw, 8px);
     padding: clamp(6px, 1.5vw, 12px) clamp(12px, 3vw, 24px);
     background: linear-gradient(135deg, rgba(5, 150, 105, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
@@ -324,6 +325,8 @@ body::before {
     font-weight: 600;
     color: var(--accent-success);
     white-space: nowrap;
+    min-width: 280px; /* 固定最小寬度防止跳動 */
+    font-variant-numeric: tabular-nums; /* 使用等寬數字 */
 }
 
 .datetime-icon {
