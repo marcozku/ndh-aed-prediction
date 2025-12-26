@@ -1091,13 +1091,19 @@ async function initCharts(predictor) {
     const hk = getHKTime();
     const today = hk.dateStr;
     
+    // 計算明天的日期（未來預測從明天開始，不包含今天）
+    const todayDateForChart = new Date(`${today}T00:00:00+08:00`);
+    const tomorrowDateForChart = new Date(todayDateForChart);
+    tomorrowDateForChart.setDate(tomorrowDateForChart.getDate() + 1);
+    const tomorrowForChart = tomorrowDateForChart.toISOString().split('T')[0];
+    
     // 更新總體進度
     let totalProgress = 0;
     const totalCharts = 4;
     
-    // 未來30天預測（包含天氣和 AI 因素）
+    // 未來30天預測（從明天開始，不包含今天）
     updateLoadingProgress('forecast', 10);
-    const predictions = predictor.predictRange(today, 30, weatherForecastData, aiFactors);
+    const predictions = predictor.predictRange(tomorrowForChart, 30, weatherForecastData, aiFactors);
     updateLoadingProgress('forecast', 30);
     
     // 1. 預測趨勢圖 - 專業線圖
