@@ -5314,9 +5314,17 @@ async function updateAIFactors(force = false) {
         console.log('📊 AI 分析響應:', {
             success: data.success,
             factorsCount: data.factors?.length || 0,
+            factorsType: typeof data.factors,
             hasSummary: !!data.summary,
-            error: data.error
+            summaryPreview: data.summary?.substring?.(0, 100) || 'N/A',
+            error: data.error,
+            rawFactors: data.factors  // 顯示完整的 factors
         });
+        
+        // 如果有錯誤但也有 factors，仍然顯示 factors
+        if (data.error && (!data.factors || data.factors.length === 0)) {
+            console.error('❌ AI 服務返回錯誤:', data.error);
+        }
         
         if (data.success && data.factors && Array.isArray(data.factors) && data.factors.length > 0) {
             // 使用異步轉換確保所有文本都是繁體中文（即使服務端已轉換，也再次確保）
@@ -5433,7 +5441,27 @@ async function updateAIFactors(force = false) {
             };
         }
         
-        console.log('⚠️ AI 分析返回空數據:', data);
+        console.log('⚠️ AI 分析返回空數據:', JSON.stringify(data, null, 2));
+        console.log('⚠️ 診斷信息:', {
+            hasSuccess: data.success,
+            hasFactors: !!data.factors,
+            factorsIsArray: Array.isArray(data.factors),
+            factorsLength: data.factors?.length,
+            hasSummary: !!data.summary,
+            hasError: !!data.error,
+            errorMsg: data.error
+        });
+        
+        // 如果有 summary 但沒有 factors，仍返回 summary
+        if (data.summary && data.summary.trim().length > 0) {
+            updateFactorsLoadingProgress(100, '⚠️ 無影響因素（只有摘要）');
+            return { 
+                factors: [], 
+                summary: data.summary, 
+                cached: false 
+            };
+        }
+        
         updateFactorsLoadingProgress(100, '⚠️ 無分析數據');
         return { factors: [], summary: '無分析數據', cached: false };
     } catch (error) {

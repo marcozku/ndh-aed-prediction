@@ -1132,7 +1132,10 @@ const apiHandlers = {
 
     // AI 分析 - 搜索可能影響病人數量的因素
     'GET /api/ai-analyze': async (req, res) => {
+        console.log('🔍 收到 AI 分析請求');
+        
         if (!aiService) {
+            console.error('❌ AI 服務未配置');
             return sendJson(res, { 
                 success: false, 
                 error: 'AI 服務未配置（僅在服務器環境可用）' 
@@ -1143,7 +1146,7 @@ const apiHandlers = {
         const timeout = 90000;
         const timeoutId = setTimeout(() => {
             if (!res.headersSent) {
-                console.error('⏱️ AI 分析請求超時');
+                console.error('⏱️ AI 分析請求超時（90秒）');
                 sendJson(res, { 
                     success: false, 
                     error: '請求超時（90秒），請稍後重試',
@@ -1155,8 +1158,16 @@ const apiHandlers = {
         }, timeout);
         
         try {
+            console.log('🤖 開始調用 AI 服務...');
             const analysis = await aiService.searchRelevantNewsAndEvents();
             clearTimeout(timeoutId);
+            
+            console.log('📊 AI 分析結果:', {
+                hasFactors: !!analysis.factors,
+                factorsCount: analysis.factors?.length || 0,
+                hasSummary: !!analysis.summary,
+                hasError: !!analysis.error
+            });
             
             // 檢查是否已經發送響應（超時情況）
             if (res.headersSent) {
