@@ -1025,9 +1025,15 @@ section h2 {
     color: inherit;  /* 繼承父元素顏色（白色） */
 }
 
-/* 確保按鈕文字在所有狀態下都可見 */
-.refresh-btn .refresh-text {
-    color: white;
+/* 確保 AI 刷新按鈕文字在所有狀態下都可見 */
+#ai-refresh-btn .refresh-text {
+    color: white !important;
+    display: inline !important;
+}
+
+#ai-refresh-btn {
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary, #4CAF50)) !important;
+    color: white !important;
 }
 
 @keyframes spin {
