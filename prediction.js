@@ -6202,7 +6202,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             startTrainingBtn.disabled = true;
             startTrainingBtn.innerHTML = '<span>⏳</span><span>訓練中...</span>';
             try {
-                const response = await fetch('/api/train', { method: 'POST' });
+                const response = await fetch('/api/train-models', { method: 'POST' });
                 const result = await response.json();
                 if (result.success) {
                     alert('✅ 訓練完成！');
