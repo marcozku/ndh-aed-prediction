@@ -325,8 +325,12 @@ body::before {
     font-weight: 600;
     color: var(--accent-success);
     white-space: nowrap;
-    min-width: 280px; /* 固定最小寬度防止跳動 */
+    width: 320px; /* 固定寬度防止跳動 */
+    min-width: 320px;
+    max-width: 320px;
     font-variant-numeric: tabular-nums; /* 使用等寬數字 */
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; /* 等寬字體 */
+    letter-spacing: 0.02em;
 }
 
 .datetime-icon {
