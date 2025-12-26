@@ -5502,6 +5502,19 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         return;
     }
     
+    // 調試：檢查傳入的數據結構
+    console.log('🔍 updateRealtimeFactors 收到數據:', {
+        hasData: !!aiAnalysisData,
+        type: typeof aiAnalysisData,
+        hasFactors: !!aiAnalysisData?.factors,
+        factorsIsArray: Array.isArray(aiAnalysisData?.factors),
+        factorsLength: aiAnalysisData?.factors?.length || 0,
+        hasSummary: !!aiAnalysisData?.summary,
+        summaryType: typeof aiAnalysisData?.summary,
+        summaryLength: aiAnalysisData?.summary?.length || 0,
+        summaryPreview: typeof aiAnalysisData?.summary === 'string' ? aiAnalysisData.summary.substring(0, 100) : 'N/A'
+    });
+    
     updateSectionProgress('factors', 20);
     
     // 檢查 AI 分析數據

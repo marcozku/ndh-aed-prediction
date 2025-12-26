@@ -791,11 +791,23 @@ ${getVerifiedPolicyFactsPrompt()}
         // 嘗試解析 JSON
         let result;
         try {
-            // 提取 JSON 部分（如果響應包含其他文本）
-            const jsonMatch = convertedResponse.match(/\{[\s\S]*\}/);
+            // 提取 JSON 部分（如果響應包含其他文本或markdown代碼塊）
+            // 先嘗試移除 markdown 代碼塊標記
+            let cleanedResponse = convertedResponse
+                .replace(/```json\s*/gi, '')
+                .replace(/```\s*/g, '')
+                .trim();
+            
+            const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 result = JSON.parse(jsonMatch[0]);
                 console.log('✅ JSON 解析成功');
+                console.log('📊 解析後的 factors 數量:', result.factors?.length || 0);
+                console.log('📊 解析後的 summary 長度:', result.summary?.length || 0);
+                console.log('📊 factors 是否為數組:', Array.isArray(result.factors));
+                if (result.factors && result.factors.length > 0) {
+                    console.log('📊 第一個 factor:', JSON.stringify(result.factors[0], null, 2));
+                }
             } else {
                 throw new Error('無法找到 JSON 格式');
             }
@@ -803,6 +815,7 @@ ${getVerifiedPolicyFactsPrompt()}
             // 如果無法解析，創建一個基本結構
             console.warn('⚠️ AI 響應無法解析為 JSON，使用文本響應');
             console.warn('原始響應（前500字符）:', convertedResponse.substring(0, 500));
+            console.error('解析錯誤:', parseError.message);
             result = {
                 factors: [],
                 summary: convertedResponse,
