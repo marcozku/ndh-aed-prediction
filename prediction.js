@@ -7309,12 +7309,13 @@ async function forceRefreshAI() {
     if (refreshBtn) {
         refreshBtn.disabled = true;
         refreshBtn.classList.add('loading');
-        refreshBtn.querySelector('.refresh-text').textContent = '分析中...';
+        const refreshText = refreshBtn.querySelector('.refresh-text');
+        if (refreshText) refreshText.textContent = '分析中...';
     }
     
     // 顯示載入狀態
     if (factorsLoadingEl) {
-        factorsLoadingEl.style.display = 'flex';  // 使用 flex 而不是 block
+        factorsLoadingEl.style.display = 'flex';
     }
     if (factorsContentEl) {
         factorsContentEl.style.display = 'none';
@@ -7327,8 +7328,20 @@ async function forceRefreshAI() {
         // 調用 updateAIFactors 並強制刷新
         const result = await updateAIFactors(true);
         
-        // 更新顯示
+        // 更新實時因素顯示
         updateRealtimeFactors(result);
+        
+        // 🔄 重新計算今日預測和未來預測（使用新的 AI 因素）
+        console.log('🔄 使用新的 AI 因素重新計算預測...');
+        updateFactorsLoadingProgress(90, '📊 更新預測結果...');
+        
+        try {
+            const predictor = new NDHAttendancePredictor();
+            updateUI(predictor);
+            console.log('✅ 預測結果已更新');
+        } catch (uiError) {
+            console.warn('⚠️ 更新預測 UI 失敗:', uiError);
+        }
         
         console.log('✅ AI 強制刷新完成');
     } catch (error) {
@@ -7343,7 +7356,8 @@ async function forceRefreshAI() {
         if (refreshBtn) {
             refreshBtn.disabled = false;
             refreshBtn.classList.remove('loading');
-            refreshBtn.querySelector('.refresh-text').textContent = '重新分析';
+            const refreshText = refreshBtn.querySelector('.refresh-text');
+            if (refreshText) refreshText.textContent = '重新分析';
         }
         
         // 隱藏載入狀態
