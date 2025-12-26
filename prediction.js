@@ -1092,10 +1092,11 @@ async function initCharts(predictor) {
     const today = hk.dateStr;
     
     // 計算明天的日期（未來預測從明天開始，不包含今天）
-    const todayDateForChart = new Date(`${today}T00:00:00+08:00`);
-    const tomorrowDateForChart = new Date(todayDateForChart);
-    tomorrowDateForChart.setDate(tomorrowDateForChart.getDate() + 1);
-    const tomorrowForChart = tomorrowDateForChart.toISOString().split('T')[0];
+    // 計算明天的日期（使用 HKT 時區）
+    const todayPartsForChart = today.split('-').map(Number);
+    const todayDateForChart = new Date(Date.UTC(todayPartsForChart[0], todayPartsForChart[1] - 1, todayPartsForChart[2]));
+    todayDateForChart.setUTCDate(todayDateForChart.getUTCDate() + 1);
+    const tomorrowForChart = `${todayDateForChart.getUTCFullYear()}-${String(todayDateForChart.getUTCMonth() + 1).padStart(2, '0')}-${String(todayDateForChart.getUTCDate()).padStart(2, '0')}`;
     
     // 更新總體進度
     let totalProgress = 0;
@@ -4237,11 +4238,11 @@ function updateUI(predictor) {
     // 未來7天預測（從明天開始，不包含今天）
     updateSectionProgress('forecast', 10);
     
-    // 計算明天的日期
-    const todayDate = new Date(`${today}T00:00:00+08:00`);
-    const tomorrowDate = new Date(todayDate);
-    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-    const tomorrow = tomorrowDate.toISOString().split('T')[0];
+    // 計算明天的日期（使用 HKT 時區）
+    const todayParts = today.split('-').map(Number);
+    const todayDate = new Date(Date.UTC(todayParts[0], todayParts[1] - 1, todayParts[2]));
+    todayDate.setUTCDate(todayDate.getUTCDate() + 1);
+    const tomorrow = `${todayDate.getUTCFullYear()}-${String(todayDate.getUTCMonth() + 1).padStart(2, '0')}-${String(todayDate.getUTCDate()).padStart(2, '0')}`;
     
     const forecasts = predictor.predictRange(tomorrow, 7, weatherForecastData, aiFactors);
     updateSectionProgress('forecast', 50);
