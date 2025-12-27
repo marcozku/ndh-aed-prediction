@@ -84,6 +84,17 @@ if (hasDbConfig) {
         } catch (err) {
             console.warn('⚠️ 自動添加實際數據時出錯（可能模組不存在）:', err.message);
         }
+        
+        // 應用平滑處理到歷史預測數據
+        try {
+            const { applySmoothing } = require('./apply-smoothing-migration');
+            const smoothResult = await applySmoothing();
+            if (smoothResult.success && smoothResult.processed > 0) {
+                console.log(`✅ 已平滑處理 ${smoothResult.processed} 個日期的預測數據`);
+            }
+        } catch (err) {
+            console.warn('⚠️ 應用平滑處理時出錯:', err.message);
+        }
     }).catch(err => {
         console.error('❌ 數據庫初始化失敗:', err.message);
         console.error('錯誤詳情:', err.stack);
