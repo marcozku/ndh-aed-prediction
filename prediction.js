@@ -4219,6 +4219,133 @@ async function saveDailyPrediction(prediction, weatherData, aiFactor) {
     }
 }
 
+// ============================================
+// 獲取並顯示平滑預測
+// ============================================
+async function fetchAndDisplaySmoothedPrediction(targetDate, realtimePred) {
+    try {
+        const response = await fetch(`/api/smoothing-methods?date=${targetDate}`);
+        
+        if (!response.ok) {
+            console.log(`ℹ️ 沒有找到 ${targetDate} 的平滑預測數據`);
+            // 隱藏平滑預測部分，顯示實時預測為主要數字
+            displayRealtimeAsMain(realtimePred);
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success || !data.recommended) {
+            console.log(`ℹ️ ${targetDate} 沒有足夠的預測數據進行平滑`);
+            displayRealtimeAsMain(realtimePred);
+            return;
+        }
+        
+        // 有平滑數據，顯示綜合預測
+        const smoothedValue = data.recommended.value;
+        const smoothingMethod = formatSmoothingMethod(data.recommended.method);
+        const stability = data.stability;
+        
+        // 更新主預測數字（平滑後的值）
+        document.getElementById('today-predicted').textContent = smoothedValue;
+        
+        // 更新平滑方法標籤
+        const methodEl = document.getElementById('smoothing-method');
+        if (methodEl) {
+            methodEl.textContent = smoothingMethod;
+            methodEl.title = data.recommended.reason || '平滑方法';
+        }
+        
+        // 更新穩定性指標
+        const stabilityEl = document.getElementById('stability-value');
+        if (stabilityEl && stability) {
+            const cvPercent = (stability.cv * 100).toFixed(1);
+            let stabilityLevel = 'medium';
+            let stabilityText = `${cvPercent}% CV`;
+            
+            if (stability.cv < 0.05) {
+                stabilityLevel = 'high';
+                stabilityText = `高 (${cvPercent}%)`;
+            } else if (stability.cv > 0.15) {
+                stabilityLevel = 'low';
+                stabilityText = `低 (${cvPercent}%)`;
+            } else {
+                stabilityText = `中 (${cvPercent}%)`;
+            }
+            
+            stabilityEl.textContent = stabilityText;
+            stabilityEl.className = `stability-value ${stabilityLevel}`;
+        }
+        
+        // 更新 CI（使用平滑後的 CI）
+        if (data.smoothedCI) {
+            document.getElementById('today-ci80').textContent = 
+                `${data.smoothedCI.ci80.low} - ${data.smoothedCI.ci80.high} 人`;
+            document.getElementById('today-ci95').textContent = 
+                `${data.smoothedCI.ci95.low} - ${data.smoothedCI.ci95.high} 人`;
+        }
+        
+        // 計算實時預測與平滑預測的差異
+        const diff = realtimePred.predicted - smoothedValue;
+        const diffEl = document.getElementById('realtime-diff');
+        if (diffEl) {
+            if (Math.abs(diff) < 3) {
+                diffEl.textContent = '≈ 一致';
+                diffEl.className = 'realtime-diff neutral';
+            } else if (diff > 0) {
+                diffEl.textContent = `+${diff}`;
+                diffEl.className = 'realtime-diff positive';
+            } else {
+                diffEl.textContent = `${diff}`;
+                diffEl.className = 'realtime-diff negative';
+            }
+        }
+        
+        console.log(`✅ 已載入平滑預測: ${smoothedValue} (${smoothingMethod}), 實時: ${realtimePred.predicted}`);
+        
+    } catch (error) {
+        console.error('獲取平滑預測時出錯:', error);
+        displayRealtimeAsMain(realtimePred);
+    }
+}
+
+// 顯示實時預測為主要數字（當沒有平滑數據時）
+function displayRealtimeAsMain(realtimePred) {
+    // 隱藏穩定性指標
+    const stabilityIndicator = document.getElementById('stability-indicator');
+    if (stabilityIndicator) {
+        stabilityIndicator.style.display = 'none';
+    }
+    
+    // 更新方法標籤
+    const methodEl = document.getElementById('smoothing-method');
+    if (methodEl) {
+        methodEl.textContent = '實時計算';
+    }
+    
+    // 差異顯示為一致
+    const diffEl = document.getElementById('realtime-diff');
+    if (diffEl) {
+        diffEl.textContent = '= 主預測';
+        diffEl.className = 'realtime-diff neutral';
+    }
+}
+
+// 格式化平滑方法名稱
+function formatSmoothingMethod(method) {
+    const methodNames = {
+        'simpleAverage': '簡單平均',
+        'ewma': 'EWMA',
+        'confidenceWeighted': '信心加權',
+        'timeWindowWeighted': '時段加權',
+        'trimmedMean': '修剪平均',
+        'varianceFiltered': '方差過濾',
+        'kalman': '卡爾曼濾波',
+        'ensembleMeta': '集成方法'
+    };
+    return methodNames[method] || method;
+}
+
 // UI 更新
 // ============================================
 function updateUI(predictor) {
@@ -4246,6 +4373,16 @@ function updateUI(predictor) {
     
     const todayDateFormatted = formatDateDDMM(todayPred.date, true); // 今日預測顯示完整日期
     document.getElementById('today-date').textContent = `${todayDateFormatted} ${todayPred.dayName}`;
+    
+    // 獲取並顯示平滑預測和實時預測
+    fetchAndDisplaySmoothedPrediction(today, todayPred);
+    
+    // 顯示實時預測（當前計算的值）
+    document.getElementById('realtime-predicted').textContent = todayPred.predicted;
+    const hkNow = getHKTime();
+    document.getElementById('realtime-time').textContent = `${hkNow.timeStr}`;
+    
+    // 默認顯示實時預測作為主要數字（如果沒有平滑數據）
     document.getElementById('today-predicted').textContent = todayPred.predicted;
     document.getElementById('today-ci80').textContent = `${todayPred.ci80.lower} - ${todayPred.ci80.upper} 人`;
     document.getElementById('today-ci95').textContent = `${todayPred.ci95.lower} - ${todayPred.ci95.upper} 人`;

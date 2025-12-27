@@ -69,12 +69,42 @@
                         <h2 class="card-title">今日預測</h2>
                         <span class="date-badge" id="today-date">--</span>
                     </div>
-                    <div class="prediction-value-container">
-                        <div class="prediction-value">
-                            <span class="big-number" id="today-predicted">--</span>
-                            <span class="unit">人</span>
+                    
+                    <!-- 平滑後最終預測 -->
+                    <div class="smoothed-prediction-section">
+                        <div class="prediction-type-label">
+                            <span class="label-icon">📊</span>
+                            <span class="label-text">綜合預測</span>
+                            <span class="smoothing-method" id="smoothing-method" title="平滑方法">--</span>
+                        </div>
+                        <div class="prediction-value-container">
+                            <div class="prediction-value">
+                                <span class="big-number" id="today-predicted">--</span>
+                                <span class="unit">人</span>
+                            </div>
+                        </div>
+                        <div class="stability-indicator" id="stability-indicator">
+                            <span class="stability-label">穩定性</span>
+                            <span class="stability-value" id="stability-value">--</span>
                         </div>
                     </div>
+                    
+                    <!-- 實時最新預測 -->
+                    <div class="realtime-prediction-section">
+                        <div class="prediction-type-label realtime">
+                            <span class="label-icon">⚡</span>
+                            <span class="label-text">實時預測</span>
+                            <span class="realtime-time" id="realtime-time">--</span>
+                        </div>
+                        <div class="realtime-value-container">
+                            <div class="realtime-value">
+                                <span class="realtime-number" id="realtime-predicted">--</span>
+                                <span class="unit">人</span>
+                            </div>
+                            <div class="realtime-diff" id="realtime-diff"></div>
+                        </div>
+                    </div>
+                    
                     <div class="confidence-intervals">
                         <div class="ci-item">
                             <span class="ci-label">80% 信賴區間</span>
@@ -289,7 +319,7 @@
         <!-- 頁腳 -->
         <footer class="app-footer">
             <p id="data-source-info" style="cursor: pointer; text-decoration: underline;">數據來源：載入中...</p>
-            <p>預測模型版本 2.3.3 · 香港時間 HKT</p>
+            <p>預測模型版本 2.5.0 · 香港時間 HKT</p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2025 Marco Ma. All Rights Reserved.</p>
         </footer>
     </div>
