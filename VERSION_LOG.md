@@ -1,5 +1,71 @@
 # 版本更新日誌
 
+## v2.5.0 - 2025-12-27 15:30 HKT
+
+### ✨ 新功能：預測平滑模組 (9種方法)
+
+**功能描述**：
+- 將每日48次（每30分鐘）預測平滑為一個最終預測值
+- 實現9種不同的平滑方法，提供更準確的預測
+
+**平滑方法**：
+
+1. **Simple Moving Average (Baseline)**
+   - 所有48次預測的簡單算術平均值
+
+2. **EWMA (指數加權移動平均)**
+   - α=0.65，較晚的預測權重更高
+   
+3. **Confidence Weighted (信心度加權)**
+   - 根據預測信心度加權平均
+
+4. **Time-Window Weighted (時段加權)**
+   - 根據歷史準確度對不同時段預測加權
+   - 新增 `timeslot_accuracy` 資料表追蹤時段準確度
+
+5. **Trimmed Mean (修剪平均)**
+   - 移除頂部和底部10%異常預測
+
+6. **Variance-Based Filtering (方差過濾)**
+   - 排除超過1.5σ的異常預測後使用EWMA
+
+7. **Kalman Filter (卡爾曼濾波)**
+   - 將預測視為對真實值的帶噪測量
+
+8. **Ensemble Meta-Method (集成元方法)**
+   - 綜合多種平滑方法的加權結果
+
+9. **Stability Analysis (穩定性分析)**
+   - 計算變異係數(CV)作為質量指標
+
+**新增檔案**：
+- `modules/prediction-smoother.js` - 完整平滑模組
+
+**資料庫變更**：
+- 更新 `final_daily_predictions` 表結構
+  - 新增 `smoothing_method` 欄位
+  - 新增 `smoothing_details` JSONB 欄位
+  - 新增 `stability_cv` 和 `stability_level`
+- 新增 `timeslot_accuracy` 表 - 追蹤時段準確度
+- 新增 `smoothing_config` 表 - 可配置平滑參數
+
+**新增 API 端點**：
+- `GET /api/smoothing-methods?date=YYYY-MM-DD` - 獲取所有平滑結果
+- `GET /api/timeslot-accuracy` - 獲取時段準確度統計
+- `GET /api/smoothing-config` - 獲取平滑配置
+- `POST /api/smoothing-config` - 更新平滑配置
+- `POST /api/recalculate-smoothed-prediction` - 重新計算平滑預測
+- `POST /api/batch-smooth-predictions` - 批量計算多日平滑預測
+
+**技術細節**：
+- 根據穩定性自動選擇最佳方法：
+  - CV < 5%: 使用簡單平均（高穩定）
+  - CV > 15%: 使用方差過濾（低穩定）
+  - 其他: 使用集成元方法（中等穩定）
+- 平滑後的 CI 根據穩定性調整寬度
+
+---
+
 ## v2.4.43 - 2025-12-27 00:25 HKT
 
 ### 🔧 修復：問題 Unicode 字符顯示為 ?

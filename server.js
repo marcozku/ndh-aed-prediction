@@ -1724,6 +1724,312 @@ const apiHandlers = {
         }
     },
     
+    // ============================================================
+    // 預測平滑 API 端點
+    // ============================================================
+    
+    // 獲取某日所有預測的平滑結果
+    'GET /api/smoothing-methods': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        
+        try {
+            const parsedUrl = url.parse(req.url, true);
+            const targetDate = parsedUrl.query.date;
+            
+            if (!targetDate) {
+                return sendJson(res, { error: '需要提供 date 參數' }, 400);
+            }
+            
+            // 獲取該日所有預測
+            const predictions = await db.getDailyPredictions(targetDate);
+            
+            if (predictions.length === 0) {
+                return sendJson(res, { 
+                    success: false, 
+                    error: `沒有找到 ${targetDate} 的預測數據` 
+                }, 404);
+            }
+            
+            // 使用平滑模組計算所有方法
+            const { getPredictionSmoother } = require('./modules/prediction-smoother');
+            const smoother = getPredictionSmoother();
+            const results = smoother.smoothAll(predictions);
+            const recommended = smoother.getRecommendedPrediction(results);
+            
+            sendJson(res, {
+                success: true,
+                targetDate: targetDate,
+                predictionCount: predictions.length,
+                methods: {
+                    simpleAverage: results.simpleAverage,
+                    ewma: results.ewma,
+                    confidenceWeighted: results.confidenceWeighted,
+                    timeWindowWeighted: results.timeWindowWeighted,
+                    trimmedMean: results.trimmedMean,
+                    varianceFiltered: results.varianceFiltered,
+                    kalman: results.kalman,
+                    ensembleMeta: results.ensembleMeta
+                },
+                stability: results.stability,
+                smoothedCI: results.smoothedCI,
+                rawStats: results.rawStats,
+                recommended: recommended
+            });
+        } catch (err) {
+            console.error('獲取平滑結果失敗:', err);
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+    
+    // 獲取時段準確度統計
+    'GET /api/timeslot-accuracy': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        
+        try {
+            const stats = await db.getTimeslotAccuracyStats();
+            
+            // 找出表現最好和最差的時段
+            let bestSlot = null;
+            let worstSlot = null;
+            
+            if (stats.length > 0) {
+                stats.sort((a, b) => parseFloat(a.mae) - parseFloat(b.mae));
+                bestSlot = {
+                    timeSlot: stats[0].time_slot,
+                    mae: parseFloat(stats[0].mae).toFixed(2),
+                    count: stats[0].prediction_count
+                };
+                worstSlot = {
+                    timeSlot: stats[stats.length - 1].time_slot,
+                    mae: parseFloat(stats[stats.length - 1].mae).toFixed(2),
+                    count: stats[stats.length - 1].prediction_count
+                };
+            }
+            
+            sendJson(res, {
+                success: true,
+                stats: stats.map(s => ({
+                    timeSlot: s.time_slot,
+                    predictionCount: parseInt(s.prediction_count),
+                    mae: parseFloat(s.mae).toFixed(2),
+                    meanError: parseFloat(s.me).toFixed(2),
+                    stddevError: parseFloat(s.stddev_error || 0).toFixed(2),
+                    minError: parseInt(s.min_error),
+                    maxError: parseInt(s.max_error)
+                })),
+                summary: {
+                    totalTimeSlots: stats.length,
+                    bestSlot: bestSlot,
+                    worstSlot: worstSlot
+                }
+            });
+        } catch (err) {
+            console.error('獲取時段準確度失敗:', err);
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+    
+    // 獲取平滑配置
+    'GET /api/smoothing-config': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        
+        try {
+            const config = await db.getSmoothingConfig();
+            
+            if (!config) {
+                // 返回默認配置
+                return sendJson(res, {
+                    success: true,
+                    config: {
+                        ewmaAlpha: 0.65,
+                        kalmanProcessNoise: 1.0,
+                        kalmanMeasurementNoise: 10.0,
+                        trimPercent: 0.10,
+                        varianceThreshold: 1.5,
+                        metaWeights: {
+                            ewma: 0.30,
+                            timeWindowWeighted: 0.25,
+                            trimmedMean: 0.20,
+                            kalman: 0.25
+                        }
+                    },
+                    isDefault: true
+                });
+            }
+            
+            sendJson(res, {
+                success: true,
+                config: {
+                    ewmaAlpha: parseFloat(config.ewma_alpha),
+                    kalmanProcessNoise: parseFloat(config.kalman_process_noise),
+                    kalmanMeasurementNoise: parseFloat(config.kalman_measurement_noise),
+                    trimPercent: parseFloat(config.trim_percent),
+                    varianceThreshold: parseFloat(config.variance_threshold),
+                    metaWeights: config.meta_weights
+                },
+                updatedAt: config.updated_at,
+                isDefault: false
+            });
+        } catch (err) {
+            console.error('獲取平滑配置失敗:', err);
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+    
+    // 更新平滑配置
+    'POST /api/smoothing-config': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        
+        try {
+            const data = await parseBody(req);
+            
+            const updated = await db.updateSmoothingConfig({
+                ewmaAlpha: data.ewmaAlpha,
+                kalmanProcessNoise: data.kalmanProcessNoise,
+                kalmanMeasurementNoise: data.kalmanMeasurementNoise,
+                trimPercent: data.trimPercent,
+                varianceThreshold: data.varianceThreshold,
+                metaWeights: data.metaWeights
+            });
+            
+            // 也更新平滑器實例
+            const { getPredictionSmoother } = require('./modules/prediction-smoother');
+            const smoother = getPredictionSmoother();
+            smoother.updateConfig(data);
+            
+            sendJson(res, {
+                success: true,
+                message: '平滑配置已更新',
+                config: updated
+            });
+        } catch (err) {
+            console.error('更新平滑配置失敗:', err);
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+    
+    // 重新計算某日的平滑預測（使用指定方法）
+    'POST /api/recalculate-smoothed-prediction': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        
+        try {
+            const data = await parseBody(req);
+            const targetDate = data.target_date;
+            const method = data.method; // 可選：指定使用的平滑方法
+            
+            if (!targetDate) {
+                return sendJson(res, { error: '需要提供 target_date' }, 400);
+            }
+            
+            const result = await db.calculateFinalDailyPrediction(targetDate, { method });
+            
+            if (!result) {
+                return sendJson(res, { 
+                    success: false, 
+                    error: `沒有找到 ${targetDate} 的預測數據` 
+                }, 404);
+            }
+            
+            sendJson(res, {
+                success: true,
+                message: `已重新計算 ${targetDate} 的平滑預測`,
+                data: {
+                    targetDate: targetDate,
+                    predictedCount: result.predicted_count,
+                    smoothingMethod: result.smoothing_method,
+                    stabilityCV: result.stability_cv,
+                    stabilityLevel: result.stability_level,
+                    predictionCount: result.prediction_count,
+                    ci80: {
+                        low: result.ci80_low,
+                        high: result.ci80_high
+                    },
+                    ci95: {
+                        low: result.ci95_low,
+                        high: result.ci95_high
+                    },
+                    smoothingResults: result.smoothingResults,
+                    recommendedMethod: result.recommendedMethod
+                }
+            });
+        } catch (err) {
+            console.error('重新計算平滑預測失敗:', err);
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+    
+    // 批量計算多日的平滑預測
+    'POST /api/batch-smooth-predictions': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        
+        try {
+            const data = await parseBody(req);
+            const startDate = data.start_date;
+            const endDate = data.end_date;
+            const method = data.method;
+            
+            if (!startDate || !endDate) {
+                return sendJson(res, { error: '需要提供 start_date 和 end_date' }, 400);
+            }
+            
+            // 獲取日期範圍內所有有預測的日期
+            const datesResult = await db.pool.query(`
+                SELECT DISTINCT target_date 
+                FROM daily_predictions 
+                WHERE target_date >= $1 AND target_date <= $2
+                ORDER BY target_date
+            `, [startDate, endDate]);
+            
+            const results = [];
+            for (const row of datesResult.rows) {
+                const dateStr = row.target_date.toISOString().split('T')[0];
+                try {
+                    const result = await db.calculateFinalDailyPrediction(dateStr, { method });
+                    if (result) {
+                        results.push({
+                            targetDate: dateStr,
+                            predictedCount: result.predicted_count,
+                            method: result.smoothing_method,
+                            stabilityCV: result.stability_cv,
+                            success: true
+                        });
+                    }
+                } catch (err) {
+                    results.push({
+                        targetDate: dateStr,
+                        error: err.message,
+                        success: false
+                    });
+                }
+            }
+            
+            sendJson(res, {
+                success: true,
+                message: `已處理 ${results.length} 個日期`,
+                processed: results.filter(r => r.success).length,
+                failed: results.filter(r => !r.success).length,
+                results: results
+            });
+        } catch (err) {
+            console.error('批量計算平滑預測失敗:', err);
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+    
+    // ============================================================
+    
     // 更新 AI 因素緩存（保存到數據庫）
     'POST /api/convert-to-traditional': async (req, res) => {
         try {

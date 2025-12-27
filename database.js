@@ -265,10 +265,60 @@ async function initDatabase() {
                 ci95_high INTEGER,
                 prediction_count INTEGER NOT NULL,
                 model_version VARCHAR(50) DEFAULT '1.0.0',
+                smoothing_method VARCHAR(50) DEFAULT 'simpleAverage',
+                smoothing_details JSONB,
+                stability_cv DECIMAL(6,4),
+                stability_level VARCHAR(20),
                 calculated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(target_date)
             )
         `);
+        
+        // Table for time-slot accuracy history (for Time-Window Weighted smoothing)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS timeslot_accuracy (
+                id SERIAL PRIMARY KEY,
+                time_slot VARCHAR(5) NOT NULL,
+                target_date DATE NOT NULL,
+                predicted_count INTEGER NOT NULL,
+                actual_count INTEGER,
+                error INTEGER,
+                abs_error INTEGER,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(time_slot, target_date)
+            )
+        `);
+        
+        // Create index for timeslot_accuracy
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_timeslot_accuracy_time_slot ON timeslot_accuracy(time_slot)
+        `);
+        
+        // Table for smoothing configuration and history
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS smoothing_config (
+                id SERIAL PRIMARY KEY,
+                config_name VARCHAR(50) NOT NULL DEFAULT 'default',
+                ewma_alpha DECIMAL(4,3) DEFAULT 0.650,
+                kalman_process_noise DECIMAL(6,3) DEFAULT 1.000,
+                kalman_measurement_noise DECIMAL(6,3) DEFAULT 10.000,
+                trim_percent DECIMAL(4,3) DEFAULT 0.100,
+                variance_threshold DECIMAL(4,2) DEFAULT 1.50,
+                meta_weights JSONB DEFAULT '{"ewma":0.30,"timeWindowWeighted":0.25,"trimmedMean":0.20,"kalman":0.25}',
+                is_active BOOLEAN DEFAULT true,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(config_name)
+            )
+        `);
+        
+        // Initialize smoothing config if empty
+        const smoothingConfigCheck = await client.query('SELECT COUNT(*) FROM smoothing_config');
+        if (parseInt(smoothingConfigCheck.rows[0].count) === 0) {
+            await client.query(`
+                INSERT INTO smoothing_config (config_name, is_active)
+                VALUES ('default', true)
+            `);
+        }
 
         // Initialize with default record if empty
         const checkResult = await client.query('SELECT COUNT(*) FROM ai_factors_cache');
@@ -504,6 +554,13 @@ async function calculateAccuracy(targetDate) {
             withinCi95
         ]);
         
+        // 更新時段準確度（用於 Time-Window Weighted 平滑）
+        try {
+            await updateTimeslotAccuracy(targetDate, actualCount);
+        } catch (err) {
+            console.warn(`⚠️ 更新時段準確度失敗 (${targetDate}):`, err.message);
+        }
+        
         return result.rows[0];
     } finally {
         client.release();
@@ -706,11 +763,13 @@ async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, mod
     return result.rows[0];
 }
 
-// Calculate and save final daily prediction (average of all predictions for that day)
-async function calculateFinalDailyPrediction(targetDate) {
+// Calculate and save final daily prediction using smoothing methods
+async function calculateFinalDailyPrediction(targetDate, options = {}) {
+    const { getPredictionSmoother } = require('./modules/prediction-smoother');
     const client = await pool.connect();
+    
     try {
-        // Get all predictions for the target date
+        // Get all predictions for the target date with timestamps
         const predictionsResult = await client.query(`
             SELECT 
                 predicted_count,
@@ -718,7 +777,8 @@ async function calculateFinalDailyPrediction(targetDate) {
                 ci80_high,
                 ci95_low,
                 ci95_high,
-                model_version
+                model_version,
+                created_at
             FROM daily_predictions
             WHERE target_date = $1
             ORDER BY created_at
@@ -732,33 +792,130 @@ async function calculateFinalDailyPrediction(targetDate) {
         const predictions = predictionsResult.rows;
         const count = predictions.length;
 
-        // Calculate averages
-        const avgPredicted = Math.round(
-            predictions.reduce((sum, p) => sum + p.predicted_count, 0) / count
-        );
-        const avgCi80Low = Math.round(
-            predictions.reduce((sum, p) => sum + (p.ci80_low || 0), 0) / count
-        );
-        const avgCi80High = Math.round(
-            predictions.reduce((sum, p) => sum + (p.ci80_high || 0), 0) / count
-        );
-        const avgCi95Low = Math.round(
-            predictions.reduce((sum, p) => sum + (p.ci95_low || 0), 0) / count
-        );
-        const avgCi95High = Math.round(
-            predictions.reduce((sum, p) => sum + (p.ci95_high || 0), 0) / count
-        );
+        // Get historical time-slot accuracy for weighted smoothing
+        let historicalAccuracyByTimeSlot = null;
+        try {
+            const accuracyResult = await client.query(`
+                SELECT 
+                    time_slot,
+                    AVG(abs_error) as mae,
+                    COUNT(*) as count
+                FROM timeslot_accuracy
+                WHERE actual_count IS NOT NULL
+                GROUP BY time_slot
+            `);
+            if (accuracyResult.rows.length > 0) {
+                historicalAccuracyByTimeSlot = {};
+                for (const row of accuracyResult.rows) {
+                    historicalAccuracyByTimeSlot[row.time_slot] = {
+                        mae: parseFloat(row.mae) || 10,
+                        count: parseInt(row.count) || 1
+                    };
+                }
+            }
+        } catch (err) {
+            console.warn('⚠️ 無法獲取時段準確度歷史:', err.message);
+        }
+
+        // Get smoothing config
+        let smootherOptions = {};
+        try {
+            const configResult = await client.query(`
+                SELECT * FROM smoothing_config WHERE is_active = true LIMIT 1
+            `);
+            if (configResult.rows.length > 0) {
+                const config = configResult.rows[0];
+                smootherOptions = {
+                    ewmaAlpha: parseFloat(config.ewma_alpha) || 0.65,
+                    kalmanProcessNoise: parseFloat(config.kalman_process_noise) || 1.0,
+                    kalmanMeasurementNoise: parseFloat(config.kalman_measurement_noise) || 10.0,
+                    trimPercent: parseFloat(config.trim_percent) || 0.10,
+                    varianceThreshold: parseFloat(config.variance_threshold) || 1.5,
+                    metaWeights: config.meta_weights || { ewma: 0.30, timeWindowWeighted: 0.25, trimmedMean: 0.20, kalman: 0.25 }
+                };
+            }
+        } catch (err) {
+            console.warn('⚠️ 無法獲取平滑配置，使用默認值:', err.message);
+        }
+
+        // Add historical accuracy data to smoother options
+        if (historicalAccuracyByTimeSlot) {
+            smootherOptions.historicalAccuracyByTimeSlot = historicalAccuracyByTimeSlot;
+        }
+
+        // Initialize smoother and run all methods
+        const smoother = getPredictionSmoother(smootherOptions);
+        const smoothedResults = smoother.smoothAll(predictions);
+        
+        // Get recommended prediction
+        const recommended = smoother.getRecommendedPrediction(smoothedResults);
+        
+        // Determine which method to use
+        const method = options.method || recommended.method;
+        let finalPrediction;
+        let smoothingMethod = method;
+        
+        switch (method) {
+            case 'simpleAverage':
+                finalPrediction = smoothedResults.simpleAverage.value;
+                break;
+            case 'ewma':
+                finalPrediction = smoothedResults.ewma.value;
+                break;
+            case 'confidenceWeighted':
+                finalPrediction = smoothedResults.confidenceWeighted.value;
+                break;
+            case 'timeWindowWeighted':
+                finalPrediction = smoothedResults.timeWindowWeighted.value;
+                break;
+            case 'trimmedMean':
+                finalPrediction = smoothedResults.trimmedMean.value;
+                break;
+            case 'varianceFiltered':
+                finalPrediction = smoothedResults.varianceFiltered.value;
+                break;
+            case 'kalman':
+                finalPrediction = smoothedResults.kalman.value;
+                break;
+            case 'ensembleMeta':
+            default:
+                finalPrediction = smoothedResults.ensembleMeta.value;
+                smoothingMethod = 'ensembleMeta';
+                break;
+        }
+
+        // Get smoothed CI
+        const smoothedCI = smoothedResults.smoothedCI;
+        const stability = smoothedResults.stability;
 
         // Get most recent model version
         const latestModelVersion = predictions[predictions.length - 1].model_version;
+
+        // Prepare smoothing details for storage
+        const smoothingDetails = {
+            allMethods: {
+                simpleAverage: smoothedResults.simpleAverage.value,
+                ewma: smoothedResults.ewma.value,
+                confidenceWeighted: smoothedResults.confidenceWeighted.value,
+                timeWindowWeighted: smoothedResults.timeWindowWeighted.value,
+                trimmedMean: smoothedResults.trimmedMean.value,
+                varianceFiltered: smoothedResults.varianceFiltered.value,
+                kalman: smoothedResults.kalman.value,
+                ensembleMeta: smoothedResults.ensembleMeta.value
+            },
+            recommended: recommended,
+            rawStats: smoothedResults.rawStats,
+            smootherConfig: smoother.getConfig()
+        };
 
         // Insert or update final prediction
         const query = `
             INSERT INTO final_daily_predictions (
                 target_date, predicted_count, ci80_low, ci80_high, ci95_low, ci95_high,
-                prediction_count, model_version
+                prediction_count, model_version, smoothing_method, smoothing_details,
+                stability_cv, stability_level
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             ON CONFLICT (target_date) DO UPDATE SET
                 predicted_count = EXCLUDED.predicted_count,
                 ci80_low = EXCLUDED.ci80_low,
@@ -767,25 +924,158 @@ async function calculateFinalDailyPrediction(targetDate) {
                 ci95_high = EXCLUDED.ci95_high,
                 prediction_count = EXCLUDED.prediction_count,
                 model_version = EXCLUDED.model_version,
+                smoothing_method = EXCLUDED.smoothing_method,
+                smoothing_details = EXCLUDED.smoothing_details,
+                stability_cv = EXCLUDED.stability_cv,
+                stability_level = EXCLUDED.stability_level,
                 calculated_at = CURRENT_TIMESTAMP
             RETURNING *
         `;
         const result = await client.query(query, [
             targetDate,
-            avgPredicted,
-            avgCi80Low,
-            avgCi80High,
-            avgCi95Low,
-            avgCi95High,
+            finalPrediction,
+            smoothedCI.ci80.low,
+            smoothedCI.ci80.high,
+            smoothedCI.ci95.low,
+            smoothedCI.ci95.high,
             count,
-            latestModelVersion
+            latestModelVersion,
+            smoothingMethod,
+            JSON.stringify(smoothingDetails),
+            stability.cv,
+            stability.confidenceLevel
         ]);
 
-        console.log(`✅ 已計算並保存 ${targetDate} 的最終預測（基於 ${count} 次預測的平均值）`);
-        return result.rows[0];
+        console.log(`✅ 已計算並保存 ${targetDate} 的最終預測（${count}次預測，方法: ${smoothingMethod}，CV: ${(stability.cv * 100).toFixed(2)}%）`);
+        
+        // Return result with all smoothing details
+        return {
+            ...result.rows[0],
+            smoothingResults: smoothedResults,
+            recommendedMethod: recommended
+        };
     } finally {
         client.release();
     }
+}
+
+// Get daily predictions for a target date (all 48 predictions)
+async function getDailyPredictions(targetDate) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+    const query = `
+        SELECT * FROM daily_predictions
+        WHERE target_date = $1
+        ORDER BY created_at
+    `;
+    const result = await queryWithRetry(query, [targetDate]);
+    return result.rows;
+}
+
+// Update time-slot accuracy after actual data is known
+async function updateTimeslotAccuracy(targetDate, actualCount) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+    
+    const client = await pool.connect();
+    try {
+        // Get all predictions for the target date with their time slots
+        const predictions = await client.query(`
+            SELECT 
+                predicted_count,
+                TO_CHAR(created_at AT TIME ZONE 'Asia/Hong_Kong', 'HH24:') || 
+                CASE WHEN EXTRACT(MINUTE FROM created_at AT TIME ZONE 'Asia/Hong_Kong') < 30 
+                     THEN '00' ELSE '30' END as time_slot
+            FROM daily_predictions
+            WHERE target_date = $1
+        `, [targetDate]);
+
+        let updatedCount = 0;
+        for (const pred of predictions.rows) {
+            const error = pred.predicted_count - actualCount;
+            const absError = Math.abs(error);
+            
+            await client.query(`
+                INSERT INTO timeslot_accuracy (time_slot, target_date, predicted_count, actual_count, error, abs_error)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                ON CONFLICT (time_slot, target_date) DO UPDATE SET
+                    actual_count = EXCLUDED.actual_count,
+                    error = EXCLUDED.error,
+                    abs_error = EXCLUDED.abs_error
+            `, [pred.time_slot, targetDate, pred.predicted_count, actualCount, error, absError]);
+            updatedCount++;
+        }
+        
+        console.log(`📊 已更新 ${updatedCount} 筆時段準確度記錄（${targetDate}）`);
+        return updatedCount;
+    } finally {
+        client.release();
+    }
+}
+
+// Get time-slot accuracy statistics
+async function getTimeslotAccuracyStats() {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+    
+    const query = `
+        SELECT 
+            time_slot,
+            COUNT(*) as prediction_count,
+            AVG(abs_error) as mae,
+            AVG(error) as me,
+            STDDEV(error) as stddev_error,
+            MIN(abs_error) as min_error,
+            MAX(abs_error) as max_error
+        FROM timeslot_accuracy
+        WHERE actual_count IS NOT NULL
+        GROUP BY time_slot
+        ORDER BY time_slot
+    `;
+    const result = await queryWithRetry(query);
+    return result.rows;
+}
+
+// Get or update smoothing config
+async function getSmoothingConfig() {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+    
+    const query = `SELECT * FROM smoothing_config WHERE is_active = true LIMIT 1`;
+    const result = await queryWithRetry(query);
+    return result.rows[0] || null;
+}
+
+async function updateSmoothingConfig(config) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+    
+    const query = `
+        UPDATE smoothing_config
+        SET ewma_alpha = COALESCE($1, ewma_alpha),
+            kalman_process_noise = COALESCE($2, kalman_process_noise),
+            kalman_measurement_noise = COALESCE($3, kalman_measurement_noise),
+            trim_percent = COALESCE($4, trim_percent),
+            variance_threshold = COALESCE($5, variance_threshold),
+            meta_weights = COALESCE($6, meta_weights),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE is_active = true
+        RETURNING *
+    `;
+    const result = await queryWithRetry(query, [
+        config.ewmaAlpha,
+        config.kalmanProcessNoise,
+        config.kalmanMeasurementNoise,
+        config.trimPercent,
+        config.varianceThreshold,
+        config.metaWeights ? JSON.stringify(config.metaWeights) : null
+    ]);
+    return result.rows[0];
 }
 
 // Get final daily predictions
@@ -850,6 +1140,12 @@ module.exports = {
     insertDailyPrediction,
     calculateFinalDailyPrediction,
     getFinalDailyPredictions,
-    clearAllData
+    clearAllData,
+    // 新增：平滑相關函數
+    getDailyPredictions,
+    updateTimeslotAccuracy,
+    getTimeslotAccuracyStats,
+    getSmoothingConfig,
+    updateSmoothingConfig
 };
 
