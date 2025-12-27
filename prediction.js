@@ -6919,6 +6919,101 @@ function initAlgorithmContent() {
         </div>
         
         <div style="grid-column: 1 / -1; margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: 1px solid var(--border-subtle);">
+            <h4 style="color: var(--accent-primary); font-size: 1.1rem; font-weight: 700; margin-bottom: var(--space-md);">📊 預測平滑算法（9種方法）</h4>
+            <p style="color: var(--text-secondary); line-height: 1.8; margin-bottom: var(--space-lg);">
+                系統每日產生 <strong style="color: var(--text-primary);">48 次預測</strong>（每 30 分鐘一次），使用 9 種平滑方法將這些預測整合為一個最終值。
+                根據預測穩定性（變異係數 CV）自動選擇最佳方法：
+            </p>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-lg); margin-bottom: var(--space-lg);">
+                <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(99, 102, 241, 0.05)); padding: var(--space-lg); border-radius: var(--radius-md); border: 1px solid rgba(59, 130, 246, 0.15);">
+                    <h5 style="color: var(--accent-primary); font-size: 0.95rem; font-weight: 600; margin-bottom: var(--space-sm);">1️⃣ 簡單移動平均（Baseline）</h5>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+                        所有 48 次預測的算術平均值。最基本的方法，用於高穩定性情況（CV < 5%）。
+                    </p>
+                </div>
+                
+                <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(52, 211, 153, 0.05)); padding: var(--space-lg); border-radius: var(--radius-md); border: 1px solid rgba(16, 185, 129, 0.15);">
+                    <h5 style="color: #10b981; font-size: 0.95rem; font-weight: 600; margin-bottom: var(--space-sm);">2️⃣ 指數加權移動平均（EWMA）</h5>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+                        α = 0.65，較晚的預測權重更高。公式：<br>
+                        <code style="background: rgba(0,0,0,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">S_t = α × X_t + (1-α) × S_{t-1}</code>
+                    </p>
+                </div>
+                
+                <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(251, 191, 36, 0.05)); padding: var(--space-lg); border-radius: var(--radius-md); border: 1px solid rgba(245, 158, 11, 0.15);">
+                    <h5 style="color: #f59e0b; font-size: 0.95rem; font-weight: 600; margin-bottom: var(--space-sm);">3️⃣ 信心度加權平均</h5>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+                        根據每次預測的信心度（Confidence）加權。信心度越高，權重越大。
+                    </p>
+                </div>
+                
+                <div style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(167, 139, 250, 0.05)); padding: var(--space-lg); border-radius: var(--radius-md); border: 1px solid rgba(139, 92, 246, 0.15);">
+                    <h5 style="color: #8b5cf6; font-size: 0.95rem; font-weight: 600; margin-bottom: var(--space-sm);">4️⃣ 時段加權集成</h5>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+                        根據歷史準確度對不同時段的預測加權。MAE 較低的時段權重較高。
+                    </p>
+                </div>
+                
+                <div style="background: linear-gradient(135deg, rgba(236, 72, 153, 0.08), rgba(244, 114, 182, 0.05)); padding: var(--space-lg); border-radius: var(--radius-md); border: 1px solid rgba(236, 72, 153, 0.15);">
+                    <h5 style="color: #ec4899; font-size: 0.95rem; font-weight: 600; margin-bottom: var(--space-sm);">5️⃣ 修剪平均（Trimmed Mean）</h5>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+                        移除頂部和底部 10% 的異常預測後取平均。排除極端值的穩健方法。
+                    </p>
+                </div>
+                
+                <div style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(248, 113, 113, 0.05)); padding: var(--space-lg); border-radius: var(--radius-md); border: 1px solid rgba(239, 68, 68, 0.15);">
+                    <h5 style="color: #ef4444; font-size: 0.95rem; font-weight: 600; margin-bottom: var(--space-sm);">6️⃣ 方差過濾（Variance-Based）</h5>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+                        排除超過 1.5σ 的異常預測後使用 EWMA。用於低穩定性情況（CV > 15%）。
+                    </p>
+                </div>
+                
+                <div style="background: linear-gradient(135deg, rgba(14, 165, 233, 0.08), rgba(56, 189, 248, 0.05)); padding: var(--space-lg); border-radius: var(--radius-md); border: 1px solid rgba(14, 165, 233, 0.15);">
+                    <h5 style="color: #0ea5e9; font-size: 0.95rem; font-weight: 600; margin-bottom: var(--space-sm);">7️⃣ 卡爾曼濾波（Kalman Filter）</h5>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+                        將預測視為對真實值的帶噪測量。遞歸估計最優狀態，過程噪音 Q=1.0，測量噪音 R=10.0。
+                    </p>
+                </div>
+                
+                <div style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(74, 222, 128, 0.05)); padding: var(--space-lg); border-radius: var(--radius-md); border: 1px solid rgba(34, 197, 94, 0.15);">
+                    <h5 style="color: #22c55e; font-size: 0.95rem; font-weight: 600; margin-bottom: var(--space-sm);">8️⃣ 集成元方法（Ensemble Meta）⭐ 推薦</h5>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+                        綜合多種方法的加權結果。權重：EWMA 30% + 時段 25% + 修剪 20% + 卡爾曼 25%。用於中等穩定性。
+                    </p>
+                </div>
+                
+                <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(129, 140, 248, 0.05)); padding: var(--space-lg); border-radius: var(--radius-md); border: 1px solid rgba(99, 102, 241, 0.15);">
+                    <h5 style="color: #6366f1; font-size: 0.95rem; font-weight: 600; margin-bottom: var(--space-sm);">9️⃣ 穩定性分析（Stability Analysis）</h5>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+                        計算變異係數 CV = σ/μ 作為質量指標。CV < 5% 高穩定 | 5-15% 中等 | > 15% 低穩定需審查。
+                    </p>
+                </div>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(99, 102, 241, 0.05)); padding: var(--space-lg); border-radius: var(--radius-md); border: 1px solid rgba(59, 130, 246, 0.2); margin-bottom: var(--space-lg);">
+                <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-md);">🎯 自動選擇策略</h5>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-md);">
+                    <div style="text-align: center; padding: var(--space-md); background: rgba(34, 197, 94, 0.15); border-radius: var(--radius-sm);">
+                        <span style="font-size: 1.5rem;">✅</span>
+                        <div style="font-weight: 600; color: #22c55e; margin-top: var(--space-xs);">高穩定（CV < 5%）</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">使用簡單平均</div>
+                    </div>
+                    <div style="text-align: center; padding: var(--space-md); background: rgba(245, 158, 11, 0.15); border-radius: var(--radius-sm);">
+                        <span style="font-size: 1.5rem;">⚡</span>
+                        <div style="font-weight: 600; color: #f59e0b; margin-top: var(--space-xs);">中等穩定（5-15%）</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">使用集成元方法</div>
+                    </div>
+                    <div style="text-align: center; padding: var(--space-md); background: rgba(239, 68, 68, 0.15); border-radius: var(--radius-sm);">
+                        <span style="font-size: 1.5rem;">⚠️</span>
+                        <div style="font-weight: 600; color: #ef4444; margin-top: var(--space-xs);">低穩定（CV > 15%）</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">使用方差過濾法</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="grid-column: 1 / -1; margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: 1px solid var(--border-subtle);">
             <h4 style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600; margin-bottom: var(--space-md);">研究參考文獻</h4>
             <div style="color: var(--text-primary); line-height: 1.8; font-size: 0.85rem;">
                 <p style="margin-bottom: var(--space-sm);"><strong>1. 法國醫院 XGBoost 研究（2025）⭐ 本系統採用</strong></p>

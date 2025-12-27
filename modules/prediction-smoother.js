@@ -4,8 +4,8 @@
  * 將每日48次預測（每30分鐘）平滑為一個最終預測值
  * 用於準確度比較分析
  * 
- * @version 2.5.0
- * @date 2025-12-27 HKT
+ * @version 2.5.2
+ * @date 2025-12-27 21:00 HKT
  */
 
 class PredictionSmoother {
