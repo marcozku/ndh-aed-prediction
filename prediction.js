@@ -914,6 +914,19 @@ function getResponsiveMaxTicksLimit() {
     }
 }
 
+// 將數值四捨五入到整數（用於 Y 軸標籤）
+function roundToInteger(value) {
+    return Math.round(value);
+}
+
+// 計算合適的 Y 軸範圍，確保標籤是整數
+function calculateNiceAxisRange(minVal, maxVal, stepSize = 50) {
+    const padding = 20;
+    const min = Math.floor((minVal - padding) / stepSize) * stepSize;
+    const max = Math.ceil((maxVal + padding) / stepSize) * stepSize;
+    return { min, max };
+}
+
 // 專業圖表選項 - 手機友好，確保所有元素清晰可見
 const professionalOptions = {
     responsive: true,
@@ -1006,7 +1019,8 @@ const professionalOptions = {
                     },
                     padding: window.innerWidth <= 600 ? 6 : 10, // 響應式 padding
                     callback: function(value) {
-                        return value;
+                        // 確保 Y 軸標籤顯示為整數
+                        return Math.round(value);
                     },
                     // 確保 Y 軸標籤有足夠空間
                     maxTicksLimit: window.innerWidth <= 600 ? 6 : 10
@@ -1226,11 +1240,14 @@ async function initCharts(predictor) {
                 },
                 y: {
                     ...professionalOptions.scales.y,
-                    min: Math.floor(Math.min(...predictions.map(p => p.ci95.lower)) - 20),
-                    max: Math.ceil(Math.max(...predictions.map(p => p.ci95.upper)) + 20),
+                    min: Math.floor((Math.min(...predictions.map(p => p.ci95.lower)) - 20) / 50) * 50,
+                    max: Math.ceil((Math.max(...predictions.map(p => p.ci95.upper)) + 20) / 50) * 50,
                     ticks: {
                         ...professionalOptions.scales.y.ticks,
-                        stepSize: 20
+                        stepSize: 50,
+                        callback: function(value) {
+                            return Math.round(value);
+                        }
                     }
                 }
             }
@@ -1332,11 +1349,14 @@ async function initCharts(predictor) {
                 y: {
                     ...professionalOptions.scales.y,
                     beginAtZero: false,
-                    min: Math.floor(Math.min(...reorderedDOW) - 15),
-                    max: Math.ceil(Math.max(...reorderedDOW) + 10),
+                    min: Math.floor((Math.min(...reorderedDOW) - 15) / 20) * 20,
+                    max: Math.ceil((Math.max(...reorderedDOW) + 10) / 20) * 20,
                     ticks: {
                         ...professionalOptions.scales.y.ticks,
-                        stepSize: 15
+                        stepSize: 20,
+                        callback: function(value) {
+                            return Math.round(value);
+                        }
                     }
                 }
             }
@@ -1433,11 +1453,14 @@ async function initCharts(predictor) {
                 y: {
                     ...professionalOptions.scales.y,
                     beginAtZero: false,
-                    min: Math.floor(Math.min(...monthMeans.filter(v => v > 0)) - 10),
-                    max: Math.ceil(Math.max(...monthMeans) + 10),
+                    min: Math.floor((Math.min(...monthMeans.filter(v => v > 0)) - 10) / 20) * 20,
+                    max: Math.ceil((Math.max(...monthMeans) + 10) / 20) * 20,
                     ticks: {
                         ...professionalOptions.scales.y.ticks,
-                        stepSize: 10
+                        stepSize: 20,
+                        callback: function(value) {
+                            return Math.round(value);
+                        }
                     }
                 }
             }

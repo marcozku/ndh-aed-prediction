@@ -1388,11 +1388,11 @@ const apiHandlers = {
             const predictor = new EnsemblePredictor();
             const status = predictor.getModelStatus();
             
-            // 添加訓練狀態
+            // 添加訓練狀態（從 DB 獲取）
             try {
                 const { getAutoTrainManager } = require('./modules/auto-train-manager');
                 const trainManager = getAutoTrainManager();
-                status.training = trainManager.getStatus();
+                status.training = await trainManager.getStatusAsync();
             } catch (e) {
                 status.training = { error: '訓練管理器不可用' };
             }
@@ -1604,10 +1604,10 @@ const apiHandlers = {
                 }, 500);
             }
             
-            // 檢查是否正在訓練
+            // 檢查是否正在訓練（從 DB 獲取最新狀態）
             let currentStatus;
             try {
-                currentStatus = trainManager.getStatus();
+                currentStatus = await trainManager.getStatusAsync();
             } catch (statusErr) {
                 console.error('獲取訓練狀態失敗:', statusErr);
                 return sendJson(res, {
@@ -1638,7 +1638,7 @@ const apiHandlers = {
             // 再次獲取狀態（可能已更新）
             let finalStatus;
             try {
-                finalStatus = trainManager.getStatus();
+                finalStatus = await trainManager.getStatusAsync();
             } catch (e) {
                 finalStatus = currentStatus || {
                     isTraining: false,
@@ -1702,7 +1702,8 @@ const apiHandlers = {
                 throw new Error('訓練管理器初始化失敗');
             }
             
-            const status = trainManager.getStatus();
+            // 使用異步方法從 DB 獲取最新狀態
+            const status = await trainManager.getStatusAsync();
             
             sendJson(res, {
                 success: true,

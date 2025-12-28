@@ -320,6 +320,31 @@ async function initDatabase() {
             `);
         }
 
+        // Table for XGBoost training status (persists across deploys)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS training_status (
+                id SERIAL PRIMARY KEY,
+                status_key VARCHAR(50) NOT NULL DEFAULT 'xgboost',
+                is_training BOOLEAN DEFAULT false,
+                last_training_date TIMESTAMP WITH TIME ZONE,
+                last_data_count INTEGER DEFAULT 0,
+                training_start_time TIMESTAMP WITH TIME ZONE,
+                last_training_output TEXT,
+                last_training_error TEXT,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(status_key)
+            )
+        `);
+
+        // Initialize training_status if empty
+        const trainingStatusCheck = await client.query('SELECT COUNT(*) FROM training_status');
+        if (parseInt(trainingStatusCheck.rows[0].count) === 0) {
+            await client.query(`
+                INSERT INTO training_status (status_key, is_training, last_data_count)
+                VALUES ('xgboost', false, 0)
+            `);
+        }
+
         // Initialize with default record if empty
         const checkResult = await client.query('SELECT COUNT(*) FROM ai_factors_cache');
         if (parseInt(checkResult.rows[0].count) === 0) {
@@ -1124,6 +1149,80 @@ async function clearAllData() {
     }
 }
 
+// Get training status from database
+async function getTrainingStatus(statusKey = 'xgboost') {
+    if (!pool) return null;
+    try {
+        const result = await pool.query(
+            'SELECT * FROM training_status WHERE status_key = $1',
+            [statusKey]
+        );
+        if (result.rows.length > 0) {
+            const row = result.rows[0];
+            // 檢查是否訓練超時（1小時）
+            if (row.is_training && row.training_start_time) {
+                const startTime = new Date(row.training_start_time).getTime();
+                const elapsed = Date.now() - startTime;
+                const TRAINING_TIMEOUT = 3600000; // 1 hour
+                if (elapsed > TRAINING_TIMEOUT) {
+                    // 超時了，重置訓練狀態
+                    await pool.query(
+                        `UPDATE training_status SET 
+                            is_training = false, 
+                            training_start_time = NULL,
+                            updated_at = NOW()
+                         WHERE status_key = $1`,
+                        [statusKey]
+                    );
+                    row.is_training = false;
+                    row.training_start_time = null;
+                    console.log('⚠️ 訓練狀態已超時，自動重置');
+                }
+            }
+            return row;
+        }
+        return null;
+    } catch (error) {
+        console.error('❌ 獲取訓練狀態失敗:', error.message);
+        return null;
+    }
+}
+
+// Save training status to database
+async function saveTrainingStatus(statusKey = 'xgboost', status) {
+    if (!pool) return null;
+    try {
+        const result = await pool.query(
+            `INSERT INTO training_status 
+             (status_key, is_training, last_training_date, last_data_count, 
+              training_start_time, last_training_output, last_training_error, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+             ON CONFLICT (status_key) DO UPDATE SET
+                is_training = EXCLUDED.is_training,
+                last_training_date = COALESCE(EXCLUDED.last_training_date, training_status.last_training_date),
+                last_data_count = COALESCE(EXCLUDED.last_data_count, training_status.last_data_count),
+                training_start_time = EXCLUDED.training_start_time,
+                last_training_output = COALESCE(EXCLUDED.last_training_output, training_status.last_training_output),
+                last_training_error = COALESCE(EXCLUDED.last_training_error, training_status.last_training_error),
+                updated_at = NOW()
+             RETURNING *`,
+            [
+                statusKey,
+                status.isTraining || false,
+                status.lastTrainingDate || null,
+                status.lastDataCount || 0,
+                status.trainingStartTime || null,
+                status.lastTrainingOutput || null,
+                status.lastTrainingError || null
+            ]
+        );
+        return result.rows[0];
+    } catch (error) {
+        console.error('❌ 保存訓練狀態失敗:', error.message);
+        return null;
+    }
+}
+
 module.exports = {
     get pool() { return pool; },
     initDatabase,
@@ -1146,6 +1245,9 @@ module.exports = {
     updateTimeslotAccuracy,
     getTimeslotAccuracyStats,
     getSmoothingConfig,
-    updateSmoothingConfig
+    updateSmoothingConfig,
+    // 新增：訓練狀態函數
+    getTrainingStatus,
+    saveTrainingStatus
 };
 

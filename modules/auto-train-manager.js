@@ -1,6 +1,7 @@
 /**
  * 自動訓練管理器
  * 當有新實際數據時，自動觸發模型重訓練
+ * 訓練狀態現在使用 PostgreSQL 數據庫持久化，解決 Railway 部署後狀態重置問題
  */
 const { spawn } = require('child_process');
 const path = require('path');
@@ -16,6 +17,7 @@ class AutoTrainManager {
         this.estimatedDuration = 30 * 60 * 1000;  // 預估訓練時間：30 分鐘（毫秒）
         this.lastTrainingOutput = '';  // 上次訓練的輸出
         this.lastTrainingError = '';  // 上次訓練的錯誤
+        this._dbInitialized = false;  // 標記是否已從 DB 載入狀態
         
         // 配置
         this.config = {
@@ -25,9 +27,6 @@ class AutoTrainManager {
             trainingTimeout: 3600000,       // 訓練超時：1 小時
             enableAutoTrain: process.env.ENABLE_AUTO_TRAIN !== 'false' // 默認啟用
         };
-        
-        // 訓練狀態文件
-        this.statusFile = path.join(__dirname, '../python/models/.training_status.json');
         
         // 確保模型目錄存在
         const modelsDir = path.join(__dirname, '../python/models');
@@ -39,69 +38,66 @@ class AutoTrainManager {
                 console.warn(`⚠️ 無法創建模型目錄: ${err.message}`);
             }
         }
+    }
+
+    /**
+     * 從數據庫加載訓練狀態
+     */
+    async _loadTrainingStatusFromDB() {
+        if (this._dbInitialized) return;
         
-        // 加載訓練狀態
         try {
-            this._loadTrainingStatus();
-        } catch (err) {
-            console.warn('⚠️ 加載訓練狀態失敗:', err.message);
-            // 繼續使用默認值
-        }
-    }
-
-    /**
-     * 加載訓練狀態
-     */
-    _loadTrainingStatus() {
-        try {
-            if (fs.existsSync(this.statusFile)) {
-                const status = JSON.parse(fs.readFileSync(this.statusFile, 'utf8'));
-                this.lastTrainingDate = status.lastTrainingDate;
-                this.lastDataCount = status.lastDataCount || 0;
-                // 如果訓練開始時間存在且距離現在不超過超時時間，認為仍在訓練
-                if (status.trainingStartTime) {
-                    const startTime = new Date(status.trainingStartTime).getTime();
-                    const now = Date.now();
-                    const elapsed = now - startTime;
-                    if (elapsed < this.config.trainingTimeout) {
-                        this.isTraining = true;
-                        this.trainingStartTime = status.trainingStartTime;
-                    }
+            const db = require('../database');
+            const status = await db.getTrainingStatus('xgboost');
+            
+            if (status) {
+                this.lastTrainingDate = status.last_training_date;
+                this.lastDataCount = status.last_data_count || 0;
+                this.lastTrainingOutput = status.last_training_output || '';
+                this.lastTrainingError = status.last_training_error || '';
+                
+                // 檢查是否仍在訓練中（DB 函數已處理超時重置）
+                if (status.is_training && status.training_start_time) {
+                    this.isTraining = true;
+                    this.trainingStartTime = status.training_start_time;
                 }
-                // 加載保存的輸出（如果存在）
-                if (status.lastTrainingOutput) {
-                    this.lastTrainingOutput = status.lastTrainingOutput;
-                }
-                if (status.lastTrainingError) {
-                    this.lastTrainingError = status.lastTrainingError;
-                }
+                
+                console.log('✅ 從數據庫載入訓練狀態:', {
+                    lastTrainingDate: this.lastTrainingDate,
+                    lastDataCount: this.lastDataCount,
+                    isTraining: this.isTraining
+                });
             }
+            this._dbInitialized = true;
         } catch (e) {
-            console.warn('無法加載訓練狀態:', e.message);
+            console.warn('⚠️ 無法從數據庫加載訓練狀態:', e.message);
         }
     }
 
     /**
-     * 保存訓練狀態
+     * 保存訓練狀態到數據庫
      */
-    _saveTrainingStatus(dataCount = null, isTraining = false) {
+    async _saveTrainingStatusToDB(dataCount = null, isTraining = false) {
         try {
+            const db = require('../database');
+            
             // 如果訓練完成（isTraining = false），更新 lastTrainingDate
-            if (!isTraining) {
+            if (!isTraining && this.isTraining) {
                 this.lastTrainingDate = new Date().toISOString();
             }
             
             const status = {
-                lastTrainingDate: this.lastTrainingDate,
+                isTraining: isTraining,
+                lastTrainingDate: !isTraining ? this.lastTrainingDate : null,
                 lastDataCount: dataCount !== null ? dataCount : this.lastDataCount,
-                lastUpdate: new Date().toISOString(),
                 trainingStartTime: isTraining ? (this.trainingStartTime || new Date().toISOString()) : null,
-                lastTrainingOutput: this.lastTrainingOutput || '',
-                lastTrainingError: this.lastTrainingError || ''
+                lastTrainingOutput: this.lastTrainingOutput || null,
+                lastTrainingError: this.lastTrainingError || null
             };
-            fs.writeFileSync(this.statusFile, JSON.stringify(status, null, 2));
+            
+            await db.saveTrainingStatus('xgboost', status);
         } catch (e) {
-            console.warn('無法保存訓練狀態:', e.message);
+            console.warn('⚠️ 無法保存訓練狀態到數據庫:', e.message);
         }
     }
 
@@ -109,6 +105,9 @@ class AutoTrainManager {
      * 檢查是否需要訓練
      */
     async shouldTrain(currentDataCount) {
+        // 確保從 DB 加載最新狀態
+        await this._loadTrainingStatusFromDB();
+        
         if (!this.config.enableAutoTrain) {
             return { shouldTrain: false, reason: '自動訓練已禁用' };
         }
@@ -176,6 +175,9 @@ class AutoTrainManager {
      * @param {boolean} forceOnDataChange - 如果為 true，無論數據數量變化如何都會觸發訓練
      */
     async triggerTrainingCheck(db, forceOnDataChange = false) {
+        // 確保從 DB 加載最新狀態
+        await this._loadTrainingStatusFromDB();
+        
         if (!this.config.enableAutoTrain) {
             return { triggered: false, reason: '自動訓練已禁用' };
         }
@@ -219,6 +221,9 @@ class AutoTrainManager {
      * 開始訓練（後台執行）
      */
     async startTraining(db, dataCount = null) {
+        // 確保從 DB 加載最新狀態
+        await this._loadTrainingStatusFromDB();
+        
         if (this.isTraining) {
             console.log('⚠️ 訓練已在進行中，跳過');
             return { success: false, reason: '訓練已在進行中' };
@@ -232,8 +237,8 @@ class AutoTrainManager {
         this.lastTrainingOutput = '';
         this.lastTrainingError = '';
         
-        // 保存訓練開始狀態
-        this._saveTrainingStatus(dataCount, true);
+        // 保存訓練開始狀態到 DB
+        await this._saveTrainingStatusToDB(dataCount, true);
 
         console.log('🚀 開始自動訓練模型...');
         console.log(`   時間: ${this.trainingStartTime}`);
@@ -286,13 +291,13 @@ class AutoTrainManager {
             };
             
             // 使用檢測到的 Python 命令
-            detectPython().then((pythonCmd) => {
+            detectPython().then(async (pythonCmd) => {
                 if (!pythonCmd) {
                     const error = '無法找到 Python 命令（嘗試了 python3 和 python）';
                     console.error(`❌ ${error}`);
                     this.isTraining = false;
                     this.trainingStartTime = null;
-                    this._saveTrainingStatus(dataCount, false);
+                    await this._saveTrainingStatusToDB(dataCount, false);
                     resolve({ success: false, reason: error });
                     return;
                 }
@@ -320,9 +325,9 @@ class AutoTrainManager {
         let output = '';
         let error = '';
 
-        // 節流保存，避免過於頻繁的文件寫入
+        // 節流保存，避免過於頻繁的 DB 寫入
         let lastSaveTime = 0;
-        const saveThrottle = 2000; // 每 2 秒最多保存一次
+        const saveThrottle = 5000; // 每 5 秒最多保存一次（DB 操作較慢）
         
         python.stdout.on('data', (data) => {
             const text = data.toString();
@@ -331,10 +336,10 @@ class AutoTrainManager {
             this.lastTrainingOutput = output;
             console.log(`[訓練] ${text.trim()}`);
             
-            // 節流保存狀態（每 2 秒最多保存一次）
+            // 節流保存狀態（每 5 秒最多保存一次）
             const now = Date.now();
             if (now - lastSaveTime >= saveThrottle) {
-                this._saveTrainingStatus(dataCount, true);
+                this._saveTrainingStatusToDB(dataCount, true).catch(() => {});
                 lastSaveTime = now;
             }
         });
@@ -346,20 +351,24 @@ class AutoTrainManager {
             this.lastTrainingError = error;
             console.error(`[訓練錯誤] ${text.trim()}`);
             
-            // 錯誤輸出立即保存
-            this._saveTrainingStatus(dataCount, true);
-            lastSaveTime = Date.now();
+            // 錯誤輸出節流保存
+            const now = Date.now();
+            if (now - lastSaveTime >= saveThrottle) {
+                this._saveTrainingStatusToDB(dataCount, true).catch(() => {});
+                lastSaveTime = now;
+            }
         });
 
         // 設置超時
-        const timeout = setTimeout(() => {
+        const timeout = setTimeout(async () => {
             python.kill();
             this.isTraining = false;
+            await this._saveTrainingStatusToDB(dataCount, false);
             console.error('❌ 訓練超時（1小時）');
             resolve({ success: false, reason: '訓練超時', output: output, error: error });
         }, this.config.trainingTimeout);
 
-        python.on('close', (code) => {
+        python.on('close', async (code) => {
             clearTimeout(timeout);
             this.isTraining = false;
             this.trainingStartTime = null;
@@ -378,7 +387,7 @@ class AutoTrainManager {
                 if (modelStatus.available) {
                     console.log(`✅ 模型訓練完成（耗時 ${duration} 分鐘）`);
                     console.log(`✅ 模型文件驗證通過`);
-                    this._saveTrainingStatus(dataCount, false);
+                    await this._saveTrainingStatusToDB(dataCount, false);
                     resolve({ success: true, duration: duration, models: modelStatus });
                 } else {
                     console.warn(`⚠️ 訓練腳本退出成功，但模型文件未找到`);
@@ -388,7 +397,7 @@ class AutoTrainManager {
                     if (error) {
                         console.warn(`錯誤輸出:\n${error}`);
                     }
-                    this._saveTrainingStatus(dataCount, false);
+                    await this._saveTrainingStatusToDB(dataCount, false);
                     resolve({ 
                         success: false, 
                         reason: '訓練完成但模型文件缺失', 
@@ -401,7 +410,7 @@ class AutoTrainManager {
                 console.error(`❌ 模型訓練失敗（退出碼 ${code}）`);
                 console.error('標準輸出:', output);
                 console.error('錯誤輸出:', error);
-                this._saveTrainingStatus(dataCount, false);
+                await this._saveTrainingStatusToDB(dataCount, false);
                 resolve({ 
                     success: false, 
                     reason: `訓練失敗（退出碼 ${code}）`, 
@@ -412,11 +421,11 @@ class AutoTrainManager {
             }
         });
 
-        python.on('error', (err) => {
+        python.on('error', async (err) => {
             clearTimeout(timeout);
             this.isTraining = false;
             this.trainingStartTime = null;
-            this._saveTrainingStatus(dataCount, false);
+            await this._saveTrainingStatusToDB(dataCount, false);
             console.error('❌ 無法執行訓練腳本:', err.message);
             resolve({ success: false, reason: `無法執行訓練腳本: ${err.message}` });
         });
@@ -432,7 +441,7 @@ class AutoTrainManager {
     }
 
     /**
-     * 獲取訓練狀態
+     * 獲取訓練狀態（同步版本，使用內存中的狀態）
      */
     getStatus() {
         let estimatedRemainingTime = null;
@@ -454,10 +463,18 @@ class AutoTrainManager {
             elapsedTime: elapsedTime,
             estimatedDuration: this.estimatedDuration,
             config: this.config,
-            statusFile: this.statusFile,
+            statusSource: 'database',
             lastTrainingOutput: this.lastTrainingOutput || '',
             lastTrainingError: this.lastTrainingError || ''
         };
+    }
+
+    /**
+     * 獲取訓練狀態（異步版本，從 DB 加載最新狀態）
+     */
+    async getStatusAsync() {
+        await this._loadTrainingStatusFromDB();
+        return this.getStatus();
     }
 
     /**
