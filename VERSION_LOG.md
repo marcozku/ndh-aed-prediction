@@ -1,8 +1,37 @@
 # 版本更新日誌
 
+## v2.5.4 - 2025-12-28 14:49 HKT
+
+### 📄 English PDF Documentation
+
+**Changes**:
+- Converted all PDF content from Chinese to English
+- Fixed character encoding issues (garbled text)
+- Professional Apple-style design maintained
+
+**PDF Contents (18 pages)**:
+
+1. **Cover Page** - Dark theme, version info, key metrics
+2. **Table of Contents** - 10 chapters overview
+3. **System Overview** - Objectives, data foundation, technical highlights
+4. **Algorithm Architecture** - Core formula, 7-step processing flow, research references
+5. **Mathematical Formulas** - Exponential decay, factors, lag features, confidence intervals
+6. **Feature Engineering** - 50+ features, cyclical encoding, importance ranking
+7. **Machine Learning** - XGBoost parameters, training pipeline
+8. **Smoothing Methods** - 9 methods with formulas, auto-selection strategy
+9. **Weather Impact** - Temperature, humidity, rainfall, warning factors
+10. **AI Analysis** - Model tiers, analysis scope, factor constraints
+11. **Performance Metrics** - MAE/MAPE/RMSE/R² targets and formulas
+12. **System Architecture** - Component diagram, data flow, tech stack
+13. **Conclusion** - Core advantages, future development
+
+**Output**: `NDH_AED_Technical_Documentation.pdf` (~67KB)
+
+---
+
 ## v2.5.3 - 2025-12-28 14:40 HKT
 
-### 📄 新增：專業技術文檔 PDF 生成器
+### 📄 PDF Documentation Generator (Chinese - deprecated)
 
 **功能描述**：
 - 創建 `generate-documentation-pdf.js` 腳本

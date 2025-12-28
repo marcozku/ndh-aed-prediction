@@ -1,8 +1,8 @@
 /**
- * NDH AED 預測系統 - 專業文檔生成器
- * 生成世界級 Apple 風格 PDF 文檔
+ * NDH AED Prediction System - Professional Documentation Generator
+ * Generates world-class Apple-style PDF documentation
  * 
- * @version 2.5.3
+ * @version 2.5.4
  * @date 2025-12-28
  */
 
@@ -10,7 +10,7 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
-// 顏色方案 (Apple 風格)
+// Color scheme (Apple Style)
 const colors = {
     primary: '#007AFF',
     primaryDark: '#0051D5',
@@ -27,15 +27,15 @@ const colors = {
     accent: '#AF52DE'
 };
 
-// 創建 PDF
+// Create PDF
 const doc = new PDFDocument({
     size: 'A4',
     margins: { top: 60, bottom: 60, left: 50, right: 50 },
     info: {
-        Title: 'NDH AED 急診室就診預測系統 - 技術文檔',
+        Title: 'NDH AED Emergency Department Attendance Prediction System - Technical Documentation',
         Author: 'NDH AED Prediction Team',
-        Subject: '算法詳解與系統架構',
-        Keywords: 'AI, 預測, 急診室, 機器學習, XGBoost, 時間序列'
+        Subject: 'Algorithm Details and System Architecture',
+        Keywords: 'AI, Prediction, Emergency Department, Machine Learning, XGBoost, Time Series'
     }
 });
 
@@ -44,11 +44,11 @@ doc.pipe(fs.createWriteStream(outputPath));
 
 let pageNumber = 0;
 
-// 添加頁眉頁腳
+// Add header/footer
 function addHeaderFooter() {
     pageNumber++;
     
-    // 頁眉線
+    // Header line
     doc.save()
        .strokeColor(colors.border)
        .lineWidth(0.5)
@@ -57,57 +57,60 @@ function addHeaderFooter() {
        .stroke()
        .restore();
     
-    // 頁腳
+    // Footer
     doc.save()
        .fontSize(9)
        .fillColor(colors.textSecondary)
-       .text(`NDH AED 預測系統 v2.5.3`, 50, 780, { align: 'left' })
-       .text(`第 ${pageNumber} 頁`, 0, 780, { align: 'center', width: 595 })
-       .text(`© 2025 北區醫院`, 0, 780, { align: 'right', width: 545 })
+       .text('NDH AED Prediction System v2.5.4', 50, 780, { align: 'left' })
+       .text('Page ' + pageNumber, 0, 780, { align: 'center', width: 595 })
+       .text('North District Hospital', 0, 780, { align: 'right', width: 545 })
        .restore();
 }
 
-// 標題頁
+// Title Page
 function createTitlePage() {
     doc.rect(0, 0, 595, 842).fill('#000000');
     
-    // 漸變效果模擬
+    // Gradient effect simulation
     for (let i = 0; i < 200; i++) {
         const opacity = 1 - (i / 200);
         doc.rect(0, 300 + i * 2, 595, 2)
            .fill(`rgba(0, 122, 255, ${opacity * 0.3})`);
     }
     
-    // 主標題
+    // Main title
     doc.fontSize(42)
        .fillColor('#FFFFFF')
        .font('Helvetica-Bold')
        .text('NDH AED', 0, 200, { align: 'center' });
     
-    doc.fontSize(28)
+    doc.fontSize(24)
        .fillColor(colors.primary)
-       .text('急診室就診預測系統', 0, 260, { align: 'center' });
+       .text('Emergency Department', 0, 260, { align: 'center' });
     
-    // 副標題
+    doc.fontSize(24)
+       .text('Attendance Prediction System', 0, 295, { align: 'center' });
+    
+    // Subtitle
     doc.fontSize(16)
        .fillColor('#FFFFFF')
        .font('Helvetica')
-       .text('技術文檔與算法詳解', 0, 320, { align: 'center' });
+       .text('Technical Documentation & Algorithm Details', 0, 350, { align: 'center' });
     
-    // 版本信息
+    // Version info
     doc.fontSize(12)
        .fillColor(colors.textSecondary)
-       .text('Version 2.5.3', 0, 400, { align: 'center' })
-       .text('2025 年 12 月', 0, 420, { align: 'center' });
+       .text('Version 2.5.4', 0, 420, { align: 'center' })
+       .text('December 2025', 0, 440, { align: 'center' });
     
-    // 關鍵指標
+    // Key metrics
     const metrics = [
-        { label: 'MAE 目標', value: '< 2.5 病人' },
-        { label: 'MAPE 目標', value: '< 2.5%' },
-        { label: '95% CI 覆蓋率', value: '> 95%' }
+        { label: 'MAE Target', value: '< 2.5 patients' },
+        { label: 'MAPE Target', value: '< 2.5%' },
+        { label: '95% CI Coverage', value: '> 95%' }
     ];
     
-    let yPos = 500;
+    let yPos = 520;
     metrics.forEach(m => {
         doc.fontSize(11)
            .fillColor(colors.textSecondary)
@@ -118,15 +121,15 @@ function createTitlePage() {
         yPos += 25;
     });
     
-    // 底部信息
+    // Bottom info
     doc.fontSize(10)
        .font('Helvetica')
        .fillColor(colors.textSecondary)
-       .text('North District Hospital • 北區醫院', 0, 700, { align: 'center' })
+       .text('North District Hospital', 0, 700, { align: 'center' })
        .text('Hong Kong Hospital Authority', 0, 720, { align: 'center' });
 }
 
-// 目錄頁
+// Table of Contents
 function createTableOfContents() {
     doc.addPage();
     addHeaderFooter();
@@ -134,21 +137,21 @@ function createTableOfContents() {
     doc.fontSize(28)
        .fillColor(colors.textPrimary)
        .font('Helvetica-Bold')
-       .text('目錄', 50, 80);
+       .text('Table of Contents', 50, 80);
     
-    doc.moveTo(50, 120).lineTo(200, 120).strokeColor(colors.primary).lineWidth(3).stroke();
+    doc.moveTo(50, 120).lineTo(250, 120).strokeColor(colors.primary).lineWidth(3).stroke();
     
     const toc = [
-        { num: '1', title: '系統概述', page: 3 },
-        { num: '2', title: '預測算法架構', page: 4 },
-        { num: '3', title: '核心數學公式', page: 6 },
-        { num: '4', title: '特徵工程詳解', page: 9 },
-        { num: '5', title: '機器學習模型', page: 12 },
-        { num: '6', title: '預測平滑方法', page: 15 },
-        { num: '7', title: '天氣影響因子', page: 18 },
-        { num: '8', title: 'AI 實時分析', page: 20 },
-        { num: '9', title: '性能指標與評估', page: 22 },
-        { num: '10', title: '系統架構圖', page: 24 }
+        { num: '1', title: 'System Overview', page: 3 },
+        { num: '2', title: 'Prediction Algorithm Architecture', page: 4 },
+        { num: '3', title: 'Core Mathematical Formulas', page: 6 },
+        { num: '4', title: 'Feature Engineering', page: 9 },
+        { num: '5', title: 'Machine Learning Models', page: 12 },
+        { num: '6', title: 'Prediction Smoothing Methods', page: 14 },
+        { num: '7', title: 'Weather Impact Factors', page: 17 },
+        { num: '8', title: 'AI Real-time Analysis', page: 19 },
+        { num: '9', title: 'Performance Metrics', page: 21 },
+        { num: '10', title: 'System Architecture', page: 23 }
     ];
     
     let y = 150;
@@ -161,8 +164,8 @@ function createTableOfContents() {
            .fillColor(colors.textPrimary)
            .text(item.title, 90, y);
         
-        // 點線
-        const dotStart = 300;
+        // Dotted line
+        const dotStart = 320;
         const dotEnd = 500;
         for (let x = dotStart; x < dotEnd; x += 5) {
             doc.circle(x, y + 7, 0.5).fill(colors.textSecondary);
@@ -175,12 +178,12 @@ function createTableOfContents() {
     });
 }
 
-// 第一章：系統概述
+// Chapter 1: System Overview
 function createChapter1() {
     doc.addPage();
     addHeaderFooter();
     
-    // 章節標題
+    // Chapter title
     doc.fontSize(32)
        .font('Helvetica-Bold')
        .fillColor(colors.primary)
@@ -188,55 +191,99 @@ function createChapter1() {
     
     doc.fontSize(24)
        .fillColor(colors.textPrimary)
-       .text('系統概述', 80, 82);
+       .text('System Overview', 80, 82);
     
     doc.moveTo(50, 125).lineTo(545, 125).strokeColor(colors.border).lineWidth(1).stroke();
     
-    // 內容
-    const content = `
-NDH AED 預測系統是一個世界級的急診室就診人數預測平台，專為香港北區醫院急症室設計。系統結合了先進的統計模型、機器學習算法和實時 AI 分析，以實現極高的預測準確度。
-
-系統目標
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-• 提供準確的每日就診人數預測
-• 支持未來 7 天和 30 天的預測
-• 整合天氣、假期、流感季節等多重因素
-• 實時 AI 分析新聞和事件影響
-• 提供置信區間和不確定性估計
-
-數據基礎
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-• 歷史數據範圍：2014年12月 至 2025年12月
-• 總記錄數：3,431+ 天的完整觀測
-• 就診人數範圍：111 - 394 人/天
-• 平均就診人數：249.5 ± 45.0 人/天
-
-技術特點
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-1. 多因子乘法預測模型
-2. 滾動窗口動態因子計算（180天）
-3. 指數衰減權重機制
-4. 月份-星期交互效應
-5. 實時天氣影響整合
-6. AI 驅動的事件分析
-7. 9種預測平滑方法
-8. XGBoost 機器學習增強
-`;
-    
+    // Content
     doc.fontSize(11)
        .font('Helvetica')
+       .fillColor(colors.textPrimary);
+    
+    let y = 145;
+    
+    doc.text('The NDH AED Prediction System is a world-class emergency department attendance prediction platform designed specifically for North District Hospital in Hong Kong. The system combines advanced statistical models, machine learning algorithms, and real-time AI analysis to achieve exceptional prediction accuracy.', 50, y, { width: 495 });
+    
+    y += 70;
+    
+    doc.fontSize(14)
+       .font('Helvetica-Bold')
+       .text('System Objectives', 50, y);
+    
+    y += 25;
+    doc.fontSize(10)
+       .font('Helvetica');
+    
+    const objectives = [
+        'Provide accurate daily attendance predictions',
+        'Support 7-day and 30-day forecasting',
+        'Integrate weather, holidays, flu season, and other factors',
+        'Real-time AI analysis of news and events',
+        'Provide confidence intervals and uncertainty estimates'
+    ];
+    
+    objectives.forEach(obj => {
+        doc.circle(60, y + 4, 2).fill(colors.primary);
+        doc.fillColor(colors.textPrimary).text(obj, 70, y);
+        y += 18;
+    });
+    
+    y += 20;
+    doc.fontSize(14)
+       .font('Helvetica-Bold')
+       .text('Data Foundation', 50, y);
+    
+    y += 25;
+    
+    const dataInfo = [
+        ['Historical Data Range:', 'December 2014 - December 2025'],
+        ['Total Records:', '3,431+ days of complete observations'],
+        ['Attendance Range:', '111 - 394 patients/day'],
+        ['Average Attendance:', '249.5 +/- 45.0 patients/day']
+    ];
+    
+    dataInfo.forEach(info => {
+        doc.fontSize(10)
+           .font('Helvetica-Bold')
+           .fillColor(colors.textSecondary)
+           .text(info[0], 60, y)
+           .font('Helvetica')
+           .fillColor(colors.textPrimary)
+           .text(info[1], 200, y);
+        y += 18;
+    });
+    
+    y += 20;
+    doc.fontSize(14)
+       .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text(content.trim(), 50, 145, {
-           width: 495,
-           align: 'left',
-           lineGap: 4
-       });
+       .text('Technical Highlights', 50, y);
+    
+    y += 25;
+    
+    const highlights = [
+        'Multi-factor multiplicative prediction model',
+        'Rolling window dynamic factor calculation (180 days)',
+        'Exponential decay weighting mechanism',
+        'Month-day-of-week interaction effects',
+        'Real-time weather impact integration',
+        'AI-driven event analysis',
+        '9 prediction smoothing methods',
+        'XGBoost machine learning enhancement'
+    ];
+    
+    highlights.forEach((h, i) => {
+        doc.fontSize(10)
+           .font('Helvetica')
+           .fillColor(colors.primary)
+           .text((i + 1) + '.', 60, y)
+           .fillColor(colors.textPrimary)
+           .text(h, 80, y);
+        y += 18;
+    });
 }
 
-// 第二章：預測算法架構
+// Chapter 2: Prediction Algorithm Architecture
 function createChapter2() {
     doc.addPage();
     addHeaderFooter();
@@ -248,47 +295,48 @@ function createChapter2() {
     
     doc.fontSize(24)
        .fillColor(colors.textPrimary)
-       .text('預測算法架構', 80, 82);
+       .text('Prediction Algorithm Architecture', 80, 82);
     
     doc.moveTo(50, 125).lineTo(545, 125).strokeColor(colors.border).lineWidth(1).stroke();
     
-    // 核心公式框
-    doc.roundedRect(50, 145, 495, 80, 8)
+    // Core formula box
+    doc.roundedRect(50, 145, 495, 100, 8)
        .fillAndStroke(colors.cardBg, colors.border);
     
     doc.fontSize(12)
        .font('Helvetica-Bold')
        .fillColor(colors.primary)
-       .text('核心預測公式', 70, 160);
+       .text('Core Prediction Formula', 70, 160);
     
     doc.fontSize(10)
        .font('Helvetica')
        .fillColor(colors.textPrimary)
-       .text('最終預測值 = 基礎預測值 + 滯後特徵調整 + 移動平均調整 + 趨勢調整', 70, 185);
+       .text('Final Prediction = Base Prediction + Lag Features Adj + Rolling Avg Adj + Trend Adj', 70, 185);
     
     doc.fontSize(9)
        .fillColor(colors.textSecondary)
-       .text('其中：基礎預測值 = 基準值 × 星期因子 × 假期因子 × 流感季節因子 × 天氣因子 × AI因子', 70, 205);
+       .text('Where: Base Prediction = Baseline x DOW Factor x Holiday Factor x Flu Season Factor', 70, 210)
+       .text('                                      x Weather Factor x AI Factor', 70, 225);
     
-    // 算法流程
+    // Algorithm flow
     doc.fontSize(14)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('算法處理流程', 50, 250);
+       .text('Algorithm Processing Flow', 50, 270);
     
     const steps = [
-        { step: '1', title: '數據載入', desc: '從數據庫獲取最近180天的歷史數據' },
-        { step: '2', title: '因子計算', desc: '使用指數衰減權重計算全局平均、月份因子、星期因子' },
-        { step: '3', title: '基礎預測', desc: '應用乘法模型計算基礎預測值' },
-        { step: '4', title: '滯後調整', desc: '加入 Lag1、Lag7 和移動平均調整' },
-        { step: '5', title: '趨勢調整', desc: '基於 7天/30天 移動平均計算趨勢調整' },
-        { step: '6', title: '異常檢測', desc: '將預測值限制在合理範圍（150-350人）' },
-        { step: '7', title: '置信區間', desc: '計算 80% 和 95% 置信區間' }
+        { step: '1', title: 'Data Loading', desc: 'Fetch last 180 days of historical data from database' },
+        { step: '2', title: 'Factor Calculation', desc: 'Calculate global mean, month factors, DOW factors with exponential decay' },
+        { step: '3', title: 'Base Prediction', desc: 'Apply multiplicative model to compute base prediction' },
+        { step: '4', title: 'Lag Adjustment', desc: 'Add Lag1, Lag7, and rolling average adjustments' },
+        { step: '5', title: 'Trend Adjustment', desc: 'Calculate trend based on 7-day vs 30-day moving average' },
+        { step: '6', title: 'Anomaly Detection', desc: 'Constrain prediction to reasonable range (150-350 patients)' },
+        { step: '7', title: 'Confidence Intervals', desc: 'Calculate 80% and 95% confidence intervals' }
     ];
     
-    let y = 280;
+    let y = 300;
     steps.forEach(s => {
-        // 步驟圓圈
+        // Step circle
         doc.circle(70, y + 10, 12)
            .fill(colors.primary);
         
@@ -297,7 +345,7 @@ function createChapter2() {
            .fillColor('#FFFFFF')
            .text(s.step, 66, y + 5);
         
-        // 標題和描述
+        // Title and description
         doc.font('Helvetica-Bold')
            .fillColor(colors.textPrimary)
            .text(s.title, 95, y);
@@ -307,7 +355,7 @@ function createChapter2() {
            .fillColor(colors.textSecondary)
            .text(s.desc, 95, y + 15);
         
-        // 連接線
+        // Connection line
         if (s.step !== '7') {
             doc.moveTo(70, y + 22).lineTo(70, y + 35)
                .strokeColor(colors.border).lineWidth(1).stroke();
@@ -316,41 +364,41 @@ function createChapter2() {
         y += 50;
     });
     
-    // 研究基礎
+    // Research foundation
     doc.addPage();
     addHeaderFooter();
     
     doc.fontSize(18)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('研究基礎', 50, 80);
+       .text('Research Foundation', 50, 80);
     
-    doc.moveTo(50, 105).lineTo(200, 105).strokeColor(colors.primary).lineWidth(2).stroke();
+    doc.moveTo(50, 105).lineTo(220, 105).strokeColor(colors.primary).lineWidth(2).stroke();
     
     const research = [
         {
-            title: '法國醫院 XGBoost 研究 (2025)',
+            title: 'French Hospital XGBoost Study (2025)',
             journal: 'BMC Emergency Medicine',
-            result: 'MAE: 2.63-2.64 病人',
-            desc: '使用機器學習和超參數調優進行急診室入院預測'
+            result: 'MAE: 2.63-2.64 patients',
+            desc: 'ED admission prediction using ML and hyperparameter tuning'
         },
         {
-            title: '特徵工程增強預測研究 (2024)',
+            title: 'Feature Engineering Enhancement (2024)',
             journal: 'BMC Medical Informatics',
-            result: '11個急診室驗證',
-            desc: '日曆和氣象預測因子 + 特徵工程變量顯著提高準確度'
+            result: '11 ED validation',
+            desc: 'Calendar + meteorological predictors with feature engineering'
         },
         {
-            title: 'LSTM 自適應框架 (2024)',
+            title: 'LSTM Adaptive Framework (2024)',
             journal: 'PubMed',
-            result: '優於 ARIMA 和 Prophet',
-            desc: '無需完全重訓練，動態適應數據分佈變化'
+            result: 'Outperforms ARIMA & Prophet',
+            desc: 'Dynamic adaptation to data distribution changes without retraining'
         },
         {
-            title: 'AI 框架擁擠預測 (2025)',
+            title: 'AI Framework for Crowding (2025)',
             journal: 'JMIR Medical Informatics',
-            result: '實時6小時預測',
-            desc: '多數據集整合增強決策制定和資源分配'
+            result: 'Real-time 6-hour prediction',
+            desc: 'Multi-dataset integration for enhanced resource allocation'
         }
     ];
     
@@ -379,7 +427,7 @@ function createChapter2() {
     });
 }
 
-// 第三章：核心數學公式
+// Chapter 3: Core Mathematical Formulas
 function createChapter3() {
     doc.addPage();
     addHeaderFooter();
@@ -391,43 +439,43 @@ function createChapter3() {
     
     doc.fontSize(24)
        .fillColor(colors.textPrimary)
-       .text('核心數學公式', 80, 82);
+       .text('Core Mathematical Formulas', 80, 82);
     
     doc.moveTo(50, 125).lineTo(545, 125).strokeColor(colors.border).lineWidth(1).stroke();
     
-    // 3.1 加權平均
+    // 3.1 Weighted Average
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('3.1 指數衰減加權平均', 50, 145);
+       .text('3.1 Exponential Decay Weighted Average', 50, 145);
     
-    // 公式框
+    // Formula box
     doc.roundedRect(50, 170, 495, 90, 8)
        .fill('#1D1D1F');
     
     doc.fontSize(11)
        .font('Helvetica')
        .fillColor('#00FF88')
-       .text('權重計算:', 70, 185);
+       .text('Weight calculation:', 70, 185);
     
     doc.fillColor('#FFFFFF')
-       .text('wᵢ = e^(-λ × days_ago)', 180, 185);
+       .text('w_i = exp(-lambda * days_ago)', 220, 185);
     
     doc.fillColor('#00FF88')
-       .text('加權平均:', 70, 210);
+       .text('Weighted mean:', 70, 210);
     
     doc.fillColor('#FFFFFF')
-       .text('μ_weighted = Σ(attendanceᵢ × wᵢ) / Σ(wᵢ)', 180, 210);
+       .text('mu_weighted = SUM(attendance_i * w_i) / SUM(w_i)', 220, 210);
     
     doc.fillColor('#FFD60A')
        .fontSize(9)
-       .text('λ = 0.02 (衰減率)，使最近數據權重更高', 70, 240);
+       .text('lambda = 0.02 (decay rate), giving recent data higher weight', 70, 240);
     
-    // 3.2 月份因子
+    // 3.2 Month Factor
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('3.2 月份因子計算', 50, 285);
+       .text('3.2 Month Factor Calculation', 50, 285);
     
     doc.roundedRect(50, 310, 495, 60, 8)
        .fill('#1D1D1F');
@@ -435,17 +483,17 @@ function createChapter3() {
     doc.fontSize(11)
        .font('Helvetica')
        .fillColor('#FFFFFF')
-       .text('monthFactor[m] = μ_weighted(month=m) / μ_global', 70, 335);
+       .text('monthFactor[m] = mu_weighted(month=m) / mu_global', 70, 335);
     
     doc.fillColor('#FFD60A')
        .fontSize(9)
-       .text('範圍：0.85 - 1.25（冬季通常較高，夏季較低）', 70, 355);
+       .text('Range: 0.85 - 1.25 (winter typically higher, summer lower)', 70, 355);
     
-    // 3.3 星期因子
+    // 3.3 Day of Week Factor
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('3.3 星期因子計算', 50, 395);
+       .text('3.3 Day-of-Week Factor Calculation', 50, 395);
     
     doc.roundedRect(50, 420, 495, 60, 8)
        .fill('#1D1D1F');
@@ -453,17 +501,17 @@ function createChapter3() {
     doc.fontSize(11)
        .font('Helvetica')
        .fillColor('#FFFFFF')
-       .text('dowFactor[d] = μ_weighted(dow=d) / μ_global', 70, 445);
+       .text('dowFactor[d] = mu_weighted(dow=d) / mu_global', 70, 445);
     
     doc.fillColor('#FFD60A')
        .fontSize(9)
-       .text('星期一最高（~1.10），週末最低（~0.90）', 70, 465);
+       .text('Monday highest (~1.10), weekends lowest (~0.90)', 70, 465);
     
-    // 3.4 月份-星期交互
+    // 3.4 Month-DOW Interaction
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('3.4 月份-星期交互因子', 50, 505);
+       .text('3.4 Month-Day-of-Week Interaction Factor', 50, 505);
     
     doc.roundedRect(50, 530, 495, 60, 8)
        .fill('#1D1D1F');
@@ -471,20 +519,20 @@ function createChapter3() {
     doc.fontSize(11)
        .font('Helvetica')
        .fillColor('#FFFFFF')
-       .text('monthDowFactor[m][d] = μ(month=m, dow=d) / (μ_global × monthFactor[m])', 70, 555);
+       .text('monthDowFactor[m][d] = mu(month=m, dow=d) / (mu_global * monthFactor[m])', 70, 555);
     
     doc.fillColor('#FFD60A')
        .fontSize(9)
-       .text('基於研究發現：不同月份的星期模式存在差異', 70, 575);
+       .text('Based on research: DOW patterns vary across different months', 70, 575);
     
-    // 3.5 滯後特徵
+    // 3.5 Lag Features
     doc.addPage();
     addHeaderFooter();
     
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('3.5 滯後特徵調整', 50, 80);
+       .text('3.5 Lag Feature Adjustments', 50, 80);
     
     doc.roundedRect(50, 105, 495, 120, 8)
        .fill('#1D1D1F');
@@ -492,29 +540,29 @@ function createChapter3() {
     doc.fontSize(11)
        .font('Helvetica')
        .fillColor('#00FF88')
-       .text('Lag1 調整:', 70, 125);
+       .text('Lag1 adjustment:', 70, 125);
     doc.fillColor('#FFFFFF')
-       .text('lag1_adj = (昨天就診 - μ_global) × 0.18', 180, 125);
+       .text('lag1_adj = (yesterday_attendance - mu_global) * 0.18', 200, 125);
     
     doc.fillColor('#00FF88')
-       .text('Lag7 調整:', 70, 150);
+       .text('Lag7 adjustment:', 70, 150);
     doc.fillColor('#FFFFFF')
-       .text('lag7_adj = (上週同天 - μ_global) × 0.10', 180, 150);
+       .text('lag7_adj = (same_day_last_week - mu_global) * 0.10', 200, 150);
     
     doc.fillColor('#00FF88')
-       .text('移動平均調整:', 70, 175);
+       .text('Rolling adjustment:', 70, 175);
     doc.fillColor('#FFFFFF')
-       .text('rolling_adj = (MA₇ - MA₃₀) × 0.14', 180, 175);
+       .text('rolling_adj = (MA_7 - MA_30) * 0.14', 200, 175);
     
     doc.fillColor('#FFD60A')
        .fontSize(9)
-       .text('總調整 = lag1_adj + lag7_adj + rolling_adj', 70, 205);
+       .text('Total adjustment = lag1_adj + lag7_adj + rolling_adj', 70, 205);
     
-    // 3.6 趨勢調整
+    // 3.6 Trend Adjustment
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('3.6 趨勢調整（基於 Prophet 研究）', 50, 250);
+       .text('3.6 Trend Adjustment (Prophet-inspired)', 50, 250);
     
     doc.roundedRect(50, 275, 495, 80, 8)
        .fill('#1D1D1F');
@@ -522,20 +570,20 @@ function createChapter3() {
     doc.fontSize(11)
        .font('Helvetica')
        .fillColor('#00FF88')
-       .text('趨勢:', 70, 295);
+       .text('Trend:', 70, 295);
     doc.fillColor('#FFFFFF')
-       .text('trend = (MA₇ - MA₃₀) / MA₃₀', 180, 295);
+       .text('trend = (MA_7 - MA_30) / MA_30', 200, 295);
     
     doc.fillColor('#00FF88')
-       .text('趨勢調整:', 70, 320);
+       .text('Trend adjustment:', 70, 320);
     doc.fillColor('#FFFFFF')
-       .text('trend_adj = 基礎預測值 × trend × 0.3', 180, 320);
+       .text('trend_adj = base_prediction * trend * 0.3', 200, 320);
     
-    // 3.7 置信區間
+    // 3.7 Confidence Intervals
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('3.7 置信區間計算', 50, 380);
+       .text('3.7 Confidence Interval Calculation', 50, 380);
     
     doc.roundedRect(50, 405, 495, 120, 8)
        .fill('#1D1D1F');
@@ -543,26 +591,26 @@ function createChapter3() {
     doc.fontSize(11)
        .font('Helvetica')
        .fillColor('#00FF88')
-       .text('調整標準差:', 70, 425);
+       .text('Adjusted std dev:', 70, 425);
     doc.fillColor('#FFFFFF')
-       .text('σ_adj = max(σ_weighted × 1.2, 25)', 200, 425);
+       .text('sigma_adj = max(sigma_weighted * 1.2, 25)', 200, 425);
     
     doc.fillColor('#00FF88')
        .text('80% CI:', 70, 455);
     doc.fillColor('#FFFFFF')
-       .text('[μ - 1.5 × σ_adj, μ + 1.5 × σ_adj]', 200, 455);
+       .text('[mu - 1.5 * sigma_adj, mu + 1.5 * sigma_adj]', 200, 455);
     
     doc.fillColor('#00FF88')
        .text('95% CI:', 70, 485);
     doc.fillColor('#FFFFFF')
-       .text('[μ - 2.5 × σ_adj, μ + 2.5 × σ_adj]', 200, 485);
+       .text('[mu - 2.5 * sigma_adj, mu + 2.5 * sigma_adj]', 200, 485);
     
     doc.fillColor('#FFD60A')
        .fontSize(9)
-       .text('使用更保守的乘數（1.5, 2.5）以確保覆蓋率', 70, 505);
+       .text('Conservative multipliers (1.5, 2.5) ensure proper coverage', 70, 505);
 }
 
-// 第四章：特徵工程
+// Chapter 4: Feature Engineering
 function createChapter4() {
     doc.addPage();
     addHeaderFooter();
@@ -574,40 +622,40 @@ function createChapter4() {
     
     doc.fontSize(24)
        .fillColor(colors.textPrimary)
-       .text('特徵工程詳解', 80, 82);
+       .text('Feature Engineering', 80, 82);
     
     doc.moveTo(50, 125).lineTo(545, 125).strokeColor(colors.border).lineWidth(1).stroke();
     
     doc.fontSize(11)
        .font('Helvetica')
        .fillColor(colors.textPrimary)
-       .text('系統使用 50+ 個工程特徵進行預測，以下是主要特徵類別：', 50, 145);
+       .text('The system uses 50+ engineered features for prediction. Major feature categories:', 50, 145);
     
-    // 特徵表格
+    // Feature table
     const features = [
-        { category: '時間特徵', features: 'Year, Month, Day_of_Week, Day_of_Month, Week_of_Year, Quarter, DayOfYear' },
-        { category: '循環編碼', features: 'Month_sin, Month_cos, DayOfWeek_sin, DayOfWeek_cos' },
-        { category: '滯後特徵', features: 'Lag1, Lag7, Lag14, Lag30, Lag60, Lag90, Lag365' },
-        { category: '滾動統計', features: 'Rolling7, Rolling14, Rolling30, Std7, Std14, Std30, Max/Min' },
-        { category: '事件指標', features: 'Is_COVID, Is_Omicron, Is_Winter_Flu, Is_Summer, Is_Weekend, Is_Monday' },
-        { category: '交互特徵', features: 'COVID_AND_Winter, Monday_AND_Winter, Weekend_AND_Summer' },
-        { category: '趨勢特徵', features: 'Days_Since_Start, Trend_Normalized, Era_Indicator' },
-        { category: '變化率', features: 'Daily_Change, Weekly_Change, Monthly_Change' },
-        { category: '假期特徵', features: 'Is_Holiday, Days_To_Next_Holiday' },
-        { category: 'AI 因子', features: 'AI_Factor, Has_AI_Factor, AI_Factor_Type' }
+        { category: 'Temporal', features: 'Year, Month, Day_of_Week, Day_of_Month, Week_of_Year, Quarter' },
+        { category: 'Cyclical Encoding', features: 'Month_sin, Month_cos, DayOfWeek_sin, DayOfWeek_cos' },
+        { category: 'Lag Features', features: 'Lag1, Lag7, Lag14, Lag30, Lag60, Lag90, Lag365' },
+        { category: 'Rolling Stats', features: 'Rolling7, Rolling14, Rolling30, Std7, Std14, Std30, Max/Min' },
+        { category: 'Event Indicators', features: 'Is_COVID, Is_Omicron, Is_Winter_Flu, Is_Summer, Is_Weekend' },
+        { category: 'Interactions', features: 'COVID_AND_Winter, Monday_AND_Winter, Weekend_AND_Summer' },
+        { category: 'Trend Features', features: 'Days_Since_Start, Trend_Normalized, Era_Indicator' },
+        { category: 'Rate of Change', features: 'Daily_Change, Weekly_Change, Monthly_Change' },
+        { category: 'Holiday Features', features: 'Is_Holiday, Days_To_Next_Holiday' },
+        { category: 'AI Factors', features: 'AI_Factor, Has_AI_Factor, AI_Factor_Type' }
     ];
     
     let y = 180;
     
-    // 表頭
+    // Table header
     doc.roundedRect(50, y, 495, 25, 3)
        .fill(colors.primary);
     
     doc.fontSize(10)
        .font('Helvetica-Bold')
        .fillColor('#FFFFFF')
-       .text('特徵類別', 65, y + 8)
-       .text('包含特徵', 200, y + 8);
+       .text('Category', 65, y + 8)
+       .text('Features Included', 180, y + 8);
     
     y += 30;
     
@@ -623,46 +671,46 @@ function createChapter4() {
         doc.font('Helvetica')
            .fontSize(8)
            .fillColor(colors.textSecondary)
-           .text(f.features, 200, y + 8, { width: 330 });
+           .text(f.features, 180, y + 8, { width: 350 });
         
         y += 35;
     });
     
-    // 循環編碼說明
+    // Cyclical encoding explanation
     doc.addPage();
     addHeaderFooter();
     
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('4.1 循環編碼詳解', 50, 80);
+       .text('4.1 Cyclical Encoding Explained', 50, 80);
     
     doc.fontSize(11)
        .font('Helvetica')
        .fillColor(colors.textPrimary)
-       .text('標準編碼無法捕捉循環數據的連續性（12月和1月在標準編碼中差距最大，但實際上是相鄰的）。', 50, 110, { width: 495 });
+       .text('Standard encoding fails to capture cyclical data continuity (December and January are far apart in standard encoding but are actually adjacent in time).', 50, 110, { width: 495 });
     
-    doc.roundedRect(50, 145, 495, 100, 8)
+    doc.roundedRect(50, 150, 495, 100, 8)
        .fill('#1D1D1F');
     
     doc.fontSize(11)
        .font('Helvetica')
        .fillColor('#00FF88')
-       .text('月份循環編碼:', 70, 165);
+       .text('Month cyclical encoding:', 70, 170);
     
     doc.fillColor('#FFFFFF')
-       .text('Month_sin = sin(2π × Month / 12)', 70, 190)
-       .text('Month_cos = cos(2π × Month / 12)', 70, 210);
+       .text('Month_sin = sin(2 * pi * Month / 12)', 70, 195)
+       .text('Month_cos = cos(2 * pi * Month / 12)', 70, 215);
     
     doc.fillColor('#FFD60A')
        .fontSize(9)
-       .text('12月和1月現在有相似的編碼值，正確反映它們的時間接近性', 70, 235);
+       .text('December and January now have similar encoding values, correctly reflecting proximity', 70, 240);
     
-    // 特徵重要性
+    // Feature importance
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('4.2 特徵重要性排名（XGBoost）', 50, 280);
+       .text('4.2 Feature Importance Ranking (XGBoost)', 50, 280);
     
     const importance = [
         { rank: 1, feature: 'Attendance_Lag1', importance: 0.18 },
@@ -698,10 +746,10 @@ function createChapter4() {
     
     doc.fontSize(9)
        .fillColor(colors.textSecondary)
-       .text('Top 5 特徵解釋 ~70% 的模型變異', 50, y + 10);
+       .text('Top 5 features explain ~70% of model variance', 50, y + 10);
 }
 
-// 第五章：機器學習模型
+// Chapter 5: Machine Learning Models
 function createChapter5() {
     doc.addPage();
     addHeaderFooter();
@@ -713,7 +761,7 @@ function createChapter5() {
     
     doc.fontSize(24)
        .fillColor(colors.textPrimary)
-       .text('機器學習模型', 80, 82);
+       .text('Machine Learning Models', 80, 82);
     
     doc.moveTo(50, 125).lineTo(545, 125).strokeColor(colors.border).lineWidth(1).stroke();
     
@@ -721,23 +769,23 @@ function createChapter5() {
     doc.fontSize(18)
        .font('Helvetica-Bold')
        .fillColor(colors.secondary)
-       .text('5.1 XGBoost 梯度提升樹', 50, 145);
+       .text('5.1 XGBoost Gradient Boosting Trees', 50, 145);
     
     doc.fontSize(11)
        .font('Helvetica')
        .fillColor(colors.textPrimary)
-       .text('XGBoost 是系統的核心機器學習模型，基於法國醫院研究實現，達到世界最佳 MAE。', 50, 175, { width: 495 });
+       .text('XGBoost is the core ML model, based on French hospital research achieving world-best MAE.', 50, 175, { width: 495 });
     
-    // 參數表
+    // Parameter table
     const params = [
-        { param: 'n_estimators', value: '500', desc: '樹的數量' },
-        { param: 'max_depth', value: '6', desc: '最大深度' },
-        { param: 'learning_rate', value: '0.05', desc: '學習率' },
-        { param: 'subsample', value: '0.8', desc: '樣本採樣率' },
-        { param: 'colsample_bytree', value: '0.8', desc: '特徵採樣率' },
-        { param: 'alpha (L1)', value: '1.0', desc: 'L1 正則化' },
-        { param: 'lambda (L2)', value: '1.0', desc: 'L2 正則化' },
-        { param: 'early_stopping', value: '50', desc: '早停輪數' }
+        { param: 'n_estimators', value: '500', desc: 'Number of trees' },
+        { param: 'max_depth', value: '6', desc: 'Maximum depth' },
+        { param: 'learning_rate', value: '0.05', desc: 'Learning rate' },
+        { param: 'subsample', value: '0.8', desc: 'Sample ratio' },
+        { param: 'colsample_bytree', value: '0.8', desc: 'Feature ratio' },
+        { param: 'alpha (L1)', value: '1.0', desc: 'L1 regularization' },
+        { param: 'lambda (L2)', value: '1.0', desc: 'L2 regularization' },
+        { param: 'early_stopping', value: '50', desc: 'Early stopping rounds' }
     ];
     
     let y = 210;
@@ -748,9 +796,9 @@ function createChapter5() {
     doc.fontSize(9)
        .font('Helvetica-Bold')
        .fillColor('#FFFFFF')
-       .text('參數', 65, y + 8)
-       .text('值', 200, y + 8)
-       .text('說明', 320, y + 8);
+       .text('Parameter', 65, y + 8)
+       .text('Value', 200, y + 8)
+       .text('Description', 320, y + 8);
     
     y += 28;
     
@@ -772,22 +820,22 @@ function createChapter5() {
         y += 22;
     });
     
-    // 訓練流程
+    // Training flow
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('5.2 訓練流程', 50, y + 30);
+       .text('5.2 Training Pipeline', 50, y + 30);
     
     y += 55;
     
     const steps = [
-        '從數據庫載入歷史數據',
-        '特徵工程（50+ 特徵）',
-        '時間序列分割（80% 訓練，20% 測試）',
-        '模型訓練（梯度提升）',
-        '早停驗證',
-        '性能評估（MAE, RMSE, MAPE）',
-        '模型保存'
+        'Load historical data from database',
+        'Feature engineering (50+ features)',
+        'Time series split (80% train, 20% test)',
+        'Model training (gradient boosting)',
+        'Early stopping validation',
+        'Performance evaluation (MAE, RMSE, MAPE)',
+        'Model serialization'
     ];
     
     steps.forEach((step, i) => {
@@ -808,7 +856,7 @@ function createChapter5() {
     });
 }
 
-// 第六章：預測平滑方法
+// Chapter 6: Prediction Smoothing Methods
 function createChapter6() {
     doc.addPage();
     addHeaderFooter();
@@ -820,60 +868,60 @@ function createChapter6() {
     
     doc.fontSize(24)
        .fillColor(colors.textPrimary)
-       .text('預測平滑方法', 80, 82);
+       .text('Prediction Smoothing Methods', 80, 82);
     
     doc.moveTo(50, 125).lineTo(545, 125).strokeColor(colors.border).lineWidth(1).stroke();
     
     doc.fontSize(11)
        .font('Helvetica')
        .fillColor(colors.textPrimary)
-       .text('系統每天進行 48 次預測（每 30 分鐘一次），使用 9 種平滑方法綜合得出最終預測值。', 50, 145, { width: 495 });
+       .text('The system makes 48 predictions daily (every 30 minutes), using 9 smoothing methods to derive the final prediction.', 50, 145, { width: 495 });
     
     const methods = [
         {
-            name: '1. 簡單移動平均',
-            formula: 'SMA = Σ(predictions) / n',
-            desc: '所有 48 次預測的算術平均值（基準方法）'
+            name: '1. Simple Moving Average',
+            formula: 'SMA = SUM(predictions) / n',
+            desc: 'Arithmetic mean of all 48 predictions (baseline method)'
         },
         {
-            name: '2. 指數加權移動平均 (EWMA)',
-            formula: 'S_t = α × P_t + (1-α) × S_{t-1}',
-            desc: 'α = 0.65，較晚的預測權重更高'
+            name: '2. Exponentially Weighted MA (EWMA)',
+            formula: 'S_t = alpha * P_t + (1-alpha) * S_{t-1}',
+            desc: 'alpha = 0.65, later predictions weighted higher'
         },
         {
-            name: '3. 信心度加權平均',
-            formula: 'W_avg = Σ(P_i × conf_i) / Σ(conf_i)',
-            desc: '根據預測信心度加權'
+            name: '3. Confidence Weighted Average',
+            formula: 'W_avg = SUM(P_i * conf_i) / SUM(conf_i)',
+            desc: 'Weighted by prediction confidence scores'
         },
         {
-            name: '4. 時段加權集成',
+            name: '4. Time-Window Weighted Ensemble',
             formula: 'W_i = 1 / MAE_timeSlot',
-            desc: '根據歷史準確度對不同時段預測加權'
+            desc: 'Weight by historical accuracy for each time slot'
         },
         {
-            name: '5. 修剪平均 (Trimmed Mean)',
+            name: '5. Trimmed Mean',
             formula: 'TM = mean(sorted[10%:90%])',
-            desc: '移除頂部和底部 10% 的異常預測'
+            desc: 'Remove top and bottom 10% outlier predictions'
         },
         {
-            name: '6. 方差過濾',
-            formula: 'filter: |P - median| ≤ 1.5σ',
-            desc: '排除超過 1.5σ 的異常預測後使用 EWMA'
+            name: '6. Variance-Based Filtering',
+            formula: 'filter: |P - median| <= 1.5 * sigma',
+            desc: 'Exclude outliers beyond 1.5 std dev, then apply EWMA'
         },
         {
-            name: '7. 卡爾曼濾波',
+            name: '7. Kalman Filter Smoothing',
             formula: 'K = P_pred / (P_pred + R)',
-            desc: '遞歸最優狀態估計，Q=1.0, R=10.0'
+            desc: 'Recursive optimal state estimation, Q=1.0, R=10.0'
         },
         {
-            name: '8. 集成元方法 ⭐',
-            formula: 'EM = 0.30×EWMA + 0.25×TW + 0.20×TM + 0.25×KF',
-            desc: '綜合多種方法的加權結果（推薦）'
+            name: '8. Ensemble Meta-Method (Recommended)',
+            formula: 'EM = 0.30*EWMA + 0.25*TW + 0.20*TM + 0.25*KF',
+            desc: 'Weighted combination of multiple methods'
         },
         {
-            name: '9. 穩定性分析',
-            formula: 'CV = σ / μ',
-            desc: '計算變異係數作為質量指標'
+            name: '9. Stability Analysis',
+            formula: 'CV = sigma / mu',
+            desc: 'Coefficient of variation as quality metric'
         }
     ];
     
@@ -905,24 +953,24 @@ function createChapter6() {
         y += 75;
     });
     
-    // 自動選擇策略
+    // Auto selection strategy
     doc.addPage();
     addHeaderFooter();
     
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('6.2 自動選擇策略', 50, 80);
+       .text('6.2 Automatic Selection Strategy', 50, 80);
     
     doc.fontSize(11)
        .font('Helvetica')
        .fillColor(colors.textPrimary)
-       .text('系統根據預測穩定性（變異係數 CV）自動選擇最佳平滑方法：', 50, 110, { width: 495 });
+       .text('The system automatically selects the best smoothing method based on prediction stability (Coefficient of Variation):', 50, 110, { width: 495 });
     
     const strategies = [
-        { cv: 'CV < 5%', level: '高穩定', method: '簡單平均', color: colors.success },
-        { cv: '5% ≤ CV ≤ 15%', level: '中等穩定', method: '集成元方法', color: colors.warning },
-        { cv: 'CV > 15%', level: '低穩定', method: '方差過濾法', color: colors.danger }
+        { cv: 'CV < 5%', level: 'High Stability', method: 'Simple Average', color: colors.success },
+        { cv: '5% <= CV <= 15%', level: 'Medium Stability', method: 'Ensemble Meta-Method', color: colors.warning },
+        { cv: 'CV > 15%', level: 'Low Stability', method: 'Variance Filtering', color: colors.danger }
     ];
     
     y = 150;
@@ -937,7 +985,7 @@ function createChapter6() {
            .font('Helvetica-Bold')
            .fillColor(colors.textPrimary)
            .text(s.cv, 110, y + 12)
-           .text(s.level, 280, y + 12)
+           .text(s.level, 260, y + 12)
            .fillColor(s.color)
            .text(s.method, 400, y + 12);
         
@@ -945,7 +993,7 @@ function createChapter6() {
     });
 }
 
-// 第七章：天氣影響
+// Chapter 7: Weather Impact
 function createChapter7() {
     doc.addPage();
     addHeaderFooter();
@@ -957,28 +1005,28 @@ function createChapter7() {
     
     doc.fontSize(24)
        .fillColor(colors.textPrimary)
-       .text('天氣影響因子', 80, 82);
+       .text('Weather Impact Factors', 80, 82);
     
     doc.moveTo(50, 125).lineTo(545, 125).strokeColor(colors.border).lineWidth(1).stroke();
     
     doc.fontSize(11)
        .font('Helvetica')
        .fillColor(colors.textPrimary)
-       .text('天氣對急診室就診人數有顯著影響。系統使用相對溫度（與歷史平均比較）而非絕對溫度，基於研究發現相對溫度的預測效果更佳。', 50, 145, { width: 495 });
+       .text('Weather significantly impacts ED attendance. The system uses relative temperature (compared to historical average) rather than absolute temperature, based on research findings.', 50, 145, { width: 495 });
     
-    // 溫度影響
+    // Temperature impact
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('7.1 溫度影響', 50, 195);
+       .text('7.1 Temperature Impact', 50, 195);
     
     const tempEffects = [
-        { condition: '比歷史平均高 5°C 以上', factor: '×1.06', effect: '增加 6%' },
-        { condition: '比歷史平均低 5°C 以上', factor: '×1.10', effect: '增加 10%' },
-        { condition: '絕對溫度 > 33°C', factor: '×1.08', effect: '酷熱' },
-        { condition: '絕對溫度 30-33°C', factor: '×1.04', effect: '炎熱' },
-        { condition: '絕對溫度 10-15°C', factor: '×1.06', effect: '寒冷' },
-        { condition: '絕對溫度 < 10°C', factor: '×1.12', effect: '嚴寒' }
+        { condition: '> 5C above historical average', factor: 'x1.06', effect: '+6%' },
+        { condition: '> 5C below historical average', factor: 'x1.10', effect: '+10%' },
+        { condition: 'Absolute temp > 33C', factor: 'x1.08', effect: 'Extreme heat' },
+        { condition: 'Absolute temp 30-33C', factor: 'x1.04', effect: 'Hot' },
+        { condition: 'Absolute temp 10-15C', factor: 'x1.06', effect: 'Cold' },
+        { condition: 'Absolute temp < 10C', factor: 'x1.12', effect: 'Severe cold' }
     ];
     
     let y = 220;
@@ -1000,18 +1048,18 @@ function createChapter7() {
         y += 25;
     });
     
-    // 其他天氣因素
+    // Other weather factors
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('7.2 其他天氣因素', 50, y + 30);
+       .text('7.2 Other Weather Factors', 50, y + 30);
     
     y += 55;
     
     const otherFactors = [
-        { category: '濕度', factors: ['≥95%: ×1.03', '85-95%: ×1.01', '<60%: ×0.99'] },
-        { category: '降雨', factors: ['≥30mm: ×0.92', '10-30mm: ×0.96', '<10mm: ×0.98'] },
-        { category: '警告', factors: ['八號風球: ×0.40', '紅雨: ×0.75', '寒冷警告: ×1.08'] }
+        { category: 'Humidity', factors: ['>=95%: x1.03', '85-95%: x1.01', '<60%: x0.99'] },
+        { category: 'Rainfall', factors: ['>=30mm: x0.92', '10-30mm: x0.96', '<10mm: x0.98'] },
+        { category: 'Warnings', factors: ['T8 Typhoon: x0.40', 'Red Rain: x0.75', 'Cold Warning: x1.08'] }
     ];
     
     otherFactors.forEach(o => {
@@ -1025,30 +1073,30 @@ function createChapter7() {
             doc.fontSize(9)
                .font('Helvetica')
                .fillColor(colors.textPrimary)
-               .text('• ' + f, 70, y);
+               .text('  - ' + f, 70, y);
             y += 15;
         });
         y += 10;
     });
     
-    // 天氣因子公式
+    // Weather factor formula
     doc.roundedRect(50, y, 495, 50, 8)
        .fill('#1D1D1F');
     
     doc.fontSize(11)
        .font('Helvetica')
        .fillColor('#00FF88')
-       .text('天氣因子:', 70, y + 15);
+       .text('Weather Factor:', 70, y + 15);
     
     doc.fillColor('#FFFFFF')
-       .text('weatherFactor = 溫度因子 × 濕度因子 × 降雨因子 × 警告因子', 170, y + 15);
+       .text('weatherFactor = tempFactor * humidityFactor * rainFactor * warningFactor', 180, y + 15);
     
     doc.fillColor('#FFD60A')
        .fontSize(9)
-       .text('範圍：0.40 - 1.15', 70, y + 35);
+       .text('Range: 0.40 - 1.15', 70, y + 35);
 }
 
-// 第八章：AI 實時分析
+// Chapter 8: AI Real-time Analysis
 function createChapter8() {
     doc.addPage();
     addHeaderFooter();
@@ -1060,25 +1108,25 @@ function createChapter8() {
     
     doc.fontSize(24)
        .fillColor(colors.textPrimary)
-       .text('AI 實時分析', 80, 82);
+       .text('AI Real-time Analysis', 80, 82);
     
     doc.moveTo(50, 125).lineTo(545, 125).strokeColor(colors.border).lineWidth(1).stroke();
     
     doc.fontSize(11)
        .font('Helvetica')
        .fillColor(colors.textPrimary)
-       .text('系統整合 AI 大語言模型進行實時新聞和事件分析，自動識別可能影響急診室就診人數的因素。', 50, 145, { width: 495 });
+       .text('The system integrates AI large language models for real-time news and event analysis, automatically identifying factors that may impact ED attendance.', 50, 145, { width: 495 });
     
-    // AI 模型
+    // AI Models
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('8.1 AI 模型選擇', 50, 185);
+       .text('8.1 AI Model Selection', 50, 185);
     
     const models = [
-        { tier: '高級模型', models: 'GPT-5.1, GPT-5, GPT-4o, GPT-4.1', limit: '5次/天' },
-        { tier: '中級模型', models: 'DeepSeek-R1, DeepSeek-V3', limit: '30次/天' },
-        { tier: '基礎模型', models: 'GPT-4o-mini, GPT-3.5-turbo', limit: '200次/天' }
+        { tier: 'Premium Models', models: 'GPT-5.1, GPT-5, GPT-4o, GPT-4.1', limit: '5/day' },
+        { tier: 'Standard Models', models: 'DeepSeek-R1, DeepSeek-V3', limit: '30/day' },
+        { tier: 'Basic Models', models: 'GPT-4o-mini, GPT-3.5-turbo', limit: '200/day' }
     ];
     
     let y = 210;
@@ -1101,40 +1149,49 @@ function createChapter8() {
         y += 45;
     });
     
-    // 分析範圍
+    // Analysis scope
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('8.2 分析範圍', 50, y + 20);
+       .text('8.2 Analysis Scope', 50, y + 20);
     
     y += 50;
     
     const categories = [
-        { icon: '🌡️', name: '天氣事件', examples: '極端天氣、颱風、暴雨' },
-        { icon: '🏥', name: '公共衛生', examples: '流感爆發、食物中毒、傳染病' },
-        { icon: '🚗', name: '社會事件', examples: '大型活動、交通事故、示威遊行' },
-        { icon: '📅', name: '節日效應', examples: '公眾假期、學校假期、特殊節日' },
-        { icon: '📋', name: '政策變更', examples: '收費調整、分流政策、服務變更' }
+        { icon: 'W', name: 'Weather Events', examples: 'Extreme weather, typhoons, rainstorms' },
+        { icon: 'H', name: 'Public Health', examples: 'Flu outbreaks, food poisoning, infectious diseases' },
+        { icon: 'S', name: 'Social Events', examples: 'Large gatherings, traffic accidents, demonstrations' },
+        { icon: 'C', name: 'Calendar Effects', examples: 'Public holidays, school breaks, special occasions' },
+        { icon: 'P', name: 'Policy Changes', examples: 'Fee adjustments, triage policies, service changes' }
     ];
     
     categories.forEach(c => {
-        doc.fontSize(10)
-           .font('Helvetica')
-           .fillColor(colors.textPrimary)
-           .text(c.icon + ' ' + c.name, 65, y);
+        doc.circle(70, y + 5, 10)
+           .fill(colors.primary);
         
         doc.fontSize(9)
-           .fillColor(colors.textSecondary)
-           .text(c.examples, 200, y);
+           .font('Helvetica-Bold')
+           .fillColor('#FFFFFF')
+           .text(c.icon, 66, y + 1);
         
-        y += 25;
+        doc.fontSize(10)
+           .font('Helvetica-Bold')
+           .fillColor(colors.textPrimary)
+           .text(c.name, 95, y);
+        
+        doc.fontSize(9)
+           .font('Helvetica')
+           .fillColor(colors.textSecondary)
+           .text(c.examples, 220, y);
+        
+        y += 28;
     });
     
-    // AI 因子限制
+    // AI factor limit
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('8.3 AI 因子限制', 50, y + 20);
+       .text('8.3 AI Factor Constraints', 50, y + 20);
     
     doc.roundedRect(50, y + 50, 495, 60, 8)
        .fill('#1D1D1F');
@@ -1142,17 +1199,17 @@ function createChapter8() {
     doc.fontSize(11)
        .font('Helvetica')
        .fillColor('#00FF88')
-       .text('AI 因子範圍:', 70, y + 70);
+       .text('AI Factor Range:', 70, y + 70);
     
     doc.fillColor('#FFFFFF')
        .text('aiFactor = max(0.85, min(1.15, rawAIFactor))', 200, y + 70);
     
     doc.fillColor('#FFD60A')
        .fontSize(9)
-       .text('限制範圍 ±15%，防止單一因素過度影響預測', 70, y + 95);
+       .text('Limited to +/-15% to prevent single factor from dominating prediction', 70, y + 95);
 }
 
-// 第九章：性能指標
+// Chapter 9: Performance Metrics
 function createChapter9() {
     doc.addPage();
     addHeaderFooter();
@@ -1164,23 +1221,23 @@ function createChapter9() {
     
     doc.fontSize(24)
        .fillColor(colors.textPrimary)
-       .text('性能指標與評估', 80, 82);
+       .text('Performance Metrics', 80, 82);
     
     doc.moveTo(50, 125).lineTo(545, 125).strokeColor(colors.border).lineWidth(1).stroke();
     
-    // 目標指標
+    // Target metrics
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('9.1 目標性能指標', 50, 145);
+       .text('9.1 Target Performance Metrics', 50, 145);
     
     const targets = [
-        { metric: 'MAE', target: '< 2.5 病人', worldBest: '2.63-2.64', status: '🎯 進行中' },
-        { metric: 'MAPE', target: '< 2.5%', worldBest: '~2-3%', status: '🎯 進行中' },
-        { metric: '方向準確度', target: '> 93%', worldBest: '~91%', status: '🎯 進行中' },
-        { metric: '80% CI 覆蓋率', target: '> 80%', worldBest: '~85%', status: '🎯 進行中' },
-        { metric: '95% CI 覆蓋率', target: '> 95%', worldBest: '~95%', status: '🎯 進行中' },
-        { metric: 'R²', target: '> 0.97', worldBest: '~0.95', status: '📋 待實現' }
+        { metric: 'MAE', target: '< 2.5 patients', worldBest: '2.63-2.64', status: 'In Progress' },
+        { metric: 'MAPE', target: '< 2.5%', worldBest: '~2-3%', status: 'In Progress' },
+        { metric: 'Directional Accuracy', target: '> 93%', worldBest: '~91%', status: 'In Progress' },
+        { metric: '80% CI Coverage', target: '> 80%', worldBest: '~85%', status: 'In Progress' },
+        { metric: '95% CI Coverage', target: '> 95%', worldBest: '~95%', status: 'In Progress' },
+        { metric: 'R-squared', target: '> 0.97', worldBest: '~0.95', status: 'Planned' }
     ];
     
     let y = 175;
@@ -1191,10 +1248,10 @@ function createChapter9() {
     doc.fontSize(9)
        .font('Helvetica-Bold')
        .fillColor('#FFFFFF')
-       .text('指標', 65, y + 8)
-       .text('目標', 170, y + 8)
-       .text('世界最佳', 290, y + 8)
-       .text('狀態', 420, y + 8);
+       .text('Metric', 65, y + 8)
+       .text('Target', 170, y + 8)
+       .text('World Best', 290, y + 8)
+       .text('Status', 420, y + 8);
     
     y += 28;
     
@@ -1220,19 +1277,19 @@ function createChapter9() {
         y += 25;
     });
     
-    // 評估公式
+    // Evaluation formulas
     doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('9.2 評估指標公式', 50, y + 30);
+       .text('9.2 Evaluation Metric Formulas', 50, y + 30);
     
     y += 55;
     
     const formulas = [
-        { name: 'MAE', formula: 'MAE = (1/n) × Σ|yᵢ - ŷᵢ|' },
-        { name: 'MAPE', formula: 'MAPE = (100/n) × Σ|yᵢ - ŷᵢ|/yᵢ' },
-        { name: 'RMSE', formula: 'RMSE = √[(1/n) × Σ(yᵢ - ŷᵢ)²]' },
-        { name: 'R²', formula: 'R² = 1 - SS_res/SS_tot' }
+        { name: 'MAE', formula: 'MAE = (1/n) * SUM(|y_i - y_hat_i|)' },
+        { name: 'MAPE', formula: 'MAPE = (100/n) * SUM(|y_i - y_hat_i| / y_i)' },
+        { name: 'RMSE', formula: 'RMSE = sqrt[(1/n) * SUM((y_i - y_hat_i)^2)]' },
+        { name: 'R-squared', formula: 'R^2 = 1 - SS_res / SS_tot' }
     ];
     
     formulas.forEach(f => {
@@ -1252,7 +1309,7 @@ function createChapter9() {
     });
 }
 
-// 第十章：系統架構
+// Chapter 10: System Architecture
 function createChapter10() {
     doc.addPage();
     addHeaderFooter();
@@ -1264,15 +1321,15 @@ function createChapter10() {
     
     doc.fontSize(24)
        .fillColor(colors.textPrimary)
-       .text('系統架構圖', 90, 82);
+       .text('System Architecture', 95, 82);
     
     doc.moveTo(50, 125).lineTo(545, 125).strokeColor(colors.border).lineWidth(1).stroke();
     
-    // 架構圖
+    // Architecture diagram
     const components = [
-        { x: 250, y: 180, w: 120, h: 50, label: '用戶界面', color: colors.primary, desc: 'HTML/CSS/JS' },
-        { x: 250, y: 280, w: 120, h: 50, label: 'Node.js 服務器', color: colors.secondary, desc: 'Express API' },
-        { x: 100, y: 380, w: 100, h: 50, label: 'PostgreSQL', color: colors.success, desc: '數據庫' },
+        { x: 250, y: 180, w: 120, h: 50, label: 'User Interface', color: colors.primary, desc: 'HTML/CSS/JS' },
+        { x: 250, y: 280, w: 120, h: 50, label: 'Node.js Server', color: colors.secondary, desc: 'Express API' },
+        { x: 100, y: 380, w: 100, h: 50, label: 'PostgreSQL', color: colors.success, desc: 'Database' },
         { x: 250, y: 380, w: 100, h: 50, label: 'Python ML', color: colors.warning, desc: 'XGBoost' },
         { x: 400, y: 380, w: 100, h: 50, label: 'AI API', color: colors.danger, desc: 'GPT/DeepSeek' }
     ];
@@ -1291,27 +1348,27 @@ function createChapter10() {
            .text(c.desc, c.x, c.y + 32, { width: c.w, align: 'center' });
     });
     
-    // 連接線
+    // Connection lines
     doc.strokeColor(colors.textSecondary).lineWidth(2);
     doc.moveTo(310, 230).lineTo(310, 280).stroke();
     doc.moveTo(150, 330).lineTo(310, 330).lineTo(310, 380).stroke();
     doc.moveTo(310, 330).lineTo(300, 380).stroke();
     doc.moveTo(310, 330).lineTo(450, 330).lineTo(450, 380).stroke();
     
-    // 數據流說明
+    // Data flow description
     doc.fontSize(14)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('數據流程', 50, 480);
+       .text('Data Flow', 50, 480);
     
     const flow = [
-        '1. 用戶訪問網頁，觸發預測請求',
-        '2. Node.js 服務器接收請求',
-        '3. 從 PostgreSQL 獲取歷史數據',
-        '4. 調用 Python XGBoost 模型（如可用）',
-        '5. 調用 AI API 進行實時事件分析',
-        '6. 綜合所有因子計算最終預測',
-        '7. 返回預測結果和置信區間'
+        '1. User accesses web page, triggers prediction request',
+        '2. Node.js server receives request',
+        '3. Fetch historical data from PostgreSQL',
+        '4. Call Python XGBoost model (if available)',
+        '5. Call AI API for real-time event analysis',
+        '6. Combine all factors to calculate final prediction',
+        '7. Return prediction result with confidence intervals'
     ];
     
     let y = 510;
@@ -1323,19 +1380,19 @@ function createChapter10() {
         y += 20;
     });
     
-    // 技術棧
+    // Tech stack
     doc.fontSize(14)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('技術棧', 50, y + 20);
+       .text('Technology Stack', 50, y + 20);
     
     const techStack = [
-        { category: '前端', tech: 'HTML5, CSS3, JavaScript (ES6+), Chart.js' },
-        { category: '後端', tech: 'Node.js 18+, Express' },
-        { category: '數據庫', tech: 'PostgreSQL 15+' },
+        { category: 'Frontend', tech: 'HTML5, CSS3, JavaScript (ES6+), Chart.js' },
+        { category: 'Backend', tech: 'Node.js 18+, Express' },
+        { category: 'Database', tech: 'PostgreSQL 15+' },
         { category: 'ML', tech: 'Python 3, XGBoost, NumPy, Pandas' },
         { category: 'AI', tech: 'OpenAI GPT, DeepSeek' },
-        { category: '部署', tech: 'Railway, Docker' }
+        { category: 'Deployment', tech: 'Railway, Docker' }
     ];
     
     y += 45;
@@ -1347,13 +1404,13 @@ function createChapter10() {
         
         doc.font('Helvetica')
            .fillColor(colors.textSecondary)
-           .text(t.tech, 130, y);
+           .text(t.tech, 140, y);
         
         y += 18;
     });
 }
 
-// 結語
+// Conclusion
 function createConclusion() {
     doc.addPage();
     addHeaderFooter();
@@ -1361,43 +1418,77 @@ function createConclusion() {
     doc.fontSize(28)
        .font('Helvetica-Bold')
        .fillColor(colors.textPrimary)
-       .text('結語', 50, 80);
+       .text('Conclusion', 50, 80);
     
-    doc.moveTo(50, 115).lineTo(150, 115).strokeColor(colors.primary).lineWidth(3).stroke();
-    
-    const conclusion = `
-NDH AED 預測系統是一個融合了統計學、機器學習和人工智能的世界級預測平台。通過結合多種先進技術和方法，系統能夠提供高精度的急診室就診人數預測，幫助醫院管理層進行有效的資源規劃和人員調配。
-
-系統的核心優勢包括：
-
-• 多因子乘法模型 - 綜合考慮時間、天氣、假期、AI因素等多重影響
-• 動態因子計算 - 使用滾動窗口和指數衰減權重適應數據變化
-• 機器學習增強 - XGBoost 模型捕捉複雜的非線性模式
-• 實時 AI 分析 - 自動識別和量化新聞事件的影響
-• 多重平滑方法 - 9種平滑技術綜合得出穩健的最終預測
-• 不確定性量化 - 提供置信區間幫助決策
-
-未來發展方向包括：
-
-1. 整合更多外部數據源（流感監測、空氣質量等）
-2. 實現多時間範圍預測（1-6小時、1-7天、1-4週）
-3. 開發登機患者預測功能
-4. 持續優化算法以達到世界最佳準確度
-5. 發表學術論文獲得國際認可
-
-我們致力於將 NDH AED 預測系統打造成世界上最準確、最可靠的急診室就診預測工具。
-`;
+    doc.moveTo(50, 115).lineTo(180, 115).strokeColor(colors.primary).lineWidth(3).stroke();
     
     doc.fontSize(11)
        .font('Helvetica')
-       .fillColor(colors.textPrimary)
-       .text(conclusion.trim(), 50, 140, {
-           width: 495,
-           align: 'left',
-           lineGap: 5
-       });
+       .fillColor(colors.textPrimary);
     
-    // 聯繫信息
+    let y = 140;
+    
+    doc.text('The NDH AED Prediction System is a world-class prediction platform that combines statistics, machine learning, and artificial intelligence. By integrating multiple advanced techniques and methods, the system delivers highly accurate emergency department attendance predictions, helping hospital management with effective resource planning and staff allocation.', 50, y, { width: 495 });
+    
+    y += 80;
+    
+    doc.fontSize(14)
+       .font('Helvetica-Bold')
+       .text('Core Advantages', 50, y);
+    
+    y += 25;
+    
+    const advantages = [
+        'Multi-factor multiplicative model - considers time, weather, holidays, AI factors',
+        'Dynamic factor calculation - rolling window with exponential decay weights',
+        'Machine learning enhancement - XGBoost captures complex nonlinear patterns',
+        'Real-time AI analysis - automatically identifies and quantifies news events',
+        'Multiple smoothing methods - 9 techniques for robust final predictions',
+        'Uncertainty quantification - confidence intervals to support decision-making'
+    ];
+    
+    advantages.forEach(a => {
+        doc.fontSize(10)
+           .font('Helvetica')
+           .fillColor(colors.textPrimary);
+        doc.circle(60, y + 4, 2).fill(colors.success);
+        doc.text(a, 70, y, { width: 475 });
+        y += 25;
+    });
+    
+    y += 15;
+    
+    doc.fontSize(14)
+       .font('Helvetica-Bold')
+       .fillColor(colors.textPrimary)
+       .text('Future Development', 50, y);
+    
+    y += 25;
+    
+    const future = [
+        'Integrate more external data sources (flu surveillance, air quality)',
+        'Multi-horizon prediction (1-6 hours, 1-7 days, 1-4 weeks)',
+        'Develop admitted patient prediction functionality',
+        'Continuous algorithm optimization to achieve world-best accuracy',
+        'Publish academic papers for international recognition'
+    ];
+    
+    future.forEach((f, i) => {
+        doc.fontSize(10)
+           .font('Helvetica')
+           .fillColor(colors.textPrimary)
+           .text((i + 1) + '. ' + f, 60, y);
+        y += 20;
+    });
+    
+    y += 30;
+    
+    doc.fontSize(11)
+       .font('Helvetica')
+       .fillColor(colors.textSecondary)
+       .text('We are committed to making the NDH AED Prediction System the most accurate and reliable emergency department attendance prediction tool in the world.', 50, y, { width: 495 });
+    
+    // Contact info
     doc.fontSize(12)
        .font('Helvetica-Bold')
        .fillColor(colors.primary)
@@ -1407,11 +1498,11 @@ NDH AED 預測系統是一個融合了統計學、機器學習和人工智能的
        .font('Helvetica')
        .fillColor(colors.textSecondary)
        .text('Hospital Authority, Hong Kong', 50, 700)
-       .text('Version 2.5.3 | December 2025', 50, 715);
+       .text('Version 2.5.4 | December 2025', 50, 715);
 }
 
-// 生成 PDF
-console.log('🚀 開始生成 PDF 文檔...');
+// Generate PDF
+console.log('Generating PDF documentation...');
 
 createTitlePage();
 createTableOfContents();
@@ -1429,5 +1520,5 @@ createConclusion();
 
 doc.end();
 
-console.log(`✅ PDF 文檔已生成: ${outputPath}`);
-console.log('📄 總頁數:', pageNumber + 1);
+console.log('PDF generated: ' + outputPath);
+console.log('Total pages: ' + (pageNumber + 1));
