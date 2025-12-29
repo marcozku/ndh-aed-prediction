@@ -5352,6 +5352,475 @@ section h2 {
 }
 
 /* ============================================
+   🍎 Apple-like Mobile Enhancement v2.6.5
+   World-class professional mobile experience
+   ============================================ */
+
+/* Mobile-first base improvements */
+@media (max-width: 768px) {
+    /* Smoother system font stack like Apple */
+    :root {
+        --font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 
+                       'Helvetica Neue', 'Plus Jakarta Sans', system-ui, sans-serif;
+        --space-section: var(--space-lg);
+    }
+    
+    body {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+    }
+    
+    /* Cleaner section spacing */
+    section {
+        margin-bottom: var(--space-lg);
+        padding: var(--space-md);
+    }
+    
+    /* Apple-like card design */
+    .prediction-container,
+    .chart-card,
+    .card,
+    .ai-factors-panel,
+    .confidence-grid,
+    .model-training-section,
+    .algorithm-section {
+        background: var(--bg-card);
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04), 
+                    0 4px 12px rgba(0,0,0,0.04);
+        margin: var(--space-sm);
+        overflow: hidden;
+    }
+    
+    [data-theme="dark"] .prediction-container,
+    [data-theme="dark"] .chart-card,
+    [data-theme="dark"] .card,
+    [data-theme="dark"] .ai-factors-panel,
+    [data-theme="dark"] .confidence-grid {
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2), 
+                    0 4px 12px rgba(0,0,0,0.15);
+        border: 1px solid rgba(255,255,255,0.06);
+    }
+    
+    /* Clean header styling */
+    .app-header {
+        padding: var(--space-lg) var(--space-md);
+        text-align: center;
+    }
+    
+    .header-title {
+        font-size: 1.5rem !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+        margin-bottom: var(--space-xs);
+    }
+    
+    .header-subtitle {
+        font-size: 0.85rem !important;
+        color: var(--text-secondary);
+        font-weight: 400;
+    }
+    
+    /* Section titles - Apple style */
+    .section-title,
+    section h2 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        margin-bottom: var(--space-md);
+        padding: 0 var(--space-xs);
+    }
+    
+    /* Prediction number - bold and clear */
+    .prediction-number,
+    .realtime-number {
+        font-size: 3rem;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1;
+    }
+    
+    /* Weather widget - compact */
+    .weather-widget {
+        padding: var(--space-md);
+        border-radius: 14px;
+        margin: var(--space-sm);
+    }
+    
+    .weather-icon {
+        font-size: 2rem;
+    }
+    
+    .weather-temp {
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+    
+    /* 7-day forecast cards */
+    .forecast-grid {
+        gap: var(--space-xs);
+        padding: var(--space-sm);
+    }
+    
+    .forecast-day {
+        padding: var(--space-sm);
+        border-radius: 12px;
+        min-width: 70px;
+        text-align: center;
+    }
+    
+    .forecast-day.today {
+        background: var(--accent-primary);
+        color: white;
+    }
+    
+    /* Touch-friendly buttons */
+    button,
+    .btn,
+    .nav-action-btn,
+    .chart-action-btn {
+        min-height: 44px;
+        min-width: 44px;
+        border-radius: 12px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    button:active,
+    .btn:active,
+    .nav-action-btn:active {
+        transform: scale(0.96);
+        opacity: 0.9;
+    }
+    
+    /* Primary action buttons */
+    .primary-btn,
+    #start-training-btn,
+    .refresh-btn {
+        background: var(--accent-primary);
+        color: white;
+        font-weight: 600;
+        padding: var(--space-sm) var(--space-lg);
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+    }
+    
+    .primary-btn:active,
+    #start-training-btn:active {
+        box-shadow: 0 1px 4px rgba(79, 70, 229, 0.2);
+    }
+    
+    /* Clean form inputs */
+    input[type="checkbox"] {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        accent-color: var(--accent-primary);
+    }
+    
+    select {
+        min-height: 44px;
+        border-radius: 10px;
+        padding: 0 var(--space-md);
+        font-size: 0.95rem;
+        border: 1px solid var(--border-light);
+        background: var(--bg-card);
+    }
+    
+    /* Stats grid - 2 columns */
+    .stats-grid,
+    .accuracy-stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: var(--space-sm) !important;
+        padding: var(--space-sm) !important;
+    }
+    
+    .stat-item,
+    .accuracy-stat-card {
+        padding: var(--space-md);
+        border-radius: 12px;
+        background: var(--bg-secondary);
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    
+    .stat-label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: var(--space-xs);
+    }
+    
+    /* AI Factors - clean cards */
+    .ai-factor-card,
+    .factor-card {
+        padding: var(--space-md);
+        border-radius: 14px;
+        margin-bottom: var(--space-sm);
+        border-left: 3px solid var(--accent-primary);
+        background: var(--bg-secondary);
+    }
+    
+    .factor-header {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        margin-bottom: var(--space-xs);
+    }
+    
+    .factor-source {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+    }
+    
+    /* Chart containers */
+    .chart-card {
+        padding: var(--space-md);
+    }
+    
+    .chart-header {
+        margin-bottom: var(--space-md);
+    }
+    
+    .chart-title {
+        font-size: 1rem;
+        font-weight: 600;
+    }
+    
+    /* Training section */
+    .model-card {
+        padding: var(--space-md);
+        border-radius: 14px;
+        margin-bottom: var(--space-sm);
+    }
+    
+    .model-header {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+    }
+    
+    .model-name {
+        font-size: 1rem;
+        font-weight: 600;
+    }
+    
+    .model-status {
+        font-size: 0.75rem;
+        padding: 4px 10px;
+        border-radius: 20px;
+    }
+    
+    /* Training log - cleaner */
+    .training-log {
+        font-size: 0.75rem;
+        line-height: 1.5;
+        padding: var(--space-sm);
+        border-radius: 10px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    
+    /* Confidence dashboard */
+    .confidence-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: var(--space-md);
+        padding: var(--space-md);
+    }
+    
+    .confidence-item {
+        text-align: center;
+        padding: var(--space-sm);
+    }
+    
+    .confidence-gauge {
+        width: 80px;
+        height: 50px;
+    }
+    
+    .gauge-value {
+        font-size: 1rem;
+    }
+    
+    .confidence-label {
+        font-size: 0.7rem;
+    }
+    
+    /* Modal improvements */
+    .modal-content {
+        margin: var(--space-sm);
+        border-radius: 20px;
+        max-height: calc(100vh - 100px);
+        max-width: calc(100vw - 32px);
+    }
+    
+    .modal-header {
+        padding: var(--space-md);
+        border-bottom: 1px solid var(--border-light);
+    }
+    
+    .modal-header h3 {
+        font-size: 1.1rem;
+    }
+    
+    .modal-body {
+        padding: var(--space-md);
+    }
+    
+    /* Toast notifications - bottom */
+    .toast-container {
+        bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+        top: auto;
+        left: var(--space-md);
+        right: var(--space-md);
+    }
+    
+    .toast {
+        border-radius: 14px;
+        padding: var(--space-sm) var(--space-md);
+        font-size: 0.9rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    
+    /* Footer - minimal */
+    footer {
+        padding: var(--space-lg) var(--space-md);
+        text-align: center;
+    }
+    
+    footer p {
+        font-size: 0.75rem;
+        margin-bottom: var(--space-xs);
+    }
+    
+    /* Back to top - pill style */
+    .back-to-top {
+        width: 50px;
+        height: 50px;
+        border-radius: 25px;
+        background: var(--accent-primary);
+        color: white;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+        bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+        right: 16px;
+    }
+    
+    .back-to-top:active {
+        transform: scale(0.9);
+    }
+}
+
+/* Small phones (< 380px) - extra compact */
+@media (max-width: 380px) {
+    .header-title {
+        font-size: 1.25rem !important;
+    }
+    
+    .header-subtitle {
+        font-size: 0.75rem !important;
+    }
+    
+    .prediction-number,
+    .realtime-number {
+        font-size: 2.5rem;
+    }
+    
+    .section-title,
+    section h2 {
+        font-size: 1.1rem;
+    }
+    
+    .stats-grid,
+    .accuracy-stats {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: var(--space-xs) !important;
+    }
+    
+    .stat-value {
+        font-size: 1.25rem;
+    }
+    
+    .forecast-day {
+        min-width: 55px;
+        padding: var(--space-xs);
+    }
+    
+    .nav-action-btn {
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 0.85rem !important;
+    }
+    
+    .confidence-grid {
+        gap: var(--space-sm);
+    }
+    
+    .confidence-gauge {
+        width: 60px;
+        height: 40px;
+    }
+}
+
+/* Smooth animations */
+@media (max-width: 768px) {
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .prediction-container,
+    .chart-card,
+    .card,
+    section {
+        animation: slideUp 0.4s ease-out;
+    }
+    
+    /* Stagger animation delays */
+    .prediction-container { animation-delay: 0.05s; }
+    .chart-card:nth-child(1) { animation-delay: 0.1s; }
+    .chart-card:nth-child(2) { animation-delay: 0.15s; }
+    .chart-card:nth-child(3) { animation-delay: 0.2s; }
+}
+
+/* Dark mode mobile enhancements */
+@media (max-width: 768px) {
+    [data-theme="dark"] {
+        --bg-primary: #000000;
+        --bg-secondary: #1c1c1e;
+        --bg-card: #1c1c1e;
+        --border-light: rgba(255,255,255,0.08);
+    }
+    
+    [data-theme="dark"] .sticky-nav {
+        background: rgba(0,0,0,0.85);
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    
+    [data-theme="dark"] .back-to-top {
+        background: var(--accent-primary);
+    }
+    
+    [data-theme="dark"] .stat-item,
+    [data-theme="dark"] .accuracy-stat-card {
+        background: rgba(255,255,255,0.05);
+    }
+}
+
+/* ============================================
    Print Styles
    ============================================ */
 @media print {
