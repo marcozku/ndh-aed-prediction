@@ -1,228 +1,8 @@
 /**
  * NDH AED 預測系統 - UI 增強模組
- * 包含：深色模式、導航、通知、匯出、分享、鍵盤快捷鍵、語言切換
- * v2.6.0
+ * 包含：深色模式、導航、通知、鍵盤快捷鍵
+ * v2.6.5
  */
-
-// ============================================
-// 語言翻譯
-// ============================================
-const translations = {
-    'zh-HK': {
-        // 導航
-        'nav-title': 'NDH AED',
-        'nav-today': '今日',
-        'nav-forecast': '7日',
-        'nav-history': '趨勢',
-        'nav-training': '訓練',
-        
-        // 通用
-        'loading': '載入中...',
-        'unit-people': '人',
-        
-        // 頁首
-        'app-title': 'NDH AED 病人數量預測系統',
-        'app-subtitle': 'North District Hospital A&E Attendance Prediction',
-        
-        // 今日預測
-        'today-prediction': '今日預測',
-        'combined-prediction': '綜合預測',
-        'realtime-prediction': '實時預測',
-        'stability': '穩定性',
-        'ci-80': '80% 信賴區間',
-        'ci-95': '95% 信賴區間',
-        
-        // 統計
-        'historical-stats': '歷史統計',
-        'daily-avg': '日均人數',
-        'max-peak': '最高峰',
-        'min-trough': '最低谷',
-        'std-dev': '標準差',
-        
-        // 影響因素
-        'realtime-factors': '實時影響因素',
-        'reanalyze': '重新分析',
-        
-        // 預測
-        'forecast-7days': '未來 7 天預測',
-        'forecast-chart-title': '未來 30 天預測趨勢',
-        
-        // 置信度
-        'confidence-title': '模型置信度',
-        'methodology-btn': '方法論',
-        'conf-data': '數據品質',
-        'conf-model': '模型擬合',
-        'conf-accuracy': '近期準確度',
-        'conf-overall': '綜合置信度',
-        
-        // 圖表控制
-        'chart-scale': 'Y軸縮放：',
-        'scale-auto': '自動',
-        'scale-fixed': '固定',
-        'show-predictions': '顯示預測線：',
-        'show-anomalies': '標記異常：',
-        
-        // 圖表
-        'accuracy-trend-title': '📈 模型準確度趨勢',
-        'weather-corr-title': '🌡️ 天氣影響分析',
-        'dow-chart-title': '星期效應分析',
-        'month-chart-title': '月份分佈統計',
-        'history-chart-title': '歷史趨勢',
-        'compare-year': '對比去年',
-        'chart-hint': '提示：拖曳可平移，滾輪可縮放，點擊數據點查看詳情',
-        
-        // 對比
-        'comparison-title': '實際 vs 預測對比',
-        'add-actual-data': '添加實際數據',
-        
-        // 訓練
-        'model-training-status': '模型訓練狀態',
-        'start-training': '開始訓練',
-        
-        // 算法說明
-        'algorithm-section': '預測算法說明（基於真實研究）',
-        'methodology-title': '預測方法論',
-        
-        // 頁腳
-        'footer-version': '預測模型版本',
-        'footer-timezone': '香港時間 HKT',
-        'footer-api': 'API 文檔',
-        'footer-shortcuts': '鍵盤快捷鍵',
-        
-        // 快捷鍵
-        'shortcuts-title': '⌨️ 鍵盤快捷鍵',
-        'shortcut-refresh': '刷新數據',
-        'shortcut-train': '開始訓練',
-        'shortcut-theme': '切換深色模式',
-        'shortcut-lang': '切換語言',
-        'shortcut-top': '返回頂部',
-        'shortcut-nav': '導航區塊',
-        'shortcut-help': '顯示快捷鍵',
-        
-        // 通知
-        'notify-title': '通知設定',
-        'notify-high': '高人流預警 (>300人)',
-        'notify-training': '訓練完成通知',
-        'notify-daily': '每日預測提醒',
-        'notify-save': '儲存設定',
-        
-        // Toast
-        'toast-copied': '已複製到剪貼板',
-        'toast-saved': '已儲存',
-        'toast-notify-saved': '通知設定已儲存',
-        
-        // 上傳
-        'drop-hint': '放開以上傳 CSV 文件'
-    },
-    'en': {
-        // Navigation
-        'nav-title': 'NDH AED',
-        'nav-today': 'Today',
-        'nav-forecast': '7 Days',
-        'nav-history': 'Trends',
-        'nav-training': 'Train',
-        
-        // Common
-        'loading': 'Loading...',
-        'unit-people': 'patients',
-        
-        // Header
-        'app-title': 'NDH AED Patient Attendance Prediction System',
-        'app-subtitle': 'North District Hospital A&E Attendance Prediction',
-        
-        // Today Prediction
-        'today-prediction': "Today's Prediction",
-        'combined-prediction': 'Combined Prediction',
-        'realtime-prediction': 'Realtime Prediction',
-        'stability': 'Stability',
-        'ci-80': '80% Confidence Interval',
-        'ci-95': '95% Confidence Interval',
-        
-        // Statistics
-        'historical-stats': 'Historical Statistics',
-        'daily-avg': 'Daily Average',
-        'max-peak': 'Maximum',
-        'min-trough': 'Minimum',
-        'std-dev': 'Std Deviation',
-        
-        // Factors
-        'realtime-factors': 'Real-time Impact Factors',
-        'reanalyze': 'Re-analyze',
-        
-        // Forecast
-        'forecast-7days': '7-Day Forecast',
-        'forecast-chart-title': '30-Day Forecast Trend',
-        
-        // Confidence
-        'confidence-title': 'Model Confidence',
-        'methodology-btn': 'Methodology',
-        'conf-data': 'Data Quality',
-        'conf-model': 'Model Fit',
-        'conf-accuracy': 'Recent Accuracy',
-        'conf-overall': 'Overall Confidence',
-        
-        // Chart Controls
-        'chart-scale': 'Y-Axis Scale:',
-        'scale-auto': 'Auto',
-        'scale-fixed': 'Fixed',
-        'show-predictions': 'Show Predictions:',
-        'show-anomalies': 'Mark Anomalies:',
-        
-        // Charts
-        'accuracy-trend-title': '📈 Model Accuracy Trend',
-        'weather-corr-title': '🌡️ Weather Impact Analysis',
-        'dow-chart-title': 'Day of Week Effect',
-        'month-chart-title': 'Monthly Distribution',
-        'history-chart-title': 'Historical Trend',
-        'compare-year': 'Compare Last Year',
-        'chart-hint': 'Tip: Drag to pan, scroll to zoom, click data points for details',
-        
-        // Comparison
-        'comparison-title': 'Actual vs Predicted',
-        'add-actual-data': 'Add Actual Data',
-        
-        // Training
-        'model-training-status': 'Model Training Status',
-        'start-training': 'Start Training',
-        
-        // Algorithm
-        'algorithm-section': 'Prediction Algorithm (Research-Based)',
-        'methodology-title': 'Prediction Methodology',
-        
-        // Footer
-        'footer-version': 'Prediction Model Version',
-        'footer-timezone': 'Hong Kong Time HKT',
-        'footer-api': 'API Docs',
-        'footer-shortcuts': 'Keyboard Shortcuts',
-        
-        // Shortcuts
-        'shortcuts-title': '⌨️ Keyboard Shortcuts',
-        'shortcut-refresh': 'Refresh Data',
-        'shortcut-train': 'Start Training',
-        'shortcut-theme': 'Toggle Dark Mode',
-        'shortcut-lang': 'Switch Language',
-        'shortcut-top': 'Back to Top',
-        'shortcut-nav': 'Navigate Sections',
-        'shortcut-help': 'Show Shortcuts',
-        
-        // Notifications
-        'notify-title': 'Notification Settings',
-        'notify-high': 'High Volume Alert (>300)',
-        'notify-training': 'Training Complete',
-        'notify-daily': 'Daily Prediction Reminder',
-        'notify-save': 'Save Settings',
-        
-        // Toast
-        'toast-copied': 'Copied to clipboard',
-        'toast-saved': 'Saved',
-        'toast-notify-saved': 'Notification settings saved',
-        
-        // Upload
-        'drop-hint': 'Drop CSV file to upload'
-    }
-};
-
-let currentLang = localStorage.getItem('ndh-lang') || 'zh-HK';
 
 // ============================================
 // 主題管理
@@ -424,50 +204,6 @@ const Toast = {
 };
 
 // ============================================
-// 語言切換
-// ============================================
-const LangManager = {
-    init() {
-        this.setLanguage(currentLang, false);
-    },
-    
-    toggle() {
-        currentLang = currentLang === 'zh-HK' ? 'en' : 'zh-HK';
-        this.setLanguage(currentLang);
-    },
-    
-    setLanguage(lang, save = true) {
-        currentLang = lang;
-        if (save) localStorage.setItem('ndh-lang', lang);
-        
-        // 更新語言按鈕文字
-        const langBtn = document.getElementById('lang-toggle');
-        if (langBtn) {
-            langBtn.querySelector('span').textContent = lang === 'zh-HK' ? 'EN' : '中';
-        }
-        
-        // 更新 HTML lang 屬性
-        document.documentElement.lang = lang === 'zh-HK' ? 'zh-HK' : 'en';
-        
-        // 更新所有帶有 data-lang-key 的元素
-        document.querySelectorAll('[data-lang-key]').forEach(el => {
-            const key = el.getAttribute('data-lang-key');
-            if (translations[lang] && translations[lang][key]) {
-                el.textContent = translations[lang][key];
-            }
-        });
-        
-        if (save) {
-            Toast.show(lang === 'zh-HK' ? '已切換至繁體中文' : 'Switched to English', 'info');
-        }
-    },
-    
-    t(key) {
-        return translations[currentLang]?.[key] || translations['zh-HK']?.[key] || key;
-    }
-};
-
-// ============================================
 // 模態框管理
 // ============================================
 const ModalManager = {
@@ -558,7 +294,7 @@ const ModalManager = {
                 };
                 localStorage.setItem('ndh-notify', JSON.stringify(newSettings));
                 modal.style.display = 'none';
-                Toast.show(LangManager.t('toast-notify-saved'), 'success');
+                Toast.show('通知設定已儲存', 'success');
                 
                 // 請求通知權限
                 if (Object.values(newSettings).some(v => v) && 'Notification' in window) {
@@ -592,10 +328,6 @@ const KeyboardManager = {
                         e.preventDefault();
                         ThemeManager.toggle();
                         break;
-                    case 'l':
-                        e.preventDefault();
-                        LangManager.toggle();
-                        break;
                     case 'e':
                         e.preventDefault();
                         document.getElementById('export-modal').style.display = 'flex';
@@ -618,9 +350,6 @@ const KeyboardManager = {
                     break;
                 case 'd':
                     ThemeManager.toggle();
-                    break;
-                case 'l':
-                    LangManager.toggle();
                     break;
                 case 'e':
                     document.getElementById('export-modal').style.display = 'flex';
@@ -1289,11 +1018,6 @@ export function initUIEnhancements() {
     } catch (e) { console.error('NavManager error:', e); }
     
     try {
-        LangManager.init();
-        console.log('  ✓ LangManager');
-    } catch (e) { console.error('LangManager error:', e); }
-    
-    try {
         ModalManager.init();
         console.log('  ✓ ModalManager');
     } catch (e) { console.error('ModalManager error:', e); }
@@ -1327,7 +1051,6 @@ export function initUIEnhancements() {
     
     // 綁定主題切換按鈕
     const themeBtn = document.getElementById('theme-toggle');
-    const langBtn = document.getElementById('lang-toggle');
     
     if (themeBtn) {
         themeBtn.addEventListener('click', (e) => {
@@ -1339,18 +1062,6 @@ export function initUIEnhancements() {
         console.log('  ✓ Theme button bound');
     } else {
         console.warn('  ⚠️ theme-toggle button not found');
-    }
-    
-    if (langBtn) {
-        langBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('🌐 Language toggle clicked');
-            LangManager.toggle();
-        });
-        console.log('  ✓ Language button bound');
-    } else {
-        console.warn('  ⚠️ lang-toggle button not found');
     }
     
     // 延遲初始化圖表相關（等待 Chart.js 和其他圖表載入完成）
@@ -1376,9 +1087,9 @@ export function initUIEnhancements() {
         } catch (e) {}
     }, 60000);
     
-    console.log('✅ UI 增強模組 v2.6.4 已初始化');
+    console.log('✅ UI 增強模組 v2.6.5 已初始化');
 }
 
 // 導出供外部使用
-export { ThemeManager, NavManager, Toast, LangManager, AlertManager, ChartControls, ConfidenceDashboard };
+export { ThemeManager, NavManager, Toast, AlertManager, ChartControls, ConfidenceDashboard };
 
