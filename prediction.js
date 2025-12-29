@@ -3776,8 +3776,8 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
         default:
             // 短時間範圍：保持所有數據或根據標籤數量均勻採樣
             if (data.length <= maxTicks * 3) {
-                // 即使數據量不大，也確保數據一致性
-                return ensureDataConsistency(data, range);
+                // 直接返回數據，不進行插值
+                return data;
             }
             
             // 根據標籤數量均勻採樣
@@ -3853,8 +3853,8 @@ function uniformSampleDataByAxis(data, range, maxTicks, originalLength) {
     // 按日期排序
     sampled.sort((a, b) => new Date(a.date) - new Date(b.date));
     
-    // 最後進行一致性檢查，確保數據點之間沒有缺失
-    return ensureDataConsistency(sampled, range);
+    // 直接返回採樣結果，不進行插值
+    return sampled;
 }
 
 // 確保數據一致性，填充缺失的日期並進行插值
