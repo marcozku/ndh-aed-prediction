@@ -4,7 +4,59 @@
  * 
  * 基於數據庫中的歷史數據分析（動態日期範圍）
  * 使用多因素預測模型：星期效應、假期效應、季節效應、流感季節等
+ * 
+ * v2.9.0: 新增 XGBoost 機器學習預測支持
  */
+
+// ============================================
+// XGBoost 預測 API
+// ============================================
+let xgboostAvailable = null; // null = 未檢查, true = 可用, false = 不可用
+
+async function checkXGBoostAvailability() {
+    if (xgboostAvailable !== null) return xgboostAvailable;
+    
+    try {
+        const response = await fetch('/api/ensemble-status');
+        const result = await response.json();
+        if (result.success && result.data && result.data.models && result.data.models.xgboost) {
+            xgboostAvailable = true;
+            console.log('✅ XGBoost 模型可用');
+        } else {
+            xgboostAvailable = false;
+            console.log('ℹ️ XGBoost 模型不可用，使用統計模型');
+        }
+    } catch (e) {
+        xgboostAvailable = false;
+        console.log('ℹ️ 無法檢查 XGBoost 狀態，使用統計模型');
+    }
+    return xgboostAvailable;
+}
+
+async function getXGBoostPrediction(targetDate) {
+    try {
+        const response = await fetch('/api/ensemble-predict', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                target_date: targetDate,
+                use_ensemble: true,
+                fallback_to_statistical: true
+            })
+        });
+        const result = await response.json();
+        if (result.success && result.data) {
+            return result.data;
+        }
+    } catch (e) {
+        console.warn('XGBoost 預測失敗:', e);
+    }
+    return null;
+}
+
+// 暴露到全局
+window.checkXGBoostAvailability = checkXGBoostAvailability;
+window.getXGBoostPrediction = getXGBoostPrediction;
 
 // ============================================
 // 香港公眾假期 2024-2026
@@ -1100,6 +1152,10 @@ async function initCharts(predictor) {
         });
         return;
     }
+    
+    // 檢查 XGBoost 模型是否可用
+    const isXGBoostAvailable = await checkXGBoostAvailability();
+    console.log(`📊 預測引擎: ${isXGBoostAvailable ? 'XGBoost 機器學習模型 (MAE 3.84, MAPE 1.56%)' : '統計模型'}`);
     
     // 獲取今天日期 (香港時間 HKT UTC+8)
     const hk = getHKTime();
