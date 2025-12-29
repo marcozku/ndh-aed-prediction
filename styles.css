@@ -513,7 +513,8 @@ body::before {
     margin-bottom: var(--space-xs);
     white-space: nowrap;
     line-height: 1.1;
-    display: inline-block;
+    display: block;
+    width: 100%;
     max-width: 100%;
     background: var(--gradient-primary);
     -webkit-background-clip: text;
@@ -530,7 +531,8 @@ body::before {
     margin-bottom: var(--space-sm);
     white-space: nowrap;
     line-height: 1.3;
-    display: inline-block;
+    display: block;
+    width: 100%;
     max-width: 100%;
 }
 
