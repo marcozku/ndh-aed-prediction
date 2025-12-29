@@ -179,7 +179,8 @@ body {
     text-rendering: optimizeLegibility;
     font-feature-settings: "kern" 1, "liga" 1;
     letter-spacing: -0.011em;
-    padding-top: var(--nav-height);
+    /* 加上 safe-area-inset 以支援 iPhone Dynamic Island / Notch */
+    padding-top: calc(var(--nav-height) + env(safe-area-inset-top, 0px));
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
@@ -191,7 +192,9 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    height: var(--nav-height);
+    /* 加上 safe-area-inset 以支援 iPhone Dynamic Island / Notch */
+    padding-top: env(safe-area-inset-top, 0px);
+    height: calc(var(--nav-height) + env(safe-area-inset-top, 0px));
     background: var(--bg-glass);
     backdrop-filter: var(--blur-lg);
     -webkit-backdrop-filter: var(--blur-lg);
@@ -207,11 +210,13 @@ body {
 .nav-container {
     max-width: 1400px;
     margin: 0 auto;
-    height: 100%;
+    height: var(--nav-height);
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 var(--space-lg);
+    padding-left: max(var(--space-lg), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--space-lg), env(safe-area-inset-right, 0px));
 }
 
 .nav-brand {
@@ -4788,31 +4793,53 @@ section h2::before {
    ============================================ */
 @media (max-width: 768px) {
     .sticky-nav {
-        height: 56px;
+        height: calc(56px + env(safe-area-inset-top, 0px));
+        padding-top: env(safe-area-inset-top, 0px);
     }
     
     body {
-        padding-top: 56px;
+        padding-top: calc(56px + env(safe-area-inset-top, 0px));
     }
     
     .nav-container {
-        padding: 0 var(--space-md);
+        height: 56px;
+        padding: 0 var(--space-sm);
+        padding-left: max(var(--space-sm), env(safe-area-inset-left, 0px));
+        padding-right: max(var(--space-sm), env(safe-area-inset-right, 0px));
+        gap: var(--space-xs);
     }
     
     .nav-title {
         display: none;
     }
     
+    .nav-brand {
+        display: none;
+    }
+    
     .nav-links {
         gap: 2px;
+        flex: 1;
+        justify-content: center;
     }
     
     .nav-link {
-        padding: var(--space-sm);
+        padding: var(--space-xs);
+        font-size: 0.75rem;
     }
     
     .nav-text {
         display: none;
+    }
+    
+    .nav-actions {
+        gap: var(--space-xs);
+    }
+    
+    .nav-action-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 0.9rem;
     }
     
     .nav-icon {
