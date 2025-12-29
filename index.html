@@ -1,29 +1,82 @@
 <!DOCTYPE html>
-<html lang="zh-HK">
+<html lang="zh-HK" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta name="description" content="NDH AED 病人數量預測系統 - 北區醫院急症室人流預測">
-    <meta name="theme-color" content="#f8fafc">
+    <meta name="theme-color" content="#f8fafc" id="theme-color-meta">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="北區醫院預測">
     
     <!-- Icons -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=5">
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=5">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180.png?v=5">
-    <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon-152.png?v=5">
-    <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon-120.png?v=5">
-    <link rel="manifest" href="/manifest.json?v=5">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=6">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=6">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180.png?v=6">
+    <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon-152.png?v=6">
+    <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon-120.png?v=6">
+    <link rel="manifest" href="/manifest.json?v=6">
     
     <title>NDH AED 預測系統</title>
-    <link rel="stylesheet" href="styles.css?v=5">
+    <link rel="stylesheet" href="styles.css?v=6">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
 <body>
+    <!-- Sticky Navigation Bar -->
+    <nav class="sticky-nav" id="sticky-nav" role="navigation" aria-label="主導航">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <span class="nav-logo">🏥</span>
+                <span class="nav-title" data-lang-key="nav-title">NDH AED</span>
+            </div>
+            <div class="nav-links">
+                <a href="#today-section" class="nav-link active" data-section="today" aria-label="今日預測">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-text" data-lang-key="nav-today">今日</span>
+                </a>
+                <a href="#forecast-section" class="nav-link" data-section="forecast" aria-label="7日預測">
+                    <span class="nav-icon">📅</span>
+                    <span class="nav-text" data-lang-key="nav-forecast">7日</span>
+                </a>
+                <a href="#charts-section" class="nav-link" data-section="charts" aria-label="歷史趨勢">
+                    <span class="nav-icon">📈</span>
+                    <span class="nav-text" data-lang-key="nav-history">趨勢</span>
+                </a>
+                <a href="#model-training-section" class="nav-link" data-section="training" aria-label="模型訓練">
+                    <span class="nav-icon">🤖</span>
+                    <span class="nav-text" data-lang-key="nav-training">訓練</span>
+                </a>
+            </div>
+            <div class="nav-actions">
+                <button class="nav-action-btn" id="export-btn" title="匯出數據 (Ctrl+E)" aria-label="匯出數據">
+                    <span>📥</span>
+                </button>
+                <button class="nav-action-btn" id="share-btn" title="分享 (Ctrl+S)" aria-label="分享">
+                    <span>🔗</span>
+                </button>
+                <button class="nav-action-btn" id="notify-btn" title="通知設定" aria-label="通知設定">
+                    <span>🔔</span>
+                </button>
+                <button class="nav-action-btn" id="lang-toggle" title="切換語言 (Ctrl+L)" aria-label="切換語言">
+                    <span>EN</span>
+                </button>
+                <button class="nav-action-btn" id="theme-toggle" title="切換主題 (Ctrl+D)" aria-label="切換深色模式">
+                    <span class="theme-icon">🌙</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Back to Top Button -->
+    <button class="back-to-top" id="back-to-top" title="返回頂部 (Home)" aria-label="返回頂部">
+        <span>↑</span>
+    </button>
+
+    <!-- Notification Toast Container -->
+    <div class="toast-container" id="toast-container" role="alert" aria-live="polite"></div>
+
     <!-- 主容器 -->
     <div class="app-container" id="app-container">
         <!-- 標題區 -->
@@ -54,17 +107,17 @@
         </header>
 
         <!-- 今日預測區塊 -->
-        <section class="prediction-section today-section" id="today-section">
+        <section class="prediction-section today-section" id="today-section" aria-labelledby="today-section-title">
             <div class="section-loading" id="today-prediction-loading">
                 <div class="loading-spinner"></div>
-                <div class="loading-text">載入中... <span class="loading-percent" id="today-prediction-percent">0%</span></div>
+                <div class="loading-text"><span data-lang-key="loading">載入中...</span> <span class="loading-percent" id="today-prediction-percent">0%</span></div>
                 <div class="loading-progress-bar">
                     <div class="loading-progress-fill" id="today-prediction-progress"></div>
                 </div>
             </div>
             <div class="prediction-grid" id="today-prediction-grid" style="display: none;">
                 <!-- 主預測卡片 -->
-                <div class="prediction-card main-prediction-card">
+                <div class="prediction-card main-prediction-card" id="main-prediction-card">
                     <div class="card-header">
                         <h2 class="card-title">今日預測</h2>
                         <span class="date-badge" id="today-date">--</span>
@@ -317,11 +370,126 @@
         </section>
 
         <!-- 頁腳 -->
-        <footer class="app-footer">
-            <p id="data-source-info" style="cursor: pointer; text-decoration: underline;">數據來源：載入中...</p>
-            <p>預測模型版本 2.5.2 · 香港時間 HKT</p>
+        <footer class="app-footer" role="contentinfo">
+            <p id="data-source-info" style="cursor: pointer; text-decoration: underline;" data-lang-key="footer-source">數據來源：載入中...</p>
+            <p id="last-update-info" class="last-update-info"></p>
+            <p><span data-lang-key="footer-version">預測模型版本</span> 2.6.0 · <span data-lang-key="footer-timezone">香港時間 HKT</span></p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2025 Marco Ma. All Rights Reserved.</p>
+            <div class="footer-links">
+                <a href="/api/docs" class="footer-link" data-lang-key="footer-api">API 文檔</a>
+                <span class="footer-divider">·</span>
+                <a href="#" id="keyboard-shortcuts-link" class="footer-link" data-lang-key="footer-shortcuts">鍵盤快捷鍵</a>
+            </div>
         </footer>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcuts-modal" class="modal-overlay" style="display: none;" role="dialog" aria-labelledby="shortcuts-title" aria-modal="true">
+        <div class="modal-content shortcuts-modal-content">
+            <div class="modal-header">
+                <h3 id="shortcuts-title" data-lang-key="shortcuts-title">⌨️ 鍵盤快捷鍵</h3>
+                <button class="modal-close" id="shortcuts-close" aria-label="關閉">&times;</button>
+            </div>
+            <div class="shortcuts-grid">
+                <div class="shortcut-item"><kbd>R</kbd><span data-lang-key="shortcut-refresh">刷新數據</span></div>
+                <div class="shortcut-item"><kbd>T</kbd><span data-lang-key="shortcut-train">開始訓練</span></div>
+                <div class="shortcut-item"><kbd>D</kbd><span data-lang-key="shortcut-theme">切換深色模式</span></div>
+                <div class="shortcut-item"><kbd>L</kbd><span data-lang-key="shortcut-lang">切換語言</span></div>
+                <div class="shortcut-item"><kbd>E</kbd><span data-lang-key="shortcut-export">匯出數據</span></div>
+                <div class="shortcut-item"><kbd>S</kbd><span data-lang-key="shortcut-share">分享</span></div>
+                <div class="shortcut-item"><kbd>Home</kbd><span data-lang-key="shortcut-top">返回頂部</span></div>
+                <div class="shortcut-item"><kbd>1-4</kbd><span data-lang-key="shortcut-nav">導航區塊</span></div>
+                <div class="shortcut-item"><kbd>?</kbd><span data-lang-key="shortcut-help">顯示快捷鍵</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Settings Modal -->
+    <div id="notify-modal" class="modal-overlay" style="display: none;" role="dialog" aria-labelledby="notify-title" aria-modal="true">
+        <div class="modal-content notify-modal-content">
+            <div class="modal-header">
+                <h3 id="notify-title">🔔 <span data-lang-key="notify-title">通知設定</span></h3>
+                <button class="modal-close" id="notify-close" aria-label="關閉">&times;</button>
+            </div>
+            <div class="notify-settings">
+                <div class="notify-item">
+                    <label class="notify-label">
+                        <input type="checkbox" id="notify-high-volume" class="notify-checkbox">
+                        <span class="notify-text" data-lang-key="notify-high">高人流預警 (>300人)</span>
+                    </label>
+                </div>
+                <div class="notify-item">
+                    <label class="notify-label">
+                        <input type="checkbox" id="notify-training-complete" class="notify-checkbox">
+                        <span class="notify-text" data-lang-key="notify-training">訓練完成通知</span>
+                    </label>
+                </div>
+                <div class="notify-item">
+                    <label class="notify-label">
+                        <input type="checkbox" id="notify-daily-prediction" class="notify-checkbox">
+                        <span class="notify-text" data-lang-key="notify-daily">每日預測提醒</span>
+                    </label>
+                </div>
+                <button class="notify-save-btn" id="notify-save" data-lang-key="notify-save">儲存設定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="export-modal" class="modal-overlay" style="display: none;" role="dialog" aria-labelledby="export-title" aria-modal="true">
+        <div class="modal-content export-modal-content">
+            <div class="modal-header">
+                <h3 id="export-title">📥 <span data-lang-key="export-title">匯出數據</span></h3>
+                <button class="modal-close" id="export-close" aria-label="關閉">&times;</button>
+            </div>
+            <div class="export-options">
+                <button class="export-option-btn" id="export-csv" data-format="csv">
+                    <span class="export-icon">📄</span>
+                    <span class="export-text">CSV</span>
+                </button>
+                <button class="export-option-btn" id="export-excel" data-format="excel">
+                    <span class="export-icon">📊</span>
+                    <span class="export-text">Excel</span>
+                </button>
+                <button class="export-option-btn" id="export-pdf" data-format="pdf">
+                    <span class="export-icon">📑</span>
+                    <span class="export-text">PDF</span>
+                </button>
+            </div>
+            <div class="export-range">
+                <label data-lang-key="export-range">數據範圍：</label>
+                <select id="export-range-select">
+                    <option value="7" data-lang-key="export-7days">過去 7 天</option>
+                    <option value="30" data-lang-key="export-30days">過去 30 天</option>
+                    <option value="90" data-lang-key="export-90days">過去 90 天</option>
+                    <option value="all" data-lang-key="export-all">全部數據</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Modal -->
+    <div id="share-modal" class="modal-overlay" style="display: none;" role="dialog" aria-labelledby="share-title" aria-modal="true">
+        <div class="modal-content share-modal-content">
+            <div class="modal-header">
+                <h3 id="share-title">🔗 <span data-lang-key="share-title">分享預測</span></h3>
+                <button class="modal-close" id="share-close" aria-label="關閉">&times;</button>
+            </div>
+            <div class="share-options">
+                <button class="share-option-btn" id="share-link">
+                    <span class="share-icon">🔗</span>
+                    <span class="share-text" data-lang-key="share-link">複製連結</span>
+                </button>
+                <button class="share-option-btn" id="share-image">
+                    <span class="share-icon">🖼️</span>
+                    <span class="share-text" data-lang-key="share-image">儲存為圖片</span>
+                </button>
+                <button class="share-option-btn" id="share-report">
+                    <span class="share-icon">📊</span>
+                    <span class="share-text" data-lang-key="share-report">生成報告</span>
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- CSV 上傳對話框 -->

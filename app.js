@@ -21,6 +21,7 @@ import { API } from './modules/api.js';
 import { DateTime } from './modules/datetime.js';
 import { Status } from './modules/status.js';
 import { Weather } from './modules/weather.js';
+import { initUIEnhancements, AlertManager, Toast } from './modules/ui-enhancements.js';
 
 // 應用程式主類
 class App {
@@ -30,9 +31,12 @@ class App {
     }
 
     async init() {
-        console.log('🏥 NDH AED 預測系統初始化（模組化版本）...');
+        console.log('🏥 NDH AED 預測系統初始化（模組化版本 v2.6.0）...');
         
         try {
+            // 初始化 UI 增強功能
+            initUIEnhancements();
+            
             // 初始化日期時間
             DateTime.init();
             
@@ -53,6 +57,10 @@ class App {
         }
     }
 }
+
+// 導出 AlertManager 和 Toast 供 prediction.js 使用
+window.AlertManager = AlertManager;
+window.Toast = Toast;
 
 // 全局函數（用於 HTML onclick）
 window.triggerAddActualData = async () => {

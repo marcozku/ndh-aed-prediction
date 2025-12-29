@@ -2147,6 +2147,71 @@ const apiHandlers = {
                 error: err.message 
             }, 500);
         }
+    },
+
+    // API Documentation
+    'GET /api/docs': async (req, res) => {
+        const apiDocs = {
+            name: 'NDH AED Prediction API',
+            version: '2.6.0',
+            description: 'North District Hospital A&E Attendance Prediction System API',
+            baseUrl: req.headers.host,
+            endpoints: [
+                {
+                    method: 'GET',
+                    path: '/api/predictions',
+                    description: 'Get predictions for a date range',
+                    params: { start: 'Start date (YYYY-MM-DD)', end: 'End date (YYYY-MM-DD)' }
+                },
+                {
+                    method: 'GET',
+                    path: '/api/actual-data',
+                    description: 'Get actual attendance data',
+                    params: { start: 'Start date', end: 'End date' }
+                },
+                {
+                    method: 'POST',
+                    path: '/api/actual-data',
+                    description: 'Upload actual attendance data',
+                    body: { date: 'Date (YYYY-MM-DD)', attendance: 'Number of patients' }
+                },
+                {
+                    method: 'GET',
+                    path: '/api/comparison',
+                    description: 'Get comparison of actual vs predicted data'
+                },
+                {
+                    method: 'GET',
+                    path: '/api/ai-analysis',
+                    description: 'Get AI analysis of current factors affecting attendance'
+                },
+                {
+                    method: 'POST',
+                    path: '/api/train',
+                    description: 'Trigger model training'
+                },
+                {
+                    method: 'GET',
+                    path: '/api/status',
+                    description: 'Get system and database status'
+                }
+            ],
+            lastUpdated: new Date().toISOString()
+        };
+        sendJson(res, apiDocs);
+    },
+
+    // System Status
+    'GET /api/status': async (req, res) => {
+        const status = {
+            version: '2.6.0',
+            database: db && db.pool ? 'connected' : 'disconnected',
+            ai: aiService ? 'available' : 'unavailable',
+            uptime: process.uptime(),
+            memory: process.memoryUsage(),
+            timestamp: new Date().toISOString()
+        };
+        sendJson(res, status);
     }
 };
 
