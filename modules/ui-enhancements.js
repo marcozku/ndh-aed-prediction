@@ -1020,14 +1020,14 @@ const WeatherCorrChart = {
                 }
             });
             
-            // 添加說明文字
-            const container = canvas.parentElement;
-            if (container && !container.querySelector('.chart-note')) {
+            // 添加說明文字到 chart-card 底部（避免溢出容器）
+            const chartCard = canvas.closest('.chart-card');
+            if (chartCard && !chartCard.querySelector('.chart-note')) {
                 const note = document.createElement('div');
                 note.className = 'chart-note';
-                note.style.cssText = 'font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 8px;';
+                note.style.cssText = 'font-size: 11px; color: var(--text-muted); text-align: center; padding: 8px 12px; border-top: 1px solid var(--border-color, rgba(0,0,0,0.05)); background: var(--bg-secondary, #f8f9fa);';
                 note.innerHTML = '📊 0% = 正常天氣（基準線）| <span style="color:#dc2626">紅色</span> = 人流↑ | <span style="color:#059669">綠色</span> = 人流↓';
-                container.appendChild(note);
+                chartCard.appendChild(note);
             }
             
             console.log('✅ WeatherCorrChart 已初始化');
