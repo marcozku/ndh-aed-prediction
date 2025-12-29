@@ -1497,6 +1497,16 @@ async function initCharts(predictor) {
         forceChartsResize();
     }, 100);
     
+    // 確保圖表控制設定正確應用（解決時序問題）
+    setTimeout(() => {
+        if (window.chartSettings) {
+            // 重新應用預測線設定（因為比較圖表可能在toggle之後才創建）
+            if (typeof window.applyChartControlsSettings === 'function') {
+                window.applyChartControlsSettings();
+            }
+        }
+    }, 200);
+    
     console.log('✅ 所有圖表載入完成');
 }
 

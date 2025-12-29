@@ -679,6 +679,16 @@ const ChartControls = {
         }
     },
     
+    // 重新應用圖表控制設定（解決時序問題）
+    applySettings() {
+        console.log('📊 重新應用圖表控制設定:', {
+            showPredictions: this.showPredictions,
+            showAnomalies: this.showAnomalies
+        });
+        this.togglePredictionLines(this.showPredictions);
+        this.toggleAnomalyMarkers(this.showAnomalies);
+    },
+    
     refreshCharts() {
         // 更新全局圖表設定
         window.chartSettings = {
@@ -1079,6 +1089,8 @@ export function initUIEnhancements() {
     
     try {
         ChartControls.init();
+        // 暴露重新應用設定功能到全局（解決時序問題）
+        window.applyChartControlsSettings = () => ChartControls.applySettings();
         console.log('  ✓ ChartControls');
     } catch (e) { console.error('ChartControls error:', e); }
     
