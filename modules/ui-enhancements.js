@@ -391,14 +391,26 @@ const ModalManager = {
         const closeBtn = document.getElementById('notify-close');
         const saveBtn = document.getElementById('notify-save');
         
+        if (!modal) {
+            console.warn('⚠️ notify-modal not found');
+            return;
+        }
+        
         // 載入儲存的設定
         const settings = JSON.parse(localStorage.getItem('ndh-notify') || '{}');
-        if (settings.highVolume) document.getElementById('notify-high-volume').checked = true;
-        if (settings.trainingComplete) document.getElementById('notify-training-complete').checked = true;
-        if (settings.dailyPrediction) document.getElementById('notify-daily-prediction').checked = true;
+        const highVolumeEl = document.getElementById('notify-high-volume');
+        const trainingEl = document.getElementById('notify-training-complete');
+        const dailyEl = document.getElementById('notify-daily-prediction');
+        
+        if (highVolumeEl && settings.highVolume) highVolumeEl.checked = true;
+        if (trainingEl && settings.trainingComplete) trainingEl.checked = true;
+        if (dailyEl && settings.dailyPrediction) dailyEl.checked = true;
         
         if (openBtn) {
-            openBtn.addEventListener('click', () => {
+            openBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🔔 Opening notify modal');
                 modal.style.display = 'flex';
             });
         }
@@ -412,9 +424,9 @@ const ModalManager = {
         if (saveBtn) {
             saveBtn.addEventListener('click', () => {
                 const newSettings = {
-                    highVolume: document.getElementById('notify-high-volume').checked,
-                    trainingComplete: document.getElementById('notify-training-complete').checked,
-                    dailyPrediction: document.getElementById('notify-daily-prediction').checked
+                    highVolume: highVolumeEl?.checked || false,
+                    trainingComplete: trainingEl?.checked || false,
+                    dailyPrediction: dailyEl?.checked || false
                 };
                 localStorage.setItem('ndh-notify', JSON.stringify(newSettings));
                 modal.style.display = 'none';
@@ -433,8 +445,16 @@ const ModalManager = {
         const openBtn = document.getElementById('export-btn');
         const closeBtn = document.getElementById('export-close');
         
+        if (!modal) {
+            console.warn('⚠️ export-modal not found');
+            return;
+        }
+        
         if (openBtn) {
-            openBtn.addEventListener('click', () => {
+            openBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('📥 Opening export modal');
                 modal.style.display = 'flex';
             });
         }
@@ -456,8 +476,16 @@ const ModalManager = {
         const openBtn = document.getElementById('share-btn');
         const closeBtn = document.getElementById('share-close');
         
+        if (!modal) {
+            console.warn('⚠️ share-modal not found');
+            return;
+        }
+        
         if (openBtn) {
-            openBtn.addEventListener('click', () => {
+            openBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🔗 Opening share modal');
                 modal.style.display = 'flex';
             });
         }
@@ -499,25 +527,31 @@ const ExportManager = {
     },
     
     async exportCSV() {
-        const data = await this.getData();
-        if (!data.length) {
-            Toast.show('沒有數據可匯出', 'warning');
-            return;
+        try {
+            const data = await this.getData();
+            if (!data.length) {
+                Toast.show('沒有數據可匯出', 'warning');
+                return;
+            }
+            
+            const headers = ['Date', 'Attendance', 'Predicted', 'Error'];
+            const rows = data.map(d => [
+                d.date || '',
+                d.attendance || d.actual || '',
+                d.predicted || '',
+                d.error || ''
+            ]);
+            
+            const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            this.download(csv, 'ndh-aed-data.csv', 'text/csv');
+            
+            const modal = document.getElementById('export-modal');
+            if (modal) modal.style.display = 'none';
+            Toast.show(LangManager.t('toast-export-success'), 'success');
+        } catch (error) {
+            console.error('Export CSV error:', error);
+            Toast.show('匯出失敗', 'error');
         }
-        
-        const headers = ['Date', 'Attendance', 'Predicted', 'Error'];
-        const rows = data.map(d => [
-            d.date,
-            d.attendance || d.actual || '',
-            d.predicted || '',
-            d.error || ''
-        ]);
-        
-        const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-        this.download(csv, 'ndh-aed-data.csv', 'text/csv');
-        
-        document.getElementById('export-modal').style.display = 'none';
-        Toast.show(LangManager.t('toast-export-success'), 'success');
     },
     
     async exportExcel() {
@@ -528,7 +562,8 @@ const ExportManager = {
     async exportPDF() {
         // 開啟技術文檔 PDF
         window.open('/NDH_AED_Technical_Documentation.pdf', '_blank');
-        document.getElementById('export-modal').style.display = 'none';
+        const modal = document.getElementById('export-modal');
+        if (modal) modal.style.display = 'none';
         Toast.show(LangManager.t('toast-export-success'), 'success');
     },
     
@@ -548,38 +583,92 @@ const ExportManager = {
 const ShareManager = {
     copyLink() {
         navigator.clipboard.writeText(window.location.href).then(() => {
-            document.getElementById('share-modal').style.display = 'none';
+            const modal = document.getElementById('share-modal');
+            if (modal) modal.style.display = 'none';
+            Toast.show(LangManager.t('toast-copied'), 'success');
+        }).catch(err => {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = window.location.href;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            const modal = document.getElementById('share-modal');
+            if (modal) modal.style.display = 'none';
             Toast.show(LangManager.t('toast-copied'), 'success');
         });
     },
     
     async saveImage() {
         try {
-            // 使用 html2canvas（如果可用）
-            if (typeof html2canvas === 'undefined') {
-                Toast.show('請安裝 html2canvas 以使用此功能', 'warning');
-                return;
+            const modal = document.getElementById('share-modal');
+            if (modal) modal.style.display = 'none';
+            
+            // 嘗試使用瀏覽器截圖 API（如果可用）
+            if (typeof html2canvas !== 'undefined') {
+                const mainCard = document.querySelector('.main-prediction-card');
+                if (mainCard) {
+                    const canvas = await html2canvas(mainCard);
+                    const link = document.createElement('a');
+                    link.download = 'ndh-aed-prediction.png';
+                    link.href = canvas.toDataURL();
+                    link.click();
+                    Toast.show(LangManager.t('toast-saved'), 'success');
+                    return;
+                }
             }
             
-            const mainCard = document.getElementById('main-prediction-card');
-            if (!mainCard) return;
-            
-            const canvas = await html2canvas(mainCard);
-            const link = document.createElement('a');
-            link.download = 'ndh-aed-prediction.png';
-            link.href = canvas.toDataURL();
-            link.click();
-            
-            document.getElementById('share-modal').style.display = 'none';
-            Toast.show(LangManager.t('toast-saved'), 'success');
+            // Fallback: 使用系統截圖提示
+            Toast.show('請使用瀏覽器截圖功能 (Ctrl+Shift+S 或 Cmd+Shift+4)', 'info');
         } catch (error) {
-            Toast.show('無法生成圖片', 'error');
+            console.error('Save image error:', error);
+            Toast.show('請使用系統截圖功能', 'info');
         }
     },
     
     generateReport() {
-        window.open('/NDH_AED_Technical_Documentation.pdf', '_blank');
-        document.getElementById('share-modal').style.display = 'none';
+        // 生成簡易報告頁面
+        const today = new Date().toLocaleDateString('zh-HK');
+        const predictionEl = document.querySelector('.big-number');
+        const prediction = predictionEl?.textContent || '--';
+        
+        const reportContent = `
+            <html>
+            <head>
+                <title>NDH AED 預測報告 - ${today}</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+                    h1 { color: #4f46e5; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; }
+                    .prediction { font-size: 4rem; font-weight: bold; color: #1e293b; text-align: center; margin: 40px 0; }
+                    .footer { margin-top: 40px; color: #64748b; font-size: 0.9rem; }
+                    @media print { body { padding: 20px; } }
+                </style>
+            </head>
+            <body>
+                <h1>🏥 北區醫院急症室人流預測報告</h1>
+                <p><strong>日期：</strong>${today}</p>
+                <div class="prediction">${prediction} 人</div>
+                <p>本報告由 NDH AED 預測系統自動生成。</p>
+                <p>預測基於歷史數據、天氣因素及 AI 分析。</p>
+                <div class="footer">
+                    <p>© 2025 Marco Ma. 版權所有。</p>
+                    <p>網址：${window.location.href}</p>
+                </div>
+                <script>window.print();</script>
+            </body>
+            </html>
+        `;
+        
+        const reportWindow = window.open('', '_blank');
+        if (reportWindow) {
+            reportWindow.document.write(reportContent);
+            reportWindow.document.close();
+        }
+        
+        const modal = document.getElementById('share-modal');
+        if (modal) modal.style.display = 'none';
     }
 };
 
@@ -1092,35 +1181,101 @@ const WeatherCorrChart = {
 // 初始化
 // ============================================
 export function initUIEnhancements() {
-    ThemeManager.init();
-    NavManager.init();
-    LangManager.init();
-    ModalManager.init();
-    KeyboardManager.init();
-    UpdateTimeManager.update();
-    ChartControls.init();
-    ChartOnboarding.init();
-    MethodologyModal.init();
-    FullWindowDrop.init();
+    console.log('🎨 開始初始化 UI 增強模組...');
+    
+    try {
+        ThemeManager.init();
+        console.log('  ✓ ThemeManager');
+    } catch (e) { console.error('ThemeManager error:', e); }
+    
+    try {
+        NavManager.init();
+        console.log('  ✓ NavManager');
+    } catch (e) { console.error('NavManager error:', e); }
+    
+    try {
+        LangManager.init();
+        console.log('  ✓ LangManager');
+    } catch (e) { console.error('LangManager error:', e); }
+    
+    try {
+        ModalManager.init();
+        console.log('  ✓ ModalManager');
+    } catch (e) { console.error('ModalManager error:', e); }
+    
+    try {
+        KeyboardManager.init();
+        console.log('  ✓ KeyboardManager');
+    } catch (e) { console.error('KeyboardManager error:', e); }
+    
+    try {
+        UpdateTimeManager.update();
+    } catch (e) { console.error('UpdateTimeManager error:', e); }
+    
+    try {
+        ChartControls.init();
+        console.log('  ✓ ChartControls');
+    } catch (e) { console.error('ChartControls error:', e); }
+    
+    try {
+        ChartOnboarding.init();
+    } catch (e) { console.error('ChartOnboarding error:', e); }
+    
+    try {
+        MethodologyModal.init();
+        console.log('  ✓ MethodologyModal');
+    } catch (e) { console.error('MethodologyModal error:', e); }
+    
+    try {
+        FullWindowDrop.init();
+    } catch (e) { console.error('FullWindowDrop error:', e); }
+    
+    // 綁定主題切換按鈕
+    const themeBtn = document.getElementById('theme-toggle');
+    const langBtn = document.getElementById('lang-toggle');
+    
+    if (themeBtn) {
+        themeBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🌙 Theme toggle clicked');
+            ThemeManager.toggle();
+        });
+        console.log('  ✓ Theme button bound');
+    } else {
+        console.warn('  ⚠️ theme-toggle button not found');
+    }
+    
+    if (langBtn) {
+        langBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🌐 Language toggle clicked');
+            LangManager.toggle();
+        });
+        console.log('  ✓ Language button bound');
+    } else {
+        console.warn('  ⚠️ lang-toggle button not found');
+    }
     
     // 延遲初始化圖表相關
     setTimeout(() => {
-        ConfidenceDashboard.update();
-        AccuracyChart.init();
-        WeatherCorrChart.init();
+        try {
+            ConfidenceDashboard.update();
+            AccuracyChart.init();
+            WeatherCorrChart.init();
+        } catch (e) { console.error('Chart init error:', e); }
     }, 2000);
     
     // 定期更新時間和置信度
     setInterval(() => {
-        UpdateTimeManager.update();
-        ConfidenceDashboard.update();
+        try {
+            UpdateTimeManager.update();
+            ConfidenceDashboard.update();
+        } catch (e) {}
     }, 60000);
     
-    // 綁定主題切換按鈕
-    document.getElementById('theme-toggle')?.addEventListener('click', () => ThemeManager.toggle());
-    document.getElementById('lang-toggle')?.addEventListener('click', () => LangManager.toggle());
-    
-    console.log('✅ UI 增強模組 v2.6.0 已初始化');
+    console.log('✅ UI 增強模組 v2.6.1 已初始化');
 }
 
 // 導出供外部使用
