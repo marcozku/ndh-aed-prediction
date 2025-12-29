@@ -2495,16 +2495,15 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
 }
 
 // 年度對比功能 - 在歷史圖表上顯示去年同期數據
+// 返回 true 表示成功，false 表示失敗
 async function toggleHistoryYearComparison(enabled) {
     // 獲取歷史圖表實例
     const chart = historyChart;
     
     if (!chart || !chart.data || !chart.data.datasets) {
         console.warn('⚠️ 歷史圖表未初始化，無法進行年度對比');
-        if (window.Toast) {
-            window.Toast.show('請等待圖表載入完成', 'warning');
-        }
-        return;
+        // 不顯示警告 toast，因為圖表可能正在載入中
+        return false;
     }
     
     console.log('📊 年度對比功能觸發:', enabled);
@@ -2518,7 +2517,7 @@ async function toggleHistoryYearComparison(enabled) {
     if (!enabled) {
         chart.update();
         console.log('📊 已關閉年度對比');
-        return;
+        return true;
     }
     
     try {
@@ -2526,7 +2525,7 @@ async function toggleHistoryYearComparison(enabled) {
         const currentDataset = chart.data.datasets[0];
         if (!currentDataset || !currentDataset.data || currentDataset.data.length === 0) {
             console.warn('⚠️ 當前圖表沒有數據');
-            return;
+            return false;
         }
         
         // 獲取當前數據的日期範圍
@@ -2553,7 +2552,7 @@ async function toggleHistoryYearComparison(enabled) {
             if (window.Toast) {
                 window.Toast.show('去年同期沒有數據', 'warning');
             }
-            return;
+            return false;
         }
         
         // 將去年的數據轉換為圖表格式，但日期對齊到今年（用於對比）
@@ -2570,7 +2569,7 @@ async function toggleHistoryYearComparison(enabled) {
         
         if (lastYearDataPoints.length === 0) {
             console.warn('⚠️ 去年數據轉換後為空');
-            return;
+            return false;
         }
         
         // 添加去年的數據集
@@ -2595,12 +2594,14 @@ async function toggleHistoryYearComparison(enabled) {
         chart.update();
         
         console.log(`✅ 已添加去年同期數據 (${lastYearDataPoints.length} 筆)`);
+        return true;
         
     } catch (error) {
         console.error('❌ 年度對比載入失敗:', error);
         if (window.Toast) {
             window.Toast.show('年度對比載入失敗', 'error');
         }
+        return false;
     }
 }
 

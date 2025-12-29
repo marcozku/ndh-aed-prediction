@@ -572,14 +572,24 @@ const ChartControls = {
                 
                 // 調用歷史圖表的年度對比功能
                 if (typeof window.toggleHistoryYearComparison === 'function') {
-                    await window.toggleHistoryYearComparison(this.compareYear);
-                    Toast.show(this.compareYear ? '已啟用年度對比（橙色線為去年同期）' : '已關閉年度對比', 'info');
+                    const success = await window.toggleHistoryYearComparison(this.compareYear);
+                    if (success === false) {
+                        // 失敗時重置按鈕狀態
+                        this.compareYear = false;
+                        compareBtn.classList.remove('active');
+                        Toast.show('請先滾動到歷史趨勢圖', 'warning');
+                    } else {
+                        Toast.show(this.compareYear ? '已啟用年度對比（橙色線為去年同期）' : '已關閉年度對比', 'info');
+                    }
                 } else {
                     Toast.show('年度對比功能載入中...', 'info');
                     // 等待函數載入後重試
                     setTimeout(async () => {
                         if (typeof window.toggleHistoryYearComparison === 'function') {
-                            await window.toggleHistoryYearComparison(this.compareYear);
+                            const success = await window.toggleHistoryYearComparison(this.compareYear);
+                            if (success !== false) {
+                                Toast.show(this.compareYear ? '已啟用年度對比' : '已關閉年度對比', 'info');
+                            }
                         }
                     }, 1000);
                 }
