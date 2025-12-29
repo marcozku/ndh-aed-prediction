@@ -1,5 +1,4 @@
 node_modules
-python/models
 *.log
 .DS_Store
 .git
@@ -8,4 +7,4 @@ python/models
 !python/requirements.txt
 .env
 .env.local
-
+# Keep python/models for XGBoost model files
