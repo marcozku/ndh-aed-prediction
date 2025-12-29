@@ -764,23 +764,42 @@ const ChartControls = {
     
     init() {
         // Y軸縮放切換
-        document.getElementById('auto-scale-toggle')?.addEventListener('change', (e) => {
-            this.autoScale = e.target.checked;
-            this.refreshCharts();
-            Toast.show(this.autoScale ? '已切換至自動縮放' : '已切換至固定範圍', 'info');
-        });
+        const autoScaleToggle = document.getElementById('auto-scale-toggle');
+        if (autoScaleToggle) {
+            autoScaleToggle.addEventListener('change', (e) => {
+                this.autoScale = e.target.checked;
+                this.refreshCharts();
+                Toast.show(this.autoScale ? '已切換至自動縮放' : '已切換至固定範圍 (150-350)', 'info');
+            });
+        }
         
         // 顯示預測線
-        document.getElementById('show-predictions-toggle')?.addEventListener('change', (e) => {
-            this.showPredictions = e.target.checked;
-            this.refreshCharts();
-        });
+        const predictionsToggle = document.getElementById('show-predictions-toggle');
+        if (predictionsToggle) {
+            predictionsToggle.addEventListener('change', (e) => {
+                this.showPredictions = e.target.checked;
+                this.togglePredictionLines(e.target.checked);
+                Toast.show(e.target.checked ? '已顯示預測線' : '已隱藏預測線', 'info');
+            });
+        }
         
         // 標記異常
-        document.getElementById('show-anomalies-toggle')?.addEventListener('change', (e) => {
-            this.showAnomalies = e.target.checked;
-            this.refreshCharts();
-        });
+        const anomaliesToggle = document.getElementById('show-anomalies-toggle');
+        if (anomaliesToggle) {
+            anomaliesToggle.addEventListener('change', (e) => {
+                this.showAnomalies = e.target.checked;
+                this.toggleAnomalyMarkers(e.target.checked);
+                Toast.show(e.target.checked ? '已啟用異常標記' : '已關閉異常標記', 'info');
+            });
+        }
+        
+        // 全屏按鈕
+        const fullscreenBtn = document.getElementById('forecast-fullscreen');
+        if (fullscreenBtn) {
+            fullscreenBtn.addEventListener('click', () => {
+                this.toggleFullscreen('forecast-chart-container');
+            });
+        }
         
         // 時間範圍下拉選單同步
         const dropdown = document.getElementById('time-range-dropdown');
@@ -792,19 +811,22 @@ const ChartControls = {
                     btn.classList.toggle('active', btn.dataset.range === range);
                 });
                 // 觸發圖表更新
-                if (typeof initHistoryChart === 'function') {
-                    initHistoryChart(range, 0);
+                if (typeof window.initHistoryChart === 'function') {
+                    window.initHistoryChart(range, 0);
                 }
             });
         }
         
         // 年度對比按鈕
-        document.getElementById('compare-year-btn')?.addEventListener('click', () => {
-            this.compareYear = !this.compareYear;
-            document.getElementById('compare-year-btn')?.classList.toggle('active', this.compareYear);
-            this.refreshCharts();
-            Toast.show(this.compareYear ? '已啟用年度對比' : '已關閉年度對比', 'info');
-        });
+        const compareBtn = document.getElementById('compare-year-btn');
+        if (compareBtn) {
+            compareBtn.addEventListener('click', () => {
+                this.compareYear = !this.compareYear;
+                compareBtn.classList.toggle('active', this.compareYear);
+                this.refreshCharts();
+                Toast.show(this.compareYear ? '已啟用年度對比' : '已關閉年度對比', 'info');
+            });
+        }
         
         // 同步按鈕和下拉選單
         document.querySelectorAll('.time-range-btn').forEach(btn => {
@@ -813,6 +835,84 @@ const ChartControls = {
                 if (dropdown) dropdown.value = btn.dataset.range;
             });
         });
+        
+        console.log('  ✓ ChartControls bindingscomplete');
+    },
+    
+    // 全屏切換
+    toggleFullscreen(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        if (!document.fullscreenElement) {
+            // 進入全屏
+            if (container.requestFullscreen) {
+                container.requestFullscreen();
+            } else if (container.webkitRequestFullscreen) {
+                container.webkitRequestFullscreen();
+            } else if (container.msRequestFullscreen) {
+                container.msRequestFullscreen();
+            }
+            Toast.show('已進入全屏模式，按 ESC 退出', 'info');
+        } else {
+            // 退出全屏
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+        }
+    },
+    
+    // 切換預測線顯示
+    togglePredictionLines(show) {
+        window.chartSettings = window.chartSettings || {};
+        window.chartSettings.showPredictions = show;
+        
+        // 更新圖表中的預測數據集可見性
+        if (window.Chart && Chart.instances) {
+            Object.values(Chart.instances).forEach(chart => {
+                if (chart.data?.datasets) {
+                    chart.data.datasets.forEach(dataset => {
+                        if (dataset.label?.includes('預測') || dataset.label?.includes('Predicted')) {
+                            dataset.hidden = !show;
+                        }
+                    });
+                    chart.update();
+                }
+            });
+        }
+    },
+    
+    // 切換異常標記
+    toggleAnomalyMarkers(show) {
+        window.chartSettings = window.chartSettings || {};
+        window.chartSettings.showAnomalies = show;
+        
+        // 更新圖表中的異常點樣式
+        if (window.Chart && Chart.instances) {
+            Object.values(Chart.instances).forEach(chart => {
+                if (chart.data?.datasets) {
+                    chart.data.datasets.forEach(dataset => {
+                        // 如果是主數據集，調整異常點的顯示
+                        if (dataset.pointBackgroundColor && Array.isArray(dataset.pointBackgroundColor)) {
+                            // 保持原有顏色邏輯，但根據 show 決定是否高亮異常
+                            if (!show) {
+                                dataset.originalPointColors = dataset.pointBackgroundColor.slice();
+                                dataset.pointBackgroundColor = dataset.pointBackgroundColor.map(() => 
+                                    dataset.borderColor || '#4f46e5'
+                                );
+                            } else if (dataset.originalPointColors) {
+                                dataset.pointBackgroundColor = dataset.originalPointColors;
+                            }
+                        }
+                    });
+                    chart.update();
+                }
+            });
+        }
     },
     
     refreshCharts() {
