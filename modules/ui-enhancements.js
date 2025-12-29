@@ -845,15 +845,17 @@ const AccuracyChart = {
             
             const labels = data.map(d => d.date).reverse();
             const accuracies = data.map(d => {
-                // API 回傳 error_percentage 是字串格式，保留完整精度
-                if (d.error_percentage !== undefined) {
+                // API 回傳 error_percentage 是字串格式
+                // error_percentage = (predicted - actual) / actual * 100
+                // 可能是負數（預測偏低）或正數（預測偏高）
+                if (d.error_percentage !== undefined && d.error_percentage !== null) {
                     const errorPct = parseFloat(d.error_percentage);
-                    // 不四捨五入，保留原始精度
-                    const accuracy = 100 - errorPct;
+                    // 使用絕對值計算準確度
+                    const accuracy = 100 - Math.abs(errorPct);
                     return Math.max(0, Math.min(100, accuracy));
                 }
                 if (d.accuracy) return parseFloat(d.accuracy);
-                // 從 actual vs predicted 計算（保留完整精度）
+                // 從 actual vs predicted 計算
                 if (d.actual && d.predicted) {
                     const error = Math.abs(d.actual - d.predicted) / d.actual * 100;
                     return Math.max(0, Math.min(100, 100 - error));
