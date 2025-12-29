@@ -570,6 +570,10 @@ const ChartControls = {
                 this.compareYear = !this.compareYear;
                 compareBtn.classList.toggle('active', this.compareYear);
                 
+                // 同步到全局設定（供圖表重新載入時使用）
+                window.chartSettings = window.chartSettings || {};
+                window.chartSettings.compareYear = this.compareYear;
+                
                 // 調用歷史圖表的年度對比功能（帶重試機制）
                 const tryYearComparison = async (retries = 3, delay = 500) => {
                     if (typeof window.toggleHistoryYearComparison !== 'function') {
