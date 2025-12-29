@@ -536,11 +536,8 @@ const ChartControls = {
             compareYear: this.compareYear
         };
         
-        // 延遲應用初始設定（等待圖表載入）
-        setTimeout(() => {
-            this.togglePredictionLines(this.showPredictions);
-            this.toggleAnomalyMarkers(this.showAnomalies);
-        }, 2000);
+        // 圖表預設會顯示所有數據集，只有當用戶取消勾選時才隱藏
+        // 不需要在初始化時調用 togglePredictionLines(true)，因為圖表預設就是顯示的
         
         // 全屏按鈕
         const fullscreenBtn = document.getElementById('forecast-fullscreen');
