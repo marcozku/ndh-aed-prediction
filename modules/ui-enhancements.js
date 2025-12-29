@@ -291,15 +291,15 @@ const ThemeManager = {
             Chart.defaults.color = textColor;
             Chart.defaults.borderColor = gridColor;
             
-            // 重新繪製所有圖表
-            Chart.instances.forEach(chart => {
-                if (chart.options.scales) {
+            // 重新繪製所有圖表 (Chart.js v3+ 用 Object.values)
+            Object.values(Chart.instances || {}).forEach(chart => {
+                if (chart && chart.options && chart.options.scales) {
                     Object.values(chart.options.scales).forEach(scale => {
                         if (scale.ticks) scale.ticks.color = textColor;
                         if (scale.grid) scale.grid.color = gridColor;
                     });
                 }
-                chart.update();
+                if (chart) chart.update();
             });
         }
     }
