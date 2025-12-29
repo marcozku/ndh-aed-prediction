@@ -2486,26 +2486,34 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
 
 // 年度對比功能 - 在歷史圖表上顯示去年同期數據
 async function toggleHistoryYearComparison(enabled) {
-    if (!historyChart || !historyChart.data || !historyChart.data.datasets) {
+    // 獲取歷史圖表實例
+    const chart = historyChart;
+    
+    if (!chart || !chart.data || !chart.data.datasets) {
         console.warn('⚠️ 歷史圖表未初始化，無法進行年度對比');
+        if (window.Toast) {
+            window.Toast.show('請等待圖表載入完成', 'warning');
+        }
         return;
     }
     
+    console.log('📊 年度對比功能觸發:', enabled);
+    
     // 移除現有的年度對比數據集（如果存在）
-    const existingIndex = historyChart.data.datasets.findIndex(ds => ds.label && ds.label.includes('去年同期'));
+    const existingIndex = chart.data.datasets.findIndex(ds => ds.label && ds.label.includes('去年同期'));
     if (existingIndex !== -1) {
-        historyChart.data.datasets.splice(existingIndex, 1);
+        chart.data.datasets.splice(existingIndex, 1);
     }
     
     if (!enabled) {
-        historyChart.update();
+        chart.update();
         console.log('📊 已關閉年度對比');
         return;
     }
     
     try {
         // 獲取當前圖表的數據範圍
-        const currentDataset = historyChart.data.datasets[0];
+        const currentDataset = chart.data.datasets[0];
         if (!currentDataset || !currentDataset.data || currentDataset.data.length === 0) {
             console.warn('⚠️ 當前圖表沒有數據');
             return;
@@ -2573,8 +2581,8 @@ async function toggleHistoryYearComparison(enabled) {
         };
         
         // 在平均線之前插入（索引 1）
-        historyChart.data.datasets.splice(1, 0, lastYearDataset);
-        historyChart.update();
+        chart.data.datasets.splice(1, 0, lastYearDataset);
+        chart.update();
         
         console.log(`✅ 已添加去年同期數據 (${lastYearDataPoints.length} 筆)`);
         
@@ -2588,6 +2596,9 @@ async function toggleHistoryYearComparison(enabled) {
 
 // 暴露年度對比功能到全局
 window.toggleHistoryYearComparison = toggleHistoryYearComparison;
+
+// 暴露圖表變量到全局（供 UI 模組使用）
+window.getHistoryChart = () => historyChart;
 
 // 計算準確度統計
 function calculateAccuracyStats(comparisonData) {
