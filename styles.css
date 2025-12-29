@@ -4425,10 +4425,9 @@ section h2 {
 }
 
 /* ============================================
-   Section Accent Bars
+   Section Accent Bars (只用於沒有 emoji 圖標的標題)
    ============================================ */
-.section-title::before,
-section h2::before {
+.section-title.with-accent::before {
     content: '';
     display: inline-block;
     width: 4px;
@@ -4436,6 +4435,7 @@ section h2::before {
     background: var(--gradient-primary);
     border-radius: 2px;
     margin-right: var(--space-sm);
+    vertical-align: middle;
 }
 
 /* ============================================
