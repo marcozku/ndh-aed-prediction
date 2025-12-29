@@ -1376,7 +1376,7 @@ export function initUIEnhancements() {
         } catch (e) {}
     }, 60000);
     
-    console.log('✅ UI 增強模組 v2.6.3 已初始化');
+    console.log('✅ UI 增強模組 v2.6.4 已初始化');
 }
 
 // 導出供外部使用
