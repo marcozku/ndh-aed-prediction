@@ -2472,6 +2472,17 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             }
         }, 100);
         console.log(`✅ 歷史趨勢圖已載入 (${historicalData.length} 筆數據, 範圍: ${range}, 分頁偏移: ${pageOffset})`);
+        
+        // 如果年度對比已啟用，重新添加去年同期數據
+        if (window.chartSettings && window.chartSettings.compareYear) {
+            console.log('📊 重新添加年度對比數據...');
+            // 使用短暫延遲確保圖表完全渲染
+            setTimeout(async () => {
+                if (typeof window.toggleHistoryYearComparison === 'function') {
+                    await window.toggleHistoryYearComparison(true);
+                }
+            }, 300);
+        }
     } catch (error) {
         console.error('❌ 歷史趨勢圖載入失敗:', error);
         const loadingEl = document.getElementById('history-chart-loading');
