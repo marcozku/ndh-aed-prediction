@@ -275,6 +275,17 @@ def main():
     # 獲取 AI 因子數據（如果有的話）
     ai_factors = df.attrs.get('ai_factors', {}) if hasattr(df, 'attrs') else {}
     
+    # 如果沒有從數據庫獲取 AI 因子，嘗試從本地 JSON 文件加載
+    if not ai_factors:
+        ai_factors_path = os.path.join(models_dir, 'ai_factors.json')
+        if os.path.exists(ai_factors_path):
+            try:
+                with open(ai_factors_path, 'r', encoding='utf-8') as f:
+                    ai_factors = json.load(f)
+                print(f"✅ 從本地文件加載了 {len(ai_factors)} 個日期的 AI 因子數據")
+            except Exception as e:
+                print(f"⚠️ 無法從本地文件加載 AI 因子: {e}")
+    
     if ai_factors:
         print(f"✅ 加載了 {len(ai_factors)} 個日期的 AI 因子數據")
     else:
