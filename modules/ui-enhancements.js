@@ -487,7 +487,7 @@ const ConfidenceDashboard = {
 // ============================================
 const ChartControls = {
     autoScale: true,
-    showPredictions: false,
+    showPredictions: true,
     showAnomalies: true,
     compareYear: false,
     
