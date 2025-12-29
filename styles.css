@@ -4857,6 +4857,444 @@ section h2::before {
 }
 
 /* ============================================
+   Confidence Dashboard
+   ============================================ */
+.confidence-dashboard {
+    margin: var(--space-2xl) auto;
+    max-width: 1200px;
+    padding: 0 var(--space-md);
+}
+
+.confidence-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-lg);
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    padding: var(--space-xl);
+    border: 1px solid var(--border-subtle);
+}
+
+@media (max-width: 768px) {
+    .confidence-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.confidence-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.confidence-gauge {
+    position: relative;
+    width: 100px;
+    height: 60px;
+}
+
+.confidence-gauge svg {
+    width: 100%;
+    height: 100%;
+}
+
+.gauge-bg {
+    fill: none;
+    stroke: var(--border-medium);
+    stroke-width: 8;
+    stroke-linecap: round;
+}
+
+.gauge-fill {
+    fill: none;
+    stroke: var(--accent-success);
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-dasharray: 110;
+    stroke-dashoffset: 110;
+    transition: stroke-dashoffset 1s ease;
+}
+
+.gauge-fill.overall {
+    stroke: var(--accent-primary);
+}
+
+.gauge-value {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.confidence-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.info-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all var(--transition-base);
+}
+
+.info-btn:hover {
+    background: var(--bg-card-hover);
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+/* ============================================
+   Chart Toolbar
+   ============================================ */
+.chart-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xl);
+    padding: var(--space-md) var(--space-lg);
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-lg);
+    border: 1px solid var(--border-subtle);
+    flex-wrap: wrap;
+}
+
+.toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.toolbar-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.toolbar-checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent-primary);
+    cursor: pointer;
+}
+
+.toggle-switch {
+    position: relative;
+}
+
+.toggle-switch input {
+    display: none;
+}
+
+.toggle-switch label {
+    display: flex;
+    background: var(--bg-primary);
+    border-radius: var(--radius-full);
+    padding: 2px;
+    cursor: pointer;
+    border: 1px solid var(--border-medium);
+}
+
+.toggle-option {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    border-radius: var(--radius-full);
+    transition: all var(--transition-base);
+    color: var(--text-tertiary);
+}
+
+.toggle-switch input:checked + label .toggle-option:first-child {
+    background: var(--accent-primary);
+    color: white;
+}
+
+.toggle-switch input:not(:checked) + label .toggle-option:last-child {
+    background: var(--accent-primary);
+    color: white;
+}
+
+/* ============================================
+   Chart Header & Actions
+   ============================================ */
+.chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-md);
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.chart-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.chart-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all var(--transition-base);
+}
+
+.chart-action-btn:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+.compare-btn.active {
+    background: var(--accent-primary);
+    color: white;
+    border-color: var(--accent-primary);
+}
+
+.time-range-dropdown {
+    padding: 6px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+/* ============================================
+   Chart Onboarding
+   ============================================ */
+.chart-onboarding {
+    margin-top: var(--space-md);
+}
+
+.onboarding-content {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, rgba(124, 58, 237, 0.05) 100%);
+    border: 1px solid rgba(79, 70, 229, 0.2);
+    border-radius: var(--radius-md);
+}
+
+.onboarding-icon {
+    font-size: 1.25rem;
+}
+
+.onboarding-text {
+    flex: 1;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.onboarding-dismiss {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 4px;
+    font-size: 1rem;
+}
+
+.onboarding-dismiss:hover {
+    color: var(--text-primary);
+}
+
+/* ============================================
+   Methodology Modal
+   ============================================ */
+.methodology-modal-content {
+    max-width: 600px;
+}
+
+.methodology-content {
+    padding: var(--space-lg);
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.methodology-section {
+    margin-bottom: var(--space-xl);
+}
+
+.methodology-section:last-child {
+    margin-bottom: 0;
+}
+
+.methodology-section h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--space-sm);
+}
+
+.methodology-section p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.formula-box {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    margin-top: var(--space-sm);
+    overflow-x: auto;
+}
+
+.formula-box code {
+    font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+    font-size: 0.85rem;
+    color: var(--accent-primary);
+}
+
+.feature-list {
+    list-style: none;
+    padding: 0;
+    margin-top: var(--space-sm);
+}
+
+.feature-list li {
+    padding: var(--space-xs) 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.feature-list li:last-child {
+    border-bottom: none;
+}
+
+/* ============================================
+   Drop Zone Overlay
+   ============================================ */
+.drop-zone-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(79, 70, 229, 0.9);
+    z-index: 10001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+}
+
+.drop-zone-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-lg);
+    color: white;
+}
+
+.drop-icon {
+    font-size: 4rem;
+    animation: bounce 1s ease infinite;
+}
+
+.drop-text {
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+/* ============================================
+   Anomaly Markers
+   ============================================ */
+.anomaly-marker {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: var(--accent-danger);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    animation: pulseAnomaly 2s ease infinite;
+}
+
+@keyframes pulseAnomaly {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+}
+
+.anomaly-tooltip {
+    position: absolute;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm) var(--space-md);
+    font-size: 0.8rem;
+    white-space: nowrap;
+    z-index: 100;
+    box-shadow: var(--shadow-lg);
+}
+
+/* ============================================
+   AI Report Expandable
+   ============================================ */
+.ai-report-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: var(--space-md);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-base);
+}
+
+.ai-report-toggle:hover {
+    background: var(--bg-card-hover);
+}
+
+.ai-report-toggle .toggle-icon {
+    transition: transform var(--transition-base);
+}
+
+.ai-report-toggle.expanded .toggle-icon {
+    transform: rotate(180deg);
+}
+
+.ai-report-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.ai-report-content.expanded {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+/* ============================================
    Print Styles
    ============================================ */
 @media print {
@@ -4864,7 +5302,9 @@ section h2::before {
     .back-to-top,
     .toast-container,
     .nav-action-btn,
-    .modal-overlay {
+    .modal-overlay,
+    .chart-toolbar,
+    .chart-onboarding {
         display: none !important;
     }
     

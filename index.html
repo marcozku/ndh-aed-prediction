@@ -230,27 +230,135 @@
             <div class="forecast-cards" id="forecast-content" style="display: none;"></div>
         </section>
 
+        <!-- 模型置信度儀表盤 -->
+        <section class="confidence-dashboard" id="confidence-dashboard">
+            <div class="section-header">
+                <h2 class="section-title" data-lang-key="confidence-title">模型置信度</h2>
+                <button class="info-btn" id="methodology-btn" title="了解預測方法論">
+                    <span>ℹ️</span>
+                    <span data-lang-key="methodology-btn">方法論</span>
+                </button>
+            </div>
+            <div class="confidence-grid">
+                <div class="confidence-item">
+                    <div class="confidence-gauge" id="gauge-data-quality">
+                        <svg viewBox="0 0 100 50">
+                            <path class="gauge-bg" d="M10,45 A35,35 0 0,1 90,45"></path>
+                            <path class="gauge-fill" id="gauge-fill-data" d="M10,45 A35,35 0 0,1 90,45"></path>
+                        </svg>
+                        <span class="gauge-value" id="gauge-value-data">--%</span>
+                    </div>
+                    <span class="confidence-label" data-lang-key="conf-data">數據品質</span>
+                </div>
+                <div class="confidence-item">
+                    <div class="confidence-gauge" id="gauge-model-fit">
+                        <svg viewBox="0 0 100 50">
+                            <path class="gauge-bg" d="M10,45 A35,35 0 0,1 90,45"></path>
+                            <path class="gauge-fill" id="gauge-fill-model" d="M10,45 A35,35 0 0,1 90,45"></path>
+                        </svg>
+                        <span class="gauge-value" id="gauge-value-model">--%</span>
+                    </div>
+                    <span class="confidence-label" data-lang-key="conf-model">模型擬合</span>
+                </div>
+                <div class="confidence-item">
+                    <div class="confidence-gauge" id="gauge-recent-accuracy">
+                        <svg viewBox="0 0 100 50">
+                            <path class="gauge-bg" d="M10,45 A35,35 0 0,1 90,45"></path>
+                            <path class="gauge-fill" id="gauge-fill-accuracy" d="M10,45 A35,35 0 0,1 90,45"></path>
+                        </svg>
+                        <span class="gauge-value" id="gauge-value-accuracy">--%</span>
+                    </div>
+                    <span class="confidence-label" data-lang-key="conf-accuracy">近期準確度</span>
+                </div>
+                <div class="confidence-item">
+                    <div class="confidence-gauge" id="gauge-overall">
+                        <svg viewBox="0 0 100 50">
+                            <path class="gauge-bg" d="M10,45 A35,35 0 0,1 90,45"></path>
+                            <path class="gauge-fill overall" id="gauge-fill-overall" d="M10,45 A35,35 0 0,1 90,45"></path>
+                        </svg>
+                        <span class="gauge-value" id="gauge-value-overall">--%</span>
+                    </div>
+                    <span class="confidence-label" data-lang-key="conf-overall">綜合置信度</span>
+                </div>
+            </div>
+        </section>
+
         <!-- 圖表區域 -->
         <section class="charts-section" id="charts-section">
+            <!-- 圖表控制工具列 -->
+            <div class="chart-toolbar" id="chart-toolbar">
+                <div class="toolbar-group">
+                    <label class="toolbar-label" data-lang-key="chart-scale">Y軸縮放：</label>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="auto-scale-toggle" checked>
+                        <label for="auto-scale-toggle">
+                            <span class="toggle-option" data-lang-key="scale-auto">自動</span>
+                            <span class="toggle-option" data-lang-key="scale-fixed">固定</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="toolbar-group">
+                    <label class="toolbar-label" data-lang-key="show-predictions">顯示預測線：</label>
+                    <input type="checkbox" id="show-predictions-toggle" class="toolbar-checkbox">
+                </div>
+                <div class="toolbar-group">
+                    <label class="toolbar-label" data-lang-key="show-anomalies">標記異常：</label>
+                    <input type="checkbox" id="show-anomalies-toggle" class="toolbar-checkbox" checked>
+                </div>
+            </div>
+
             <!-- 未來30天預測圖 -->
             <div class="chart-card full-width">
-                <h3 class="chart-title">未來 30 天預測趨勢</h3>
+                <div class="chart-header">
+                    <h3 class="chart-title" data-lang-key="forecast-chart-title">未來 30 天預測趨勢</h3>
+                    <div class="chart-actions">
+                        <button class="chart-action-btn" id="forecast-fullscreen" title="全屏">⛶</button>
+                    </div>
+                </div>
                 <div class="chart-container" id="forecast-chart-container">
                     <div class="chart-loading" id="forecast-chart-loading">
                         <div class="loading-spinner"></div>
-                        <div class="loading-text">載入中...</div>
+                        <div class="loading-text" data-lang-key="loading">載入中...</div>
                     </div>
                     <canvas id="forecast-chart" style="display: none;"></canvas>
                 </div>
             </div>
 
+            <!-- 準確度趨勢圖 -->
+            <div class="chart-card full-width">
+                <div class="chart-header">
+                    <h3 class="chart-title" data-lang-key="accuracy-trend-title">📈 模型準確度趨勢</h3>
+                </div>
+                <div class="chart-container" id="accuracy-chart-container">
+                    <div class="chart-loading" id="accuracy-chart-loading">
+                        <div class="loading-spinner"></div>
+                        <div class="loading-text" data-lang-key="loading">載入中...</div>
+                    </div>
+                    <canvas id="accuracy-chart" style="display: none;"></canvas>
+                </div>
+            </div>
+
+            <!-- 天氣相關性圖 -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title" data-lang-key="weather-corr-title">🌡️ 天氣影響分析</h3>
+                </div>
+                <div class="chart-container" id="weather-corr-chart-container">
+                    <div class="chart-loading" id="weather-corr-chart-loading">
+                        <div class="loading-spinner"></div>
+                        <div class="loading-text" data-lang-key="loading">載入中...</div>
+                    </div>
+                    <canvas id="weather-corr-chart" style="display: none;"></canvas>
+                </div>
+            </div>
+
             <!-- 星期效應圖 -->
             <div class="chart-card">
-                <h3 class="chart-title">星期效應分析</h3>
+                <h3 class="chart-title" data-lang-key="dow-chart-title">星期效應分析</h3>
                 <div class="chart-container" id="dow-chart-container">
                     <div class="chart-loading" id="dow-chart-loading">
                         <div class="loading-spinner"></div>
-                        <div class="loading-text">載入中...</div>
+                        <div class="loading-text" data-lang-key="loading">載入中...</div>
                     </div>
                     <canvas id="dow-chart" style="display: none;"></canvas>
                 </div>
@@ -258,11 +366,11 @@
 
             <!-- 月份分佈圖 -->
             <div class="chart-card">
-                <h3 class="chart-title">月份分佈統計</h3>
+                <h3 class="chart-title" data-lang-key="month-chart-title">月份分佈統計</h3>
                 <div class="chart-container" id="month-chart-container">
                     <div class="chart-loading" id="month-chart-loading">
                         <div class="loading-spinner"></div>
-                        <div class="loading-text">載入中...</div>
+                        <div class="loading-text" data-lang-key="loading">載入中...</div>
                     </div>
                     <canvas id="month-chart" style="display: none;"></canvas>
                 </div>
@@ -270,7 +378,26 @@
 
             <!-- 歷史趨勢圖 -->
             <div class="chart-card full-width">
-                <h3 class="chart-title">歷史趨勢</h3>
+                <div class="chart-header">
+                    <h3 class="chart-title" data-lang-key="history-chart-title">歷史趨勢</h3>
+                    <div class="chart-actions">
+                        <select class="time-range-dropdown" id="time-range-dropdown" title="選擇時間範圍">
+                            <option value="1D">1D</option>
+                            <option value="1週">1週</option>
+                            <option value="1月" selected>1月</option>
+                            <option value="3月">3月</option>
+                            <option value="6月">6月</option>
+                            <option value="1年">1年</option>
+                            <option value="2年">2年</option>
+                            <option value="5年">5年</option>
+                            <option value="10年">10年</option>
+                            <option value="全部">全部</option>
+                        </select>
+                        <button class="chart-action-btn compare-btn" id="compare-year-btn" title="對比去年同期">
+                            📊 <span data-lang-key="compare-year">對比去年</span>
+                        </button>
+                    </div>
+                </div>
                 <div class="time-range-selector" id="history-time-range">
                     <button class="time-range-btn" data-range="1D">1D</button>
                     <button class="time-range-btn" data-range="1週">1週</button>
@@ -291,9 +418,17 @@
                 <div class="chart-container large" id="history-chart-container">
                     <div class="chart-loading" id="history-chart-loading">
                         <div class="loading-spinner"></div>
-                        <div class="loading-text">載入中...</div>
+                        <div class="loading-text" data-lang-key="loading">載入中...</div>
                     </div>
                     <canvas id="history-chart" style="display: none;"></canvas>
+                </div>
+                <!-- 圖表 Onboarding 提示 -->
+                <div class="chart-onboarding" id="chart-onboarding" style="display: none;">
+                    <div class="onboarding-content">
+                        <span class="onboarding-icon">💡</span>
+                        <span class="onboarding-text" data-lang-key="chart-hint">提示：拖曳可平移，滾輪可縮放，點擊數據點查看詳情</span>
+                        <button class="onboarding-dismiss" id="dismiss-onboarding">✕</button>
+                    </div>
                 </div>
             </div>
 
@@ -373,7 +508,7 @@
         <footer class="app-footer" role="contentinfo">
             <p id="data-source-info" style="cursor: pointer; text-decoration: underline;" data-lang-key="footer-source">數據來源：載入中...</p>
             <p id="last-update-info" class="last-update-info"></p>
-            <p><span data-lang-key="footer-version">預測模型版本</span> 2.6.0 · <span data-lang-key="footer-timezone">香港時間 HKT</span></p>
+            <p><span data-lang-key="footer-version">預測模型版本</span> 2.6.1 · <span data-lang-key="footer-timezone">香港時間 HKT</span></p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2025 Marco Ma. All Rights Reserved.</p>
             <div class="footer-links">
                 <a href="/api/docs" class="footer-link" data-lang-key="footer-api">API 文檔</a>
@@ -489,6 +624,54 @@
                     <span class="share-text" data-lang-key="share-report">生成報告</span>
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- Methodology Modal -->
+    <div id="methodology-modal" class="modal-overlay" style="display: none;" role="dialog" aria-labelledby="methodology-title" aria-modal="true">
+        <div class="modal-content methodology-modal-content">
+            <div class="modal-header">
+                <h3 id="methodology-title">📖 <span data-lang-key="methodology-title">預測方法論</span></h3>
+                <button class="modal-close" id="methodology-close" aria-label="關閉">&times;</button>
+            </div>
+            <div class="methodology-content">
+                <div class="methodology-section">
+                    <h4>🎯 核心算法</h4>
+                    <p>本系統採用 <strong>XGBoost 梯度提升樹</strong>作為主要預測模型，結合多種時間序列特徵工程技術。</p>
+                    <div class="formula-box">
+                        <code>預測 = 基準值 × 星期因子 × 月份因子 × 天氣影響 + AI調整</code>
+                    </div>
+                </div>
+                <div class="methodology-section">
+                    <h4>📊 特徵工程（53+ 特徵）</h4>
+                    <ul class="feature-list">
+                        <li><strong>時間特徵</strong>：星期、月份、季節、假期、流感季節</li>
+                        <li><strong>滯後特徵</strong>：Lag1 (0.18)、Lag7 (0.10)、Rolling7 (0.14)</li>
+                        <li><strong>天氣特徵</strong>：溫度、濕度、降雨、極端天氣警告</li>
+                        <li><strong>趨勢特徵</strong>：短期(7天)、長期(30天)趨勢</li>
+                        <li><strong>AI 因子</strong>：實時新聞、事件影響分析</li>
+                    </ul>
+                </div>
+                <div class="methodology-section">
+                    <h4>📈 置信區間</h4>
+                    <ul>
+                        <li><strong>80% CI</strong>：±1.5σ（標準差）</li>
+                        <li><strong>95% CI</strong>：±2.5σ（標準差）</li>
+                    </ul>
+                </div>
+                <div class="methodology-section">
+                    <h4>🔬 研究基礎</h4>
+                    <p>基於 BMC Emergency Medicine (2025) 法國醫院研究，MAE 可達 2.63-2.64 病人。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full Window Drop Zone -->
+    <div id="drop-zone-overlay" class="drop-zone-overlay" style="display: none;">
+        <div class="drop-zone-content">
+            <span class="drop-icon">📁</span>
+            <span class="drop-text" data-lang-key="drop-hint">放開以上傳 CSV 文件</span>
         </div>
     </div>
 

@@ -23,6 +23,31 @@ import { Status } from './modules/status.js';
 import { Weather } from './modules/weather.js';
 import { initUIEnhancements, AlertManager, Toast } from './modules/ui-enhancements.js';
 
+// 註冊 Service Worker
+async function registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        try {
+            const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+            console.log('✅ Service Worker 已註冊:', registration.scope);
+            
+            // 檢查更新
+            registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                newWorker?.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        console.log('🔄 新版本可用，請刷新頁面');
+                        if (typeof Toast !== 'undefined') {
+                            Toast.show('有新版本可用，請刷新頁面', 'info');
+                        }
+                    }
+                });
+            });
+        } catch (error) {
+            console.warn('⚠️ Service Worker 註冊失敗:', error);
+        }
+    }
+}
+
 // 應用程式主類
 class App {
     constructor() {
@@ -31,7 +56,10 @@ class App {
     }
 
     async init() {
-        console.log('🏥 NDH AED 預測系統初始化（模組化版本 v2.6.0）...');
+        console.log('🏥 NDH AED 預測系統初始化（模組化版本 v2.6.1）...');
+        
+        // 註冊 Service Worker（離線支援）
+        registerServiceWorker();
         
         try {
             // 初始化 UI 增強功能

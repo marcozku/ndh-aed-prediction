@@ -4562,14 +4562,30 @@ const WEATHER_CONFIG = {
 let currentWeatherData = null;
 let weatherForecastData = null;
 
+// 天氣快取
+const weatherCache = {
+    current: { data: null, timestamp: 0, ttl: 10 * 60 * 1000 }, // 10分鐘快取
+    forecast: { data: null, timestamp: 0, ttl: 60 * 60 * 1000 }, // 1小時快取
+    warnings: { data: null, timestamp: 0, ttl: 5 * 60 * 1000 }   // 5分鐘快取（警告較急需）
+};
+
 // 全局 AI 分析因素
 let aiFactors = {};
 let lastAIAnalysisTime = null;
 let lastAIUpdateTime = null;
 const AI_UPDATE_INTERVAL = 30 * 60 * 1000; // 30分鐘
 
-// 獲取當前天氣
+// 獲取當前天氣（帶快取）
 async function fetchCurrentWeather() {
+    // 檢查快取
+    const cache = weatherCache.current;
+    const now = Date.now();
+    if (cache.data && (now - cache.timestamp) < cache.ttl) {
+        console.log('⚡ 使用天氣快取 (剩餘', Math.round((cache.ttl - (now - cache.timestamp)) / 1000), '秒)');
+        currentWeatherData = cache.data;
+        return cache.data;
+    }
+    
     try {
         const response = await fetch(WEATHER_CONFIG.currentWeatherAPI);
         if (!response.ok) throw new Error('Weather API error');
@@ -4618,10 +4634,19 @@ async function fetchCurrentWeather() {
             updateTime: data.updateTime || new Date().toISOString()
         };
         
-        console.log('🌤️ 天氣數據已更新:', JSON.stringify(currentWeatherData, null, 2));
+        // 更新快取
+        weatherCache.current.data = currentWeatherData;
+        weatherCache.current.timestamp = Date.now();
+        
+        console.log('🌤️ 天氣數據已更新並快取:', JSON.stringify(currentWeatherData, null, 2));
         return currentWeatherData;
     } catch (error) {
         console.error('❌ 獲取天氣失敗:', error);
+        // 返回過期的快取數據（如有）
+        if (weatherCache.current.data) {
+            console.warn('⚠️ 使用過期天氣快取');
+            return weatherCache.current.data;
+        }
         return null;
     }
 }

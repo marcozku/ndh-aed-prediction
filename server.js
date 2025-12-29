@@ -2204,7 +2204,7 @@ const apiHandlers = {
     // System Status
     'GET /api/status': async (req, res) => {
         const status = {
-            version: '2.6.0',
+            version: '2.6.1',
             database: db && db.pool ? 'connected' : 'disconnected',
             ai: aiService ? 'available' : 'unavailable',
             uptime: process.uptime(),
@@ -2212,6 +2212,68 @@ const apiHandlers = {
             timestamp: new Date().toISOString()
         };
         sendJson(res, status);
+    },
+
+    // Webhook 管理
+    'POST /api/webhooks': async (req, res) => {
+        try {
+            const { url, events } = JSON.parse(req.body);
+            if (!url) {
+                return sendJson(res, { success: false, error: 'Webhook URL is required' }, 400);
+            }
+            
+            const validEvents = ['prediction.daily', 'training.complete', 'alert.high_attendance'];
+            const selectedEvents = events?.filter(e => validEvents.includes(e)) || validEvents;
+            
+            // 儲存 Webhook（實際應存入數據庫）
+            if (!global.webhooks) global.webhooks = [];
+            const webhook = {
+                id: Date.now().toString(36),
+                url,
+                events: selectedEvents,
+                created: new Date().toISOString(),
+                active: true
+            };
+            global.webhooks.push(webhook);
+            
+            console.log(`📡 Webhook 已註冊: ${url} (事件: ${selectedEvents.join(', ')})`);
+            sendJson(res, { success: true, webhook });
+        } catch (err) {
+            sendJson(res, { success: false, error: err.message }, 500);
+        }
+    },
+
+    'GET /api/webhooks': async (req, res) => {
+        sendJson(res, { 
+            success: true, 
+            webhooks: (global.webhooks || []).map(w => ({
+                id: w.id,
+                url: w.url.replace(/\/\/(.+?)@/, '//*****@'), // 隱藏敏感資訊
+                events: w.events,
+                active: w.active,
+                created: w.created
+            }))
+        });
+    },
+
+    'DELETE /api/webhooks': async (req, res) => {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const id = url.searchParams.get('id');
+        
+        if (!id) {
+            return sendJson(res, { success: false, error: 'Webhook ID is required' }, 400);
+        }
+        
+        if (!global.webhooks) global.webhooks = [];
+        const index = global.webhooks.findIndex(w => w.id === id);
+        
+        if (index === -1) {
+            return sendJson(res, { success: false, error: 'Webhook not found' }, 404);
+        }
+        
+        global.webhooks.splice(index, 1);
+        console.log(`📡 Webhook 已刪除: ${id}`);
+        sendJson(res, { success: true });
     }
 };
 
