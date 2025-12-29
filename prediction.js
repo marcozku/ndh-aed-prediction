@@ -2484,6 +2484,111 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
     }
 }
 
+// 年度對比功能 - 在歷史圖表上顯示去年同期數據
+async function toggleHistoryYearComparison(enabled) {
+    if (!historyChart || !historyChart.data || !historyChart.data.datasets) {
+        console.warn('⚠️ 歷史圖表未初始化，無法進行年度對比');
+        return;
+    }
+    
+    // 移除現有的年度對比數據集（如果存在）
+    const existingIndex = historyChart.data.datasets.findIndex(ds => ds.label && ds.label.includes('去年同期'));
+    if (existingIndex !== -1) {
+        historyChart.data.datasets.splice(existingIndex, 1);
+    }
+    
+    if (!enabled) {
+        historyChart.update();
+        console.log('📊 已關閉年度對比');
+        return;
+    }
+    
+    try {
+        // 獲取當前圖表的數據範圍
+        const currentDataset = historyChart.data.datasets[0];
+        if (!currentDataset || !currentDataset.data || currentDataset.data.length === 0) {
+            console.warn('⚠️ 當前圖表沒有數據');
+            return;
+        }
+        
+        // 獲取當前數據的日期範圍
+        const dates = currentDataset.data.map(d => new Date(d.x));
+        const minDate = new Date(Math.min(...dates));
+        const maxDate = new Date(Math.max(...dates));
+        
+        // 計算去年同期的日期範圍
+        const lastYearStart = new Date(minDate);
+        lastYearStart.setFullYear(lastYearStart.getFullYear() - 1);
+        const lastYearEnd = new Date(maxDate);
+        lastYearEnd.setFullYear(lastYearEnd.getFullYear() - 1);
+        
+        const startDateStr = lastYearStart.toISOString().split('T')[0];
+        const endDateStr = lastYearEnd.toISOString().split('T')[0];
+        
+        console.log(`📅 獲取去年同期數據: ${startDateStr} 至 ${endDateStr}`);
+        
+        // 從 API 獲取去年的數據
+        const lastYearData = await fetchHistoricalData(startDateStr, endDateStr);
+        
+        if (!lastYearData || lastYearData.length === 0) {
+            console.warn('⚠️ 去年同期沒有數據');
+            if (window.Toast) {
+                window.Toast.show('去年同期沒有數據', 'warning');
+            }
+            return;
+        }
+        
+        // 將去年的數據轉換為圖表格式，但日期對齊到今年（用於對比）
+        const lastYearDataPoints = lastYearData.map(d => {
+            const originalDate = new Date(d.date);
+            // 將日期移到今年（保持月日不變）
+            const alignedDate = new Date(originalDate);
+            alignedDate.setFullYear(alignedDate.getFullYear() + 1);
+            return {
+                x: alignedDate.getTime(),
+                y: d.attendance
+            };
+        }).filter(d => !isNaN(d.x) && d.y !== undefined);
+        
+        if (lastYearDataPoints.length === 0) {
+            console.warn('⚠️ 去年數據轉換後為空');
+            return;
+        }
+        
+        // 添加去年的數據集
+        const lastYearDataset = {
+            label: `去年同期 (${lastYearStart.getFullYear()})`,
+            data: lastYearDataPoints,
+            borderColor: '#f97316', // 橙色
+            backgroundColor: 'rgba(249, 115, 22, 0.1)',
+            borderWidth: 2,
+            borderDash: [5, 5], // 虛線
+            fill: false,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            pointBackgroundColor: '#f97316',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 1
+        };
+        
+        // 在平均線之前插入（索引 1）
+        historyChart.data.datasets.splice(1, 0, lastYearDataset);
+        historyChart.update();
+        
+        console.log(`✅ 已添加去年同期數據 (${lastYearDataPoints.length} 筆)`);
+        
+    } catch (error) {
+        console.error('❌ 年度對比載入失敗:', error);
+        if (window.Toast) {
+            window.Toast.show('年度對比載入失敗', 'error');
+        }
+    }
+}
+
+// 暴露年度對比功能到全局
+window.toggleHistoryYearComparison = toggleHistoryYearComparison;
+
 // 計算準確度統計
 function calculateAccuracyStats(comparisonData) {
     if (!comparisonData || comparisonData.length === 0) {

@@ -569,11 +569,23 @@ const ChartControls = {
         // 年度對比按鈕
         const compareBtn = document.getElementById('compare-year-btn');
         if (compareBtn) {
-            compareBtn.addEventListener('click', () => {
+            compareBtn.addEventListener('click', async () => {
                 this.compareYear = !this.compareYear;
                 compareBtn.classList.toggle('active', this.compareYear);
-                this.refreshCharts();
-                Toast.show(this.compareYear ? '已啟用年度對比' : '已關閉年度對比', 'info');
+                
+                // 調用歷史圖表的年度對比功能
+                if (typeof window.toggleHistoryYearComparison === 'function') {
+                    await window.toggleHistoryYearComparison(this.compareYear);
+                    Toast.show(this.compareYear ? '已啟用年度對比（橙色線為去年同期）' : '已關閉年度對比', 'info');
+                } else {
+                    Toast.show('年度對比功能載入中...', 'info');
+                    // 等待函數載入後重試
+                    setTimeout(async () => {
+                        if (typeof window.toggleHistoryYearComparison === 'function') {
+                            await window.toggleHistoryYearComparison(this.compareYear);
+                        }
+                    }, 1000);
+                }
             });
         }
         
