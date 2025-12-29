@@ -920,20 +920,26 @@ const ChartControls = {
             compareYear: this.compareYear
         };
         
-        // 觸發圖表重繪
-        if (window.Chart) {
-            Chart.instances.forEach(chart => {
-                if (chart.options.scales?.y) {
-                    if (this.autoScale) {
-                        chart.options.scales.y.min = undefined;
-                        chart.options.scales.y.max = undefined;
-                    } else {
-                        chart.options.scales.y.min = 150;
-                        chart.options.scales.y.max = 350;
+        // 觸發圖表重繪 (Chart.js v3+: instances 是物件)
+        if (window.Chart && Chart.instances) {
+            try {
+                // Chart.js v3+ uses Object.values() to get chart instances
+                const charts = Object.values(Chart.instances);
+                charts.forEach(chart => {
+                    if (chart && chart.options?.scales?.y) {
+                        if (this.autoScale) {
+                            chart.options.scales.y.min = undefined;
+                            chart.options.scales.y.max = undefined;
+                        } else {
+                            chart.options.scales.y.min = 150;
+                            chart.options.scales.y.max = 350;
+                        }
+                        chart.update();
                     }
-                }
-                chart.update();
-            });
+                });
+            } catch (e) {
+                console.warn('圖表刷新失敗:', e);
+            }
         }
     }
 };
@@ -1056,7 +1062,17 @@ const AccuracyChart = {
     async init() {
         const canvas = document.getElementById('accuracy-chart');
         const loading = document.getElementById('accuracy-chart-loading');
-        if (!canvas) return;
+        if (!canvas || !loading) {
+            console.warn('AccuracyChart: canvas or loading element not found');
+            return;
+        }
+        
+        // 確保 Chart.js 已載入
+        if (typeof Chart === 'undefined') {
+            console.warn('AccuracyChart: Chart.js not loaded yet');
+            loading.innerHTML = '<div style="text-align: center; color: var(--text-secondary);">等待 Chart.js...</div>';
+            return;
+        }
         
         try {
             const response = await fetch('/api/comparison?limit=30');
@@ -1069,7 +1085,11 @@ const AccuracyChart = {
             }
             
             const labels = data.map(d => d.date).reverse();
-            const accuracies = data.map(d => d.accuracy || 100 - Math.abs(d.error_rate || 0)).reverse();
+            const accuracies = data.map(d => {
+                if (d.accuracy) return d.accuracy;
+                if (d.error_rate) return 100 - Math.abs(d.error_rate);
+                return 85; // 預設值
+            }).reverse();
             
             loading.style.display = 'none';
             canvas.style.display = 'block';
@@ -1106,6 +1126,7 @@ const AccuracyChart = {
                     }
                 }
             });
+            console.log('✅ AccuracyChart 已初始化');
         } catch (error) {
             console.warn('準確度圖表載入失敗:', error);
             loading.innerHTML = '<div style="text-align: center; color: var(--text-secondary);">載入失敗</div>';
@@ -1122,10 +1143,20 @@ const WeatherCorrChart = {
     async init() {
         const canvas = document.getElementById('weather-corr-chart');
         const loading = document.getElementById('weather-corr-chart-loading');
-        if (!canvas) return;
+        if (!canvas || !loading) {
+            console.warn('WeatherCorrChart: canvas or loading element not found');
+            return;
+        }
+        
+        // 確保 Chart.js 已載入
+        if (typeof Chart === 'undefined') {
+            console.warn('WeatherCorrChart: Chart.js not loaded yet');
+            loading.innerHTML = '<div style="text-align: center; color: var(--text-secondary);">等待 Chart.js...</div>';
+            return;
+        }
         
         try {
-            // 模擬天氣影響數據（實際應從 API 獲取）
+            // 天氣影響因子數據
             const weatherFactors = [
                 { factor: '極端高溫 (>33°C)', impact: 12 },
                 { factor: '極端低溫 (<10°C)', impact: 10 },
@@ -1170,6 +1201,7 @@ const WeatherCorrChart = {
                     }
                 }
             });
+            console.log('✅ WeatherCorrChart 已初始化');
         } catch (error) {
             console.warn('天氣相關性圖表載入失敗:', error);
             loading.innerHTML = '<div style="text-align: center; color: var(--text-secondary);">載入失敗</div>';
@@ -1258,14 +1290,20 @@ export function initUIEnhancements() {
         console.warn('  ⚠️ lang-toggle button not found');
     }
     
-    // 延遲初始化圖表相關
+    // 延遲初始化圖表相關（等待 Chart.js 和其他圖表載入完成）
     setTimeout(() => {
         try {
             ConfidenceDashboard.update();
+        } catch (e) { console.error('ConfidenceDashboard error:', e); }
+        
+        try {
             AccuracyChart.init();
+        } catch (e) { console.error('AccuracyChart error:', e); }
+        
+        try {
             WeatherCorrChart.init();
-        } catch (e) { console.error('Chart init error:', e); }
-    }, 2000);
+        } catch (e) { console.error('WeatherCorrChart error:', e); }
+    }, 3000); // 延長到 3 秒以確保 Chart.js 已完全載入
     
     // 定期更新時間和置信度
     setInterval(() => {
@@ -1275,7 +1313,7 @@ export function initUIEnhancements() {
         } catch (e) {}
     }, 60000);
     
-    console.log('✅ UI 增強模組 v2.6.1 已初始化');
+    console.log('✅ UI 增強模組 v2.6.3 已初始化');
 }
 
 // 導出供外部使用
