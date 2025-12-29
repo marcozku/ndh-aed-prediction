@@ -1774,10 +1774,9 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 historicalData = sampledData;
                 console.log(`📊 均勻採樣：從 ${originalLength} 個數據點採樣到 ${historicalData.length} 個（範圍：${range}）`);
             } else {
-                // 即使不需要採樣，也確保數據點之間有連續性
-                // 檢查是否有缺失的日期，如果有則進行插值
-                historicalData = ensureDataConsistency(historicalData, range);
-                console.log(`📊 數據一致性檢查：${historicalData.length} 個數據點（範圍：${range}）`);
+                // 不進行數據插值，只顯示真實數據
+                // 圖表會自動處理數據間隙（使用 spanGaps: false 和 null 點斷開）
+                console.log(`📊 使用原始數據：${historicalData.length} 個數據點（範圍：${range}）`);
             }
         }
         
