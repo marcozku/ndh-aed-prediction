@@ -1761,8 +1761,18 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             }
             
             if (needsSampling) {
-                historicalData = uniformSampleDataByAxis(historicalData, range, maxTicks, originalLength);
-                console.log(`📊 智能採樣：從 ${originalLength} 個數據點採樣到 ${historicalData.length} 個（範圍：${range}，確保連續性）`);
+                // 使用簡單的均勻採樣，保持數據形態
+                const sampleInterval = Math.ceil(originalLength / targetPoints);
+                const sampledData = [];
+                for (let i = 0; i < historicalData.length; i += sampleInterval) {
+                    sampledData.push(historicalData[i]);
+                }
+                // 確保最後一個點被包含
+                if (sampledData[sampledData.length - 1] !== historicalData[historicalData.length - 1]) {
+                    sampledData.push(historicalData[historicalData.length - 1]);
+                }
+                historicalData = sampledData;
+                console.log(`📊 均勻採樣：從 ${originalLength} 個數據點採樣到 ${historicalData.length} 個（範圍：${range}）`);
             } else {
                 // 即使不需要採樣，也確保數據點之間有連續性
                 // 檢查是否有缺失的日期，如果有則進行插值
@@ -1976,7 +1986,7 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         
         // 將數據轉換為 {x: date, y: value} 格式以支持 time scale
         // Chart.js time scale 需要 Date 對象或時間戳，而不是字符串
-        const dataPoints = historicalData.map((d, i) => {
+        let dataPoints = historicalData.map((d, i) => {
             let date;
             if (typeof d.date === 'string') {
                 // 如果是字符串，直接轉換為 Date 對象
@@ -1998,6 +2008,40 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
             };
         }).filter(d => d !== null) // 過濾掉無效的數據點
           .sort((a, b) => a.x - b.x); // 確保按時間排序
+        
+        // 檢測大間隙並插入 null 點以斷開線條
+        // 根據時間範圍設定間隙閾值
+        const gapThreshold = {
+            '1D': 2 * 24 * 60 * 60 * 1000,      // 2天
+            '1週': 3 * 24 * 60 * 60 * 1000,     // 3天
+            '1月': 7 * 24 * 60 * 60 * 1000,     // 7天
+            '3月': 14 * 24 * 60 * 60 * 1000,    // 14天
+            '6月': 30 * 24 * 60 * 60 * 1000,    // 30天
+            '1年': 60 * 24 * 60 * 60 * 1000,    // 60天
+            '2年': 90 * 24 * 60 * 60 * 1000,    // 90天
+            '5年': 180 * 24 * 60 * 60 * 1000,   // 180天
+            '10年': 365 * 24 * 60 * 60 * 1000,  // 1年
+            '全部': 365 * 24 * 60 * 60 * 1000   // 1年
+        }[range] || 30 * 24 * 60 * 60 * 1000;
+        
+        // 插入 null 點來斷開大間隙
+        const dataPointsWithGaps = [];
+        let gapCount = 0;
+        for (let i = 0; i < dataPoints.length; i++) {
+            dataPointsWithGaps.push(dataPoints[i]);
+            if (i < dataPoints.length - 1) {
+                const gap = dataPoints[i + 1].x - dataPoints[i].x;
+                if (gap > gapThreshold) {
+                    // 插入 null 點來斷開線條
+                    dataPointsWithGaps.push({ x: dataPoints[i].x + 1, y: null });
+                    gapCount++;
+                }
+            }
+        }
+        if (gapCount > 0) {
+            console.log(`📊 檢測到 ${gapCount} 個大間隙，已插入斷點`);
+        }
+        dataPoints = dataPointsWithGaps;
         
         console.log(`📊 準備繪製圖表: ${dataPoints.length} 個數據點 (已排序)`);
         if (dataPoints.length > 0) {
@@ -2028,8 +2072,8 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         pointBorderColor: 'transparent',
                         pointBorderWidth: 0,
                         showLine: true,
-                        // 對於長時間範圍，允許跨越缺失數據以避免斷線
-                        spanGaps: (['1年', '2年', '5年', '10年', '全部'].includes(range)),
+                        // 不跨越 null 點，以便在大間隙處斷開線條
+                        spanGaps: false,
                         segment: {
                             borderColor: (ctx) => {
                                 // 確保線條顏色一致
@@ -2584,7 +2628,7 @@ async function toggleHistoryYearComparison(enabled) {
         }
         
         // 將去年的數據轉換為圖表格式，但日期對齊到今年（用於對比）
-        const lastYearDataPoints = lastYearData.map(d => {
+        let lastYearDataPoints = lastYearData.map(d => {
             const originalDate = new Date(d.date);
             // 將日期移到今年（保持月日不變）
             const alignedDate = new Date(originalDate);
@@ -2599,6 +2643,22 @@ async function toggleHistoryYearComparison(enabled) {
         if (lastYearDataPoints.length === 0) {
             console.warn('⚠️ 去年數據轉換後為空');
             return false;
+        }
+        
+        // 智能採樣：匹配當前圖表的數據密度
+        const currentDataCount = currentDataset.data.length;
+        if (lastYearDataPoints.length > currentDataCount * 1.5) {
+            const sampleInterval = Math.ceil(lastYearDataPoints.length / currentDataCount);
+            const sampledPoints = [];
+            for (let i = 0; i < lastYearDataPoints.length; i += sampleInterval) {
+                sampledPoints.push(lastYearDataPoints[i]);
+            }
+            // 確保最後一個點被包含
+            if (sampledPoints[sampledPoints.length - 1] !== lastYearDataPoints[lastYearDataPoints.length - 1]) {
+                sampledPoints.push(lastYearDataPoints[lastYearDataPoints.length - 1]);
+            }
+            console.log(`📊 去年同期數據採樣: ${lastYearDataPoints.length} → ${sampledPoints.length} 點`);
+            lastYearDataPoints = sampledPoints;
         }
         
         console.log(`📊 去年同期數據: ${lastYearDataPoints.length} 個數據點, 已排序`);
