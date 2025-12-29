@@ -495,6 +495,8 @@ const ChartControls = {
         // Y軸縮放切換
         const autoScaleToggle = document.getElementById('auto-scale-toggle');
         if (autoScaleToggle) {
+            // 同步初始狀態
+            this.autoScale = autoScaleToggle.checked;
             autoScaleToggle.addEventListener('change', (e) => {
                 this.autoScale = e.target.checked;
                 this.refreshCharts();
@@ -505,6 +507,8 @@ const ChartControls = {
         // 顯示預測線
         const predictionsToggle = document.getElementById('show-predictions-toggle');
         if (predictionsToggle) {
+            // 同步初始狀態（預設關閉）
+            this.showPredictions = predictionsToggle.checked;
             predictionsToggle.addEventListener('change', (e) => {
                 this.showPredictions = e.target.checked;
                 this.togglePredictionLines(e.target.checked);
@@ -515,12 +519,28 @@ const ChartControls = {
         // 標記異常
         const anomaliesToggle = document.getElementById('show-anomalies-toggle');
         if (anomaliesToggle) {
+            // 同步初始狀態（預設開啟）
+            this.showAnomalies = anomaliesToggle.checked;
             anomaliesToggle.addEventListener('change', (e) => {
                 this.showAnomalies = e.target.checked;
                 this.toggleAnomalyMarkers(e.target.checked);
                 Toast.show(e.target.checked ? '已啟用異常標記' : '已關閉異常標記', 'info');
             });
         }
+        
+        // 初始化全局設定（供圖表使用）
+        window.chartSettings = {
+            autoScale: this.autoScale,
+            showPredictions: this.showPredictions,
+            showAnomalies: this.showAnomalies,
+            compareYear: this.compareYear
+        };
+        
+        // 延遲應用初始設定（等待圖表載入）
+        setTimeout(() => {
+            this.togglePredictionLines(this.showPredictions);
+            this.toggleAnomalyMarkers(this.showAnomalies);
+        }, 2000);
         
         // 全屏按鈕
         const fullscreenBtn = document.getElementById('forecast-fullscreen');
@@ -600,19 +620,25 @@ const ChartControls = {
         window.chartSettings = window.chartSettings || {};
         window.chartSettings.showPredictions = show;
         
-        // 更新圖表中的預測數據集可見性
+        // 更新圖表中的預測數據集可見性（包括 CI 置信區間）
         if (window.Chart && Chart.instances) {
             Object.values(Chart.instances).forEach(chart => {
                 if (chart.data?.datasets) {
                     chart.data.datasets.forEach(dataset => {
-                        if (dataset.label?.includes('預測') || dataset.label?.includes('Predicted')) {
+                        const label = dataset.label || '';
+                        // 隱藏預測值、CI 置信區間等預測相關數據集
+                        if (label.includes('預測') || 
+                            label.includes('Predicted') || 
+                            label.includes('CI') ||
+                            label.includes('置信')) {
                             dataset.hidden = !show;
                         }
                     });
-                    chart.update();
+                    chart.update('none'); // 使用 'none' 避免動畫
                 }
             });
         }
+        console.log('預測線顯示:', show);
     },
     
     // 切換異常標記
