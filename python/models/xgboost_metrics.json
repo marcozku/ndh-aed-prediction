@@ -1,0 +1,11 @@
+{
+  "mae": 3.8366904258728027,
+  "rmse": 5.70990473519138,
+  "mape": 1.5615786435703016,
+  "training_date": "2025-12-30 07:03:50",
+  "data_count": 3438,
+  "train_count": 2750,
+  "test_count": 688,
+  "feature_count": 52,
+  "ai_factors_count": 0
+}

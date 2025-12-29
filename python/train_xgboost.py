@@ -230,18 +230,33 @@ def train_xgboost_model(train_data, test_data, feature_cols):
     return model, {'mae': mae, 'rmse': rmse, 'mape': mape}
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description='Train XGBoost model')
+    parser.add_argument('--csv', type=str, help='Path to CSV file with historical data')
+    args = parser.parse_args()
+    
     # 創建模型目錄（相對於當前腳本目錄）
     script_dir = os.path.dirname(os.path.abspath(__file__))
     models_dir = os.path.join(script_dir, 'models')
     os.makedirs(models_dir, exist_ok=True)
     print(f"模型目錄: {models_dir}")
     
-    # 嘗試從數據庫加載數據
-    df = load_data_from_db()
+    df = None
     
-    # 如果數據庫不可用，嘗試從 CSV 加載
+    # 優先使用命令行指定的 CSV 文件
+    if args.csv and os.path.exists(args.csv):
+        print(f"從命令行指定的 CSV 加載數據: {args.csv}")
+        df = load_data_from_csv(args.csv)
+    
+    # 如果沒有指定 CSV，嘗試從數據庫加載數據
+    if df is None or len(df) == 0:
+        df = load_data_from_db()
+    
+    # 如果數據庫不可用，嘗試從默認 CSV 加載
     if df is None or len(df) == 0:
         csv_paths = [
+            '../NDH_AED_Clean.csv',
+            'NDH_AED_Clean.csv',
             '../NDH_AED_Attendance_2025-12-01_to_2025-12-21.csv',
             'NDH_AED_Attendance_2025-12-01_to_2025-12-21.csv',
         ]
