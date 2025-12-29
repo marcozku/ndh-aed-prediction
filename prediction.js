@@ -2497,11 +2497,24 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
 // 年度對比功能 - 在歷史圖表上顯示去年同期數據
 // 返回 true 表示成功，false 表示失敗
 async function toggleHistoryYearComparison(enabled) {
-    // 獲取歷史圖表實例
-    const chart = historyChart;
+    // 獲取歷史圖表實例 - 優先使用模組變量，否則從 canvas 獲取
+    let chart = historyChart;
+    
+    // 如果模組變量不可用，嘗試從 canvas 獲取 Chart 實例
+    if (!chart) {
+        const canvas = document.getElementById('history-chart');
+        if (canvas) {
+            // Chart.js v3+ 方式獲取圖表實例
+            const chartInstance = Chart.getChart(canvas);
+            if (chartInstance) {
+                chart = chartInstance;
+                console.log('📊 從 canvas 獲取圖表實例成功');
+            }
+        }
+    }
     
     if (!chart || !chart.data || !chart.data.datasets) {
-        console.warn('⚠️ 歷史圖表未初始化，無法進行年度對比');
+        console.warn('⚠️ 歷史圖表未初始化，無法進行年度對比 (historyChart:', !!historyChart, ')');
         // 不顯示警告 toast，因為圖表可能正在載入中
         return false;
     }
