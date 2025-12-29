@@ -1193,15 +1193,16 @@ const WeatherCorrChart = {
         }
         
         try {
-            // 天氣影響因子數據
+            // 天氣影響因子數據（基於歷史分析）
+            // 正數 = 人流增加，負數 = 人流減少
             const weatherFactors = [
+                { factor: '天氣警告生效', impact: 15 },
                 { factor: '極端高溫 (>33°C)', impact: 12 },
                 { factor: '極端低溫 (<10°C)', impact: 10 },
                 { factor: '高濕度 (>95%)', impact: 3 },
-                { factor: '大雨 (>30mm)', impact: -8 },
-                { factor: '天氣警告', impact: 15 },
-                { factor: '正常天氣', impact: 0 }
+                { factor: '大雨 (>30mm)', impact: -8 }
             ];
+            // 注：正常天氣 = 0% 影響（基準線）
             
             loading.style.display = 'none';
             canvas.style.display = 'block';
@@ -1227,17 +1228,42 @@ const WeatherCorrChart = {
                     maintainAspectRatio: false,
                     indexAxis: 'y',
                     plugins: {
-                        legend: { display: false }
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => {
+                                    const val = ctx.raw;
+                                    if (val > 0) return `人流增加 +${val}%`;
+                                    if (val < 0) return `人流減少 ${val}%`;
+                                    return '無影響（基準線）';
+                                },
+                                footer: () => '💡 0% = 正常天氣（基準線）'
+                            }
+                        }
                     },
                     scales: {
                         x: {
                             ticks: {
                                 callback: v => (v > 0 ? '+' : '') + v + '%'
+                            },
+                            grid: {
+                                color: ctx => ctx.tick.value === 0 ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)'
                             }
                         }
                     }
                 }
             });
+            
+            // 添加說明文字
+            const container = canvas.parentElement;
+            if (container && !container.querySelector('.chart-note')) {
+                const note = document.createElement('div');
+                note.className = 'chart-note';
+                note.style.cssText = 'font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 8px;';
+                note.innerHTML = '📊 0% = 正常天氣（基準線）| <span style="color:#dc2626">紅色</span> = 人流↑ | <span style="color:#059669">綠色</span> = 人流↓';
+                container.appendChild(note);
+            }
+            
             console.log('✅ WeatherCorrChart 已初始化');
         } catch (error) {
             console.warn('天氣相關性圖表載入失敗:', error);
