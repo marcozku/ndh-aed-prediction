@@ -4,9 +4,9 @@
  * v2.6.1
  */
 
-const CACHE_NAME = 'ndh-aed-v2.6.1';
-const STATIC_CACHE = 'ndh-static-v2.6.1';
-const DYNAMIC_CACHE = 'ndh-dynamic-v2.6.1';
+const CACHE_NAME = 'ndh-aed-v2.6.2';
+const STATIC_CACHE = 'ndh-static-v2.6.2';
+const DYNAMIC_CACHE = 'ndh-dynamic-v2.6.2';
 
 // 靜態資源（始終快取）
 const STATIC_ASSETS = [
@@ -200,5 +200,5 @@ self.addEventListener('notificationclick', (event) => {
     );
 });
 
-console.log('[SW] Service Worker 已載入 v2.6.1');
+console.log('[SW] Service Worker 已載入 v2.6.2');
 

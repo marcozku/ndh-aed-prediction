@@ -2204,7 +2204,7 @@ const apiHandlers = {
     // System Status
     'GET /api/status': async (req, res) => {
         const status = {
-            version: '2.6.1',
+            version: '2.6.2',
             database: db && db.pool ? 'connected' : 'disconnected',
             ai: aiService ? 'available' : 'unavailable',
             uptime: process.uptime(),
