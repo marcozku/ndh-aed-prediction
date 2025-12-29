@@ -4845,7 +4845,11 @@ section h2 {
     }
     
     .nav-brand {
-        display: none;
+        display: flex;
+    }
+    
+    .nav-logo {
+        height: 32px;
     }
     
     .nav-links {
