@@ -819,19 +819,23 @@ const AccuracyChart = {
             
             const labels = data.map(d => d.date).reverse();
             const accuracies = data.map(d => {
-                // API 回傳 error_percentage 是字串格式
+                // API 回傳 error_percentage 是字串格式，保留完整精度
                 if (d.error_percentage !== undefined) {
                     const errorPct = parseFloat(d.error_percentage);
-                    return Math.max(0, Math.min(100, 100 - errorPct));
+                    // 不四捨五入，保留原始精度
+                    const accuracy = 100 - errorPct;
+                    return Math.max(0, Math.min(100, accuracy));
                 }
                 if (d.accuracy) return parseFloat(d.accuracy);
-                // 從 actual vs predicted 計算
+                // 從 actual vs predicted 計算（保留完整精度）
                 if (d.actual && d.predicted) {
                     const error = Math.abs(d.actual - d.predicted) / d.actual * 100;
                     return Math.max(0, Math.min(100, 100 - error));
                 }
                 return null; // 無資料時返回 null
             }).reverse();
+            
+            console.log('📊 AccuracyChart 原始數據:', accuracies.map(a => a?.toFixed(2)));
             
             // 過濾掉 null 值
             const validData = labels.map((label, i) => ({ label, accuracy: accuracies[i] }))
@@ -867,17 +871,22 @@ const AccuracyChart = {
                         legend: { display: false },
                         tooltip: {
                             callbacks: {
-                                label: ctx => `準確度: ${ctx.raw.toFixed(1)}%`
+                                title: ctx => ctx[0].label,
+                                label: ctx => `準確度: ${ctx.raw.toFixed(2)}%`,
+                                afterLabel: ctx => {
+                                    const errorPct = (100 - ctx.raw).toFixed(2);
+                                    return `誤差率: ${errorPct}%`;
+                                }
                             }
                         }
                     },
                     scales: {
                         y: {
-                            min: 0,
+                            min: 40,
                             max: 100,
                             ticks: {
-                                callback: v => v + '%',
-                                stepSize: 20
+                                callback: v => v.toFixed(0) + '%',
+                                stepSize: 10
                             },
                             grid: {
                                 color: 'rgba(0,0,0,0.05)'
