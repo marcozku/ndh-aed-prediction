@@ -570,28 +570,34 @@ const ChartControls = {
                 this.compareYear = !this.compareYear;
                 compareBtn.classList.toggle('active', this.compareYear);
                 
-                // 調用歷史圖表的年度對比功能
-                if (typeof window.toggleHistoryYearComparison === 'function') {
-                    const success = await window.toggleHistoryYearComparison(this.compareYear);
-                    if (success === false) {
-                        // 失敗時重置按鈕狀態
-                        this.compareYear = false;
-                        compareBtn.classList.remove('active');
-                        Toast.show('請先滾動到歷史趨勢圖', 'warning');
-                    } else {
-                        Toast.show(this.compareYear ? '已啟用年度對比（橙色線為去年同期）' : '已關閉年度對比', 'info');
-                    }
-                } else {
-                    Toast.show('年度對比功能載入中...', 'info');
-                    // 等待函數載入後重試
-                    setTimeout(async () => {
-                        if (typeof window.toggleHistoryYearComparison === 'function') {
-                            const success = await window.toggleHistoryYearComparison(this.compareYear);
-                            if (success !== false) {
-                                Toast.show(this.compareYear ? '已啟用年度對比' : '已關閉年度對比', 'info');
-                            }
+                // 調用歷史圖表的年度對比功能（帶重試機制）
+                const tryYearComparison = async (retries = 3, delay = 500) => {
+                    if (typeof window.toggleHistoryYearComparison !== 'function') {
+                        if (retries > 0) {
+                            console.log(`⏳ 等待年度對比功能載入... (剩餘 ${retries} 次)`);
+                            await new Promise(r => setTimeout(r, delay));
+                            return tryYearComparison(retries - 1, delay);
                         }
-                    }, 1000);
+                        return false;
+                    }
+                    
+                    const success = await window.toggleHistoryYearComparison(this.compareYear);
+                    if (success === false && retries > 0) {
+                        console.log(`⏳ 圖表未就緒，重試中... (剩餘 ${retries} 次)`);
+                        await new Promise(r => setTimeout(r, delay));
+                        return tryYearComparison(retries - 1, delay);
+                    }
+                    return success;
+                };
+                
+                const success = await tryYearComparison();
+                if (success === false) {
+                    // 失敗時重置按鈕狀態
+                    this.compareYear = false;
+                    compareBtn.classList.remove('active');
+                    Toast.show('圖表載入中，請稍後再試', 'warning');
+                } else {
+                    Toast.show(this.compareYear ? '已啟用年度對比（橙色線為去年同期）' : '已關閉年度對比', 'info');
                 }
             });
         }
