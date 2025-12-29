@@ -2593,23 +2593,27 @@ async function toggleHistoryYearComparison(enabled) {
                 x: alignedDate.getTime(),
                 y: d.attendance
             };
-        }).filter(d => !isNaN(d.x) && d.y !== undefined);
+        }).filter(d => !isNaN(d.x) && d.y !== undefined)
+          .sort((a, b) => a.x - b.x); // 確保按時間排序
         
         if (lastYearDataPoints.length === 0) {
             console.warn('⚠️ 去年數據轉換後為空');
             return false;
         }
         
+        console.log(`📊 去年同期數據: ${lastYearDataPoints.length} 個數據點, 已排序`);
+        
         // 添加去年的數據集
         const lastYearDataset = {
             label: `去年同期 (${lastYearStart.getFullYear()})`,
             data: lastYearDataPoints,
             borderColor: '#f97316', // 橙色
-            backgroundColor: 'rgba(249, 115, 22, 0.1)',
+            backgroundColor: 'transparent', // 不填充背景
             borderWidth: 2,
             borderDash: [5, 5], // 虛線
             fill: false,
             tension: 0.35,
+            spanGaps: true, // 跨越數據間隙
             pointRadius: 0,
             pointHoverRadius: 4,
             pointBackgroundColor: '#f97316',
