@@ -2388,7 +2388,7 @@ section h2 {
     box-shadow: var(--shadow-sm), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
     transition: all var(--transition-smooth);
     position: relative;
-    overflow: visible;
+    overflow: hidden; /* 隱藏溢出內容，防止圖表超出邊界 */
     overflow-x: hidden;
     box-sizing: border-box;
     z-index: 1;
@@ -2427,7 +2427,7 @@ section h2 {
     box-sizing: border-box;
     height: auto; /* 使用 auto 讓內容決定高度 */
     min-height: 0; /* 移除最小高度限制，讓內容決定 */
-    overflow: visible; /* 允許內容完整顯示 */
+    overflow: hidden; /* 隱藏溢出內容，防止圖表超出邊界 */
     overflow-x: hidden; /* 明確防止水平溢出 */
 }
 

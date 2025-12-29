@@ -871,16 +871,16 @@ function getResponsivePadding() {
     const width = window.innerWidth;
     if (width <= 380) {
         // 小屏幕：更多頂部和底部空間，為圖例和 X 軸標籤留出空間
-        return { top: 12, bottom: 55, left: 5, right: 5 };
+        return { top: 15, bottom: 55, left: 15, right: 15 };
     } else if (width <= 600) {
         // 中等屏幕：平衡的 padding
-        return { top: 12, bottom: 65, left: 8, right: 8 };
+        return { top: 15, bottom: 65, left: 20, right: 20 };
     } else if (width <= 900) {
         // 平板：更多空間
-        return { top: 15, bottom: 75, left: 10, right: 10 };
+        return { top: 15, bottom: 75, left: 25, right: 25 };
     } else {
         // 桌面端：最大空間，確保所有細節清晰可見
-        return { top: 15, bottom: 85, left: 10, right: 20 };
+        return { top: 15, bottom: 85, left: 30, right: 30 };
     }
 }
 
