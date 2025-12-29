@@ -226,10 +226,9 @@ body {
 }
 
 .nav-logo {
+    height: 36px;
     width: auto;
-    height: 40px;
     object-fit: contain;
-    object-position: top;
 }
 
 .nav-title {
