@@ -1090,10 +1090,28 @@ const AccuracyChart = {
             
             const labels = data.map(d => d.date).reverse();
             const accuracies = data.map(d => {
-                if (d.accuracy) return d.accuracy;
-                if (d.error_rate) return 100 - Math.abs(d.error_rate);
-                return 85; // 預設值
+                // API 回傳 error_percentage 是字串格式
+                if (d.error_percentage !== undefined) {
+                    const errorPct = parseFloat(d.error_percentage);
+                    return Math.max(0, Math.min(100, 100 - errorPct));
+                }
+                if (d.accuracy) return parseFloat(d.accuracy);
+                // 從 actual vs predicted 計算
+                if (d.actual && d.predicted) {
+                    const error = Math.abs(d.actual - d.predicted) / d.actual * 100;
+                    return Math.max(0, Math.min(100, 100 - error));
+                }
+                return null; // 無資料時返回 null
             }).reverse();
+            
+            // 過濾掉 null 值
+            const validData = labels.map((label, i) => ({ label, accuracy: accuracies[i] }))
+                .filter(d => d.accuracy !== null);
+            
+            if (validData.length === 0) {
+                loading.innerHTML = '<div style="text-align: center; color: var(--text-secondary);">暫無準確度數據</div>';
+                return;
+            }
             
             loading.style.display = 'none';
             canvas.style.display = 'block';
@@ -1102,10 +1120,10 @@ const AccuracyChart = {
             this.chart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels,
+                    labels: validData.map(d => d.label),
                     datasets: [{
                         label: '準確度 %',
-                        data: accuracies,
+                        data: validData.map(d => d.accuracy),
                         borderColor: '#4f46e5',
                         backgroundColor: 'rgba(79, 70, 229, 0.1)',
                         fill: true,
@@ -1117,14 +1135,29 @@ const AccuracyChart = {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { display: false }
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `準確度: ${ctx.raw.toFixed(1)}%`
+                            }
+                        }
                     },
                     scales: {
                         y: {
-                            min: 70,
+                            min: 0,
                             max: 100,
                             ticks: {
-                                callback: v => v + '%'
+                                callback: v => v + '%',
+                                stepSize: 20
+                            },
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
                             }
                         }
                     }
