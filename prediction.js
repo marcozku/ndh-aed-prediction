@@ -1996,9 +1996,10 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                 x: date.getTime(), // 使用時間戳，Chart.js time scale 支持
                 y: d.attendance
             };
-        }).filter(d => d !== null); // 過濾掉無效的數據點
+        }).filter(d => d !== null) // 過濾掉無效的數據點
+          .sort((a, b) => a.x - b.x); // 確保按時間排序
         
-        console.log(`📊 準備繪製圖表: ${dataPoints.length} 個數據點`);
+        console.log(`📊 準備繪製圖表: ${dataPoints.length} 個數據點 (已排序)`);
         if (dataPoints.length > 0) {
             console.log('📊 第一個數據點:', JSON.stringify(dataPoints[0], null, 2));
             console.log('📊 最後一個數據點:', JSON.stringify(dataPoints[dataPoints.length - 1], null, 2));
@@ -2016,16 +2017,19 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
                         borderColor: '#4f46e5',
                         backgroundColor: historyGradient,
                         borderWidth: 2,
-                        fill: true,
+                        // 對於長時間範圍（1年以上），禁用填充以避免視覺問題
+                        fill: (['1年', '2年', '5年', '10年', '全部'].includes(range)) ? false : true,
                         // 對於長時間範圍，使用更高的平滑度
-                        tension: (range === '5年' || range === '10年' || range === '全部') ? 0.5 : 0.35,
+                        tension: (['5年', '10年', '全部'].includes(range)) ? 0.5 : 
+                                 (['1年', '2年'].includes(range)) ? 0.4 : 0.35,
                         pointRadius: 0,
                         pointHoverRadius: 0,
                         pointBackgroundColor: 'transparent',
                         pointBorderColor: 'transparent',
                         pointBorderWidth: 0,
                         showLine: true,
-                        spanGaps: false, // 不跨越缺失數據，保持線條連續
+                        // 對於長時間範圍，允許跨越缺失數據以避免斷線
+                        spanGaps: (['1年', '2年', '5年', '10年', '全部'].includes(range)),
                         segment: {
                             borderColor: (ctx) => {
                                 // 確保線條顏色一致
