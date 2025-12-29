@@ -9,86 +9,216 @@
 // ============================================
 const translations = {
     'zh-HK': {
+        // 導航
         'nav-title': 'NDH AED',
         'nav-today': '今日',
         'nav-forecast': '7日',
         'nav-history': '趨勢',
         'nav-training': '訓練',
+        
+        // 通用
         'loading': '載入中...',
+        'unit-people': '人',
+        
+        // 頁首
+        'app-title': 'NDH AED 病人數量預測系統',
+        'app-subtitle': 'North District Hospital A&E Attendance Prediction',
+        
+        // 今日預測
+        'today-prediction': '今日預測',
+        'combined-prediction': '綜合預測',
+        'realtime-prediction': '實時預測',
+        'stability': '穩定性',
+        'ci-80': '80% 信賴區間',
+        'ci-95': '95% 信賴區間',
+        
+        // 統計
+        'historical-stats': '歷史統計',
+        'daily-avg': '日均人數',
+        'max-peak': '最高峰',
+        'min-trough': '最低谷',
+        'std-dev': '標準差',
+        
+        // 影響因素
+        'realtime-factors': '實時影響因素',
+        'reanalyze': '重新分析',
+        
+        // 預測
+        'forecast-7days': '未來 7 天預測',
+        'forecast-chart-title': '未來 30 天預測趨勢',
+        
+        // 置信度
+        'confidence-title': '模型置信度',
+        'methodology-btn': '方法論',
+        'conf-data': '數據品質',
+        'conf-model': '模型擬合',
+        'conf-accuracy': '近期準確度',
+        'conf-overall': '綜合置信度',
+        
+        // 圖表控制
+        'chart-scale': 'Y軸縮放：',
+        'scale-auto': '自動',
+        'scale-fixed': '固定',
+        'show-predictions': '顯示預測線：',
+        'show-anomalies': '標記異常：',
+        
+        // 圖表
+        'accuracy-trend-title': '📈 模型準確度趨勢',
+        'weather-corr-title': '🌡️ 天氣影響分析',
+        'dow-chart-title': '星期效應分析',
+        'month-chart-title': '月份分佈統計',
+        'history-chart-title': '歷史趨勢',
+        'compare-year': '對比去年',
+        'chart-hint': '提示：拖曳可平移，滾輪可縮放，點擊數據點查看詳情',
+        
+        // 對比
+        'comparison-title': '實際 vs 預測對比',
+        'add-actual-data': '添加實際數據',
+        
+        // 訓練
+        'model-training-status': '模型訓練狀態',
+        'start-training': '開始訓練',
+        
+        // 算法說明
+        'algorithm-section': '預測算法說明（基於真實研究）',
+        'methodology-title': '預測方法論',
+        
+        // 頁腳
         'footer-version': '預測模型版本',
         'footer-timezone': '香港時間 HKT',
         'footer-api': 'API 文檔',
         'footer-shortcuts': '鍵盤快捷鍵',
+        
+        // 快捷鍵
         'shortcuts-title': '⌨️ 鍵盤快捷鍵',
         'shortcut-refresh': '刷新數據',
         'shortcut-train': '開始訓練',
         'shortcut-theme': '切換深色模式',
         'shortcut-lang': '切換語言',
-        'shortcut-export': '匯出數據',
-        'shortcut-share': '分享',
         'shortcut-top': '返回頂部',
         'shortcut-nav': '導航區塊',
         'shortcut-help': '顯示快捷鍵',
+        
+        // 通知
         'notify-title': '通知設定',
         'notify-high': '高人流預警 (>300人)',
         'notify-training': '訓練完成通知',
         'notify-daily': '每日預測提醒',
         'notify-save': '儲存設定',
-        'export-title': '匯出數據',
-        'export-range': '數據範圍：',
-        'export-7days': '過去 7 天',
-        'export-30days': '過去 30 天',
-        'export-90days': '過去 90 天',
-        'export-all': '全部數據',
-        'share-title': '分享預測',
-        'share-link': '複製連結',
-        'share-image': '儲存為圖片',
-        'share-report': '生成報告',
+        
+        // Toast
         'toast-copied': '已複製到剪貼板',
         'toast-saved': '已儲存',
-        'toast-export-success': '匯出成功',
-        'toast-notify-saved': '通知設定已儲存'
+        'toast-notify-saved': '通知設定已儲存',
+        
+        // 上傳
+        'drop-hint': '放開以上傳 CSV 文件'
     },
     'en': {
+        // Navigation
         'nav-title': 'NDH AED',
         'nav-today': 'Today',
         'nav-forecast': '7 Days',
         'nav-history': 'Trends',
         'nav-training': 'Train',
+        
+        // Common
         'loading': 'Loading...',
+        'unit-people': 'patients',
+        
+        // Header
+        'app-title': 'NDH AED Patient Attendance Prediction System',
+        'app-subtitle': 'North District Hospital A&E Attendance Prediction',
+        
+        // Today Prediction
+        'today-prediction': "Today's Prediction",
+        'combined-prediction': 'Combined Prediction',
+        'realtime-prediction': 'Realtime Prediction',
+        'stability': 'Stability',
+        'ci-80': '80% Confidence Interval',
+        'ci-95': '95% Confidence Interval',
+        
+        // Statistics
+        'historical-stats': 'Historical Statistics',
+        'daily-avg': 'Daily Average',
+        'max-peak': 'Maximum',
+        'min-trough': 'Minimum',
+        'std-dev': 'Std Deviation',
+        
+        // Factors
+        'realtime-factors': 'Real-time Impact Factors',
+        'reanalyze': 'Re-analyze',
+        
+        // Forecast
+        'forecast-7days': '7-Day Forecast',
+        'forecast-chart-title': '30-Day Forecast Trend',
+        
+        // Confidence
+        'confidence-title': 'Model Confidence',
+        'methodology-btn': 'Methodology',
+        'conf-data': 'Data Quality',
+        'conf-model': 'Model Fit',
+        'conf-accuracy': 'Recent Accuracy',
+        'conf-overall': 'Overall Confidence',
+        
+        // Chart Controls
+        'chart-scale': 'Y-Axis Scale:',
+        'scale-auto': 'Auto',
+        'scale-fixed': 'Fixed',
+        'show-predictions': 'Show Predictions:',
+        'show-anomalies': 'Mark Anomalies:',
+        
+        // Charts
+        'accuracy-trend-title': '📈 Model Accuracy Trend',
+        'weather-corr-title': '🌡️ Weather Impact Analysis',
+        'dow-chart-title': 'Day of Week Effect',
+        'month-chart-title': 'Monthly Distribution',
+        'history-chart-title': 'Historical Trend',
+        'compare-year': 'Compare Last Year',
+        'chart-hint': 'Tip: Drag to pan, scroll to zoom, click data points for details',
+        
+        // Comparison
+        'comparison-title': 'Actual vs Predicted',
+        'add-actual-data': 'Add Actual Data',
+        
+        // Training
+        'model-training-status': 'Model Training Status',
+        'start-training': 'Start Training',
+        
+        // Algorithm
+        'algorithm-section': 'Prediction Algorithm (Research-Based)',
+        'methodology-title': 'Prediction Methodology',
+        
+        // Footer
         'footer-version': 'Prediction Model Version',
         'footer-timezone': 'Hong Kong Time HKT',
         'footer-api': 'API Docs',
         'footer-shortcuts': 'Keyboard Shortcuts',
+        
+        // Shortcuts
         'shortcuts-title': '⌨️ Keyboard Shortcuts',
         'shortcut-refresh': 'Refresh Data',
         'shortcut-train': 'Start Training',
         'shortcut-theme': 'Toggle Dark Mode',
         'shortcut-lang': 'Switch Language',
-        'shortcut-export': 'Export Data',
-        'shortcut-share': 'Share',
         'shortcut-top': 'Back to Top',
         'shortcut-nav': 'Navigate Sections',
         'shortcut-help': 'Show Shortcuts',
+        
+        // Notifications
         'notify-title': 'Notification Settings',
         'notify-high': 'High Volume Alert (>300)',
         'notify-training': 'Training Complete',
         'notify-daily': 'Daily Prediction Reminder',
         'notify-save': 'Save Settings',
-        'export-title': 'Export Data',
-        'export-range': 'Date Range:',
-        'export-7days': 'Last 7 Days',
-        'export-30days': 'Last 30 Days',
-        'export-90days': 'Last 90 Days',
-        'export-all': 'All Data',
-        'share-title': 'Share Prediction',
-        'share-link': 'Copy Link',
-        'share-image': 'Save as Image',
-        'share-report': 'Generate Report',
+        
+        // Toast
         'toast-copied': 'Copied to clipboard',
         'toast-saved': 'Saved',
-        'toast-export-success': 'Export successful',
-        'toast-notify-saved': 'Notification settings saved'
+        'toast-notify-saved': 'Notification settings saved',
+        
+        // Upload
+        'drop-hint': 'Drop CSV file to upload'
     }
 };
 
@@ -344,8 +474,6 @@ const ModalManager = {
     init() {
         this.setupShortcutsModal();
         this.setupNotifyModal();
-        this.setupExportModal();
-        this.setupShareModal();
         
         // 點擊 overlay 關閉
         document.querySelectorAll('.modal-overlay').forEach(modal => {
@@ -440,237 +568,13 @@ const ModalManager = {
         }
     },
     
-    setupExportModal() {
-        const modal = document.getElementById('export-modal');
-        const openBtn = document.getElementById('export-btn');
-        const closeBtn = document.getElementById('export-close');
-        
-        if (!modal) {
-            console.warn('⚠️ export-modal not found');
-            return;
-        }
-        
-        if (openBtn) {
-            openBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('📥 Opening export modal');
-                modal.style.display = 'flex';
-            });
-        }
-        
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-        }
-        
-        // 匯出按鈕
-        document.getElementById('export-csv')?.addEventListener('click', () => ExportManager.exportCSV());
-        document.getElementById('export-excel')?.addEventListener('click', () => ExportManager.exportExcel());
-        document.getElementById('export-pdf')?.addEventListener('click', () => ExportManager.exportPDF());
-    },
     
-    setupShareModal() {
-        const modal = document.getElementById('share-modal');
-        const openBtn = document.getElementById('share-btn');
-        const closeBtn = document.getElementById('share-close');
-        
-        if (!modal) {
-            console.warn('⚠️ share-modal not found');
-            return;
-        }
-        
-        if (openBtn) {
-            openBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('🔗 Opening share modal');
-                modal.style.display = 'flex';
-            });
-        }
-        
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-        }
-        
-        // 分享按鈕
-        document.getElementById('share-link')?.addEventListener('click', () => ShareManager.copyLink());
-        document.getElementById('share-image')?.addEventListener('click', () => ShareManager.saveImage());
-        document.getElementById('share-report')?.addEventListener('click', () => ShareManager.generateReport());
-    }
 };
 
 // ============================================
 // 匯出管理
 // ============================================
-const ExportManager = {
-    async getData() {
-        const range = document.getElementById('export-range-select')?.value || '30';
-        try {
-            let url = '/api/history';
-            if (range !== 'all') {
-                const endDate = new Date();
-                const startDate = new Date();
-                startDate.setDate(startDate.getDate() - parseInt(range));
-                url += `?start=${startDate.toISOString().split('T')[0]}&end=${endDate.toISOString().split('T')[0]}`;
-            }
-            const response = await fetch(url);
-            const data = await response.json();
-            return data.data || data || [];
-        } catch (error) {
-            console.error('獲取數據失敗:', error);
-            return [];
-        }
-    },
-    
-    async exportCSV() {
-        try {
-            const data = await this.getData();
-            if (!data.length) {
-                Toast.show('沒有數據可匯出', 'warning');
-                return;
-            }
-            
-            const headers = ['Date', 'Attendance', 'Predicted', 'Error'];
-            const rows = data.map(d => [
-                d.date || '',
-                d.attendance || d.actual || '',
-                d.predicted || '',
-                d.error || ''
-            ]);
-            
-            const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-            this.download(csv, 'ndh-aed-data.csv', 'text/csv');
-            
-            const modal = document.getElementById('export-modal');
-            if (modal) modal.style.display = 'none';
-            Toast.show(LangManager.t('toast-export-success'), 'success');
-        } catch (error) {
-            console.error('Export CSV error:', error);
-            Toast.show('匯出失敗', 'error');
-        }
-    },
-    
-    async exportExcel() {
-        // 簡化版：使用 CSV 格式（Excel 可以打開）
-        await this.exportCSV();
-    },
-    
-    async exportPDF() {
-        // 開啟技術文檔 PDF
-        window.open('/NDH_AED_Technical_Documentation.pdf', '_blank');
-        const modal = document.getElementById('export-modal');
-        if (modal) modal.style.display = 'none';
-        Toast.show(LangManager.t('toast-export-success'), 'success');
-    },
-    
-    download(content, filename, type) {
-        const blob = new Blob([content], { type: type + ';charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = filename;
-        link.click();
-        URL.revokeObjectURL(link.href);
-    }
-};
 
-// ============================================
-// 分享管理
-// ============================================
-const ShareManager = {
-    copyLink() {
-        navigator.clipboard.writeText(window.location.href).then(() => {
-            const modal = document.getElementById('share-modal');
-            if (modal) modal.style.display = 'none';
-            Toast.show(LangManager.t('toast-copied'), 'success');
-        }).catch(err => {
-            // Fallback for older browsers
-            const textArea = document.createElement('textarea');
-            textArea.value = window.location.href;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            
-            const modal = document.getElementById('share-modal');
-            if (modal) modal.style.display = 'none';
-            Toast.show(LangManager.t('toast-copied'), 'success');
-        });
-    },
-    
-    async saveImage() {
-        try {
-            const modal = document.getElementById('share-modal');
-            if (modal) modal.style.display = 'none';
-            
-            // 嘗試使用瀏覽器截圖 API（如果可用）
-            if (typeof html2canvas !== 'undefined') {
-                const mainCard = document.querySelector('.main-prediction-card');
-                if (mainCard) {
-                    const canvas = await html2canvas(mainCard);
-                    const link = document.createElement('a');
-                    link.download = 'ndh-aed-prediction.png';
-                    link.href = canvas.toDataURL();
-                    link.click();
-                    Toast.show(LangManager.t('toast-saved'), 'success');
-                    return;
-                }
-            }
-            
-            // Fallback: 使用系統截圖提示
-            Toast.show('請使用瀏覽器截圖功能 (Ctrl+Shift+S 或 Cmd+Shift+4)', 'info');
-        } catch (error) {
-            console.error('Save image error:', error);
-            Toast.show('請使用系統截圖功能', 'info');
-        }
-    },
-    
-    generateReport() {
-        // 生成簡易報告頁面
-        const today = new Date().toLocaleDateString('zh-HK');
-        const predictionEl = document.querySelector('.big-number');
-        const prediction = predictionEl?.textContent || '--';
-        
-        const reportContent = `
-            <html>
-            <head>
-                <title>NDH AED 預測報告 - ${today}</title>
-                <style>
-                    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
-                    h1 { color: #4f46e5; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; }
-                    .prediction { font-size: 4rem; font-weight: bold; color: #1e293b; text-align: center; margin: 40px 0; }
-                    .footer { margin-top: 40px; color: #64748b; font-size: 0.9rem; }
-                    @media print { body { padding: 20px; } }
-                </style>
-            </head>
-            <body>
-                <h1>🏥 北區醫院急症室人流預測報告</h1>
-                <p><strong>日期：</strong>${today}</p>
-                <div class="prediction">${prediction} 人</div>
-                <p>本報告由 NDH AED 預測系統自動生成。</p>
-                <p>預測基於歷史數據、天氣因素及 AI 分析。</p>
-                <div class="footer">
-                    <p>© 2025 Marco Ma. 版權所有。</p>
-                    <p>網址：${window.location.href}</p>
-                </div>
-                <script>window.print();</script>
-            </body>
-            </html>
-        `;
-        
-        const reportWindow = window.open('', '_blank');
-        if (reportWindow) {
-            reportWindow.document.write(reportContent);
-            reportWindow.document.close();
-        }
-        
-        const modal = document.getElementById('share-modal');
-        if (modal) modal.style.display = 'none';
-    }
-};
 
 // ============================================
 // 鍵盤快捷鍵
@@ -1317,5 +1221,5 @@ export function initUIEnhancements() {
 }
 
 // 導出供外部使用
-export { ThemeManager, NavManager, Toast, LangManager, AlertManager, ExportManager, ShareManager, ChartControls, ConfidenceDashboard };
+export { ThemeManager, NavManager, Toast, LangManager, AlertManager, ChartControls, ConfidenceDashboard };
 

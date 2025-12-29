@@ -50,12 +50,6 @@
                 </a>
             </div>
             <div class="nav-actions">
-                <button class="nav-action-btn" id="export-btn" title="匯出數據 (Ctrl+E)" aria-label="匯出數據">
-                    <span>📥</span>
-                </button>
-                <button class="nav-action-btn" id="share-btn" title="分享 (Ctrl+S)" aria-label="分享">
-                    <span>🔗</span>
-                </button>
                 <button class="nav-action-btn" id="notify-btn" title="通知設定" aria-label="通知設定">
                     <span>🔔</span>
                 </button>
@@ -82,8 +76,8 @@
         <!-- 標題區 -->
         <header class="app-header" id="app-header">
             <div class="header-content">
-                <h1 class="header-title">NDH AED 病人數量預測系統</h1>
-                <p class="header-subtitle">North District Hospital A&E Attendance Prediction</p>
+                <h1 class="header-title" data-lang-key="app-title">NDH AED 病人數量預測系統</h1>
+                <p class="header-subtitle" data-lang-key="app-subtitle">North District Hospital A&E Attendance Prediction</p>
                 <div class="header-info">
                     <div class="current-datetime" id="current-datetime">
                         <span class="datetime-icon">⏱️</span>
@@ -119,7 +113,7 @@
                 <!-- 主預測卡片 -->
                 <div class="prediction-card main-prediction-card" id="main-prediction-card">
                     <div class="card-header">
-                        <h2 class="card-title">今日預測</h2>
+                        <h2 class="card-title" data-lang-key="today-prediction">今日預測</h2>
                         <span class="date-badge" id="today-date">--</span>
                     </div>
                     
@@ -127,17 +121,17 @@
                     <div class="smoothed-prediction-section">
                         <div class="prediction-type-label">
                             <span class="label-icon">📊</span>
-                            <span class="label-text">綜合預測</span>
+                            <span class="label-text" data-lang-key="combined-prediction">綜合預測</span>
                             <span class="smoothing-method" id="smoothing-method" title="平滑方法">--</span>
                         </div>
                         <div class="prediction-value-container">
                             <div class="prediction-value">
                                 <span class="big-number" id="today-predicted">--</span>
-                                <span class="unit">人</span>
+                                <span class="unit" data-lang-key="unit-people">人</span>
                             </div>
                         </div>
                         <div class="stability-indicator" id="stability-indicator">
-                            <span class="stability-label">穩定性</span>
+                            <span class="stability-label" data-lang-key="stability">穩定性</span>
                             <span class="stability-value" id="stability-value">--</span>
                         </div>
                     </div>
@@ -146,13 +140,13 @@
                     <div class="realtime-prediction-section">
                         <div class="prediction-type-label realtime">
                             <span class="label-icon">⚡</span>
-                            <span class="label-text">實時預測</span>
+                            <span class="label-text" data-lang-key="realtime-prediction">實時預測</span>
                             <span class="realtime-time" id="realtime-time">--</span>
                         </div>
                         <div class="realtime-value-container">
                             <div class="realtime-value">
                                 <span class="realtime-number" id="realtime-predicted">--</span>
-                                <span class="unit">人</span>
+                                <span class="unit" data-lang-key="unit-people">人</span>
                             </div>
                             <div class="realtime-diff" id="realtime-diff"></div>
                         </div>
@@ -160,11 +154,11 @@
                     
                     <div class="confidence-intervals">
                         <div class="ci-item">
-                            <span class="ci-label">80% 信賴區間</span>
+                            <span class="ci-label" data-lang-key="ci-80">80% 信賴區間</span>
                             <span class="ci-value" id="today-ci80">-- - -- 人</span>
                         </div>
                         <div class="ci-item">
-                            <span class="ci-label">95% 信賴區間</span>
+                            <span class="ci-label" data-lang-key="ci-95">95% 信賴區間</span>
                             <span class="ci-value" id="today-ci95">-- - -- 人</span>
                         </div>
                     </div>
@@ -174,24 +168,24 @@
                 <!-- 統計摘要卡片 -->
                 <div class="prediction-card stats-card">
                     <div class="card-header">
-                        <h2 class="card-title">歷史統計</h2>
+                        <h2 class="card-title" data-lang-key="historical-stats">歷史統計</h2>
                     </div>
                     <div class="stats-grid">
                         <div class="stat-item">
                             <span class="stat-value" id="stat-mean">--</span>
-                            <span class="stat-label">日均人數</span>
+                            <span class="stat-label" data-lang-key="daily-avg">日均人數</span>
                         </div>
                         <div class="stat-item">
                             <span class="stat-value" id="stat-max">--</span>
-                            <span class="stat-label">最高峰</span>
+                            <span class="stat-label" data-lang-key="max-peak">最高峰</span>
                         </div>
                         <div class="stat-item">
                             <span class="stat-value" id="stat-min">--</span>
-                            <span class="stat-label">最低谷</span>
+                            <span class="stat-label" data-lang-key="min-trough">最低谷</span>
                         </div>
                         <div class="stat-item">
                             <span class="stat-value" id="stat-std">--</span>
-                            <span class="stat-label">標準差</span>
+                            <span class="stat-label" data-lang-key="std-dev">標準差</span>
                         </div>
                     </div>
                 </div>
@@ -201,10 +195,10 @@
         <!-- 實時影響因素 -->
         <section class="factors-section" id="factors-section">
             <div class="section-header">
-                <h2 class="section-title">實時影響因素</h2>
+                <h2 class="section-title" data-lang-key="realtime-factors">實時影響因素</h2>
                 <button class="refresh-btn" id="ai-refresh-btn" onclick="forceRefreshAI()" title="強制重新分析">
                     <span class="refresh-icon">🔄</span>
-                    <span class="refresh-text">重新分析</span>
+                    <span class="refresh-text" data-lang-key="reanalyze">重新分析</span>
                 </button>
             </div>
             <div class="section-loading" id="factors-loading">
@@ -219,7 +213,7 @@
 
         <!-- 未來7天預測 -->
         <section class="forecast-section" id="forecast-section">
-            <h2 class="section-title">未來 7 天預測</h2>
+            <h2 class="section-title" data-lang-key="forecast-7days">未來 7 天預測</h2>
             <div class="section-loading" id="forecast-loading">
                 <div class="loading-spinner"></div>
                 <div class="loading-text">載入中... <span class="loading-percent" id="forecast-percent">0%</span></div>
@@ -479,7 +473,7 @@
         <!-- 模型訓練狀態 -->
         <section class="model-training-section" id="model-training-section">
             <div class="section-header">
-                <h2 class="section-title">模型訓練狀態</h2>
+                <h2 class="section-title" data-lang-key="model-training-status">模型訓練狀態</h2>
                 <div class="header-actions">
                     <button class="train-btn" id="start-training-btn" title="開始訓練模型">
                         <span>🚀</span>
@@ -570,62 +564,6 @@
         </div>
     </div>
 
-    <!-- Export Modal -->
-    <div id="export-modal" class="modal-overlay" style="display: none;" role="dialog" aria-labelledby="export-title" aria-modal="true">
-        <div class="modal-content export-modal-content">
-            <div class="modal-header">
-                <h3 id="export-title">📥 <span data-lang-key="export-title">匯出數據</span></h3>
-                <button class="modal-close" id="export-close" aria-label="關閉">&times;</button>
-            </div>
-            <div class="export-options">
-                <button class="export-option-btn" id="export-csv" data-format="csv">
-                    <span class="export-icon">📄</span>
-                    <span class="export-text">CSV</span>
-                </button>
-                <button class="export-option-btn" id="export-excel" data-format="excel">
-                    <span class="export-icon">📊</span>
-                    <span class="export-text">Excel</span>
-                </button>
-                <button class="export-option-btn" id="export-pdf" data-format="pdf">
-                    <span class="export-icon">📑</span>
-                    <span class="export-text">PDF</span>
-                </button>
-            </div>
-            <div class="export-range">
-                <label data-lang-key="export-range">數據範圍：</label>
-                <select id="export-range-select">
-                    <option value="7" data-lang-key="export-7days">過去 7 天</option>
-                    <option value="30" data-lang-key="export-30days">過去 30 天</option>
-                    <option value="90" data-lang-key="export-90days">過去 90 天</option>
-                    <option value="all" data-lang-key="export-all">全部數據</option>
-                </select>
-            </div>
-        </div>
-    </div>
-
-    <!-- Share Modal -->
-    <div id="share-modal" class="modal-overlay" style="display: none;" role="dialog" aria-labelledby="share-title" aria-modal="true">
-        <div class="modal-content share-modal-content">
-            <div class="modal-header">
-                <h3 id="share-title">🔗 <span data-lang-key="share-title">分享預測</span></h3>
-                <button class="modal-close" id="share-close" aria-label="關閉">&times;</button>
-            </div>
-            <div class="share-options">
-                <button class="share-option-btn" id="share-link">
-                    <span class="share-icon">🔗</span>
-                    <span class="share-text" data-lang-key="share-link">複製連結</span>
-                </button>
-                <button class="share-option-btn" id="share-image">
-                    <span class="share-icon">🖼️</span>
-                    <span class="share-text" data-lang-key="share-image">儲存為圖片</span>
-                </button>
-                <button class="share-option-btn" id="share-report">
-                    <span class="share-icon">📊</span>
-                    <span class="share-text" data-lang-key="share-report">生成報告</span>
-                </button>
-            </div>
-        </div>
-    </div>
 
     <!-- Methodology Modal -->
     <div id="methodology-modal" class="modal-overlay" style="display: none;" role="dialog" aria-labelledby="methodology-title" aria-modal="true">
