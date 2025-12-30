@@ -707,33 +707,58 @@ async function searchRelevantNewsAndEvents() {
     const today = getHKDateStr();
     const hkTime = new Date().toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' });
     
+    // 生成唯一請求 ID 確保每次分析都是獨立的
+    const requestId = `REQ-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    console.log(`📋 AI 分析請求 ID: ${requestId}`);
+    
+    // 獲取當前香港時間的詳細資訊
+    const now = new Date();
+    const hkFormatter = new Intl.DateTimeFormat('zh-HK', {
+        timeZone: 'Asia/Hong_Kong',
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    });
+    const formattedHKTime = hkFormatter.format(now);
+    
+    // 計算星期幾
+    const hkNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' }));
+    const dayOfWeek = hkNow.getDay(); // 0 = Sunday
+    const dayNames = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+    const currentDayName = dayNames[dayOfWeek];
+    
     // 獲取新聞和政策搜索結果
     const newsSearchData = await searchNewsAndPolicies();
     
-    const prompt = `請分析以下可能影響香港北區醫院急症室病人數量的因素：
+    const prompt = `**🆔 分析請求 ID：${requestId}**
+**⏰ 當前時間：${formattedHKTime}（${currentDayName}）**
+
+請針對【今天 ${today}】以及未來 7 天，分析可能影響香港北區醫院急症室病人數量的具體因素：
+
+**📅 當前日期上下文：**
+- 日期：${today}（${currentDayName}）
+- 香港時間：${formattedHKTime}
+- 這是 ${hkNow.getMonth() + 1} 月最後一週（年末）
+- 請考慮距離今天最近的公眾假期和特殊日期
 
 1. **健康政策變化**（⚠️ 重要 - 必須重點檢查）：
    - 醫院管理局（HA）最新政策公告
    - 急症室收費政策變更
    - 急症室分流政策調整
-   - 醫療服務政策變更
    - 衛生署最新醫療政策
-   - 急症室服務時間或範圍調整
-   - 新醫療指引或規範實施
 
 2. **醫院當局公告**（⚠️ 重要 - 必須重點檢查）：
    - 醫院管理局官方公告
    - 北區醫院服務調整通知
    - 急症室運作模式變更
-   - 醫院服務暫停或恢復
-   - 醫療資源配置變更
-   - 急症室人手或設備調整
 
 3. **新聞和媒體報導**（⚠️ 重要 - 必須重點檢查）：
    - 關於北區醫院急症室的新聞
    - 醫療政策相關新聞報導
-   - 急症室服務相關新聞
-   - 醫療系統變革新聞
    - 請基於以下搜索查詢來分析：
      ${newsSearchData.queries.map((q, i) => `${i + 1}. ${q}`).join('\n     ')}
 
@@ -743,19 +768,18 @@ async function searchRelevantNewsAndEvents() {
    - 天氣警告（八號風球、紅雨、黑雨等）
 
 5. **公共衛生事件**：
-   - 流感爆發或疫情
+   - 流感爆發或疫情（當前是冬季流感高峰期）
    - 食物中毒事件
    - 傳染病警報
 
 6. **社會事件**：
    - 大型活動或集會
    - 交通事故或意外
-   - 公共設施故障
 
-7. **季節性因素**：
-   - 節日前後效應
-   - 學校假期
-   - 長假期
+7. **季節性因素**（請根據 ${today} 判斷）：
+   - 節日前後效應（聖誕節、元旦、農曆新年）
+   - 學校假期（聖誕假期通常到 1 月初）
+   - 長假期效應
 
 **⚠️ 特別重要：請優先檢查以下官方來源的最新政策變更：**
 - 醫院管理局網站：https://www.ha.org.hk
@@ -764,7 +788,11 @@ async function searchRelevantNewsAndEvents() {
 
 ${getVerifiedPolicyFactsPrompt()}
 
-請基於當前日期（${today}，香港時間 ${hkTime}）和最新資訊，分析是否有任何已知或可能發生的因素（特別是政策變更）會影響未來幾天北區醫院的病人數量。
+**🎯 具體要求：**
+基於當前日期 ${today}（${formattedHKTime}），請列出【具體會影響今天和未來 7 天】的因素。每個因素必須：
+1. 指明具體受影響的日期（affectedDays）
+2. 給出具體的影響因子（impactFactor）
+3. 說明為什麼這個因素會在這些日期生效
 
 **🚨 重要規則 - 區分真實因素與捏造資訊 🚨**
 

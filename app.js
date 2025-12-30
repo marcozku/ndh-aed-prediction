@@ -56,7 +56,7 @@ class App {
     }
 
     async init() {
-        console.log('🏥 NDH AED 預測系統初始化（模組化版本 v2.6.6）...');
+        console.log('🏥 NDH AED 預測系統初始化（模組化版本 v2.9.2）...');
         
         // 註冊 Service Worker（離線支援）
         registerServiceWorker();

@@ -6304,9 +6304,18 @@ function updateRealtimeFactors(aiAnalysisData = null) {
     
     // 添加最後更新時間（從緩存數據的時間戳或分析時間）
     let lastUpdate = '未知';
+    let updateTimeFormatted = '';
     if (aiAnalysisData && aiAnalysisData.timestamp) {
         try {
-            lastUpdate = new Date(aiAnalysisData.timestamp).toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' });
+            const updateDate = new Date(aiAnalysisData.timestamp);
+            updateTimeFormatted = updateDate.toLocaleString('zh-HK', { 
+                timeZone: 'Asia/Hong_Kong',
+                month: 'numeric',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            lastUpdate = updateTimeFormatted;
         } catch (e) {
             lastUpdate = lastAIAnalysisTime 
                 ? new Date(lastAIAnalysisTime).toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' })
@@ -6316,15 +6325,19 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         lastUpdate = new Date(lastAIAnalysisTime).toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' });
     }
     
-    // 如果使用緩存，標註
-    if (aiAnalysisData && aiAnalysisData.cached) {
-        lastUpdate += ' (緩存)';
-    }
+    // 緩存狀態指示
+    const isCached = aiAnalysisData && aiAnalysisData.cached;
+    const cacheStatusHtml = isCached 
+        ? '<span class="cache-status cached" title="使用緩存數據（30分鐘內自動更新）">📦 緩存</span>'
+        : '<span class="cache-status fresh" title="剛剛從 AI 獲取的新分析">✨ 新分析</span>';
     
     factorsEl.innerHTML = `
         <div class="factors-header-info">
             <span class="factors-count">共 ${sortedFactors.length} 個影響因素</span>
-            <span class="factors-update-time">最後更新：${lastUpdate} HKT</span>
+            <span class="factors-update-time">
+                ${cacheStatusHtml}
+                <span class="update-time">更新：${lastUpdate} HKT</span>
+            </span>
         </div>
         <div class="factors-grid">
             ${factorsHtml}
