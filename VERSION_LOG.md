@@ -1,5 +1,41 @@
 # 版本更新日誌
 
+## v2.9.4 - 2025-12-31 15:57 HKT
+
+### 🔄 圖表數據同步修復
+
+**問題描述**：
+用戶上傳歷史數據後，只有對比圖表更新，其他圖表（歷史趨勢、星期效應、月份分佈、預測趨勢）未同步更新。
+
+**修復內容**：
+
+1. **新增 `refreshAllChartsAfterDataUpdate()` 函數**
+   - 統一刷新所有圖表的入口函數
+   - 按順序刷新：數據庫狀態 → 歷史數據 → 歷史趨勢圖 → 對比圖 → 對比表格 → 預測 UI → 統計圖表
+   - 確保預測器使用最新數據重新計算
+
+2. **修復 CSV 上傳後刷新邏輯**
+   - 調用統一刷新函數而非手動刷新部分組件
+   - 添加後備方案確保向後兼容
+
+3. **更新 `triggerAddActualData()` 函數**
+   - 使用統一刷新函數刷新所有圖表
+   - 添加歷史趨勢圖刷新
+
+**受影響圖表**：
+- 📈 歷史趨勢圖 (initHistoryChart)
+- 📊 實際 vs 預測對比圖 (initComparisonChart)
+- 📋 對比表格 (initComparisonTable)
+- 📉 未來30天預測趨勢 (forecastChart)
+- 📅 星期效應分析 (dowChart)
+- 📊 月份分佈統計 (monthChart)
+
+**技術細節**：
+- 修改 `prediction.js`：新增 `refreshAllChartsAfterDataUpdate()` 函數，修改 CSV 上傳成功後的刷新邏輯
+- 修改 `app.js`：更新 `triggerAddActualData()` 使用統一刷新函數
+
+---
+
 ## v2.9.3 - 2025-12-31 15:09 HKT
 
 ### 📊 歷史數據擴充 - 新增 587 筆出席記錄

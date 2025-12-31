@@ -56,7 +56,7 @@ class App {
     }
 
     async init() {
-        console.log('🏥 NDH AED 預測系統初始化（模組化版本 v2.9.2）...');
+        console.log('🏥 NDH AED 預測系統初始化（模組化版本 v2.9.4）...');
         
         // 註冊 Service Worker（離線支援）
         registerServiceWorker();
@@ -96,12 +96,20 @@ window.triggerAddActualData = async () => {
         const result = await API.addActualData();
         if (result.success) {
             alert('✅ 實際數據已成功添加！');
-            // 觸發頁面刷新以更新圖表
-            if (typeof initComparisonChart === 'function') {
-                await initComparisonChart();
-            }
-            if (typeof initComparisonTable === 'function') {
-                await initComparisonTable();
+            // 使用統一的圖表刷新函數刷新所有圖表
+            if (typeof window.refreshAllChartsAfterDataUpdate === 'function') {
+                await window.refreshAllChartsAfterDataUpdate();
+            } else {
+                // 後備方案：手動刷新圖表
+                if (typeof initHistoryChart === 'function') {
+                    await initHistoryChart();
+                }
+                if (typeof initComparisonChart === 'function') {
+                    await initComparisonChart();
+                }
+                if (typeof initComparisonTable === 'function') {
+                    await initComparisonTable();
+                }
             }
         } else {
             alert('❌ 添加數據失敗：' + (result.error || '未知錯誤'));

@@ -1566,6 +1566,84 @@ async function initCharts(predictor) {
     console.log('✅ 所有圖表載入完成');
 }
 
+// ============================================
+// 數據更新後刷新所有圖表
+// 當用戶上傳新的歷史數據後調用此函數
+// ============================================
+async function refreshAllChartsAfterDataUpdate() {
+    console.log('🔄 開始刷新所有圖表（數據更新後）...');
+    
+    try {
+        // 1. 更新數據庫狀態
+        if (typeof checkDatabaseStatus === 'function') {
+            await checkDatabaseStatus();
+        }
+        
+        // 2. 重新獲取最新歷史數據並更新預測器
+        const latestHistoricalData = await fetchHistoricalData();
+        let predictor;
+        
+        if (latestHistoricalData && latestHistoricalData.length > 0) {
+            // 使用最新數據創建新的預測器
+            const formattedData = latestHistoricalData.map(d => ({
+                date: d.date,
+                attendance: d.attendance
+            }));
+            predictor = new NDHAttendancePredictor(formattedData);
+            console.log(`📊 預測器已使用 ${formattedData.length} 筆最新數據更新`);
+        } else {
+            predictor = new NDHAttendancePredictor();
+        }
+        
+        // 3. 刷新歷史趨勢圖
+        if (typeof initHistoryChart === 'function') {
+            console.log('📈 刷新歷史趨勢圖...');
+            await initHistoryChart();
+        }
+        
+        // 4. 刷新實際 vs 預測對比圖
+        if (typeof initComparisonChart === 'function') {
+            console.log('📊 刷新對比圖...');
+            await initComparisonChart();
+        }
+        
+        // 5. 刷新對比表格
+        if (typeof initComparisonTable === 'function') {
+            console.log('📋 刷新對比表格...');
+            await initComparisonTable();
+        }
+        
+        // 6. 更新預測 UI（包括今日預測、7日預測等）
+        if (typeof updateUI === 'function') {
+            console.log('🔮 更新預測 UI...');
+            updateUI(predictor);
+        }
+        
+        // 7. 刷新未來30天預測圖、星期效應圖、月份分佈圖
+        // 這些圖表依賴預測器的統計數據，使用新數據重新初始化
+        if (typeof initCharts === 'function') {
+            console.log('📉 刷新統計圖表（預測趨勢、星期效應、月份分佈）...');
+            await initCharts(predictor);
+        }
+        
+        // 8. 強制刷新所有圖表尺寸
+        if (typeof forceChartsResize === 'function') {
+            setTimeout(() => {
+                forceChartsResize();
+            }, 100);
+        }
+        
+        console.log('✅ 所有圖表刷新完成');
+        return true;
+    } catch (error) {
+        console.error('❌ 刷新圖表失敗:', error);
+        throw error;
+    }
+}
+
+// 將函數暴露到全局
+window.refreshAllChartsAfterDataUpdate = refreshAllChartsAfterDataUpdate;
+
 // 統一的簡單 resize 邏輯（類似 factors-container）
 function setupChartResize(chart, containerId) {
     if (!chart || !containerId) return;
@@ -7801,27 +7879,37 @@ function initCSVUpload() {
                         // 刷新頁面數據（不重新載入整個頁面，只刷新相關數據）
                         setTimeout(async () => {
                             try {
-                                // 重新載入歷史數據
-                                if (typeof fetchHistoricalData === 'function') {
-                                    await fetchHistoricalData();
+                                // 調用統一的圖表刷新函數
+                                if (typeof refreshAllChartsAfterDataUpdate === 'function') {
+                                    await refreshAllChartsAfterDataUpdate();
+                                } else {
+                                    // 後備方案：手動刷新各個組件
+                                    // 重新載入歷史數據
+                                    if (typeof fetchHistoricalData === 'function') {
+                                        await fetchHistoricalData();
+                                    }
+                                    // 重新載入歷史趨勢圖
+                                    if (typeof initHistoryChart === 'function') {
+                                        await initHistoryChart();
+                                    }
+                                    // 重新載入對比數據
+                                    if (typeof initComparisonChart === 'function') {
+                                        await initComparisonChart();
+                                    }
+                                    if (typeof initComparisonTable === 'function') {
+                                        await initComparisonTable();
+                                    }
+                                    // 更新數據來源信息
+                                    if (typeof checkDatabaseStatus === 'function') {
+                                        await checkDatabaseStatus();
+                                    }
+                                    // 更新 UI 和所有圖表（包括星期效應、月份分佈等）
+                                    if (typeof updateUI === 'function') {
+                                        const predictor = new NDHAttendancePredictor();
+                                        updateUI(predictor);
+                                    }
                                 }
-                                // 重新載入對比數據
-                                if (typeof initComparisonChart === 'function') {
-                                    await initComparisonChart();
-                                }
-                                if (typeof initComparisonTable === 'function') {
-                                    await initComparisonTable();
-                                }
-                                // 更新數據來源信息
-                                if (typeof checkDatabaseStatus === 'function') {
-                                    await checkDatabaseStatus();
-                                }
-                                // 更新 UI
-                                if (typeof updateUI === 'function') {
-                                    const predictor = new NDHAttendancePredictor();
-                                    updateUI(predictor);
-                                }
-                                showStatus('✅ 數據已更新', 'success');
+                                showStatus('✅ 所有圖表已更新', 'success');
                                 
                                 // 3 秒後自動關閉對話框
                                 setTimeout(() => {
