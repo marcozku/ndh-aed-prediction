@@ -1,12 +1,16 @@
-# XGBoost 預測系統
+# XGBoost 預測系統 v2.9.58
 
 基於 AI-AED-Algorithm-Specification.txt 實現的 XGBoost 預測系統，使用單一 XGBoost 模型進行預測。
 
-## 🎯 性能目標
+**最後更新**: 2026-01-02
 
-- **MAE**: < 13 病人（5.2% MAPE）
+## 🎯 當前性能
+
+- **R²**: 92.0%
+- **MAE**: 5.33 病人（2.10% MAPE）
 - **方向準確度**: > 91%
 - **95% CI 覆蓋率**: > 95%
+- **特徵數**: 25 個精選特徵
 
 ## 📦 安裝依賴
 
@@ -180,6 +184,18 @@ ModuleNotFoundError: No module named 'xgboost'
 
 ### 數據庫連接失敗
 系統會自動嘗試從 CSV 文件加載數據。確保 CSV 文件在項目根目錄。
+
+### XGBoost 模型版本不兼容
+```
+錯誤: _estimator_type undefined
+```
+**解決**: v2.9.55 已修復，使用原生 `xgb.Booster()` 加載模型
+
+### JSON 解析失敗
+```
+錯誤: Unexpected token ✅ in JSON at position 0
+```
+**解決**: v2.9.56 已修復，所有狀態訊息輸出到 stderr
 
 ## 📚 參考文檔
 
