@@ -1202,20 +1202,34 @@ async function initCharts(predictor) {
     const hk = getHKTime();
     const today = hk.dateStr;
     
-    // 計算明天的日期（未來預測從明天開始，不包含今天）
-    // 計算明天的日期（使用 HKT 時區）
-    const todayPartsForChart = today.split('-').map(Number);
-    const todayDateForChart = new Date(Date.UTC(todayPartsForChart[0], todayPartsForChart[1] - 1, todayPartsForChart[2]));
-    todayDateForChart.setUTCDate(todayDateForChart.getUTCDate() + 1);
-    const tomorrowForChart = `${todayDateForChart.getUTCFullYear()}-${String(todayDateForChart.getUTCMonth() + 1).padStart(2, '0')}-${String(todayDateForChart.getUTCDate()).padStart(2, '0')}`;
-    
     // 更新總體進度
     let totalProgress = 0;
     const totalCharts = 4;
     
     // 未來30天預測（從明天開始，不包含今天）
+    // 使用緩存的 7 天預測確保與 7 天預測卡片數據一致
     updateLoadingProgress('forecast', 10);
-    const predictions = predictor.predictRange(tomorrowForChart, 30, weatherForecastData, aiFactors);
+    
+    let predictions;
+    if (cached7DayForecasts && cached7DayForecasts.length === 7) {
+        // 使用緩存的 7 天預測 + 預測剩餘 23 天
+        const day8Date = new Date(cached7DayForecasts[6].date);
+        day8Date.setDate(day8Date.getDate() + 1);
+        const day8Str = `${day8Date.getFullYear()}-${String(day8Date.getMonth() + 1).padStart(2, '0')}-${String(day8Date.getDate()).padStart(2, '0')}`;
+        
+        const remaining23Days = predictor.predictRange(day8Str, 23, weatherForecastData, aiFactors);
+        predictions = [...cached7DayForecasts, ...remaining23Days];
+        console.log('✅ 30天趨勢圖使用緩存的 7 天預測 + 23 天預測，確保數據一致');
+    } else {
+        // 緩存不可用，重新計算全部 30 天（fallback）
+        const todayPartsForChart = today.split('-').map(Number);
+        const todayDateForChart = new Date(Date.UTC(todayPartsForChart[0], todayPartsForChart[1] - 1, todayPartsForChart[2]));
+        todayDateForChart.setUTCDate(todayDateForChart.getUTCDate() + 1);
+        const tomorrowForChart = `${todayDateForChart.getUTCFullYear()}-${String(todayDateForChart.getUTCMonth() + 1).padStart(2, '0')}-${String(todayDateForChart.getUTCDate()).padStart(2, '0')}`;
+        
+        predictions = predictor.predictRange(tomorrowForChart, 30, weatherForecastData, aiFactors);
+        console.log('⚠️ 7天預測緩存不可用，重新計算全部 30 天');
+    }
     updateLoadingProgress('forecast', 30);
     
     // 1. 預測趨勢圖 - 專業線圖
@@ -4902,6 +4916,11 @@ function updateUI(predictor) {
     const tomorrow = `${todayDate.getUTCFullYear()}-${String(todayDate.getUTCMonth() + 1).padStart(2, '0')}-${String(todayDate.getUTCDate()).padStart(2, '0')}`;
     
     const forecasts = predictor.predictRange(tomorrow, 7, weatherForecastData, aiFactors);
+    
+    // 緩存 7 天預測結果，確保 30 天趨勢圖使用相同數據
+    cached7DayForecasts = forecasts.slice(); // 複製陣列
+    console.log('📊 已緩存 7 天預測結果，確保趨勢圖數據一致');
+    
     updateSectionProgress('forecast', 50);
     
     // 保存未來7天的預測到數據庫（每次更新都保存）
@@ -5001,6 +5020,9 @@ const WEATHER_CONFIG = {
 let currentWeatherData = null;
 let weatherForecastData = null;
 let weatherMonthlyAverages = null; // 從 HKO 歷史數據計算的月度平均
+
+// 緩存 7 天預測結果（確保 7 天預測卡片和 30 天趨勢圖數據一致）
+let cached7DayForecasts = null;
 
 // 天氣快取
 const weatherCache = {
