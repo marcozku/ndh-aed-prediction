@@ -1,5 +1,19 @@
 # 版本更新日誌
 
+## v2.9.40 - 2026-01-02 04:16 HKT
+
+### 🐛 修復：forecast/dow/month 圖表重用錯誤
+
+**問題描述**：
+- `refreshAllChartsAfterDataUpdate` 調用 `initCharts` 時，forecast、dow、month 圖表未被銷毀
+- 導致 `Canvas is already in use` 錯誤
+
+**技術修復**：
+- 在 `initCharts` 開頭添加安全銷毀邏輯
+- 確保所有三個統計圖表在重新創建前被正確銷毀
+
+---
+
 ## v2.9.39 - 2026-01-02 04:12 HKT
 
 ### 🐛 修復：圖表重用錯誤和缺失函數

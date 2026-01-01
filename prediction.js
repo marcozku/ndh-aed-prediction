@@ -1232,6 +1232,14 @@ async function initCharts(predictor) {
         return;
     }
     
+    // 安全銷毀所有可能存在的舊圖表（防止 Canvas is already in use 錯誤）
+    safeDestroyChart(forecastChart, 'forecast-chart');
+    safeDestroyChart(dowChart, 'dow-chart');
+    safeDestroyChart(monthChart, 'month-chart');
+    forecastChart = null;
+    dowChart = null;
+    monthChart = null;
+    
     // 檢查 XGBoost 模型是否可用（必須可用）
     const isXGBoostAvailable = await checkXGBoostAvailability();
     if (!isXGBoostAvailable) {
