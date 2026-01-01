@@ -236,10 +236,13 @@ def train_xgboost_model(train_data, test_data, feature_cols):
     關鍵：Early stopping 使用訓練集內的驗證集，而非測試集！
     這樣確保測試集在整個訓練過程中完全未被模型看到。
     """
-    print(f"\n📊 開始訓練 XGBoost 模型...")
-    print(f"訓練集大小: {len(train_data)} 筆")
-    print(f"測試集大小: {len(test_data)} 筆 (完全隔離，未參與訓練)")
-    print(f"特徵數量: {len(feature_cols)} 個")
+    print(f"\n{'='*60}")
+    print("🚀 XGBoost 模型訓練開始")
+    print(f"{'='*60}")
+    print(f"\n📊 數據集統計:")
+    print(f"   ├─ 訓練集: {len(train_data)} 筆")
+    print(f"   └─ 測試集: {len(test_data)} 筆 (完全隔離)")
+    print(f"   📐 特徵維度: {len(feature_cols)} 個")
     
     # 從訓練集中分出一部分作為 early stopping 驗證集
     # 使用訓練集的最後 15% 作為驗證集（保持時間順序）
@@ -255,10 +258,13 @@ def train_xgboost_model(train_data, test_data, feature_cols):
     X_test = test_data[feature_cols]
     y_test = test_data['Attendance']
     
-    print(f"\n⚠️ 時間序列數據分割驗證:")
-    print(f"   訓練子集: {len(train_subset)} 筆 ({train_subset['Date'].min()} 至 {train_subset['Date'].max()})")
-    print(f"   驗證子集: {len(val_subset)} 筆 ({val_subset['Date'].min()} 至 {val_subset['Date'].max()})")
-    print(f"   測試集:   {len(test_data)} 筆 ({test_data['Date'].min()} 至 {test_data['Date'].max()})")
+    print(f"\n📅 時間序列數據分割:")
+    print(f"   ├─ 訓練子集: {len(train_subset)} 筆")
+    print(f"   │     日期: {train_subset['Date'].min()} → {train_subset['Date'].max()}")
+    print(f"   ├─ 驗證子集: {len(val_subset)} 筆")
+    print(f"   │     日期: {val_subset['Date'].min()} → {val_subset['Date'].max()}")
+    print(f"   └─ 測試集:   {len(test_data)} 筆")
+    print(f"         日期: {test_data['Date'].min()} → {test_data['Date'].max()}")
     
     # 驗證時間順序
     train_max_date = pd.to_datetime(train_subset['Date']).max()
@@ -266,40 +272,50 @@ def train_xgboost_model(train_data, test_data, feature_cols):
     test_min_date = pd.to_datetime(test_data['Date']).min()
     val_max_date = pd.to_datetime(val_subset['Date']).max()
     
+    print(f"\n🔒 數據洩漏檢查:")
     if val_min_date > train_max_date:
-        print(f"   ✅ 驗證集日期 > 訓練集日期 (無數據洩漏)")
+        print(f"   ✅ 驗證集日期 > 訓練集日期 (安全)")
     else:
         print(f"   ❌ 警告：驗證集可能包含訓練期間的數據！")
     
     if test_min_date > val_max_date:
-        print(f"   ✅ 測試集日期 > 驗證集日期 (無數據洩漏)")
+        print(f"   ✅ 測試集日期 > 驗證集日期 (安全)")
     else:
         print(f"   ❌ 警告：測試集可能包含驗證期間的數據！")
     
-    print(f"\n訓練集目標值範圍: {y_train.min():.1f} - {y_train.max():.1f} 病人 (平均: {y_train.mean():.1f})")
-    print(f"驗證集目標值範圍: {y_val.min():.1f} - {y_val.max():.1f} 病人 (平均: {y_val.mean():.1f})")
-    print(f"測試集目標值範圍: {y_test.min():.1f} - {y_test.max():.1f} 病人 (平均: {y_test.mean():.1f})")
+    print(f"\n📈 目標變量 (Attendance) 統計:")
+    print(f"   訓練集: {y_train.min():.0f} - {y_train.max():.0f} 人 (μ={y_train.mean():.1f}, σ={y_train.std():.1f})")
+    print(f"   驗證集: {y_val.min():.0f} - {y_val.max():.0f} 人 (μ={y_val.mean():.1f}, σ={y_val.std():.1f})")
+    print(f"   測試集: {y_test.min():.0f} - {y_test.max():.0f} 人 (μ={y_test.mean():.1f}, σ={y_test.std():.1f})")
     
     # 創建自定義 XGBoost 類以修復 _estimator_type 錯誤
     class XGBoostModel(xgb.XGBRegressor):
         _estimator_type = "regressor"
     
     # 根據算法規格文件配置
-    print(f"\n🔧 模型參數配置:")
-    print(f"  n_estimators (樹的數量): 500")
-    print(f"  max_depth (最大深度): 6")
-    print(f"  learning_rate (學習率): 0.05")
-    print(f"  subsample (樣本採樣率): 0.8")
-    print(f"  colsample_bytree (特徵採樣率): 0.8")
-    print(f"  colsample_bylevel (層級特徵採樣率): 0.8")
-    print(f"  objective (目標函數): reg:squarederror (均方誤差)")
-    print(f"  alpha (L1 正則化): 1.0")
-    print(f"  reg_lambda (L2 正則化): 1.0")
-    print(f"  tree_method (樹構建方法): hist (直方圖)")
-    print(f"  grow_policy (生長策略): depthwise (深度優先)")
-    print(f"  early_stopping_rounds (早停輪數): 50")
-    print(f"  eval_metric (評估指標): mae (平均絕對誤差)")
-    print(f"  random_state (隨機種子): 42")
+    print(f"\n{'='*60}")
+    print("⚙️ XGBoost 超參數配置")
+    print(f"{'='*60}")
+    params = {
+        'n_estimators': 500,
+        'max_depth': 6,
+        'learning_rate': 0.05,
+        'subsample': 0.8,
+        'colsample_bytree': 0.8,
+        'colsample_bylevel': 0.8,
+        'alpha': 1.0,
+        'reg_lambda': 1.0,
+    }
+    print(f"   🌲 n_estimators (最大樹數): {params['n_estimators']}")
+    print(f"   📏 max_depth (樹最大深度): {params['max_depth']}")
+    print(f"   📉 learning_rate (學習率): {params['learning_rate']}")
+    print(f"   🎲 subsample (行採樣率): {params['subsample']}")
+    print(f"   🎯 colsample_bytree (列採樣率): {params['colsample_bytree']}")
+    print(f"   🔧 alpha (L1正則化): {params['alpha']}")
+    print(f"   🔧 reg_lambda (L2正則化): {params['reg_lambda']}")
+    print(f"   🎯 objective: reg:squarederror")
+    print(f"   📊 eval_metric: mae")
+    print(f"   ⏹️ early_stopping_rounds: 50")
     
     model = XGBoostModel(
         n_estimators=500,
@@ -319,21 +335,48 @@ def train_xgboost_model(train_data, test_data, feature_cols):
         n_jobs=-1
     )
     
-    print(f"\n🚀 開始模型訓練 (梯度提升過程)...")
-    print(f"⚠️ Early stopping 使用訓練集內的驗證子集，非測試集！")
+    print(f"\n{'='*60}")
+    print("🔥 開始梯度提升訓練 (Gradient Boosting)")
+    print(f"{'='*60}")
+    print(f"   每 10 輪輸出一次訓練進度...")
+    print(f"   Early stopping: 若 50 輪無改善則停止")
+    print(f"")
     import time
     fit_start = time.time()
+    
+    # 創建自定義回調以顯示訓練進度
+    class TrainingProgressCallback(xgb.callback.TrainingCallback):
+        def __init__(self):
+            self.start_time = time.time()
+            
+        def after_iteration(self, model, epoch, evals_log):
+            if (epoch + 1) % 10 == 0 or epoch == 0:
+                elapsed = time.time() - self.start_time
+                val_mae = evals_log['validation_0']['mae'][-1] if 'validation_0' in evals_log else 0
+                progress = min(100, int((epoch + 1) / 500 * 100))
+                bar_len = 20
+                filled = int(bar_len * progress / 100)
+                bar = '█' * filled + '░' * (bar_len - filled)
+                print(f"   [{bar}] {progress:3d}% | 樹 #{epoch+1:3d} | MAE: {val_mae:.2f} | ⏱️ {elapsed:.1f}s")
+                sys.stdout.flush()
+            return False  # 返回 False 繼續訓練
     
     # 使用驗證子集進行 early stopping，而非測試集
     model.fit(
         X_train, y_train,
-        eval_set=[(X_val, y_val)],  # 使用訓練集內的驗證子集
-        verbose=False
+        eval_set=[(X_val, y_val)],
+        verbose=False,
+        callbacks=[TrainingProgressCallback()]
     )
     
     fit_time = time.time() - fit_start
-    print(f"訓練完成，耗時: {fit_time:.2f} 秒")
-    print(f"實際訓練輪數: {model.best_iteration + 1 if hasattr(model, 'best_iteration') else model.n_estimators} 輪")
+    best_iter = model.best_iteration + 1 if hasattr(model, 'best_iteration') and model.best_iteration is not None else model.n_estimators
+    
+    print(f"\n✅ 訓練完成!")
+    print(f"   ⏱️ 總耗時: {fit_time:.2f} 秒")
+    print(f"   🌲 最終樹數: {best_iter} 棵")
+    if hasattr(model, 'best_score') and model.best_score is not None:
+        print(f"   📊 最佳驗證 MAE: {model.best_score:.2f} 人")
     
     # 在完全未見過的測試集上評估
     print(f"\n📈 開始模型評估 (在完全未見過的測試集上)...")
@@ -362,6 +405,13 @@ def train_xgboost_model(train_data, test_data, feature_cols):
 
 def main():
     import argparse
+    import time
+    
+    print(f"\n{'='*60}")
+    print("🏥 NDH AED XGBoost 模型訓練系統")
+    print(f"{'='*60}")
+    print(f"⏰ 開始時間: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    
     parser = argparse.ArgumentParser(description='Train XGBoost model')
     parser.add_argument('--csv', type=str, help='Path to CSV file with historical data')
     args = parser.parse_args()
@@ -370,21 +420,34 @@ def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     models_dir = os.path.join(script_dir, 'models')
     os.makedirs(models_dir, exist_ok=True)
-    print(f"模型目錄: {models_dir}")
+    print(f"📁 模型目錄: {models_dir}")
+    
+    # ============ 階段 1: 數據加載 ============
+    print(f"\n{'='*60}")
+    print("📥 階段 1/4: 數據加載")
+    print(f"{'='*60}")
     
     df = None
+    data_source = None
+    load_start = time.time()
     
     # 優先使用命令行指定的 CSV 文件
     if args.csv and os.path.exists(args.csv):
-        print(f"從命令行指定的 CSV 加載數據: {args.csv}")
+        print(f"   📄 嘗試從命令行 CSV 加載: {args.csv}")
         df = load_data_from_csv(args.csv)
+        if df is not None and len(df) > 0:
+            data_source = f"CSV: {args.csv}"
     
     # 如果沒有指定 CSV，嘗試從數據庫加載數據
     if df is None or len(df) == 0:
+        print(f"   🗄️ 嘗試從 PostgreSQL 數據庫加載...")
         df = load_data_from_db()
+        if df is not None and len(df) > 0:
+            data_source = "PostgreSQL 數據庫"
     
     # 如果數據庫不可用，嘗試從默認 CSV 加載
     if df is None or len(df) == 0:
+        print(f"   📄 嘗試從本地 CSV 文件加載...")
         csv_paths = [
             '../NDH_AED_Clean.csv',
             'NDH_AED_Clean.csv',
@@ -393,56 +456,95 @@ def main():
         ]
         for csv_path in csv_paths:
             if os.path.exists(csv_path):
+                print(f"      嘗試: {csv_path}")
                 df = load_data_from_csv(csv_path)
                 if df is not None and len(df) > 0:
+                    data_source = f"CSV: {csv_path}"
                     break
     
     if df is None or len(df) == 0:
-        print("錯誤: 無法加載數據")
+        print("❌ 錯誤: 無法加載數據")
         sys.exit(1)
     
-    print(f"加載了 {len(df)} 筆數據")
+    load_time = time.time() - load_start
+    print(f"\n✅ 數據加載完成!")
+    print(f"   📊 數據來源: {data_source}")
+    print(f"   📏 總記錄數: {len(df)} 筆")
+    print(f"   📅 日期範圍: {df['Date'].min()} → {df['Date'].max()}")
+    print(f"   ⏱️ 加載耗時: {load_time:.2f} 秒")
     
-    # 獲取 AI 因子數據（如果有的話）
+    # ============ 階段 2: AI 因子加載 ============
+    print(f"\n{'='*60}")
+    print("🤖 階段 2/4: AI 因子加載")
+    print(f"{'='*60}")
+    
     ai_factors = df.attrs.get('ai_factors', {}) if hasattr(df, 'attrs') else {}
     
     # 如果沒有從數據庫獲取 AI 因子，嘗試從本地 JSON 文件加載
     if not ai_factors:
         ai_factors_path = os.path.join(models_dir, 'ai_factors.json')
+        print(f"   📄 嘗試從本地加載: {ai_factors_path}")
         if os.path.exists(ai_factors_path):
             try:
                 with open(ai_factors_path, 'r', encoding='utf-8') as f:
                     ai_factors = json.load(f)
-                print(f"✅ 從本地文件加載了 {len(ai_factors)} 個日期的 AI 因子數據")
+                print(f"   ✅ 從本地文件加載了 {len(ai_factors)} 個日期的 AI 因子")
             except Exception as e:
-                print(f"⚠️ 無法從本地文件加載 AI 因子: {e}")
+                print(f"   ⚠️ 無法從本地文件加載: {e}")
     
     if ai_factors:
-        print(f"✅ 加載了 {len(ai_factors)} 個日期的 AI 因子數據")
+        print(f"\n✅ AI 因子統計:")
+        print(f"   📊 覆蓋日期數: {len(ai_factors)} 天")
+        # 計算 AI 因子的統計
+        factors_values = []
+        for date_key, factor_data in ai_factors.items():
+            if isinstance(factor_data, dict) and 'impact_factor' in factor_data:
+                factors_values.append(factor_data['impact_factor'])
+        if factors_values:
+            print(f"   📈 影響因子範圍: {min(factors_values):.3f} - {max(factors_values):.3f}")
+            print(f"   📊 影響因子平均: {np.mean(factors_values):.3f}")
     else:
-        print(f"ℹ️ 沒有找到 AI 因子數據，將使用默認值")
+        print(f"   ℹ️ 沒有找到 AI 因子數據，將使用默認值 (1.0)")
     
-    # 創建特徵（包含 AI 因子）
-    print(f"\n🔨 開始特徵工程 (Feature Engineering)...")
-    print(f"原始數據列數: {len(df.columns)}")
+    # ============ 階段 3: 特徵工程 ============
+    print(f"\n{'='*60}")
+    print("🔧 階段 3/4: 特徵工程")
+    print(f"{'='*60}")
+    
+    fe_start = time.time()
+    print(f"   原始數據列數: {len(df.columns)}")
+    print(f"\n   正在創建特徵...")
+    print(f"   ├─ 時間特徵: 年、月、日、星期、季度...")
+    print(f"   ├─ 循環編碼: sin/cos 變換（捕捉周期性）...")
+    print(f"   ├─ 滯後特徵: Lag1, Lag7, Lag14, Lag30, Lag365...")
+    print(f"   ├─ 滾動統計: 7天/14天/30天 均值、標準差...")
+    print(f"   ├─ 假期特徵: 香港公眾假期（含農曆節日）...")
+    print(f"   ├─ 事件特徵: COVID期間、流感季節...")
+    print(f"   └─ AI因子特徵: 13維度影響因子...")
+    
     df = create_comprehensive_features(df, ai_factors_dict=ai_factors if ai_factors else None)
-    print(f"特徵工程後列數: {len(df.columns)}")
+    
+    fe_time = time.time() - fe_start
+    print(f"\n✅ 特徵工程完成!")
+    print(f"   📐 最終特徵數: {len(df.columns)} 列")
+    print(f"   ⏱️ 處理耗時: {fe_time:.2f} 秒")
     
     # 移除包含 NaN 的行（除了我們已經填充的列）
     original_len = len(df)
     df = df.dropna(subset=['Attendance'])
     if len(df) < original_len:
-        print(f"移除了 {original_len - len(df)} 筆包含 NaN 的數據")
+        print(f"   ⚠️ 移除了 {original_len - len(df)} 筆無效數據")
     
-    # 時間序列分割（不能隨機分割！）
-    print(f"\n✂️ 數據分割 (Time Series Split)...")
+    # ============ 數據分割 ============
+    print(f"\n✂️ 時間序列分割 (80/20):")
     split_idx = int(len(df) * 0.8)
-    print(f"分割點索引: {split_idx} (80% 訓練, 20% 測試)")
     train_data = df[:split_idx].copy()
     test_data = df[split_idx:].copy()
     
-    print(f"訓練集: {len(train_data)} 筆 (日期範圍: {train_data['Date'].min()} 至 {train_data['Date'].max()})")
-    print(f"測試集: {len(test_data)} 筆 (日期範圍: {test_data['Date'].min()} 至 {test_data['Date'].max()})")
+    print(f"   ├─ 訓練集: {len(train_data)} 筆")
+    print(f"   │     日期: {train_data['Date'].min()} → {train_data['Date'].max()}")
+    print(f"   └─ 測試集: {len(test_data)} 筆")
+    print(f"         日期: {test_data['Date'].min()} → {test_data['Date'].max()}")
     
     # 獲取特徵列
     feature_cols = get_feature_columns()
@@ -450,9 +552,14 @@ def main():
     original_feature_count = len(feature_cols)
     feature_cols = [col for col in feature_cols if col in df.columns]
     if len(feature_cols) < original_feature_count:
-        print(f"⚠️ 警告: {original_feature_count - len(feature_cols)} 個預期特徵在數據中不存在")
+        print(f"   ⚠️ {original_feature_count - len(feature_cols)} 個預期特徵不存在（可能是首次訓練）")
     
-    print(f"使用 {len(feature_cols)} 個特徵進行訓練")
+    print(f"   📐 使用 {len(feature_cols)} 個特徵進行訓練")
+    
+    # ============ 階段 4: 模型訓練 ============
+    print(f"\n{'='*60}")
+    print("🎯 階段 4/4: 模型訓練與評估")
+    print(f"{'='*60}")
     
     # 時間序列交叉驗證（確保無數據洩漏）
     cv_scores = time_series_cross_validate(train_data, feature_cols, n_splits=5)
@@ -576,20 +683,37 @@ def main():
         print(f"     MAPE: {metrics['mape']:.2f}%")
     
     # 訓練總結
+    total_time = time.time() - load_start + fe_time
     print(f"\n{'='*60}")
-    print("🎯 訓練總結:")
+    print("🏆 訓練完成總結")
     print(f"{'='*60}")
-    print(f"  📅 訓練時間: {training_info['training_date']}")
-    print(f"  📊 數據量: {training_info['data_count']} 筆")
-    print(f"  🔧 特徵數: {training_info['feature_count']} 個")
+    print(f"")
+    print(f"   📅 訓練時間: {training_info['training_date']}")
+    print(f"   ⏱️ 總耗時: {total_time:.1f} 秒")
+    print(f"")
+    print(f"   📊 數據統計:")
+    print(f"      ├─ 總數據量: {training_info['data_count']} 筆")
+    print(f"      ├─ 訓練集: {training_info['train_count']} 筆")
+    print(f"      └─ 測試集: {training_info['test_count']} 筆")
+    print(f"")
+    print(f"   🔧 模型配置:")
+    print(f"      ├─ 特徵數: {training_info['feature_count']} 個")
     if training_info['ai_factors_count'] > 0:
-        print(f"  🤖 AI因子: {training_info['ai_factors_count']} 個日期")
-    print(f"  📈 MAE: {metrics['mae']:.2f} 病人")
-    print(f"  📈 RMSE: {metrics['rmse']:.2f} 病人")
-    print(f"  📈 MAPE: {metrics['mape']:.2f}%")
+        print(f"      └─ AI因子: {training_info['ai_factors_count']} 個日期")
+    else:
+        print(f"      └─ AI因子: 無")
+    print(f"")
+    print(f"   📈 模型性能 (測試集):")
+    print(f"      ├─ MAE: {metrics['mae']:.2f} 人 (平均誤差)")
+    print(f"      ├─ RMSE: {metrics['rmse']:.2f} 人 (均方根誤差)")
+    print(f"      └─ MAPE: {metrics['mape']:.2f}% (百分比誤差)")
+    print(f"")
+    print(f"   📊 交叉驗證 (5-Fold):")
+    print(f"      └─ MAE: {cv_scores['cv_mae_mean']:.2f} ± {cv_scores['cv_mae_std']:.2f} 人")
+    print(f"")
     print(f"{'='*60}")
-    
-    print("\n✅ XGBoost 模型訓練完成！")
+    print(f"✅ XGBoost 模型訓練完成！模型已保存。")
+    print(f"{'='*60}")
 
 if __name__ == '__main__':
     main()
