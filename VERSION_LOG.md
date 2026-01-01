@@ -1,5 +1,23 @@
 # 版本更新日誌
 
+## v2.9.19 - 2026-01-02 01:42 HKT
+
+### 🔧 強化 Service Worker POST 請求過濾
+
+**問題**：
+- 瀏覽器可能緩存舊版 SW（v2.6.3），導致 POST 請求仍然嘗試被緩存
+- 控制台持續報錯：`Failed to execute 'put' on 'Cache': Request method 'POST' is unsupported`
+
+**修復**：
+- 在 `cacheFirstStrategy` 開頭添加額外保護：非 GET 請求直接透過網絡
+- 在 `networkFirstStrategy` 的 cache.put 前添加 `request.method === 'GET'` 檢查
+- 更新所有快取版本號（v2.6.4 → v2.6.5）強制瀏覽器更新 SW
+
+**修改的文件**：
+- `sw.js` - 雙重保護機制、版本號更新
+
+---
+
 ## v2.9.18 - 2026-01-02 01:35 HKT
 
 ### 🔧 修復訓練日誌無法實時顯示問題

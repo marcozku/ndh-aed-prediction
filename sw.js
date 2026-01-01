@@ -1,12 +1,12 @@
 /**
  * NDH AED 預測系統 - Service Worker
  * 提供離線支援和快取管理
- * v2.6.4
+ * v2.6.5
  */
 
-const CACHE_NAME = 'ndh-aed-v2.9.17';
-const STATIC_CACHE = 'ndh-static-v2.6.4';
-const DYNAMIC_CACHE = 'ndh-dynamic-v2.6.4';
+const CACHE_NAME = 'ndh-aed-v2.9.19';
+const STATIC_CACHE = 'ndh-static-v2.6.5';
+const DYNAMIC_CACHE = 'ndh-dynamic-v2.6.5';
 
 // 靜態資源（始終快取）
 const STATIC_ASSETS = [
@@ -88,6 +88,11 @@ self.addEventListener('fetch', (event) => {
 
 // 快取優先策略
 async function cacheFirstStrategy(request) {
+    // 只處理 GET 請求（額外保護）
+    if (request.method !== 'GET') {
+        return fetch(request);
+    }
+    
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
         // 後台更新快取
@@ -120,7 +125,8 @@ async function cacheFirstStrategy(request) {
 async function networkFirstStrategy(request) {
     try {
         const response = await fetch(request);
-        if (response.ok) {
+        // 只緩存 GET 請求（額外保護，避免 POST 到達這裡）
+        if (response.ok && request.method === 'GET') {
             const cache = await caches.open(DYNAMIC_CACHE);
             cache.put(request, response.clone());
         }
@@ -203,5 +209,5 @@ self.addEventListener('notificationclick', (event) => {
     );
 });
 
-console.log('[SW] Service Worker 已載入 v2.6.4');
+console.log('[SW] Service Worker 已載入 v2.6.5');
 
