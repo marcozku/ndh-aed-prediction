@@ -882,7 +882,7 @@ def main():
         print(f"   📐 使用 {len(feature_cols)} 個特徵進行訓練")
     else:
         print(f"\n   🚀 使用優化特徵集（研究表明 25 特徵效果最佳）")
-        print(f"   📊 核心特徵: EWMA7 佔 87.87% 重要性")
+        print(f"   📊 核心特徵: EWMA7+EWMA14 佔 90% 重要性")
         feature_cols = [col for col in OPTIMAL_FEATURES if col in df.columns]
         print(f"   📐 使用 {len(feature_cols)} 個精選特徵進行訓練")
     

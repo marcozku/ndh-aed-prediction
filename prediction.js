@@ -7759,7 +7759,7 @@ function initAlgorithmContent() {
                         本系統使用 <strong style="color: var(--text-primary);">XGBoost（極端梯度提升）</strong> 機器學習模型進行預測，基於最新學術研究優化。
                     </p>
                     <div style="margin-top: var(--space-md);">
-                        <strong style="color: var(--text-primary);">v2.9.52 Optuna 優化配置（R² 93.3%）：</strong>
+                        <strong style="color: var(--text-primary);">v2.9.52 Optuna 優化配置（R² 92.0%）：</strong>
                         <ul style="margin-top: var(--space-xs); padding-left: var(--space-lg);">
                             <li><strong>n_estimators</strong>：500 棵樹（增強模型能力）</li>
                             <li><strong>max_depth</strong>：8（捕捉複雜交互）</li>
@@ -7793,7 +7793,7 @@ function initAlgorithmContent() {
                     <div style="margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border-color);">
                         <strong style="color: var(--text-primary);">優化特徵集（25 個精選特徵 v2.9.52）：</strong>
                         <ul style="margin-top: var(--space-xs); padding-left: var(--space-lg); font-size: 0.85rem;">
-                            <li><strong>🔥 EWMA 指數加權移動平均</strong>（3個）：EWMA7, EWMA14, EWMA30 <em style="color: var(--accent-color);">（佔 85% 特徵重要性！）</em></li>
+                            <li><strong>🔥 EWMA 指數加權移動平均</strong>（3個）：EWMA7, EWMA14, EWMA30 <em style="color: var(--accent-color);">（佔 90% 特徵重要性！）</em></li>
                             <li><strong>時間特徵</strong>（8個）：年、月、星期、季度、一年中的第幾天等</li>
                             <li><strong>循環編碼</strong>（4個）：月份和星期的正弦/餘弦編碼</li>
                             <li><strong>Fourier 季節</strong>（10個）：3階年度 + 2階週內 Fourier 特徵 <em>(Prophet)</em></li>
