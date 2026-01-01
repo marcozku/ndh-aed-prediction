@@ -2596,15 +2596,24 @@ const apiHandlers = {
                 
                 if (metrics && metrics.mae !== undefined && metrics.mape !== undefined) {
                     // MAE 評分：MAE < 5 = 100分，每增加1 -10分
-                    const maeScore = Math.max(0, 100 - (metrics.mae - 5) * 10);
+                    const maeScore = Math.max(0, Math.min(100, 100 - (metrics.mae - 5) * 10));
                     // MAPE 評分：MAPE < 2% = 100分，每增加1% -20分
-                    const mapeScore = Math.max(0, 100 - (metrics.mape - 2) * 20);
+                    const mapeScore = Math.max(0, Math.min(100, 100 - (metrics.mape - 2) * 20));
+                    // R² 評分：直接使用 R² * 100（v2.9.30 新增）
+                    const r2Score = metrics.r2 ? Math.max(0, Math.min(100, metrics.r2 * 100)) : null;
                     
-                    modelFit = Math.round((maeScore + mapeScore) / 2);
+                    // 綜合評分：如果有 R² 則使用加權平均 (MAE 30%, MAPE 30%, R² 40%)
+                    if (r2Score !== null) {
+                        modelFit = Math.round(maeScore * 0.3 + mapeScore * 0.3 + r2Score * 0.4);
+                    } else {
+                        modelFit = Math.round((maeScore + mapeScore) / 2);
+                    }
                     
                     details.mae = metrics.mae;
                     details.mape = metrics.mape;
                     details.rmse = metrics.rmse;
+                    details.r2 = metrics.r2 || null;
+                    details.adj_r2 = metrics.adj_r2 || null;
                     details.trainingDate = metrics.training_date;
                     details.featureCount = metrics.feature_count;
                 } else {

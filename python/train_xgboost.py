@@ -1,12 +1,13 @@
 """
-XGBoost 模型訓練腳本
+XGBoost 模型訓練腳本 v2.9.30
 根據 AI-AED-Algorithm-Specification.txt Section 6.1
+新增: Optuna 超參數優化、擴展特徵工程、R² 指標
 """
 import pandas as pd
 import numpy as np
 import xgboost as xgb
 from sklearn.model_selection import TimeSeriesSplit
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score as sklearn_r2_score
 import json
 import os
 import sys
@@ -17,6 +18,15 @@ try:
 except ImportError:
     from backports.zoneinfo import ZoneInfo
 from feature_engineering import create_comprehensive_features, get_feature_columns
+
+# 嘗試導入 Optuna（可選）
+try:
+    import optuna
+    from optuna.samplers import TPESampler
+    OPTUNA_AVAILABLE = True
+except ImportError:
+    OPTUNA_AVAILABLE = False
+    print("ℹ️ Optuna 未安裝，將使用預設超參數")
 
 # HKT 時區
 HKT = ZoneInfo('Asia/Hong_Kong')
@@ -183,6 +193,89 @@ def load_old_metrics_from_db():
         print(f"⚠️ 無法從數據庫加載舊模型指標: {e}")
         return None
 
+def optuna_optimize(X_train, y_train, X_val, y_val, n_trials=50):
+    """
+    使用 Optuna 進行超參數優化
+    
+    參數:
+        X_train, y_train: 訓練數據
+        X_val, y_val: 驗證數據
+        n_trials: 優化試驗次數
+    
+    返回:
+        最佳超參數字典
+    """
+    if not OPTUNA_AVAILABLE:
+        print("⚠️ Optuna 未安裝，使用預設參數")
+        return None
+    
+    print(f"\n{'='*60}")
+    print("🔍 Optuna 超參數優化 (TPE Sampler)")
+    print(f"{'='*60}")
+    print(f"   試驗次數: {n_trials}")
+    print(f"   訓練集大小: {len(X_train)}")
+    print(f"   驗證集大小: {len(X_val)}")
+    
+    def objective(trial):
+        params = {
+            'n_estimators': trial.suggest_int('n_estimators', 200, 800),
+            'max_depth': trial.suggest_int('max_depth', 4, 12),
+            'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.2, log=True),
+            'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
+            'subsample': trial.suggest_float('subsample', 0.6, 0.95),
+            'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 0.95),
+            'colsample_bylevel': trial.suggest_float('colsample_bylevel', 0.6, 0.95),
+            'gamma': trial.suggest_float('gamma', 0, 1.0),
+            'alpha': trial.suggest_float('alpha', 0, 2.0),
+            'reg_lambda': trial.suggest_float('reg_lambda', 0.5, 3.0),
+        }
+        
+        model = xgb.XGBRegressor(
+            **params,
+            objective='reg:squarederror',
+            tree_method='hist',
+            random_state=42,
+            n_jobs=-1,
+            early_stopping_rounds=30,
+            eval_metric='mae'
+        )
+        
+        model.fit(
+            X_train, y_train,
+            eval_set=[(X_val, y_val)],
+            verbose=False
+        )
+        
+        y_pred = model.predict(X_val)
+        mae = mean_absolute_error(y_val, y_pred)
+        
+        return mae
+    
+    # 創建 Optuna 研究
+    sampler = TPESampler(seed=42)
+    study = optuna.create_study(direction='minimize', sampler=sampler)
+    
+    # 靜音 Optuna 日誌
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    
+    # 運行優化
+    start_time = time.time()
+    study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
+    opt_time = time.time() - start_time
+    
+    print(f"\n✅ 優化完成!")
+    print(f"   ⏱️ 耗時: {opt_time:.1f} 秒")
+    print(f"   🏆 最佳 MAE: {study.best_value:.2f}")
+    print(f"\n   📋 最佳超參數:")
+    for key, value in study.best_params.items():
+        if isinstance(value, float):
+            print(f"      {key}: {value:.4f}")
+        else:
+            print(f"      {key}: {value}")
+    
+    return study.best_params
+
+
 def time_series_cross_validate(df, feature_cols, n_splits=3):
     """
     時間序列交叉驗證 (Walk-Forward Validation) - 優化版 v2.9.21
@@ -342,51 +435,76 @@ def train_xgboost_model(train_data, test_data, feature_cols):
     class XGBoostModel(xgb.XGBRegressor):
         _estimator_type = "regressor"
     
-    # ============ 研究基礎改進 v2.9.28 ============
-    # 參考: BMC Emergency Medicine 2025, BMC Medical Informatics 2024
+    # ============ 超參數優化 v2.9.30 ============
+    # 使用 Optuna 自動搜索最佳超參數
     print(f"\n{'='*60}")
-    print("⚙️ XGBoost 超參數配置 (v2.9.28 研究優化)")
+    print("⚙️ XGBoost 超參數配置 (v2.9.30 Optuna 優化)")
     print(f"{'='*60}")
     
-    # 基於法國醫院研究（BMC EM 2025）的最佳參數
-    params = {
-        'n_estimators': 500,          # 增加樹數以提高準確度
-        'max_depth': 8,               # 增加深度以捕捉複雜模式
-        'learning_rate': 0.05,        # 較低學習率 + 更多樹 = 更好泛化
-        'min_child_weight': 3,        # 防止過擬合
-        'subsample': 0.85,            # 行採樣
-        'colsample_bytree': 0.85,     # 列採樣
-        'colsample_bylevel': 0.85,
-        'gamma': 0.1,                 # 分裂所需的最小損失減少
-        'alpha': 0.5,                 # L1 正則化（研究建議）
-        'reg_lambda': 1.5,            # L2 正則化（研究建議）
-    }
+    # 嘗試使用 Optuna 優化
+    use_optuna = os.environ.get('USE_OPTUNA', '1') == '1' and OPTUNA_AVAILABLE
+    n_trials = int(os.environ.get('OPTUNA_TRIALS', '30'))
     
-    print(f"   🌲 n_estimators: {params['n_estimators']} (研究建議: 更多樹)")
-    print(f"   📏 max_depth: {params['max_depth']} (研究建議: 增加深度)")
-    print(f"   📉 learning_rate: {params['learning_rate']} (研究建議: 較低)")
-    print(f"   👶 min_child_weight: {params['min_child_weight']} (防止過擬合)")
-    print(f"   🎲 subsample: {params['subsample']}")
-    print(f"   🎯 colsample_bytree: {params['colsample_bytree']}")
-    print(f"   📐 gamma: {params['gamma']} (分裂閾值)")
-    print(f"   🔧 alpha (L1): {params['alpha']}")
-    print(f"   🔧 reg_lambda (L2): {params['reg_lambda']}")
+    if use_optuna:
+        best_params = optuna_optimize(X_train, y_train, X_val, y_val, n_trials=n_trials)
+        if best_params:
+            params = best_params
+        else:
+            # Fallback 到預設參數
+            params = {
+                'n_estimators': 500,
+                'max_depth': 8,
+                'learning_rate': 0.05,
+                'min_child_weight': 3,
+                'subsample': 0.85,
+                'colsample_bytree': 0.85,
+                'colsample_bylevel': 0.85,
+                'gamma': 0.1,
+                'alpha': 0.5,
+                'reg_lambda': 1.5,
+            }
+    else:
+        # 使用預設超參數（基於研究）
+        print("   ℹ️ 使用預設超參數（設置 USE_OPTUNA=1 啟用優化）")
+        params = {
+            'n_estimators': 500,
+            'max_depth': 8,
+            'learning_rate': 0.05,
+            'min_child_weight': 3,
+            'subsample': 0.85,
+            'colsample_bytree': 0.85,
+            'colsample_bylevel': 0.85,
+            'gamma': 0.1,
+            'alpha': 0.5,
+            'reg_lambda': 1.5,
+        }
+    
+    print(f"\n   📋 最終超參數:")
+    print(f"   🌲 n_estimators: {params.get('n_estimators', 500)}")
+    print(f"   📏 max_depth: {params.get('max_depth', 8)}")
+    print(f"   📉 learning_rate: {params.get('learning_rate', 0.05):.4f}")
+    print(f"   👶 min_child_weight: {params.get('min_child_weight', 3)}")
+    print(f"   🎲 subsample: {params.get('subsample', 0.85):.4f}")
+    print(f"   🎯 colsample_bytree: {params.get('colsample_bytree', 0.85):.4f}")
+    print(f"   📐 gamma: {params.get('gamma', 0.1):.4f}")
+    print(f"   🔧 alpha (L1): {params.get('alpha', 0.5):.4f}")
+    print(f"   🔧 reg_lambda (L2): {params.get('reg_lambda', 1.5):.4f}")
     print(f"   🎯 objective: reg:squarederror")
     print(f"   📊 eval_metric: mae")
     print(f"   ⏹️ early_stopping_rounds: 50")
     
     model = XGBoostModel(
-        n_estimators=params['n_estimators'],
-        max_depth=params['max_depth'],
-        learning_rate=params['learning_rate'],
-        min_child_weight=params['min_child_weight'],
-        subsample=params['subsample'],
-        colsample_bytree=params['colsample_bytree'],
-        colsample_bylevel=params['colsample_bylevel'],
-        gamma=params['gamma'],
+        n_estimators=params.get('n_estimators', 500),
+        max_depth=params.get('max_depth', 8),
+        learning_rate=params.get('learning_rate', 0.05),
+        min_child_weight=params.get('min_child_weight', 3),
+        subsample=params.get('subsample', 0.85),
+        colsample_bytree=params.get('colsample_bytree', 0.85),
+        colsample_bylevel=params.get('colsample_bylevel', 0.85),
+        gamma=params.get('gamma', 0.1),
         objective='reg:squarederror',
-        alpha=params['alpha'],
-        reg_lambda=params['reg_lambda'],
+        alpha=params.get('alpha', 0.5),
+        reg_lambda=params.get('reg_lambda', 1.5),
         tree_method='hist',
         grow_policy='depthwise',
         early_stopping_rounds=50,
@@ -510,18 +628,35 @@ def train_xgboost_model(train_data, test_data, feature_cols):
     # 計算其他統計指標
     mean_error = np.mean(y_pred - y_test)
     std_error = np.std(y_pred - y_test)
-    r2_score = 1 - (np.sum((y_test - y_pred) ** 2) / np.sum((y_test - np.mean(y_test)) ** 2))
+    r2 = sklearn_r2_score(y_test, y_pred)
     
-    print(f"\nXGBoost 模型性能指標 (測試集 - 完全獨立):")
+    # 計算調整 R² (Adjusted R²)
+    n = len(y_test)
+    p = len(feature_cols)
+    adj_r2 = 1 - (1 - r2) * (n - 1) / (n - p - 1) if n > p + 1 else r2
+    
+    print(f"\n{'='*60}")
+    print(f"📊 XGBoost 模型性能指標 (測試集 - 完全獨立)")
+    print(f"{'='*60}")
     print(f"  MAE (平均絕對誤差): {mae:.2f} 病人")
     print(f"  RMSE (均方根誤差): {rmse:.2f} 病人")
     print(f"  MAPE (平均絕對百分比誤差): {mape:.2f}%")
-    print(f"  平均誤差: {mean_error:.2f} 病人")
+    print(f"  平均誤差 (偏差): {mean_error:.2f} 病人")
     print(f"  誤差標準差: {std_error:.2f} 病人")
-    print(f"  R² 得分: {r2_score:.4f}")
+    print(f"  R² 得分: {r2:.4f} ({r2*100:.1f}%)")
+    print(f"  調整 R² 得分: {adj_r2:.4f} ({adj_r2*100:.1f}%)")
     print(f"  預測值範圍: {y_pred.min():.1f} - {y_pred.max():.1f} 病人")
     
-    return model, {'mae': mae, 'rmse': rmse, 'mape': mape}
+    return model, {
+        'mae': mae, 
+        'rmse': rmse, 
+        'mape': mape, 
+        'r2': r2,
+        'adj_r2': adj_r2,
+        'mean_error': mean_error,
+        'std_error': std_error,
+        'optuna_optimized': use_optuna
+    }
 
 def main():
     import argparse
@@ -722,6 +857,10 @@ def main():
         'mae': metrics['mae'],
         'rmse': metrics['rmse'],
         'mape': metrics['mape'],
+        'r2': metrics['r2'],              # R² 分數 (v2.9.30)
+        'adj_r2': metrics['adj_r2'],      # 調整 R² (v2.9.30)
+        'mean_error': metrics['mean_error'],
+        'std_error': metrics['std_error'],
         'training_date': datetime.datetime.now(HKT).strftime('%Y-%m-%d %H:%M:%S HKT'),
         'data_count': len(df),
         'train_count': len(train_data),
@@ -735,7 +874,9 @@ def main():
         'cv_rmse_std': cv_scores['cv_rmse_std'],
         'cv_mape_mean': cv_scores['cv_mape_mean'],
         'cv_mape_std': cv_scores['cv_mape_std'],
-        'time_series_validation': True  # 標記使用了正確的時間序列驗證
+        'time_series_validation': True,  # 標記使用了正確的時間序列驗證
+        'version': '2.9.50',
+        'optuna_optimized': metrics.get('optuna_optimized', False)
     }
     
     # 保存評估指標
@@ -832,7 +973,9 @@ def main():
     print(f"   📈 模型性能 (測試集):")
     print(f"      ├─ MAE: {metrics['mae']:.2f} 人 (平均誤差)")
     print(f"      ├─ RMSE: {metrics['rmse']:.2f} 人 (均方根誤差)")
-    print(f"      └─ MAPE: {metrics['mape']:.2f}% (百分比誤差)")
+    print(f"      ├─ MAPE: {metrics['mape']:.2f}% (百分比誤差)")
+    print(f"      ├─ R²: {metrics['r2']*100:.1f}% (模型擬合度)")
+    print(f"      └─ 調整 R²: {metrics['adj_r2']*100:.1f}% (考慮特徵數)")
     print(f"")
     print(f"   📊 交叉驗證 (5-Fold):")
     print(f"      └─ MAE: {cv_scores['cv_mae_mean']:.2f} ± {cv_scores['cv_mae_std']:.2f} 人")
