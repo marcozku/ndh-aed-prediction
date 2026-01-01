@@ -7220,48 +7220,80 @@ function initAlgorithmContent() {
                         <strong style="color: var(--text-primary);">XGBoost 模型特點：</strong>
                         <ul style="margin-top: var(--space-xs); padding-left: var(--space-lg);">
                             <li>捕捉複雜的非線性關係和特徵交互</li>
-                            <li>自動特徵工程：處理 53+ 特徵（時間特徵、滯後特徵、滾動統計、事件指標、AI 因子等）</li>
-                            <li>整合 AI 分析數據：使用實時 AI 分析結果作為特徵，提高預測準確度</li>
+                            <li>自動特徵工程：處理 <strong>78 個特徵</strong>（時間特徵、滯後特徵、滾動統計、事件指標、假期特徵、AI 因子等）</li>
+                            <li>整合 AI 分析數據：使用實時 AI 分析結果作為 13 維特徵，提高預測準確度</li>
                             <li>高準確度：基於法國醫院研究，MAE 可達 2.63-2.64 病人</li>
                             <li>快速訓練和預測：訓練時間 5-10 分鐘，預測時間 < 1 秒</li>
-                            <li>處理缺失值和異常值</li>
+                            <li>原生處理缺失值：XGBoost 自動學習最佳分割方向，不需填充虛假數據</li>
                             <li>提供預測不確定性量化</li>
                         </ul>
                     </div>
                     <div style="margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border-color);">
-                        <strong style="color: var(--text-primary);">特徵工程（53+ 特徵）：</strong>
+                        <strong style="color: var(--text-primary);">特徵工程（78 個特徵）：</strong>
                         <ul style="margin-top: var(--space-xs); padding-left: var(--space-lg); font-size: 0.85rem;">
-                            <li><strong>時間特徵</strong>：年、月、星期、季度、一年中的第幾天等</li>
-                            <li><strong>循環編碼</strong>：月份和星期的正弦/餘弦編碼（捕捉周期性）</li>
-                            <li><strong>滯後特徵</strong>：Lag1（昨天）、Lag7（上週同一天）、Lag14、Lag30、Lag365</li>
-                            <li><strong>滾動統計</strong>：7天/14天/30天移動平均、標準差、最大值、最小值</li>
-                            <li><strong>事件指標</strong>：COVID 期間、流感季節、週一、週末、假期</li>
-                            <li><strong>交互特徵</strong>：COVID × 冬季、週一 × 冬季等</li>
-                            <li><strong>AI 因子特徵</strong>：AI_Factor（影響因子數值）、Has_AI_Factor（是否存在）、AI_Factor_Type（類型編碼）</li>
+                            <li><strong>時間特徵</strong>（8個）：年、月、星期、季度、一年中的第幾天等</li>
+                            <li><strong>循環編碼</strong>（4個）：月份和星期的正弦/餘弦編碼（捕捉周期性）</li>
+                            <li><strong>滯後特徵</strong>（14個）：Lag1-Lag365 真實歷史數據 + 可用性指標</li>
+                            <li><strong>滾動統計</strong>（15個）：7天/14天/30天移動平均、標準差、最大值、最小值 + 可用性指標</li>
+                            <li><strong>事件指標</strong>（8個）：COVID 期間、流感季節、週一、週末等</li>
+                            <li><strong>交互特徵</strong>（3個）：COVID × 冬季、週一 × 冬季等</li>
+                            <li><strong>假期特徵</strong>（9個）：完整香港公眾假期（含農曆新年、清明、端午、中秋、重陽、佛誕、復活節）、假期前後效應</li>
+                            <li><strong>AI 因子特徵</strong>（13個）：多維度 AI 分析特徵（見下方詳細說明）</li>
                         </ul>
                     </div>
                     <div style="margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border-color); background: rgba(59, 130, 246, 0.05); padding: var(--space-md); border-radius: var(--radius-sm);">
-                        <strong style="color: var(--text-primary);">🤖 AI 因子在 XGBoost 中的使用：</strong>
+                        <strong style="color: var(--text-primary);">🤖 AI 因子在 XGBoost 中的使用（13 維特徵）：</strong>
                         <div style="margin-top: var(--space-sm); font-size: 0.85rem; line-height: 1.8; color: var(--text-secondary);">
                             <p style="margin-bottom: var(--space-xs);">
-                                XGBoost 模型整合了 AI 分析數據作為特徵，讓模型能夠學習和利用實時事件對就診人數的影響。
+                                XGBoost 模型整合了 AI 分析數據作為多維度特徵，讓模型能夠全面學習和利用實時事件對就診人數的影響。
                             </p>
                             <p style="margin-bottom: var(--space-xs);"><strong>AI 因子特徵包括：</strong></p>
                             <ul style="margin-left: var(--space-lg); margin-top: var(--space-xs);">
-                                <li><strong>AI_Factor</strong>：影響因子數值（通常範圍 0.85-1.15），表示 AI 分析預測的事件對就診人數的影響程度</li>
-                                <li><strong>Has_AI_Factor</strong>：二進制指標（0/1），表示該日期是否有 AI 分析數據</li>
-                                <li><strong>AI_Factor_Type</strong>：類型編碼（1=正向影響，-1=負向影響，0=中性/無數據）</li>
+                                <li><strong>AI_Impact_Factor</strong>：影響因子數值（範圍 0.7-1.3）</li>
+                                <li><strong>AI_Impact_Magnitude</strong>：影響幅度（距離 1.0 的絕對值，表示影響強度）</li>
+                                <li><strong>AI_Impact_Direction</strong>：影響方向（+1=增加, -1=減少, 0=無影響）</li>
+                                <li><strong>AI_Confidence_Score</strong>：信心分數（高=1.0, 中=0.6, 低=0.3）</li>
+                                <li><strong>AI_Factor_Count</strong>：因子數量</li>
+                                <li><strong>AI_Type_*</strong>：5個類型獨熱編碼（天氣、健康/疫情、政策、事件、季節性）</li>
+                                <li><strong>Has_AI_Factor</strong>：二進制指標（0/1）</li>
+                                <li><strong>AI_Impact_Rolling7</strong>：7天滾動平均影響</li>
+                                <li><strong>AI_Impact_Trend</strong>：影響趨勢變化</li>
                             </ul>
                             <p style="margin-top: var(--space-sm); margin-bottom: var(--space-xs);"><strong>工作原理：</strong></p>
                             <ul style="margin-left: var(--space-lg); margin-top: var(--space-xs);">
-                                <li>訓練時：系統從數據庫的 <code>ai_factors_cache</code> 表自動加載歷史 AI 因子數據，並將其作為特徵加入訓練</li>
-                                <li>預測時：系統自動加載目標日期的 AI 因子（如果有的話），並用於預測</li>
-                                <li>如果某個日期沒有 AI 數據，模型會使用默認值（AI_Factor=1.0, Has_AI_Factor=0, AI_Factor_Type=0）</li>
-                                <li>XGBoost 會自動學習 AI 因子與就診人數之間的關係，並在預測時應用這些學習到的模式</li>
+                                <li>訓練時：系統從數據庫的 <code>ai_factors_cache</code> 表自動加載歷史 AI 因子數據，並提取多維度特徵加入訓練</li>
+                                <li>預測時：系統自動加載目標日期的 AI 因子，並計算所有 13 個特徵用於預測</li>
+                                <li>如果某個日期沒有 AI 數據，模型會使用默認值（AI_Impact_Factor=1.0, Has_AI_Factor=0 等）</li>
+                                <li>XGBoost 會自動學習不同類型 AI 因子（天氣/健康/政策等）與就診人數之間的關係</li>
                             </ul>
                             <p style="margin-top: var(--space-sm); margin-bottom: 0; color: var(--accent-primary);">
-                                <strong>優勢：</strong>通過整合 AI 分析，模型能夠捕捉到傳統統計方法難以發現的實時事件影響，提高預測準確度和實用性。
+                                <strong>優勢：</strong>通過多維度 AI 分析特徵，模型能夠區分不同類型事件的影響模式，提高預測準確度和可解釋性。
                             </p>
+                        </div>
+                    </div>
+                    <div style="margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border-color); background: rgba(34, 197, 94, 0.05); padding: var(--space-md); border-radius: var(--radius-sm);">
+                        <strong style="color: var(--text-primary);">📅 完整香港公眾假期支援（2014-2030）：</strong>
+                        <div style="margin-top: var(--space-sm); font-size: 0.85rem; line-height: 1.8; color: var(--text-secondary);">
+                            <ul style="margin-left: var(--space-lg); margin-top: var(--space-xs);">
+                                <li><strong>固定假期</strong>：元旦、勞動節、國慶日、聖誕節、聖誕節翌日、香港特別行政區成立紀念日</li>
+                                <li><strong>農曆假期</strong>：農曆新年（初一/二/三）、清明節、端午節、中秋節翌日、重陽節、佛誕</li>
+                                <li><strong>復活節</strong>：耶穌受難日、耶穌受難日翌日、復活節星期一</li>
+                                <li><strong>假期影響因子</strong>：每個假期有獨立影響因子（如農曆新年 0.75，聖誕節 0.85）</li>
+                                <li><strong>假期前後效應</strong>：Is_Day_Before_Holiday、Is_Day_After_Holiday</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div style="margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border-color); background: rgba(251, 146, 60, 0.05); padding: var(--space-md); border-radius: var(--radius-sm);">
+                        <strong style="color: var(--text-primary);">🔢 滯後特徵真實數據處理：</strong>
+                        <div style="margin-top: var(--space-sm); font-size: 0.85rem; line-height: 1.8; color: var(--text-secondary);">
+                            <p style="margin-bottom: var(--space-xs);">
+                                本系統只使用真實歷史數據，<strong>不使用虛假填充值</strong>（如均值填充、向後填充）。
+                            </p>
+                            <ul style="margin-left: var(--space-lg); margin-top: var(--space-xs);">
+                                <li><strong>XGBoost 原生 NaN 支援</strong>：模型自動學習缺失值的最佳分割方向</li>
+                                <li><strong>可用性指標</strong>：每個滯後特徵都有對應的 Lag*_Available 指標（1=真實數據, 0=缺失）</li>
+                                <li><strong>優勢</strong>：比使用虛假數據更準確，避免引入偏差</li>
+                            </ul>
                         </div>
                     </div>
                 </div>
@@ -7318,12 +7350,12 @@ function initAlgorithmContent() {
             <h4 style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600; margin-bottom: var(--space-md);">算法特點</h4>
             <ul style="color: var(--text-primary); line-height: 1.8; padding-left: var(--space-lg);">
                 <li><strong>XGBoost 機器學習模型</strong>：使用梯度提升樹算法，自動學習複雜模式和非線性關係</li>
-                <li><strong>53+ 特徵工程</strong>：時間特徵、滯後特徵、滾動統計、事件指標、交互特徵、AI 因子特徵</li>
-                <li><strong>AI 因子整合</strong>：將實時 AI 分析結果作為特徵，讓模型學習事件對就診人數的影響</li>
+                <li><strong>78 個特徵工程</strong>：時間特徵、滯後特徵、滾動統計、事件指標、完整香港假期、13維 AI 因子特徵</li>
+                <li><strong>多維 AI 因子整合</strong>：將實時 AI 分析結果提取為 13 個特徵（影響幅度、方向、信心、類型等），讓模型學習事件對就診人數的影響</li>
                 <li>基於真實歷史數據（3,431+ 筆記錄）進行訓練和驗證</li>
                 <li>考慮多維度影響因子，包括時間、天氣、假期等</li>
                 <li>使用月份-星期交互因子，提高預測準確度</li>
-                <li>整合滯後特徵（lag1, lag7）和移動平均，捕捉時間依賴性</li>
+                <li>整合滯後特徵（lag1-lag365）和移動平均，使用真實數據（不填充虛假值）</li>
                 <li>整合 AI 分析，動態調整預測值</li>
                 <li>提供 80% 和 95% 信賴區間，量化預測不確定性</li>
                 <li>持續學習和優化，根據實際數據反饋重新訓練模型</li>
@@ -7491,7 +7523,7 @@ function initAlgorithmContent() {
                 <p style="margin-bottom: var(--space-sm);"><strong>9. 算法組件研究基礎</strong></p>
                 <ul style="margin-left: var(--space-md); color: var(--text-secondary); margin-bottom: var(--space-md);">
                     <li><strong>XGBoost 模型</strong>：基於法國醫院研究（2025），使用梯度提升樹捕捉複雜模式，MAE 可達 2.63-2.64 病人</li>
-                    <li><strong>特徵工程</strong>：基於特徵工程研究（2024），創建 53+ 特徵包括時間、滯後、滾動統計、事件指標、AI 因子</li>
+                    <li><strong>特徵工程</strong>：基於特徵工程研究（2024），創建 78 個特徵包括時間、滯後（真實數據）、滾動統計、完整香港假期、13維 AI 因子</li>
                     <li><strong>AI 因子整合</strong>：將 AI 分析結果作為特徵加入模型，讓 XGBoost 學習實時事件對就診人數的影響模式</li>
                     <li><strong>滾動窗口計算</strong>：基於時間序列研究，適應數據分佈變化（arXiv 2025）</li>
                     <li><strong>加權平均</strong>：基於時間序列研究，指數衰減權重（DeepAR 2017）</li>
@@ -7499,7 +7531,7 @@ function initAlgorithmContent() {
                     <li><strong>趨勢調整</strong>：基於時間序列研究，短期和長期趨勢組合（時間序列分析 2017）</li>
                     <li><strong>相對溫度</strong>：基於天氣影響研究，相對溫度比絕對溫度更重要（ResearchGate 2024）</li>
                     <li><strong>異常檢測</strong>：基於異常檢測研究，自動調整到合理範圍（異常檢測研究 2024）</li>
-                    <li><strong>滯後特徵</strong>：基於自相關性研究，lag1和lag7是最重要的預測因子（特徵工程研究 2024）</li>
+                    <li><strong>滯後特徵</strong>：基於自相關性研究，lag1-lag365 使用真實歷史數據，XGBoost 原生處理缺失值（特徵工程研究 2024）</li>
                     <li><strong>移動平均</strong>：基於時間序列研究，7天和30天移動平均捕捉趨勢（TCN 2019）</li>
                 </ul>
             </div>
