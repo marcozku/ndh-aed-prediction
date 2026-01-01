@@ -6,6 +6,7 @@ import pandas as pd
 import json
 import os
 import sys
+import warnings
 from ensemble_predict import ensemble_predict
 
 def load_data_from_db():
@@ -31,7 +32,10 @@ def load_data_from_db():
             FROM actual_data
             ORDER BY date ASC
         """
-        df = pd.read_sql_query(query, conn)
+        # 抑制 pandas 關於 DBAPI2 連接的警告
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', message='.*pandas only supports SQLAlchemy.*')
+            df = pd.read_sql_query(query, conn)
         conn.close()
         
         # 確保列名正確（pandas 可能會將列名轉為小寫）

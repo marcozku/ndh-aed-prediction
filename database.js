@@ -274,6 +274,29 @@ async function initDatabase() {
             )
         `);
         
+        // Migration: Add missing columns to final_daily_predictions if they don't exist
+        await client.query(`
+            DO $$ 
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'final_daily_predictions' AND column_name = 'smoothing_method') THEN
+                    ALTER TABLE final_daily_predictions ADD COLUMN smoothing_method VARCHAR(50) DEFAULT 'simpleAverage';
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'final_daily_predictions' AND column_name = 'smoothing_details') THEN
+                    ALTER TABLE final_daily_predictions ADD COLUMN smoothing_details JSONB;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'final_daily_predictions' AND column_name = 'stability_cv') THEN
+                    ALTER TABLE final_daily_predictions ADD COLUMN stability_cv DECIMAL(6,4);
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'final_daily_predictions' AND column_name = 'stability_level') THEN
+                    ALTER TABLE final_daily_predictions ADD COLUMN stability_level VARCHAR(20);
+                END IF;
+            END $$;
+        `);
+
         // Table for time-slot accuracy history (for Time-Window Weighted smoothing)
         await client.query(`
             CREATE TABLE IF NOT EXISTS timeslot_accuracy (

@@ -1,5 +1,25 @@
 # 版本更新日誌
 
+## v2.9.54 - 2026-01-02 05:56 HKT
+
+### 🔧 資料庫欄位遷移與警告修復
+
+**問題修復**：
+1. `smoothing_method` 欄位不存在錯誤
+2. Python predict.py 的 pandas 警告
+
+**解決方案**：
+1. **資料庫遷移**：`database.js` 添加 ALTER TABLE 語句，自動補全缺失欄位
+2. **警告抑制**：`predict.py` 使用 `warnings.catch_warnings()` 抑制 DBAPI2 警告
+
+**新增欄位遷移**（自動補全）：
+- `smoothing_method` - 平滑方法
+- `smoothing_details` - 平滑詳情 (JSONB)
+- `stability_cv` - 穩定性變異係數
+- `stability_level` - 穩定性等級
+
+---
+
 ## v2.9.53 - 2026-01-02 05:50 HKT
 
 ### ⚡ DataFrame 碎片化優化
