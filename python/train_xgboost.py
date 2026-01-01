@@ -691,13 +691,15 @@ def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     models_dir = os.path.join(script_dir, 'models')
     
+    # 定義指標文件路徑（用於保存新指標）
+    metrics_path = os.path.join(models_dir, 'xgboost_metrics.json')
+    
     # 加載舊模型指標（用於比較）- 優先從數據庫讀取
     old_metrics = load_old_metrics_from_db()
     if old_metrics:
         print(f"📊 從數據庫加載舊模型指標: MAE={old_metrics.get('mae', 'N/A'):.2f}, MAPE={old_metrics.get('mape', 'N/A'):.2f}%")
     else:
         # 數據庫不可用，嘗試從本地文件讀取
-        metrics_path = os.path.join(models_dir, 'xgboost_metrics.json')
         if os.path.exists(metrics_path):
             try:
                 with open(metrics_path, 'r') as f:
