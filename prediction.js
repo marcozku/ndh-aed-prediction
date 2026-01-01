@@ -6933,10 +6933,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 每30分鐘更新 AI 因素（基於時間，避免過度消耗）
     setInterval(async () => {
         const aiAnalysisData = await updateAIFactors(true); // 強制更新
-        await refreshPredictions(predictor);
         updateRealtimeFactors(aiAnalysisData);
+        
+        // 使用統一的圖表刷新函數（包括所有圖表、置信度、統計等）
+        if (typeof refreshAllChartsAfterDataUpdate === 'function') {
+            await refreshAllChartsAfterDataUpdate();
+        }
+        
         await checkAIStatus(); // 更新 AI 狀態
-        console.log('🤖 AI 因素已更新');
+        console.log('🤖 AI 因素已更新，所有圖表已刷新');
     }, 1800000); // 30 分鐘
     
     // 每5分鐘檢查數據庫狀態
