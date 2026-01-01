@@ -7464,22 +7464,32 @@ function initAlgorithmContent() {
     
     algorithmContentEl.innerHTML = `
         <div class="algorithm-formula" style="margin-bottom: var(--space-xl);">
-            <h4>核心預測算法（v2.9.7 - 僅 XGBoost）</h4>
+            <h4>核心預測算法（v2.9.21 - XGBoost 優化版）</h4>
             <div style="background: var(--bg-secondary); padding: var(--space-lg); border-radius: var(--radius-md); margin-top: var(--space-md); margin-bottom: var(--space-lg);">
-                <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">機器學習模型：XGBoost</h5>
+                <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">機器學習模型：XGBoost（極端梯度提升）</h5>
                 <div style="padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.9rem; line-height: 1.8; color: var(--text-secondary);">
                     <p style="margin-bottom: var(--space-sm);">
                         本系統使用 <strong style="color: var(--text-primary);">XGBoost（極端梯度提升）</strong> 機器學習模型進行預測。
                         XGBoost 是一種基於決策樹的集成學習算法，通過梯度提升框架優化模型性能。
                     </p>
                     <div style="margin-top: var(--space-md);">
+                        <strong style="color: var(--text-primary);">v2.9.21 優化配置：</strong>
+                        <ul style="margin-top: var(--space-xs); padding-left: var(--space-lg);">
+                            <li><strong>交叉驗證</strong>：3-fold（原 5-fold），100 棵樹/fold（原 300）</li>
+                            <li><strong>最終模型</strong>：300 棵樹（原 500），early stopping=30 輪（原 50）</li>
+                            <li><strong>學習率</strong>：0.08（原 0.05），補償較少樹數</li>
+                            <li><strong>訓練時間</strong>：約 2-4 分鐘（原 5-10 分鐘）</li>
+                            <li><strong>tree_method</strong>：histogram（更快的樹構建）</li>
+                        </ul>
+                    </div>
+                    <div style="margin-top: var(--space-md);">
                         <strong style="color: var(--text-primary);">XGBoost 模型特點：</strong>
                         <ul style="margin-top: var(--space-xs); padding-left: var(--space-lg);">
                             <li>捕捉複雜的非線性關係和特徵交互</li>
                             <li>自動特徵工程：處理 <strong>78 個特徵</strong>（時間特徵、滯後特徵、滾動統計、事件指標、假期特徵、AI 因子等）</li>
                             <li>整合 AI 分析數據：使用實時 AI 分析結果作為 13 維特徵，提高預測準確度</li>
-                            <li>高準確度：基於法國醫院研究，MAE 可達 2.63-2.64 病人</li>
-                            <li>快速訓練和預測：訓練時間 5-10 分鐘，預測時間 < 1 秒</li>
+                            <li>高準確度：MAE 目標 < 15 病人</li>
+                            <li>快速訓練和預測：訓練時間 2-4 分鐘，預測時間 < 1 秒</li>
                             <li>原生處理缺失值：XGBoost 自動學習最佳分割方向，不需填充虛假數據</li>
                             <li>提供預測不確定性量化</li>
                         </ul>

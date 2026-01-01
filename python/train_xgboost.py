@@ -136,17 +136,19 @@ def load_data_from_csv(csv_path):
         print(f"無法從 CSV 加載數據: {e}")
         return None
 
-def time_series_cross_validate(df, feature_cols, n_splits=5):
+def time_series_cross_validate(df, feature_cols, n_splits=3):
     """
-    時間序列交叉驗證 (Walk-Forward Validation)
+    時間序列交叉驗證 (Walk-Forward Validation) - 優化版 v2.9.21
     
     確保模型在訓練期間永遠不會看到未來數據：
     - 每個 fold 只使用過去的數據進行訓練
     - 驗證集總是在訓練集之後的時間段
     - 最終測試集完全獨立，從未參與任何訓練過程
+    
+    優化：使用 3-fold 和 100 棵樹（而非 5-fold 和 300 棵樹）以加速訓練
     """
     print(f"\n{'='*60}")
-    print("🔄 時間序列交叉驗證 (Walk-Forward Validation)")
+    print("🔄 時間序列交叉驗證 (Walk-Forward Validation) - 快速模式")
     print(f"{'='*60}")
     print(f"⚠️ 重要：確保模型無法訪問未來數據！")
     print(f"📊 交叉驗證折數: {n_splits}")
@@ -181,16 +183,17 @@ def time_series_cross_validate(df, feature_cols, n_splits=5):
         print(f"   驗證集: {len(val_idx)} 筆 ({val_dates[0]} 至 {val_dates[-1]})")
         print(f"   ✅ 時間順序驗證通過：驗證集開始日期 > 訓練集結束日期")
         
-        # 創建模型（不使用 early stopping 以避免需要額外驗證集）
+        # 創建模型 - 使用較少樹數加速 CV（v2.9.21 優化）
         model = xgb.XGBRegressor(
-            n_estimators=300,
+            n_estimators=100,  # 減少到 100 棵樹（原 300）
             max_depth=6,
-            learning_rate=0.05,
+            learning_rate=0.1,  # 提高學習率以補償較少樹數
             subsample=0.8,
             colsample_bytree=0.8,
             objective='reg:squarederror',
             alpha=1.0,
             reg_lambda=1.0,
+            tree_method='hist',  # 使用 histogram 加速
             random_state=42,
             n_jobs=-1
         )
@@ -292,14 +295,14 @@ def train_xgboost_model(train_data, test_data, feature_cols):
     class XGBoostModel(xgb.XGBRegressor):
         _estimator_type = "regressor"
     
-    # 根據算法規格文件配置
+    # 根據算法規格文件配置 - v2.9.21 優化版
     print(f"\n{'='*60}")
-    print("⚙️ XGBoost 超參數配置")
+    print("⚙️ XGBoost 超參數配置 (v2.9.21 優化)")
     print(f"{'='*60}")
     params = {
-        'n_estimators': 500,
+        'n_estimators': 300,  # 減少到 300（原 500），配合更激進的 early stopping
         'max_depth': 6,
-        'learning_rate': 0.05,
+        'learning_rate': 0.08,  # 提高學習率（原 0.05）以補償較少樹數
         'subsample': 0.8,
         'colsample_bytree': 0.8,
         'colsample_bylevel': 0.8,
@@ -315,12 +318,12 @@ def train_xgboost_model(train_data, test_data, feature_cols):
     print(f"   🔧 reg_lambda (L2正則化): {params['reg_lambda']}")
     print(f"   🎯 objective: reg:squarederror")
     print(f"   📊 eval_metric: mae")
-    print(f"   ⏹️ early_stopping_rounds: 50")
+    print(f"   ⏹️ early_stopping_rounds: 30 (更激進)")
     
     model = XGBoostModel(
-        n_estimators=500,
+        n_estimators=300,  # 減少到 300
         max_depth=6,
-        learning_rate=0.05,
+        learning_rate=0.08,  # 提高學習率
         subsample=0.8,
         colsample_bytree=0.8,
         colsample_bylevel=0.8,
@@ -329,7 +332,7 @@ def train_xgboost_model(train_data, test_data, feature_cols):
         reg_lambda=1.0,
         tree_method='hist',
         grow_policy='depthwise',
-        early_stopping_rounds=50,
+        early_stopping_rounds=30,  # 更激進的 early stopping（原 50）
         eval_metric='mae',
         random_state=42,
         n_jobs=-1
@@ -353,7 +356,7 @@ def train_xgboost_model(train_data, test_data, feature_cols):
             if (epoch + 1) % 10 == 0 or epoch == 0:
                 elapsed = time.time() - self.start_time
                 val_mae = evals_log['validation_0']['mae'][-1] if 'validation_0' in evals_log else 0
-                progress = min(100, int((epoch + 1) / 500 * 100))
+                progress = min(100, int((epoch + 1) / 300 * 100))  # 更新為 300 棵樹
                 bar_len = 20
                 filled = int(bar_len * progress / 100)
                 bar = '█' * filled + '░' * (bar_len - filled)
@@ -370,7 +373,7 @@ def train_xgboost_model(train_data, test_data, feature_cols):
     )
     
     fit_time = time.time() - fit_start
-    best_iter = model.best_iteration + 1 if hasattr(model, 'best_iteration') and model.best_iteration is not None else model.n_estimators
+    best_iter = model.best_iteration + 1 if hasattr(model, 'best_iteration') and model.best_iteration is not None else 300
     
     print(f"\n✅ 訓練完成!")
     print(f"   ⏱️ 總耗時: {fit_time:.2f} 秒")
@@ -561,8 +564,8 @@ def main():
     print("🎯 階段 4/4: 模型訓練與評估")
     print(f"{'='*60}")
     
-    # 時間序列交叉驗證（確保無數據洩漏）
-    cv_scores = time_series_cross_validate(train_data, feature_cols, n_splits=5)
+    # 時間序列交叉驗證（確保無數據洩漏）- v2.9.21 優化為 3-fold
+    cv_scores = time_series_cross_validate(train_data, feature_cols, n_splits=3)
     
     # 訓練最終模型
     model, metrics = train_xgboost_model(train_data, test_data, feature_cols)
