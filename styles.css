@@ -1341,6 +1341,10 @@ section h2 {
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
+    position: relative;
+    z-index: 1;
+    overflow: visible;
+    margin-bottom: clamp(24px, 4vw, 48px);
 }
 
 .prediction-grid {
@@ -1348,19 +1352,20 @@ section h2 {
     max-width: 100%;
     display: grid;
     grid-template-columns: 1fr;
-    gap: clamp(12px, 2vw, 20px);
+    gap: clamp(16px, 3vw, 24px);
     box-sizing: border-box;
-    align-items: stretch;
+    align-items: start;
 }
 
-/* 平板及以上：雙列佈局，卡片填滿 */
+/* 平板及以上：雙列佈局 */
 @media (min-width: 768px) {
     .prediction-grid {
         grid-template-columns: 1fr 1fr;
+        align-items: stretch;
     }
 }
 
-/* 大屏幕：主卡片稍大 */
+/* 大屏幕 */
 @media (min-width: 1024px) {
     .prediction-grid {
         grid-template-columns: 1.2fr 1fr;
@@ -1371,7 +1376,7 @@ section h2 {
 @media (min-width: 1400px) {
     .prediction-grid {
         grid-template-columns: 1.3fr 1fr;
-        gap: clamp(16px, 2vw, 28px);
+        gap: clamp(20px, 3vw, 32px);
     }
 }
 
@@ -1381,8 +1386,7 @@ section h2 {
 .prediction-card {
     width: 100%;
     max-width: 100%;
-    min-height: 0;
-    height: 100%;
+    min-height: auto;
     background: var(--bg-glass);
     backdrop-filter: var(--blur-sm);
     -webkit-backdrop-filter: var(--blur-sm);
@@ -1392,10 +1396,17 @@ section h2 {
     box-shadow: var(--shadow-sm), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
     transition: all var(--transition-smooth);
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
+}
+
+/* 平板以上：卡片等高 */
+@media (min-width: 768px) {
+    .prediction-grid .prediction-card {
+        height: 100%;
+    }
 }
 
 .prediction-card::before {
@@ -1790,7 +1801,7 @@ section h2 {
     max-width: 100%;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: clamp(12px, 2vw, 20px);
+    gap: clamp(12px, 2vw, 16px);
     box-sizing: border-box;
     flex: 1;
     align-content: center;
@@ -1800,25 +1811,24 @@ section h2 {
 .stats-card {
     display: flex;
     flex-direction: column;
-    height: 100%;
-    justify-content: space-between;
+    justify-content: flex-start;
 }
 
 .stats-card .card-header {
     flex-shrink: 0;
-    margin-bottom: var(--space-lg);
+    margin-bottom: var(--space-md);
 }
 
 .stat-item {
     text-align: center;
-    padding: clamp(16px, 2vw, 24px);
+    padding: clamp(12px, 2vw, 20px);
     background: var(--bg-primary);
     border-radius: var(--radius-md);
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    min-height: 90px;
+    min-height: 70px;
     transition: var(--transition-fast);
     position: relative;
     overflow: hidden;
