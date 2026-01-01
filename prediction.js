@@ -7366,7 +7366,7 @@ function initAlgorithmContent() {
         <div style="grid-column: 1 / -1; margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: 1px solid var(--border-subtle);">
             <h4 style="color: var(--accent-primary); font-size: 1.1rem; font-weight: 700; margin-bottom: var(--space-md);">📊 預測平滑算法（9種方法）</h4>
             <p style="color: var(--text-secondary); line-height: 1.8; margin-bottom: var(--space-lg);">
-                系統每日產生 <strong style="color: var(--text-primary);">48 次預測</strong>（每 30 分鐘一次），使用 9 種平滑方法將這些預測整合為一個最終值。
+                系統<strong style="color: var(--accent-primary);">自動</strong>每日產生 <strong style="color: var(--text-primary);">48 次預測</strong>（每 30 分鐘一次，伺服器端 XGBoost 自動執行），使用 9 種平滑方法將這些預測整合為一個最終值。
                 根據預測穩定性（變異係數 CV）自動選擇最佳方法：
             </p>
             
