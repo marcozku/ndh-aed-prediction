@@ -409,6 +409,63 @@ const apiHandlers = {
         sendJson(res, { success: true, data });
     },
 
+    // Get saved future predictions (7 days from tomorrow)
+    'GET /api/future-predictions': async (req, res) => {
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
+        
+        try {
+            // 獲取香港時間的今天日期
+            const now = new Date();
+            const hkOffset = 8 * 60 * 60 * 1000; // UTC+8
+            const hkNow = new Date(now.getTime() + hkOffset);
+            const todayStr = hkNow.toISOString().split('T')[0];
+            
+            // 計算明天的日期
+            const tomorrow = new Date(hkNow);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tomorrowStr = tomorrow.toISOString().split('T')[0];
+            
+            // 計算 7 天後的日期
+            const day7 = new Date(hkNow);
+            day7.setDate(day7.getDate() + 7);
+            const day7Str = day7.toISOString().split('T')[0];
+            
+            // 從 daily_predictions 表獲取未來 7 天的最新預測
+            const query = `
+                SELECT DISTINCT ON (target_date)
+                    target_date,
+                    predicted_count,
+                    ci80_low,
+                    ci80_high,
+                    ci95_low,
+                    ci95_high,
+                    model_version,
+                    weather_data,
+                    ai_factors,
+                    created_at
+                FROM daily_predictions
+                WHERE target_date >= $1 AND target_date <= $2
+                ORDER BY target_date, created_at DESC
+            `;
+            
+            const result = await db.pool.query(query, [tomorrowStr, day7Str]);
+            
+            console.log(`📊 未來預測查詢: ${tomorrowStr} 到 ${day7Str}, 找到 ${result.rows.length} 條記錄`);
+            
+            sendJson(res, { 
+                success: true, 
+                data: result.rows,
+                dateRange: {
+                    start: tomorrowStr,
+                    end: day7Str
+                }
+            });
+        } catch (error) {
+            console.error('❌ 獲取未來預測失敗:', error);
+            sendJson(res, { error: error.message }, 500);
+        }
+    },
+
     // Get accuracy statistics
     'GET /api/accuracy': async (req, res) => {
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);

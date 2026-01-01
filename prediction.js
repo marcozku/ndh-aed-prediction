@@ -1679,7 +1679,7 @@ async function refreshAllChartsAfterDataUpdate() {
         // 6. 更新預測 UI（包括今日預測、7日預測等）
         if (typeof updateUI === 'function') {
             console.log('🔮 更新預測 UI...');
-            updateUI(predictor);
+            await updateUI(predictor);
         }
         
         // 7. 刷新未來30天預測圖、星期效應圖、月份分佈圖
@@ -4828,7 +4828,7 @@ function updateStatsCard(predictor) {
 
 // UI 更新
 // ============================================
-function updateUI(predictor) {
+async function updateUI(predictor) {
     // 獲取今天日期 (香港時間 HKT UTC+8)
     const hk = getHKTime();
     const today = hk.dateStr;
@@ -4915,24 +4915,70 @@ function updateUI(predictor) {
     todayDate.setUTCDate(todayDate.getUTCDate() + 1);
     const tomorrow = `${todayDate.getUTCFullYear()}-${String(todayDate.getUTCMonth() + 1).padStart(2, '0')}-${String(todayDate.getUTCDate()).padStart(2, '0')}`;
     
-    const forecasts = predictor.predictRange(tomorrow, 7, weatherForecastData, aiFactors);
+    // 優先從數據庫讀取已保存的 7 天預測
+    let forecasts;
+    let usedSavedPredictions = false;
+    
+    try {
+        const response = await fetch('/api/future-predictions');
+        const result = await response.json();
+        
+        if (result.success && result.data && result.data.length >= 7) {
+            // 將數據庫格式轉換為前端格式
+            forecasts = result.data.slice(0, 7).map(row => {
+                const dateStr = row.target_date.split('T')[0];
+                const d = new Date(dateStr);
+                const dow = d.getDay();
+                const month = d.getMonth() + 1;
+                const dayNames = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+                
+                return {
+                    date: dateStr,
+                    predicted: row.predicted_count,
+                    dayName: dayNames[dow],
+                    isWeekend: dow === 0 || dow === 6,
+                    isHoliday: false, // TODO: 從數據庫獲取假期信息
+                    holidayName: '',
+                    isFluSeason: month >= 12 || month <= 3,
+                    ci80: {
+                        lower: row.ci80_low || row.predicted_count - 15,
+                        upper: row.ci80_high || row.predicted_count + 15
+                    },
+                    ci95: {
+                        lower: row.ci95_low || row.predicted_count - 25,
+                        upper: row.ci95_high || row.predicted_count + 25
+                    },
+                    savedAt: row.created_at
+                };
+            });
+            usedSavedPredictions = true;
+            console.log('✅ 使用數據庫保存的 7 天預測，確保數據穩定');
+        }
+    } catch (error) {
+        console.warn('⚠️ 無法從數據庫讀取預測，將重新計算:', error);
+    }
+    
+    // 如果數據庫沒有足夠的預測數據，重新計算
+    if (!usedSavedPredictions) {
+        forecasts = predictor.predictRange(tomorrow, 7, weatherForecastData, aiFactors);
+        console.log('📊 重新計算 7 天預測（數據庫無足夠數據）');
+        
+        // 保存新計算的預測到數據庫
+        forecasts.forEach((forecast, index) => {
+            const forecastWeather = weatherForecastData?.[forecast.date] || null;
+            const forecastAIFactor = aiFactors?.[forecast.date] || null;
+            
+            saveDailyPrediction(forecast, forecastWeather, forecastAIFactor).catch(err => {
+                console.error(`❌ 保存 ${forecast.date} 的預測失敗:`, err);
+            });
+        });
+    }
     
     // 緩存 7 天預測結果，確保 30 天趨勢圖使用相同數據
     cached7DayForecasts = forecasts.slice(); // 複製陣列
     console.log('📊 已緩存 7 天預測結果，確保趨勢圖數據一致');
     
     updateSectionProgress('forecast', 50);
-    
-    // 保存未來7天的預測到數據庫（每次更新都保存）
-    forecasts.forEach((forecast, index) => {
-        // 獲取該日期的天氣數據和AI因素
-        const forecastWeather = weatherForecastData?.[forecast.date] || null;
-        const forecastAIFactor = aiFactors?.[forecast.date] || null;
-        
-        saveDailyPrediction(forecast, forecastWeather, forecastAIFactor).catch(err => {
-            console.error(`❌ 保存 ${forecast.date} 的預測失敗:`, err);
-        });
-    });
     
     const forecastCardsEl = document.getElementById('forecast-content');
     if (forecastCardsEl) {
@@ -6871,7 +6917,7 @@ async function refreshPredictions(predictor) {
     updateRealtimeFactors(aiAnalysisData);
     
     // 重新更新 UI
-    updateUI(predictor);
+    await updateUI(predictor);
     
     // 重新初始化圖表
     if (forecastChart) forecastChart.destroy();
@@ -6988,7 +7034,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     // 更新 UI（使用緩存的 AI 因素，快速顯示）
-    updateUI(predictor);
+    await updateUI(predictor);
     updateSectionProgress('today-prediction', 50);
     
     // 設置歷史趨勢時間範圍選擇按鈕
@@ -7016,7 +7062,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (freshAIAnalysisData && !freshAIAnalysisData.cached) {
                 // 如果有新的數據（超過時間間隔），更新顯示
                 updateRealtimeFactors(freshAIAnalysisData);
-                updateUI(predictor);
+                await updateUI(predictor);
                 // 重新初始化圖表以反映新的 AI 因素
                 if (forecastChart) forecastChart.destroy();
                 if (dowChart) dowChart.destroy();
@@ -7038,7 +7084,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const freshAIAnalysisData = await updateAIFactors(true); // 強制生成
             if (freshAIAnalysisData && (freshAIAnalysisData.factors && freshAIAnalysisData.factors.length > 0 || freshAIAnalysisData.summary)) {
                 updateRealtimeFactors(freshAIAnalysisData);
-                updateUI(predictor);
+                await updateUI(predictor);
                 if (forecastChart) forecastChart.destroy();
                 if (dowChart) dowChart.destroy();
                 if (monthChart) monthChart.destroy();
@@ -8379,7 +8425,7 @@ function initCSVUpload() {
                                     // 更新 UI 和所有圖表（包括星期效應、月份分佈等）
                                     if (typeof updateUI === 'function') {
                                         const predictor = new NDHAttendancePredictor();
-                                        updateUI(predictor);
+                                        await updateUI(predictor);
                                     }
                                 }
                                 showStatus('✅ 所有圖表已更新', 'success');
@@ -8482,7 +8528,7 @@ async function forceRefreshAI() {
             console.warn('⚠️ 更新 UI 失敗，嘗試基本更新:', uiError);
             try {
                 const predictor = new NDHAttendancePredictor();
-                updateUI(predictor);
+                await updateUI(predictor);
             } catch (e) {}
         }
         
