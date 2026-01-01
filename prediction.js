@@ -1674,7 +1674,25 @@ async function refreshAllChartsAfterDataUpdate() {
             }, 100);
         }
         
-        console.log('✅ 所有圖表刷新完成');
+        // 9. 刷新模型置信度儀表盤（強制刷新，清除緩存）
+        if (window.UIEnhancements && window.UIEnhancements.ConfidenceDashboard) {
+            console.log('📊 刷新置信度儀表盤...');
+            window.UIEnhancements.ConfidenceDashboard.invalidateCache();
+            await window.UIEnhancements.ConfidenceDashboard.update(true);
+        }
+        
+        // 10. 刷新統計摘要（歷史統計卡片）
+        if (predictor && typeof updateStatsCard === 'function') {
+            console.log('📈 刷新歷史統計...');
+            updateStatsCard(predictor);
+        }
+        
+        // 11. 更新最後更新時間
+        if (window.UIEnhancements && window.UIEnhancements.UpdateTimeManager) {
+            window.UIEnhancements.UpdateTimeManager.update();
+        }
+        
+        console.log('✅ 所有圖表和數據刷新完成');
         return true;
     } catch (error) {
         console.error('❌ 刷新圖表失敗:', error);
@@ -4762,6 +4780,30 @@ function formatSmoothingMethod(method) {
     return methodNames[method] || method;
 }
 
+// 統計摘要卡片更新
+// ============================================
+function updateStatsCard(predictor) {
+    if (!predictor) return;
+    
+    try {
+        const stats = predictor.getStatistics();
+        
+        const meanEl = document.getElementById('stat-mean');
+        const maxEl = document.getElementById('stat-max');
+        const minEl = document.getElementById('stat-min');
+        const stdEl = document.getElementById('stat-std');
+        
+        if (meanEl) meanEl.textContent = Math.round(stats.globalMean);
+        if (maxEl) maxEl.textContent = stats.max.value;
+        if (minEl) minEl.textContent = stats.min.value;
+        if (stdEl) stdEl.textContent = stats.stdDev.toFixed(1);
+        
+        console.log(`📊 統計摘要已更新: 均值=${Math.round(stats.globalMean)}, 最高=${stats.max.value}, 最低=${stats.min.value}`);
+    } catch (e) {
+        console.warn('統計摘要更新失敗:', e);
+    }
+}
+
 // UI 更新
 // ============================================
 function updateUI(predictor) {
@@ -4840,11 +4882,7 @@ function updateUI(predictor) {
     updateSectionProgress('today-prediction', 80);
     
     // 統計摘要
-    const stats = predictor.getStatistics();
-    document.getElementById('stat-mean').textContent = Math.round(stats.globalMean);
-    document.getElementById('stat-max').textContent = stats.max.value;
-    document.getElementById('stat-min').textContent = stats.min.value;
-    document.getElementById('stat-std').textContent = stats.stdDev.toFixed(1);
+    updateStatsCard(predictor);
     
     // 未來7天預測（從明天開始，不包含今天）
     updateSectionProgress('forecast', 10);

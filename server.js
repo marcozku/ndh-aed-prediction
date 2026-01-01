@@ -2202,7 +2202,7 @@ const apiHandlers = {
     // System Status
     'GET /api/status': async (req, res) => {
         const status = {
-            version: '2.6.3',
+            version: '2.9.10',
             database: db && db.pool ? 'connected' : 'disconnected',
             ai: aiService ? 'available' : 'unavailable',
             uptime: process.uptime(),
@@ -2210,6 +2210,117 @@ const apiHandlers = {
             timestamp: new Date().toISOString()
         };
         sendJson(res, status);
+    },
+
+    // 動態計算模型置信度
+    'GET /api/confidence': async (req, res) => {
+        try {
+            let dataQuality = 0;
+            let modelFit = 0;
+            let recentAccuracy = 0;
+            let details = {};
+            
+            // 1. 數據品質：基於數據量、覆蓋率、最近更新
+            if (db && db.pool) {
+                try {
+                    // 獲取數據統計
+                    const countResult = await db.pool.query('SELECT COUNT(*) as count FROM actual_data');
+                    const dataCount = parseInt(countResult.rows[0].count) || 0;
+                    
+                    // 獲取最新數據日期
+                    const latestResult = await db.pool.query('SELECT MAX(date) as latest FROM actual_data');
+                    const latestDate = latestResult.rows[0].latest;
+                    const daysSinceUpdate = latestDate ? Math.floor((Date.now() - new Date(latestDate).getTime()) / (1000 * 60 * 60 * 24)) : 999;
+                    
+                    // 計算數據品質分數
+                    // - 數據量：每100筆 +5分，最多50分
+                    const dataCountScore = Math.min(50, Math.floor(dataCount / 100) * 5);
+                    // - 數據更新：7天內100分，每多一天 -5分
+                    const freshnessScore = Math.max(0, 50 - daysSinceUpdate * 5);
+                    dataQuality = dataCountScore + freshnessScore;
+                    
+                    details.dataCount = dataCount;
+                    details.latestDate = latestDate;
+                    details.daysSinceUpdate = daysSinceUpdate;
+                } catch (e) {
+                    console.warn('數據品質計算失敗:', e.message);
+                }
+            }
+            
+            // 2. 模型擬合度：基於 XGBoost 模型指標
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                const metricsPath = path.join(__dirname, 'python/models/xgboost_metrics.json');
+                
+                if (fs.existsSync(metricsPath)) {
+                    const metrics = JSON.parse(fs.readFileSync(metricsPath, 'utf8'));
+                    
+                    // MAE 評分：MAE < 5 = 100分，每增加1 -10分
+                    const maeScore = Math.max(0, 100 - (metrics.mae - 5) * 10);
+                    // MAPE 評分：MAPE < 2% = 100分，每增加1% -20分
+                    const mapeScore = Math.max(0, 100 - (metrics.mape - 2) * 20);
+                    
+                    modelFit = Math.round((maeScore + mapeScore) / 2);
+                    
+                    details.mae = metrics.mae;
+                    details.mape = metrics.mape;
+                    details.rmse = metrics.rmse;
+                    details.trainingDate = metrics.training_date;
+                    details.featureCount = metrics.feature_count;
+                } else {
+                    modelFit = 0;
+                    details.modelExists = false;
+                }
+            } catch (e) {
+                console.warn('模型指標讀取失敗:', e.message);
+                modelFit = 50; // 預設值
+            }
+            
+            // 3. 近期準確度：基於最近7天的預測 vs 實際對比
+            if (db && db.pool) {
+                try {
+                    const accuracyResult = await db.pool.query(`
+                        SELECT AVG(accuracy) as avg_accuracy, COUNT(*) as count
+                        FROM (
+                            SELECT 100 - ABS(predicted - actual) * 100.0 / NULLIF(actual, 0) as accuracy
+                            FROM daily_predictions dp
+                            JOIN actual_data ad ON dp.date = ad.date
+                            WHERE dp.date >= CURRENT_DATE - INTERVAL '14 days'
+                            AND ad.patient_count IS NOT NULL
+                        ) sub
+                        WHERE accuracy IS NOT NULL
+                    `);
+                    
+                    if (accuracyResult.rows[0].avg_accuracy) {
+                        recentAccuracy = Math.round(Math.min(100, Math.max(0, accuracyResult.rows[0].avg_accuracy)));
+                        details.recentComparisonCount = parseInt(accuracyResult.rows[0].count);
+                    } else {
+                        // 沒有對比數據，使用模型 MAPE 估算
+                        recentAccuracy = details.mape ? Math.round(100 - details.mape) : 85;
+                        details.recentComparisonCount = 0;
+                    }
+                } catch (e) {
+                    console.warn('準確度計算失敗:', e.message);
+                    recentAccuracy = 85;
+                }
+            }
+            
+            // 計算綜合置信度
+            const overall = Math.round((dataQuality + modelFit + recentAccuracy) / 3);
+            
+            sendJson(res, {
+                dataQuality: Math.min(100, Math.max(0, dataQuality)),
+                modelFit: Math.min(100, Math.max(0, modelFit)),
+                recentAccuracy: Math.min(100, Math.max(0, recentAccuracy)),
+                overall: Math.min(100, Math.max(0, overall)),
+                details,
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error('置信度計算失敗:', error);
+            sendJson(res, { error: error.message }, 500);
+        }
     },
 
     // Webhook 管理

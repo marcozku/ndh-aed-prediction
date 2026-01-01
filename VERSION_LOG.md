@@ -1,5 +1,43 @@
 # 版本更新日誌
 
+## v2.9.11 - 2026-01-02 01:11 HKT
+
+### 📊 動態模型置信度計算 + 自動刷新
+
+**模型置信度計算方法**：
+
+1. **數據品質 (dataQuality)**：
+   - 數據量分數：每 100 筆 +5 分，最多 50 分
+   - 數據新鮮度：7 天內 50 分，每多一天 -5 分
+   - 公式：`dataQuality = dataCountScore + freshnessScore`
+
+2. **模型擬合度 (modelFit)**：
+   - MAE 分數：MAE < 5 = 100 分，每增加 1 人 -10 分
+   - MAPE 分數：MAPE < 2% = 100 分，每增加 1% -20 分
+   - 公式：`modelFit = (maeScore + mapeScore) / 2`
+
+3. **近期準確度 (recentAccuracy)**：
+   - 從 `daily_predictions` + `actual_data` 計算最近 14 天準確度
+   - 公式：`accuracy = 100 - |predicted - actual| / actual * 100`
+
+4. **綜合置信度 (overall)**：
+   - 公式：`overall = (dataQuality + modelFit + recentAccuracy) / 3`
+
+**自動刷新機制**：
+- 新增 `/api/confidence` API 端點（動態計算）
+- `refreshAllChartsAfterDataUpdate()` 現在會刷新：
+  - 置信度儀表盤
+  - 歷史統計卡片
+  - 最後更新時間
+- `window.UIEnhancements` 暴露模組供全局訪問
+
+**修改的文件**：
+- `server.js` - 新增 `/api/confidence` API
+- `modules/ui-enhancements.js` - 動態置信度計算 + window 暴露
+- `prediction.js` - 新增 `updateStatsCard()` + 完整刷新
+
+---
+
 ## v2.9.10 - 2026-01-02 01:05 HKT
 
 ### 📱 卡片填滿屏幕修復

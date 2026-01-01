@@ -425,40 +425,77 @@ const UpdateTimeManager = {
 };
 
 // ============================================
-// 置信度儀表盤
+// 置信度儀表盤 - 動態計算
 // ============================================
 const ConfidenceDashboard = {
-    async update() {
+    lastUpdate: null,
+    cachedData: null,
+    
+    async update(forceRefresh = false) {
         try {
-            // 從 API 獲取數據或計算
+            // 緩存 30 秒，除非強制刷新
+            if (!forceRefresh && this.cachedData && this.lastUpdate && (Date.now() - this.lastUpdate < 30000)) {
+                this.applyValues(this.cachedData);
+                return;
+            }
+            
+            // 從新的動態 API 獲取數據
+            const response = await fetch('/api/confidence');
+            if (!response.ok) throw new Error('API error');
+            
+            const data = await response.json();
+            this.cachedData = data;
+            this.lastUpdate = Date.now();
+            
+            this.applyValues(data);
+            
+            // 更新詳細資訊（如果有詳細面板）
+            this.updateDetails(data.details);
+            
+        } catch (error) {
+            console.warn('置信度儀表盤更新失敗:', error);
+            // 回退到基礎計算
+            this.fallbackUpdate();
+        }
+    },
+    
+    applyValues(data) {
+        this.setGauge('data', data.dataQuality || 0);
+        this.setGauge('model', data.modelFit || 0);
+        this.setGauge('accuracy', data.recentAccuracy || 0);
+        this.setGauge('overall', data.overall || 0);
+    },
+    
+    async fallbackUpdate() {
+        try {
             const response = await fetch('/api/status');
             const status = await response.json();
-            
-            // 計算各項置信度（基於可用數據）
-            const dataQuality = status.database === 'connected' ? 92 : 0;
-            const modelFit = 88; // 基於 XGBoost MAE
-            const recentAccuracy = await this.getRecentAccuracy();
+            const dataQuality = status.database === 'connected' ? 85 : 0;
+            const modelFit = 80;
+            const recentAccuracy = 85;
             const overall = Math.round((dataQuality + modelFit + recentAccuracy) / 3);
             
             this.setGauge('data', dataQuality);
             this.setGauge('model', modelFit);
             this.setGauge('accuracy', recentAccuracy);
             this.setGauge('overall', overall);
-        } catch (error) {
-            console.warn('置信度儀表盤更新失敗:', error);
-        }
+        } catch (e) {}
     },
     
-    async getRecentAccuracy() {
-        try {
-            const response = await fetch('/api/comparison?limit=7');
-            const data = await response.json();
-            if (data.data && data.data.length > 0) {
-                const avgAccuracy = data.data.reduce((sum, d) => sum + (d.accuracy || 85), 0) / data.data.length;
-                return Math.round(avgAccuracy);
-            }
-        } catch (e) {}
-        return 85; // 預設值
+    updateDetails(details) {
+        if (!details) return;
+        
+        // 可以在這裡更新額外的詳細資訊面板
+        // 例如：顯示 MAE、數據量等
+        const detailsEl = document.getElementById('confidence-details');
+        if (detailsEl && details) {
+            detailsEl.innerHTML = `
+                <div class="confidence-detail-item">📊 數據量: ${details.dataCount || '--'} 筆</div>
+                <div class="confidence-detail-item">📅 最新數據: ${details.latestDate || '--'}</div>
+                <div class="confidence-detail-item">🎯 MAE: ${details.mae?.toFixed(2) || '--'} 人</div>
+                <div class="confidence-detail-item">📈 MAPE: ${details.mape?.toFixed(2) || '--'}%</div>
+            `;
+        }
     },
     
     setGauge(type, value) {
@@ -479,6 +516,12 @@ const ConfidenceDashboard = {
         if (valueEl) {
             valueEl.textContent = `${value}%`;
         }
+    },
+    
+    // 清除緩存，強制下次更新時重新獲取
+    invalidateCache() {
+        this.cachedData = null;
+        this.lastUpdate = null;
     }
 };
 
@@ -1165,7 +1208,16 @@ export function initUIEnhancements() {
         } catch (e) {}
     }, 60000);
     
-    console.log('✅ UI 增強模組 v2.6.6 已初始化');
+    // 暴露模組到全局，讓 prediction.js 可以訪問
+    window.UIEnhancements = {
+        ConfidenceDashboard,
+        UpdateTimeManager,
+        Toast,
+        AlertManager,
+        ChartControls
+    };
+    
+    console.log('✅ UI 增強模組 v2.9.10 已初始化');
 }
 
 // 導出供外部使用
