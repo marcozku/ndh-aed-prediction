@@ -1,5 +1,21 @@
 # 版本更新日誌
 
+## v2.9.55 - 2026-01-02 06:02 HKT
+
+### 🔧 XGBoost 模型加載兼容性修復
+
+**問題**：`_estimator_type` undefined 錯誤，模型版本不兼容
+
+**解決方案**：
+- 使用原生 `xgb.Booster()` 加載模型（更穩定）
+- 添加 `XGBoostWrapper` 類提供 sklearn 兼容接口
+- 雙重備援：Booster 失敗時回退到 XGBRegressor
+
+**技術改動**：
+- `python/ensemble_predict.py` - 重構 `load_xgboost_model()` 函數
+
+---
+
 ## v2.9.54 - 2026-01-02 05:56 HKT
 
 ### 🔧 資料庫欄位遷移與警告修復

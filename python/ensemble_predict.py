@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from feature_engineering import create_comprehensive_features, get_feature_columns
 
 def load_xgboost_model():
-    """加載 XGBoost 模型"""
+    """加載 XGBoost 模型（使用原生 Booster 以避免版本兼容問題）"""
     try:
         import xgboost as xgb
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,8 +21,20 @@ def load_xgboost_model():
         if not os.path.exists(model_path):
             return None, None
         
-        model = xgb.XGBRegressor()
-        model.load_model(model_path)
+        # 嘗試方法1: 使用原生 Booster（更穩定）
+        try:
+            booster = xgb.Booster()
+            booster.load_model(model_path)
+            # 包裝為類似 sklearn 接口的對象
+            model = XGBoostWrapper(booster)
+        except Exception as e1:
+            # 嘗試方法2: 使用 XGBRegressor
+            try:
+                model = xgb.XGBRegressor()
+                model.load_model(model_path)
+            except Exception as e2:
+                print(f"無法加載 XGBoost 模型 (方法1: {e1}, 方法2: {e2})")
+                return None, None
         
         features_path = os.path.join(models_dir, 'xgboost_features.json')
         with open(features_path, 'r') as f:
@@ -32,6 +44,20 @@ def load_xgboost_model():
     except Exception as e:
         print(f"無法加載 XGBoost 模型: {e}")
         return None, None
+
+
+class XGBoostWrapper:
+    """包裝 XGBoost Booster 提供類似 sklearn 的接口"""
+    def __init__(self, booster):
+        self.booster = booster
+    
+    def predict(self, X):
+        import xgboost as xgb
+        if isinstance(X, pd.DataFrame):
+            dmatrix = xgb.DMatrix(X)
+        else:
+            dmatrix = xgb.DMatrix(X)
+        return self.booster.predict(dmatrix)
 
 
 def predict_with_xgboost(model, feature_cols, features_df):
