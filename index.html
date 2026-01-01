@@ -517,7 +517,7 @@
         <footer class="app-footer" role="contentinfo">
             <p id="data-source-info" style="cursor: pointer; text-decoration: underline;" data-lang-key="footer-source">數據來源：載入中...</p>
             <p id="last-update-info" class="last-update-info"></p>
-            <p>預測模型版本 2.9.50 · 香港時間 HKT</p>
+            <p>預測模型版本 2.9.51 · 香港時間 HKT</p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2025 Marco Ma. All Rights Reserved.</p>
             <div class="footer-links">
                 <a href="/api/docs" class="footer-link" data-lang-key="footer-api">API 文檔</a>
@@ -588,30 +588,32 @@
             </div>
             <div class="methodology-content">
                 <div class="methodology-section">
-                    <h4>🎯 核心算法（v2.9.50 - Optuna 優化）</h4>
-                    <p>本系統採用 <strong>XGBoost 梯度提升樹</strong>作為主要預測模型，使用 <strong>Optuna TPE</strong> 自動超參數優化。</p>
+                    <h4>🎯 核心算法（v2.9.51 - 特徵優化版）</h4>
+                    <p>本系統採用 <strong>XGBoost 梯度提升樹</strong>作為主要預測模型，使用 <strong>Optuna TPE</strong> + <strong>特徵選擇優化</strong>。</p>
                     <div class="formula-box">
-                        <code>預測 = XGBoost(161特徵) × 實時天氣調整 × AI因素調整</code>
+                        <code>預測 = XGBoost(25特徵) × 實時天氣調整 × AI因素調整</code>
                     </div>
                     <p style="margin-top: 8px; font-size: 0.85em; color: var(--text-secondary);">
-                        模型配置：Optuna 優化參數、<strong>R² = 90.3%</strong>、EWMA 特徵佔 85% 重要性
+                        研究表明：25 精選特徵比 161 特徵更準確！<strong>MAE 4.73</strong>、<strong>R² 93.3%</strong>
                     </p>
                 </div>
                 <div class="methodology-section">
-                    <h4>📊 特徵工程（161 個特徵）</h4>
+                    <h4>📊 優化特徵集（25 個精選特徵）</h4>
                     <ul class="feature-list">
-                        <li><strong style="color: var(--accent-color);">🔥 EWMA 指數加權移動平均</strong>：EWMA7/14/30（佔 85% 重要性！）</li>
-                        <li><strong>擴展滯後特徵</strong>：Lag1-7（每天）、同星期歷史（1w-4w）</li>
-                        <li><strong>目標編碼</strong>：DayOfWeek/Month/YearMonth 歷史平均</li>
-                        <li><strong>時間特徵</strong>：星期、月份、季節、週次、循環編碼</li>
-                        <li><strong>Fourier 季節</strong>：3階年度 + 2階週內 Fourier 特徵 <em>(Prophet)</em></li>
-                        <li><strong>滾動統計</strong>：Mean/Std/Max/Min/Median (3-90天)</li>
-                        <li><strong>相對位置+變異係數</strong>：Position7/14/30、CV7/14/30</li>
-                        <li><strong>事件指標</strong>：COVID、Omicron、流感季節、抗議運動</li>
-                        <li><strong>假期特徵</strong>：香港公眾假期、農曆節日、前後日效應</li>
-                        <li><strong>天氣特徵</strong>：溫度、極端天氣標記 <em>(HKO 1988-2025)</em></li>
-                        <li><strong>AI 因子</strong>：實時新聞、事件分析、健康/政策類型</li>
+                        <li><strong style="color: var(--accent-color);">🔥 EWMA7</strong>：指數加權移動平均 7 天（佔 <strong>45%</strong> 重要性！）</li>
+                        <li><strong style="color: var(--accent-color);">🔥 EWMA14</strong>：指數加權移動平均 14 天（佔 <strong>45%</strong> 重要性！）</li>
+                        <li><strong>Daily_Change</strong>：每日變化量</li>
+                        <li><strong>Monthly_Change</strong>：月度變化量</li>
+                        <li><strong>Attendance_Lag1</strong>：昨日人數</li>
+                        <li><strong>Day_of_Week</strong>：星期幾</li>
+                        <li><strong>滾動統計</strong>：Rolling7/14、Position7/14/30</li>
+                        <li><strong>目標編碼</strong>：DayOfWeek_Target_Mean</li>
+                        <li><strong>假期因子</strong>：Holiday_Factor</li>
+                        <li><strong>流感季節</strong>：Is_Winter_Flu_Season</li>
                     </ul>
+                    <p style="margin-top: 8px; font-size: 0.85em; color: var(--text-secondary);">
+                        💡 研究發現：EWMA7+EWMA14 兩個特徵佔 90% 重要性，其餘 23 個特徵佔 10%
+                    </p>
                 </div>
                 <div class="methodology-section">
                     <h4>⚖️ 樣本權重（研究基礎）</h4>
@@ -622,11 +624,11 @@
                     </ul>
                 </div>
                 <div class="methodology-section">
-                    <h4>📈 模型性能（v2.9.50）</h4>
+                    <h4>📈 模型性能（v2.9.51）</h4>
                     <ul>
-                        <li><strong style="color: var(--accent-color);">R²</strong>：<span id="methodology-r2">90.3</span>%（模型擬合度）</li>
-                        <li><strong>MAE</strong>：<span id="methodology-mae">--</span> 人</li>
-                        <li><strong>MAPE</strong>：<span id="methodology-mape">--</span>%</li>
+                        <li><strong style="color: var(--accent-color);">R²</strong>：<span id="methodology-r2">93.3</span>%（模型擬合度）</li>
+                        <li><strong>MAE</strong>：<span id="methodology-mae">4.73</span> 人</li>
+                        <li><strong>MAPE</strong>：<span id="methodology-mape">1.87</span>%</li>
                         <li><strong>80% CI</strong>：±1.5σ · <strong>95% CI</strong>：±2.5σ</li>
                     </ul>
                     <p style="margin-top: 8px; font-size: 0.85em; color: var(--text-secondary);">

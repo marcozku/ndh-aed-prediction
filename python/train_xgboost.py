@@ -1,7 +1,7 @@
 """
-XGBoost 模型訓練腳本 v2.9.30
+XGBoost 模型訓練腳本 v2.9.51
 根據 AI-AED-Algorithm-Specification.txt Section 6.1
-新增: Optuna 超參數優化、擴展特徵工程、R² 指標
+新增: Optuna 超參數優化、特徵選擇優化（25特徵）、R² 指標
 """
 import pandas as pd
 import numpy as np
@@ -669,7 +669,7 @@ def main():
     
     parser = argparse.ArgumentParser(description='Train XGBoost model')
     parser.add_argument('--csv', type=str, help='Path to CSV file with historical data')
-    parser.add_argument('--optimized', action='store_true', help='Use optimized feature set (25 features instead of 161)')
+    parser.add_argument('--full', action='store_true', help='Use full feature set (161 features) instead of optimized (25)')
     args = parser.parse_args()
     
     # 優化特徵集（基於特徵重要性分析）
@@ -831,22 +831,22 @@ def main():
     print(f"   └─ 測試集: {len(test_data)} 筆")
     print(f"         日期: {test_data['Date'].min()} → {test_data['Date'].max()}")
     
-    # 獲取特徵列
-    use_optimized = args.optimized or os.environ.get('USE_OPTIMIZED_FEATURES', '0') == '1'
+    # 獲取特徵列 - 默認使用優化特徵集（研究表明 25 特徵效果最佳）
+    use_full = args.full or os.environ.get('USE_FULL_FEATURES', '0') == '1'
     
-    if use_optimized:
-        print(f"\n   🚀 使用優化特徵集模式（研究表明 25 特徵效果最佳）")
-        feature_cols = [col for col in OPTIMAL_FEATURES if col in df.columns]
-        print(f"   📐 使用 {len(feature_cols)} 個精選特徵進行訓練")
-    else:
+    if use_full:
+        print(f"\n   📊 使用完整特徵集模式（161 特徵）")
         feature_cols = get_feature_columns()
-        # 只保留實際存在的列
         original_feature_count = len(feature_cols)
         feature_cols = [col for col in feature_cols if col in df.columns]
         if len(feature_cols) < original_feature_count:
-            print(f"   ⚠️ {original_feature_count - len(feature_cols)} 個預期特徵不存在（可能是首次訓練）")
+            print(f"   ⚠️ {original_feature_count - len(feature_cols)} 個預期特徵不存在")
         print(f"   📐 使用 {len(feature_cols)} 個特徵進行訓練")
-        print(f"   💡 提示：使用 --optimized 參數可啟用優化特徵集（更快更準）")
+    else:
+        print(f"\n   🚀 使用優化特徵集（研究表明 25 特徵效果最佳）")
+        print(f"   📊 核心特徵: EWMA7 佔 87.87% 重要性")
+        feature_cols = [col for col in OPTIMAL_FEATURES if col in df.columns]
+        print(f"   📐 使用 {len(feature_cols)} 個精選特徵進行訓練")
     
     # ============ 階段 4: 模型訓練 ============
     print(f"\n{'='*60}")
@@ -912,7 +912,7 @@ def main():
         'cv_mape_mean': cv_scores['cv_mape_mean'],
         'cv_mape_std': cv_scores['cv_mape_std'],
         'time_series_validation': True,  # 標記使用了正確的時間序列驗證
-        'version': '2.9.50',
+        'version': '2.9.51',
         'optuna_optimized': metrics.get('optuna_optimized', False)
     }
     

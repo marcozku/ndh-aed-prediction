@@ -7751,7 +7751,7 @@ function initAlgorithmContent() {
     
     algorithmContentEl.innerHTML = `
         <div class="algorithm-formula" style="margin-bottom: var(--space-xl);">
-            <h4>核心預測算法（v2.9.50 - Optuna 優化 + EWMA 特徵）</h4>
+            <h4>核心預測算法（v2.9.51 - 特徵選擇優化版）</h4>
             <div style="background: var(--bg-secondary); padding: var(--space-lg); border-radius: var(--radius-md); margin-top: var(--space-md); margin-bottom: var(--space-lg);">
                 <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">機器學習模型：XGBoost（極端梯度提升）</h5>
                 <div style="padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.9rem; line-height: 1.8; color: var(--text-secondary);">
@@ -7759,7 +7759,7 @@ function initAlgorithmContent() {
                         本系統使用 <strong style="color: var(--text-primary);">XGBoost（極端梯度提升）</strong> 機器學習模型進行預測，基於最新學術研究優化。
                     </p>
                     <div style="margin-top: var(--space-md);">
-                        <strong style="color: var(--text-primary);">v2.9.50 Optuna 優化配置（R² 90.3%）：</strong>
+                        <strong style="color: var(--text-primary);">v2.9.51 Optuna 優化配置（R² 93.3%）：</strong>
                         <ul style="margin-top: var(--space-xs); padding-left: var(--space-lg);">
                             <li><strong>n_estimators</strong>：500 棵樹（增強模型能力）</li>
                             <li><strong>max_depth</strong>：8（捕捉複雜交互）</li>
@@ -7791,7 +7791,7 @@ function initAlgorithmContent() {
                         </ul>
                     </div>
                     <div style="margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border-color);">
-                        <strong style="color: var(--text-primary);">特徵工程（161 個特徵 v2.9.50）：</strong>
+                        <strong style="color: var(--text-primary);">優化特徵集（25 個精選特徵 v2.9.51）：</strong>
                         <ul style="margin-top: var(--space-xs); padding-left: var(--space-lg); font-size: 0.85rem;">
                             <li><strong>🔥 EWMA 指數加權移動平均</strong>（3個）：EWMA7, EWMA14, EWMA30 <em style="color: var(--accent-color);">（佔 85% 特徵重要性！）</em></li>
                             <li><strong>時間特徵</strong>（8個）：年、月、星期、季度、一年中的第幾天等</li>
@@ -7915,7 +7915,7 @@ function initAlgorithmContent() {
         </div>
         
         <div style="grid-column: 1 / -1; margin-top: var(--space-lg);">
-            <h4 style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600; margin-bottom: var(--space-md);">算法特點（v2.9.50）</h4>
+            <h4 style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600; margin-bottom: var(--space-md);">算法特點（v2.9.51）</h4>
             <ul style="color: var(--text-primary); line-height: 1.8; padding-left: var(--space-lg);">
                 <li><strong>XGBoost 機器學習模型</strong>：500 棵樹、深度 8、研究基礎超參數（BMC EM 2025）</li>
                 <li><strong>161 個特徵工程</strong>：EWMA、時間、Fourier 季節、擴展滯後、目標編碼、滾動統計、事件、假期、天氣、AI 因子</li>
@@ -8104,7 +8104,7 @@ function initAlgorithmContent() {
                     <strong>Rolling7（7天移動平均）</strong>：係數約 0.12-0.16，捕捉短期趨勢（BMC Medical Informatics，2024）
                 </p>
                 
-                <p style="margin-bottom: var(--space-sm);"><strong>9. 算法組件研究基礎（v2.9.50）</strong></p>
+                <p style="margin-bottom: var(--space-sm);"><strong>9. 算法組件研究基礎（v2.9.51）</strong></p>
                 <ul style="margin-left: var(--space-md); color: var(--text-secondary); margin-bottom: var(--space-md);">
                     <li><strong>XGBoost 模型</strong>：基於法國醫院研究（BMC EM 2025），500 棵樹、深度 8，MAE 目標 < 2.5 病人</li>
                     <li><strong>特徵工程（99 個）</strong>：時間、Fourier 季節、滯後、滾動統計、事件、假期、天氣、AI 因子（BMC MIDM 2024）</li>

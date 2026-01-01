@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.50';
+const MODEL_VERSION = '2.9.51';
 
 // ============================================
 // HKT 時間工具函數
@@ -2513,7 +2513,7 @@ const apiHandlers = {
     // System Status
     'GET /api/status': async (req, res) => {
         const status = {
-            version: '2.9.50',
+            version: '2.9.51',
             database: db && db.pool ? 'connected' : 'disconnected',
             ai: aiService ? 'available' : 'unavailable',
             uptime: process.uptime(),
@@ -2599,7 +2599,7 @@ const apiHandlers = {
                     const maeScore = Math.max(0, Math.min(100, 100 - (metrics.mae - 5) * 10));
                     // MAPE 評分：MAPE < 2% = 100分，每增加1% -20分
                     const mapeScore = Math.max(0, Math.min(100, 100 - (metrics.mape - 2) * 20));
-                    // R² 評分：直接使用 R² * 100（v2.9.50 新增）
+                    // R² 評分：直接使用 R² * 100（v2.9.51 新增）
                     const r2Score = metrics.r2 ? Math.max(0, Math.min(100, metrics.r2 * 100)) : null;
                     
                     // 綜合評分：如果有 R² 則使用加權平均 (MAE 30%, MAPE 30%, R² 40%)

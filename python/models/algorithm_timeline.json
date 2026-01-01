@@ -69,7 +69,30 @@
       "research": "Optuna (Akiba et al., 2019)",
       "key_features": ["EWMA14 (48%)", "EWMA7 (33%)", "EWMA30 (4%)"],
       "improvement": "R² 從 59% 提升到 90.3%"
+    },
+    {
+      "version": "2.9.51",
+      "date": "2026-01-02",
+      "description": "特徵選擇優化 - 少即是多",
+      "changes": [
+        "特徵數從 161 優化到 25 個精選特徵",
+        "EWMA7+EWMA14 佔 90% 重要性",
+        "移除冗餘特徵，提升泛化能力",
+        "訓練速度提升 85%",
+        "默認使用優化特徵集"
+      ],
+      "metrics": {
+        "mae": 4.73,
+        "mape": 1.87,
+        "rmse": 6.84,
+        "r2": 0.933,
+        "adj_r2": 0.930,
+        "feature_count": 25
+      },
+      "research": "特徵選擇研究: 維度災難 (Curse of Dimensionality)",
+      "key_features": ["EWMA7 (45%)", "EWMA14 (45%)", "Daily_Change (2%)"],
+      "improvement": "MAE↓25%, R²↑3%, 訓練時間↓85%"
     }
   ],
-  "last_updated": "2026-01-01T21:30:00+08:00"
+  "last_updated": "2026-01-02T05:09:20+08:00"
 }
