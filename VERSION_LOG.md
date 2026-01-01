@@ -1,5 +1,55 @@
 # 版本更新日誌
 
+## v2.9.6 - 2026-01-02 00:33 HKT
+
+### 🔧 XGBoost 模型特徵工程重大升級
+
+**變更內容**：
+
+1. **香港公眾假期完整化**
+   - 新增 `get_hk_public_holidays(year)` 函數，包含 2014-2030 年所有假期
+   - 支援所有固定假期：元旦、勞動節、國慶日、聖誕節等
+   - 支援所有農曆假期：農曆新年、清明節、端午節、中秋節、重陽節、佛誕
+   - 支援復活節（耶穌受難日、翌日、復活節星期一）
+   - 新增假期特徵：`Holiday_Factor`、`Is_Lunar_Holiday`、`Is_Christmas_Period`、`Is_Easter_Period`、`Is_CNY_Period`
+   - 新增假期前後效應：`Is_Day_Before_Holiday`、`Is_Day_After_Holiday`
+   - 每個假期有獨立影響因子（如農曆新年 0.75，聖誕節 0.85）
+
+2. **AI 因子特徵全面升級**（從 3 個增加到 13 個）
+   - `AI_Impact_Factor`：影響因子數值（0.7-1.3 範圍）
+   - `AI_Impact_Magnitude`：影響幅度（距離 1.0 的絕對值）
+   - `AI_Impact_Direction`：影響方向（+1=增加, -1=減少, 0=無影響）
+   - `AI_Confidence_Score`：信心分數（高=1.0, 中=0.6, 低=0.3）
+   - `AI_Factor_Count`：因子數量
+   - `AI_Type_Weather`：天氣類型因子（獨熱編碼）
+   - `AI_Type_Health`：健康/疫情類型因子
+   - `AI_Type_Policy`：政策類型因子
+   - `AI_Type_Event`：事件類型因子
+   - `AI_Type_Seasonal`：季節性因子
+   - `Has_AI_Factor`：是否有 AI 因子
+   - `AI_Impact_Rolling7`：7天滾動平均影響
+   - `AI_Impact_Trend`：影響趨勢變化
+
+3. **滯後特徵處理修正**
+   - **不再使用 bfill() 或均值填充**，只使用真實歷史數據
+   - XGBoost 原生支持 NaN 處理，會自動學習最佳分割方向
+   - 新增滯後數據可用性指標：`Lag1_Available` 到 `Lag365_Available`
+   - 新增滾動數據可用性指標：`Rolling7_Available` 到 `Rolling30_Available`
+   - 這比使用虛假數據（如均值填充）更準確
+
+4. **特徵數量變化**
+   - 舊版：51 個特徵
+   - 新版：78 個特徵
+
+**技術細節**：
+- 修改 `python/feature_engineering.py`
+- 修改 `python/ensemble_predict.py`
+- 更新 `python/models/xgboost_features.json`
+
+**注意**：需要重新訓練模型以使用新特徵
+
+---
+
 ## v2.9.5 - 2026-01-01 16:00 HKT
 
 ### 🔒 XGBoost 時間序列驗證修復 - 防止數據洩漏

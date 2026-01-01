@@ -39,7 +39,8 @@ def predict_with_xgboost(model, feature_cols, features_df):
     if model is None:
         return None
     
-    X = features_df[feature_cols].fillna(0)
+    # XGBoost 原生支持 NaN 處理，不需要填充
+    X = features_df[feature_cols]
     prediction = model.predict(X)[0]
     return float(prediction)
 
@@ -155,29 +156,76 @@ def ensemble_predict(target_date, historical_data):
             last_row['Is_Monday'] = 1 if target_dt.dayofweek == 0 else 0
             last_row['Is_Weekend'] = 1 if target_dt.dayofweek >= 5 else 0
             
-            # 為目標日期添加 AI 因子（如果有的話）
+            # 為目標日期添加 AI 因子特徵（全面版）
             target_date_str = target_date
             if target_date_str in ai_factors and ai_factors[target_date_str]:
                 ai_factor_data = ai_factors[target_date_str]
                 if isinstance(ai_factor_data, dict):
-                    last_row['AI_Factor'] = ai_factor_data.get('impactFactor', 1.0)
-                    last_row['Has_AI_Factor'] = 1
-                    # 編碼 AI 因子類型
-                    ai_type = ai_factor_data.get('type', '').lower()
-                    if 'positive' in ai_type or '增加' in ai_type or '上升' in ai_type:
-                        last_row['AI_Factor_Type'] = 1
-                    elif 'negative' in ai_type or '減少' in ai_type or '下降' in ai_type:
-                        last_row['AI_Factor_Type'] = -1
+                    # 基礎影響因子（限制範圍）
+                    impact_factor = ai_factor_data.get('impactFactor', 1.0)
+                    impact_factor = max(0.7, min(1.3, impact_factor))
+                    last_row['AI_Impact_Factor'] = impact_factor
+                    last_row['AI_Impact_Magnitude'] = abs(impact_factor - 1.0)
+                    
+                    # 影響方向
+                    if impact_factor > 1.02:
+                        last_row['AI_Impact_Direction'] = 1
+                    elif impact_factor < 0.98:
+                        last_row['AI_Impact_Direction'] = -1
                     else:
-                        last_row['AI_Factor_Type'] = 0
+                        last_row['AI_Impact_Direction'] = 0
+                    
+                    # 信心分數
+                    confidence = ai_factor_data.get('confidence', '中').lower()
+                    if '高' in confidence or 'high' in confidence:
+                        last_row['AI_Confidence_Score'] = 1.0
+                    elif '低' in confidence or 'low' in confidence:
+                        last_row['AI_Confidence_Score'] = 0.3
+                    else:
+                        last_row['AI_Confidence_Score'] = 0.6
+                    
+                    # 因子類型（獨熱編碼）
+                    factor_type = ai_factor_data.get('type', '').lower()
+                    last_row['AI_Type_Weather'] = 1 if any(w in factor_type for w in ['天氣', '氣溫', '濕度', '雨', '熱', '冷', 'weather', 'temperature']) else 0
+                    last_row['AI_Type_Health'] = 1 if any(w in factor_type for w in ['健康', '流感', '疫情', '病毒', '公共衛生', 'health', 'flu', 'virus']) else 0
+                    last_row['AI_Type_Policy'] = 1 if any(w in factor_type for w in ['政策', '當局', '醫院', '醫管局', 'policy', 'hospital']) else 0
+                    last_row['AI_Type_Event'] = 1 if any(w in factor_type for w in ['事件', '新聞', '社會', 'event', 'news']) else 0
+                    last_row['AI_Type_Seasonal'] = 1 if any(w in factor_type for w in ['季節', '節日', '假期', 'season', 'holiday']) else 0
+                    
+                    last_row['AI_Factor_Count'] = 1
+                    last_row['Has_AI_Factor'] = 1
+                    last_row['AI_Impact_Rolling7'] = impact_factor  # 預測時使用當前因子
+                    last_row['AI_Impact_Trend'] = 0.0
                 else:
-                    last_row['AI_Factor'] = 1.0
+                    # 設置默認值
+                    last_row['AI_Impact_Factor'] = 1.0
+                    last_row['AI_Impact_Magnitude'] = 0.0
+                    last_row['AI_Impact_Direction'] = 0
+                    last_row['AI_Confidence_Score'] = 0.0
+                    last_row['AI_Factor_Count'] = 0
+                    last_row['AI_Type_Weather'] = 0
+                    last_row['AI_Type_Health'] = 0
+                    last_row['AI_Type_Policy'] = 0
+                    last_row['AI_Type_Event'] = 0
+                    last_row['AI_Type_Seasonal'] = 0
                     last_row['Has_AI_Factor'] = 0
-                    last_row['AI_Factor_Type'] = 0
+                    last_row['AI_Impact_Rolling7'] = 1.0
+                    last_row['AI_Impact_Trend'] = 0.0
             else:
-                last_row['AI_Factor'] = 1.0
+                # 設置默認值
+                last_row['AI_Impact_Factor'] = 1.0
+                last_row['AI_Impact_Magnitude'] = 0.0
+                last_row['AI_Impact_Direction'] = 0
+                last_row['AI_Confidence_Score'] = 0.0
+                last_row['AI_Factor_Count'] = 0
+                last_row['AI_Type_Weather'] = 0
+                last_row['AI_Type_Health'] = 0
+                last_row['AI_Type_Policy'] = 0
+                last_row['AI_Type_Event'] = 0
+                last_row['AI_Type_Seasonal'] = 0
                 last_row['Has_AI_Factor'] = 0
-                last_row['AI_Factor_Type'] = 0
+                last_row['AI_Impact_Rolling7'] = 1.0
+                last_row['AI_Impact_Trend'] = 0.0
             
             features_df = pd.DataFrame([last_row])
         else:

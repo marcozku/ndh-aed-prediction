@@ -155,7 +155,8 @@ def time_series_cross_validate(df, feature_cols, n_splits=5):
     
     cv_scores = {'mae': [], 'rmse': [], 'mape': []}
     
-    X = df[feature_cols].fillna(0)
+    # XGBoost 原生支持 NaN 處理，不需要填充
+    X = df[feature_cols]
     y = df['Attendance']
     dates = df['Date'].values
     
@@ -246,11 +247,12 @@ def train_xgboost_model(train_data, test_data, feature_cols):
     train_subset = train_data[:val_split_idx].copy()
     val_subset = train_data[val_split_idx:].copy()
     
-    X_train = train_subset[feature_cols].fillna(0)
+    # XGBoost 原生支持 NaN 處理，不需要填充
+    X_train = train_subset[feature_cols]
     y_train = train_subset['Attendance']
-    X_val = val_subset[feature_cols].fillna(0)
+    X_val = val_subset[feature_cols]
     y_val = val_subset['Attendance']
-    X_test = test_data[feature_cols].fillna(0)
+    X_test = test_data[feature_cols]
     y_test = test_data['Attendance']
     
     print(f"\n⚠️ 時間序列數據分割驗證:")
