@@ -1,0 +1,50 @@
+{
+  "timeline": [
+    {
+      "version": "2.9.20",
+      "date": "2025-12-30",
+      "description": "基礎 XGBoost 模型",
+      "changes": ["300 棵樹", "深度 6", "52 特徵"],
+      "metrics": {
+        "mae": 3.84,
+        "mape": 1.56,
+        "rmse": 5.71,
+        "r2": 0.59,
+        "feature_count": 52
+      }
+    },
+    {
+      "version": "2.9.24",
+      "date": "2025-12-31",
+      "description": "天氣特徵整合",
+      "changes": ["新增 HKO 歷史天氣數據", "10 個天氣特徵", "37 年歷史數據"],
+      "metrics": {
+        "mae": 3.75,
+        "mape": 1.52,
+        "rmse": 5.60,
+        "r2": 0.62,
+        "feature_count": 89
+      },
+      "research": "BMC Medical Informatics (2024)"
+    },
+    {
+      "version": "2.9.28",
+      "date": "2026-01-02",
+      "description": "研究基礎優化",
+      "changes": [
+        "超參數優化 (500樹, 深度8)",
+        "樣本權重 (時間衰減+COVID調整)",
+        "Fourier 季節特徵 (10個)"
+      ],
+      "metrics": {
+        "mae": null,
+        "mape": null,
+        "rmse": null,
+        "r2": null,
+        "feature_count": 99
+      },
+      "research": "BMC EM (2025), JMIR (2025), Prophet"
+    }
+  ],
+  "last_updated": "2026-01-02T03:00:00+08:00"
+}

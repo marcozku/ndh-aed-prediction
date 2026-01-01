@@ -810,6 +810,8 @@ const ChartOnboarding = {
 // ============================================
 const MethodologyModal = {
     metricsLoaded: false,
+    timelineLoaded: false,
+    timelineChart: null,
     
     init() {
         const modal = document.getElementById('methodology-modal');
@@ -820,6 +822,7 @@ const MethodologyModal = {
             openBtn.addEventListener('click', () => {
                 modal.style.display = 'flex';
                 this.loadModelMetrics();
+                this.loadAlgorithmTimeline();
             });
         }
         
@@ -828,6 +831,170 @@ const MethodologyModal = {
                 modal.style.display = 'none';
             });
         }
+    },
+    
+    async loadAlgorithmTimeline() {
+        if (this.timelineLoaded) return;
+        
+        const container = document.getElementById('algorithm-timeline');
+        if (!container) return;
+        
+        try {
+            const response = await fetch('/api/algorithm-timeline');
+            if (!response.ok) throw new Error('Failed to fetch timeline');
+            
+            const result = await response.json();
+            if (!result.success || !result.data?.timeline) {
+                container.innerHTML = '<div class="timeline-loading">無時間線數據</div>';
+                return;
+            }
+            
+            const timeline = result.data.timeline;
+            this.renderTimeline(container, timeline);
+            this.renderAccuracyChart(timeline);
+            this.timelineLoaded = true;
+            
+        } catch (error) {
+            console.error('❌ 載入算法時間線失敗:', error);
+            container.innerHTML = '<div class="timeline-loading">載入失敗</div>';
+        }
+    },
+    
+    renderTimeline(container, timeline) {
+        let html = '';
+        const latestIdx = timeline.length - 1;
+        
+        // 反向顯示（最新在上）
+        for (let i = latestIdx; i >= 0; i--) {
+            const item = timeline[i];
+            const isLatest = i === latestIdx;
+            const prevItem = i > 0 ? timeline[i - 1] : null;
+            
+            // 計算改進幅度
+            let maeImproved = false;
+            let mapeImproved = false;
+            if (prevItem && item.metrics.mae && prevItem.metrics.mae) {
+                maeImproved = item.metrics.mae < prevItem.metrics.mae;
+            }
+            if (prevItem && item.metrics.mape && prevItem.metrics.mape) {
+                mapeImproved = item.metrics.mape < prevItem.metrics.mape;
+            }
+            
+            html += `
+                <div class="timeline-item ${isLatest ? 'latest' : ''}">
+                    <div class="timeline-version">${item.version}${isLatest ? ' 🆕' : ''}</div>
+                    <div class="timeline-info">
+                        <div class="timeline-date">${item.date}</div>
+                        <div class="timeline-desc">${item.description}</div>
+                        <div class="timeline-metrics">
+                            <span class="timeline-metric ${maeImproved ? 'improved' : ''}">
+                                <strong>MAE:</strong> ${item.metrics.mae !== null ? item.metrics.mae.toFixed(2) : '--'}
+                                ${maeImproved ? '↓' : ''}
+                            </span>
+                            <span class="timeline-metric ${mapeImproved ? 'improved' : ''}">
+                                <strong>MAPE:</strong> ${item.metrics.mape !== null ? item.metrics.mape.toFixed(2) + '%' : '--'}
+                                ${mapeImproved ? '↓' : ''}
+                            </span>
+                            <span class="timeline-metric">
+                                <strong>特徵:</strong> ${item.metrics.feature_count || '--'}
+                            </span>
+                        </div>
+                        ${item.changes && item.changes.length > 0 ? `
+                        <div class="timeline-changes">
+                            ${item.changes.map(c => `<span class="timeline-tag">${c}</span>`).join('')}
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        
+        container.innerHTML = html;
+    },
+    
+    renderAccuracyChart(timeline) {
+        const canvas = document.getElementById('accuracy-trend-chart');
+        if (!canvas || typeof Chart === 'undefined') return;
+        
+        // 過濾有效數據
+        const validData = timeline.filter(t => t.metrics.mae !== null);
+        if (validData.length < 2) return;
+        
+        const labels = validData.map(t => t.version);
+        const maeData = validData.map(t => t.metrics.mae);
+        const mapeData = validData.map(t => t.metrics.mape);
+        const featureData = validData.map(t => t.metrics.feature_count);
+        
+        // 銷毀舊圖表
+        if (this.timelineChart) {
+            this.timelineChart.destroy();
+        }
+        
+        const ctx = canvas.getContext('2d');
+        this.timelineChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'MAE (人)',
+                        data: maeData,
+                        borderColor: '#4f46e5',
+                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                        tension: 0.3,
+                        fill: true,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'MAPE (%)',
+                        data: mapeData,
+                        borderColor: '#059669',
+                        backgroundColor: 'transparent',
+                        tension: 0.3,
+                        borderDash: [5, 5],
+                        yAxisID: 'y'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { boxWidth: 12, padding: 8, font: { size: 11 } }
+                    },
+                    title: {
+                        display: true,
+                        text: '算法更新對準確度的影響',
+                        font: { size: 12, weight: 'bold' }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            afterBody: function(tooltipItems) {
+                                const idx = tooltipItems[0].dataIndex;
+                                return `特徵數: ${featureData[idx]}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: { display: true, text: 'MAE / MAPE', font: { size: 10 } },
+                        grid: { color: 'rgba(0,0,0,0.05)' }
+                    },
+                    x: {
+                        title: { display: true, text: '版本', font: { size: 10 } },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
     },
     
     async loadModelMetrics() {
@@ -882,7 +1049,9 @@ const MethodologyModal = {
     // 強制刷新指標（訓練後調用）
     refreshMetrics() {
         this.metricsLoaded = false;
+        this.timelineLoaded = false;
         this.loadModelMetrics();
+        this.loadAlgorithmTimeline();
     }
 };
 

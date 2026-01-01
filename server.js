@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.29';
+const MODEL_VERSION = '2.9.30';
 
 // AI 服務（僅在服務器端使用）
 let aiService = null;
@@ -1597,6 +1597,46 @@ const apiHandlers = {
         } catch (error) {
             console.error('計算天氣月度平均失敗:', error);
             sendJson(res, { success: false, error: error.message }, 500);
+        }
+    },
+    
+    // 算法演進時間線
+    'GET /api/algorithm-timeline': async (req, res) => {
+        try {
+            const timelinePath = path.join(__dirname, 'python/models/algorithm_timeline.json');
+            const metricsPath = path.join(__dirname, 'python/models/xgboost_metrics.json');
+            
+            if (!fs.existsSync(timelinePath)) {
+                return sendJson(res, {
+                    success: false,
+                    error: '時間線數據不存在'
+                });
+            }
+            
+            const timelineData = JSON.parse(fs.readFileSync(timelinePath, 'utf8'));
+            
+            // 更新最新版本的實際 metrics
+            if (fs.existsSync(metricsPath)) {
+                const currentMetrics = JSON.parse(fs.readFileSync(metricsPath, 'utf8'));
+                const latestEntry = timelineData.timeline[timelineData.timeline.length - 1];
+                if (latestEntry && latestEntry.metrics) {
+                    latestEntry.metrics.mae = currentMetrics.mae;
+                    latestEntry.metrics.mape = currentMetrics.mape;
+                    latestEntry.metrics.rmse = currentMetrics.rmse;
+                    latestEntry.metrics.r2 = currentMetrics.r2 || null;
+                }
+            }
+            
+            sendJson(res, {
+                success: true,
+                data: timelineData
+            });
+        } catch (error) {
+            console.error('算法時間線 API 錯誤:', error);
+            sendJson(res, {
+                success: false,
+                error: error.message
+            }, 500);
         }
     },
     
