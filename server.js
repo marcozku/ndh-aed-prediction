@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.43';
+const MODEL_VERSION = '2.9.50';
 
 // ============================================
 // HKT 時間工具函數
@@ -2513,7 +2513,7 @@ const apiHandlers = {
     // System Status
     'GET /api/status': async (req, res) => {
         const status = {
-            version: '2.9.10',
+            version: '2.9.50',
             database: db && db.pool ? 'connected' : 'disconnected',
             ai: aiService ? 'available' : 'unavailable',
             uptime: process.uptime(),
