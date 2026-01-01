@@ -426,15 +426,16 @@ body::before {
    ============================================ */
 .app-container {
     width: 100%;
-    max-width: 100vw;
+    max-width: 100%;
     margin: 0 auto;
-    padding-left: clamp(12px, 2vw, 24px);
-    padding-right: clamp(12px, 2vw, 24px);
+    padding-left: clamp(8px, 2vw, 24px);
+    padding-right: clamp(8px, 2vw, 24px);
     padding-bottom: clamp(12px, 2vw, 24px);
     /* 為 iPhone Dynamic Island 留出空間 */
     padding-top: max(clamp(12px, 2vw, 24px), calc(env(safe-area-inset-top, 0px) + 12px));
     position: relative;
     box-sizing: border-box;
+    overflow-x: hidden;
     overflow-x: hidden;
     z-index: 1;
     min-height: 100vh;
@@ -1333,23 +1334,13 @@ section h2 {
 }
 
 /* ============================================
-   Today's Prediction Section - Full Width Responsive (World Class)
+   Today's Prediction Section - Full Width Cards
    ============================================ */
 .today-prediction,
 .today-section {
     width: 100%;
     max-width: 100%;
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: clamp(16px, 3vw, 32px);
     box-sizing: border-box;
-}
-
-@media (min-width: 900px) {
-    .today-prediction,
-    .today-section {
-        grid-template-columns: 1.2fr 1fr;
-    }
 }
 
 .prediction-grid {
@@ -1357,29 +1348,30 @@ section h2 {
     max-width: 100%;
     display: grid;
     grid-template-columns: 1fr;
-    gap: clamp(16px, 3vw, 32px);
+    gap: clamp(12px, 2vw, 20px);
     box-sizing: border-box;
+    align-items: stretch;
 }
 
-/* 中等屏幕：2列佈局 */
+/* 平板及以上：雙列佈局，卡片填滿 */
 @media (min-width: 768px) {
     .prediction-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .prediction-grid .main-prediction-card {
-        grid-column: 1 / 2;
-    }
-    
-    .prediction-grid .stats-card {
-        grid-column: 2 / 3;
+        grid-template-columns: 1fr 1fr;
     }
 }
 
-/* 大屏幕：加大主卡片 */
+/* 大屏幕：主卡片稍大 */
 @media (min-width: 1024px) {
     .prediction-grid {
+        grid-template-columns: 1.2fr 1fr;
+    }
+}
+
+/* 超大屏幕 */
+@media (min-width: 1400px) {
+    .prediction-grid {
         grid-template-columns: 1.3fr 1fr;
+        gap: clamp(16px, 2vw, 28px);
     }
 }
 
@@ -1390,11 +1382,12 @@ section h2 {
     width: 100%;
     max-width: 100%;
     min-height: 0;
+    height: 100%;
     background: var(--bg-glass);
     backdrop-filter: var(--blur-sm);
     -webkit-backdrop-filter: var(--blur-sm);
     border-radius: var(--radius-xl);
-    padding: var(--space-xl);
+    padding: clamp(16px, 3vw, 32px);
     border: 1px solid var(--border-subtle);
     box-shadow: var(--shadow-sm), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
     transition: all var(--transition-smooth);
@@ -1797,9 +1790,10 @@ section h2 {
     max-width: 100%;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-md);
+    gap: clamp(12px, 2vw, 20px);
     box-sizing: border-box;
-    height: 100%;
+    flex: 1;
+    align-content: center;
 }
 
 /* 統計卡片內容自適應填滿 */
@@ -1807,22 +1801,24 @@ section h2 {
     display: flex;
     flex-direction: column;
     height: 100%;
+    justify-content: space-between;
 }
 
 .stats-card .card-header {
     flex-shrink: 0;
-}
-
-.stats-card .stats-grid {
-    flex: 1;
-    align-content: center;
+    margin-bottom: var(--space-lg);
 }
 
 .stat-item {
     text-align: center;
-    padding: var(--space-lg);
+    padding: clamp(16px, 2vw, 24px);
     background: var(--bg-primary);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 90px;
     transition: var(--transition-fast);
     position: relative;
     overflow: hidden;
