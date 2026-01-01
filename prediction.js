@@ -7751,7 +7751,7 @@ function initAlgorithmContent() {
     
     algorithmContentEl.innerHTML = `
         <div class="algorithm-formula" style="margin-bottom: var(--space-xl);">
-            <h4>核心預測算法（v2.9.30 - 研究基礎優化版）</h4>
+            <h4>核心預測算法（v2.9.50 - Optuna 優化 + EWMA 特徵）</h4>
             <div style="background: var(--bg-secondary); padding: var(--space-lg); border-radius: var(--radius-md); margin-top: var(--space-md); margin-bottom: var(--space-lg);">
                 <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">機器學習模型：XGBoost（極端梯度提升）</h5>
                 <div style="padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.9rem; line-height: 1.8; color: var(--text-secondary);">
@@ -7759,7 +7759,7 @@ function initAlgorithmContent() {
                         本系統使用 <strong style="color: var(--text-primary);">XGBoost（極端梯度提升）</strong> 機器學習模型進行預測，基於最新學術研究優化。
                     </p>
                     <div style="margin-top: var(--space-md);">
-                        <strong style="color: var(--text-primary);">v2.9.30 研究基礎配置（BMC EM 2025）：</strong>
+                        <strong style="color: var(--text-primary);">v2.9.50 Optuna 優化配置（R² 90.3%）：</strong>
                         <ul style="margin-top: var(--space-xs); padding-left: var(--space-lg);">
                             <li><strong>n_estimators</strong>：500 棵樹（增強模型能力）</li>
                             <li><strong>max_depth</strong>：8（捕捉複雜交互）</li>
@@ -7782,7 +7782,7 @@ function initAlgorithmContent() {
                         <strong style="color: var(--text-primary);">XGBoost 模型特點：</strong>
                         <ul style="margin-top: var(--space-xs); padding-left: var(--space-lg);">
                             <li>捕捉複雜的非線性關係和特徵交互</li>
-                            <li>自動特徵工程：處理 <strong>99 個特徵</strong>（含天氣、Fourier 季節）</li>
+                            <li>自動特徵工程：處理 <strong>161 個特徵</strong>（含 EWMA、天氣、Fourier 季節）</li>
                             <li>整合 AI 分析數據：使用實時 AI 分析結果作為 13 維特徵</li>
                             <li>整合 HKO 天氣數據：37 年歷史氣象特徵（1988-2025）</li>
                             <li>高準確度：MAE 目標 < 2.5 病人（參考 BMC EM 2025: 2.63）</li>
@@ -7791,13 +7791,16 @@ function initAlgorithmContent() {
                         </ul>
                     </div>
                     <div style="margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border-color);">
-                        <strong style="color: var(--text-primary);">特徵工程（99 個特徵）：</strong>
+                        <strong style="color: var(--text-primary);">特徵工程（161 個特徵 v2.9.50）：</strong>
                         <ul style="margin-top: var(--space-xs); padding-left: var(--space-lg); font-size: 0.85rem;">
+                            <li><strong>🔥 EWMA 指數加權移動平均</strong>（3個）：EWMA7, EWMA14, EWMA30 <em style="color: var(--accent-color);">（佔 85% 特徵重要性！）</em></li>
                             <li><strong>時間特徵</strong>（8個）：年、月、星期、季度、一年中的第幾天等</li>
                             <li><strong>循環編碼</strong>（4個）：月份和星期的正弦/餘弦編碼</li>
                             <li><strong>Fourier 季節</strong>（10個）：3階年度 + 2階週內 Fourier 特徵 <em>(Prophet)</em></li>
-                            <li><strong>滯後特徵</strong>（14個）：Lag1-Lag365 真實歷史數據 + 可用性指標</li>
-                            <li><strong>滾動統計</strong>（15個）：7天/14天/30天移動平均、標準差、最大值、最小值</li>
+                            <li><strong>擴展滯後特徵</strong>（30個）：Lag1-7（每天）、Lag14-365、同星期歷史（1w-4w）</li>
+                            <li><strong>目標編碼特徵</strong>（3個）：DayOfWeek_Target_Mean、Month_Target_Mean、YearMonth_Target_Mean</li>
+                            <li><strong>擴展滾動統計</strong>（49個）：3-90天窗口的均值、標準差、最大值、最小值、中位數</li>
+                            <li><strong>相對位置+變異係數</strong>（6個）：Position7/14/30、CV7/14/30</li>
                             <li><strong>事件指標</strong>（8個）：COVID 期間、Omicron 浪、流感季節、抗議運動等</li>
                             <li><strong>交互特徵</strong>（3個）：COVID × 冬季、週一 × 冬季、週末 × 夏季</li>
                             <li><strong>趨勢特徵</strong>（5個）：歸一化趨勢、時代指標、日/週/月變化</li>
@@ -7912,10 +7915,10 @@ function initAlgorithmContent() {
         </div>
         
         <div style="grid-column: 1 / -1; margin-top: var(--space-lg);">
-            <h4 style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600; margin-bottom: var(--space-md);">算法特點（v2.9.30）</h4>
+            <h4 style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600; margin-bottom: var(--space-md);">算法特點（v2.9.50）</h4>
             <ul style="color: var(--text-primary); line-height: 1.8; padding-left: var(--space-lg);">
                 <li><strong>XGBoost 機器學習模型</strong>：500 棵樹、深度 8、研究基礎超參數（BMC EM 2025）</li>
-                <li><strong>99 個特徵工程</strong>：時間、Fourier 季節、滯後、滾動統計、事件、假期、天氣、AI 因子</li>
+                <li><strong>161 個特徵工程</strong>：EWMA、時間、Fourier 季節、擴展滯後、目標編碼、滾動統計、事件、假期、天氣、AI 因子</li>
                 <li><strong>樣本權重</strong>：時間衰減（半衰期 365 天）+ COVID 期間調整 + 異常值處理（JMIR 2025）</li>
                 <li><strong>Fourier 季節特徵</strong>：3階年度 + 2階週內正弦/餘弦編碼（Facebook Prophet）</li>
                 <li><strong>天氣特徵</strong>：香港天文台 37 年歷史數據（1988-2025）+ 實時 API</li>
@@ -8101,7 +8104,7 @@ function initAlgorithmContent() {
                     <strong>Rolling7（7天移動平均）</strong>：係數約 0.12-0.16，捕捉短期趨勢（BMC Medical Informatics，2024）
                 </p>
                 
-                <p style="margin-bottom: var(--space-sm);"><strong>9. 算法組件研究基礎（v2.9.30）</strong></p>
+                <p style="margin-bottom: var(--space-sm);"><strong>9. 算法組件研究基礎（v2.9.50）</strong></p>
                 <ul style="margin-left: var(--space-md); color: var(--text-secondary); margin-bottom: var(--space-md);">
                     <li><strong>XGBoost 模型</strong>：基於法國醫院研究（BMC EM 2025），500 棵樹、深度 8，MAE 目標 < 2.5 病人</li>
                     <li><strong>特徵工程（99 個）</strong>：時間、Fourier 季節、滯後、滾動統計、事件、假期、天氣、AI 因子（BMC MIDM 2024）</li>
