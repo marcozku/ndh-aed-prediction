@@ -2599,7 +2599,7 @@ const apiHandlers = {
                     const maeScore = Math.max(0, Math.min(100, 100 - (metrics.mae - 5) * 10));
                     // MAPE 評分：MAPE < 2% = 100分，每增加1% -20分
                     const mapeScore = Math.max(0, Math.min(100, 100 - (metrics.mape - 2) * 20));
-                    // R² 評分：直接使用 R² * 100（v2.9.30 新增）
+                    // R² 評分：直接使用 R² * 100（v2.9.50 新增）
                     const r2Score = metrics.r2 ? Math.max(0, Math.min(100, metrics.r2 * 100)) : null;
                     
                     // 綜合評分：如果有 R² 則使用加權平均 (MAE 30%, MAPE 30%, R² 40%)
