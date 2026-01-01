@@ -1,0 +1,73 @@
+{
+  "optimal_n_features": 20,
+  "optimal_features": [
+    "Attendance_EWMA7",
+    "Monthly_Change",
+    "Daily_Change",
+    "Attendance_Lag1",
+    "Weekly_Change",
+    "Attendance_Rolling7",
+    "Attendance_Position7",
+    "Attendance_Lag30",
+    "Attendance_Lag7",
+    "Day_of_Week",
+    "Lag1_Diff",
+    "DayOfWeek_sin",
+    "Attendance_Rolling14",
+    "Attendance_Position14",
+    "Attendance_Position30",
+    "Attendance_Rolling3",
+    "Attendance_Min7",
+    "Attendance_Median14",
+    "DayOfWeek_Target_Mean",
+    "Attendance_Median3"
+  ],
+  "metrics": {
+    "mae": 3.394496440887451,
+    "mape": 1.3679999096775413,
+    "r2": 0.9639712572097778,
+    "adj_r2": 0.9628909350871325
+  },
+  "comparison": [
+    {
+      "n_features": 10,
+      "mae": 3.412073850631714,
+      "r2": 0.9643573760986328
+    },
+    {
+      "n_features": 20,
+      "mae": 3.394496440887451,
+      "r2": 0.9639712572097778
+    },
+    {
+      "n_features": 30,
+      "mae": 3.4082300662994385,
+      "r2": 0.9633162021636963
+    },
+    {
+      "n_features": 50,
+      "mae": 3.459508180618286,
+      "r2": 0.9620150923728943
+    },
+    {
+      "n_features": 80,
+      "mae": 3.4790077209472656,
+      "r2": 0.9621362686157227
+    },
+    {
+      "n_features": 100,
+      "mae": 3.431320905685425,
+      "r2": 0.9627552628517151
+    },
+    {
+      "n_features": 130,
+      "mae": 3.43727707862854,
+      "r2": 0.9625955820083618
+    },
+    {
+      "n_features": 161,
+      "mae": 3.43727707862854,
+      "r2": 0.9625955820083618
+    }
+  ]
+}

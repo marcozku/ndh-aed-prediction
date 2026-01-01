@@ -669,7 +669,37 @@ def main():
     
     parser = argparse.ArgumentParser(description='Train XGBoost model')
     parser.add_argument('--csv', type=str, help='Path to CSV file with historical data')
+    parser.add_argument('--optimized', action='store_true', help='Use optimized feature set (25 features instead of 161)')
     args = parser.parse_args()
+    
+    # 優化特徵集（基於特徵重要性分析）
+    OPTIMAL_FEATURES = [
+        "Attendance_EWMA7",        # 87.87% - 核心特徵
+        "Monthly_Change",
+        "Daily_Change", 
+        "Attendance_Lag1",
+        "Weekly_Change",
+        "Attendance_Rolling7",
+        "Attendance_Position7",
+        "Attendance_Lag30",
+        "Attendance_Lag7",
+        "Day_of_Week",
+        "Lag1_Diff",
+        "DayOfWeek_sin",
+        "Attendance_Rolling14",
+        "Attendance_Position14",
+        "Attendance_Position30",
+        "Attendance_Rolling3",
+        "Attendance_Min7",
+        "Attendance_Median14",
+        "DayOfWeek_Target_Mean",
+        "Attendance_Median3",
+        "Attendance_EWMA14",
+        "Attendance_EWMA30",
+        "Is_Winter_Flu_Season",
+        "Is_Weekend",
+        "Holiday_Factor",
+    ]
     
     # 創建模型目錄（相對於當前腳本目錄）
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -802,14 +832,21 @@ def main():
     print(f"         日期: {test_data['Date'].min()} → {test_data['Date'].max()}")
     
     # 獲取特徵列
-    feature_cols = get_feature_columns()
-    # 只保留實際存在的列
-    original_feature_count = len(feature_cols)
-    feature_cols = [col for col in feature_cols if col in df.columns]
-    if len(feature_cols) < original_feature_count:
-        print(f"   ⚠️ {original_feature_count - len(feature_cols)} 個預期特徵不存在（可能是首次訓練）")
+    use_optimized = args.optimized or os.environ.get('USE_OPTIMIZED_FEATURES', '0') == '1'
     
-    print(f"   📐 使用 {len(feature_cols)} 個特徵進行訓練")
+    if use_optimized:
+        print(f"\n   🚀 使用優化特徵集模式（研究表明 25 特徵效果最佳）")
+        feature_cols = [col for col in OPTIMAL_FEATURES if col in df.columns]
+        print(f"   📐 使用 {len(feature_cols)} 個精選特徵進行訓練")
+    else:
+        feature_cols = get_feature_columns()
+        # 只保留實際存在的列
+        original_feature_count = len(feature_cols)
+        feature_cols = [col for col in feature_cols if col in df.columns]
+        if len(feature_cols) < original_feature_count:
+            print(f"   ⚠️ {original_feature_count - len(feature_cols)} 個預期特徵不存在（可能是首次訓練）")
+        print(f"   📐 使用 {len(feature_cols)} 個特徵進行訓練")
+        print(f"   💡 提示：使用 --optimized 參數可啟用優化特徵集（更快更準）")
     
     # ============ 階段 4: 模型訓練 ============
     print(f"\n{'='*60}")
