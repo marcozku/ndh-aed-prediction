@@ -1,5 +1,27 @@
 # 版本更新日誌
 
+## v2.9.56 - 2026-01-02 06:08 HKT
+
+### 🔧 Python 輸出分離修復
+
+**問題**：Python 狀態訊息混入 JSON 輸出，導致 Node.js 解析失敗
+
+**錯誤訊息**：
+```
+❌ XGBoost 預測失敗: 無法解析 Python 輸出: Unexpected token ✅ in JSON at position 0
+```
+
+**解決方案**：
+- 所有狀態訊息輸出到 `stderr`（`file=sys.stderr`）
+- 只保留 JSON 結果輸出到 `stdout`
+
+**修改檔案**：
+- `python/predict.py`
+- `python/ensemble_predict.py`
+- `python/feature_engineering.py`
+
+---
+
 ## v2.9.55 - 2026-01-02 06:02 HKT
 
 ### 🔧 XGBoost 模型加載兼容性修復

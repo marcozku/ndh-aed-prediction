@@ -44,7 +44,7 @@ def load_data_from_db():
             df['Date'] = df['date']
             df = df.drop(columns=['date'])
         elif 'Date' not in df.columns:
-            print(f"錯誤: 找不到 Date 列。可用列: {df.columns.tolist()}")
+            print(f"錯誤: 找不到 Date 列。可用列: {df.columns.tolist()}", file=sys.stderr)
             return None
         
         # 檢查並映射 Attendance 列（可能是 attendance 或 patient_count）
@@ -55,14 +55,14 @@ def load_data_from_db():
             df['Attendance'] = df['patient_count']
             df = df.drop(columns=['patient_count'])
         elif 'Attendance' not in df.columns:
-            print(f"錯誤: 找不到 Attendance 列。可用列: {df.columns.tolist()}")
+            print(f"錯誤: 找不到 Attendance 列。可用列: {df.columns.tolist()}", file=sys.stderr)
             return None
         
         # 確保只返回需要的列
         if 'Date' in df.columns and 'Attendance' in df.columns:
             return df[['Date', 'Attendance']]
         else:
-            print(f"警告: 數據列不完整。可用列: {df.columns.tolist()}")
+            print(f"警告: 數據列不完整。可用列: {df.columns.tolist()}", file=sys.stderr)
             return df
     except Exception as e:
         return None
@@ -70,8 +70,8 @@ def load_data_from_db():
 def main():
     """命令行接口：python predict.py <target_date>"""
     if len(sys.argv) < 2:
-        print("用法: python predict.py <target_date>")
-        print("示例: python predict.py 2025-12-25")
+        print("用法: python predict.py <target_date>", file=sys.stderr)
+        print("示例: python predict.py 2025-12-25", file=sys.stderr)
         sys.exit(1)
     
     target_date = sys.argv[1]
@@ -80,7 +80,7 @@ def main():
     historical_data = load_data_from_db()
     
     if historical_data is None or len(historical_data) == 0:
-        print("警告: 無法從數據庫加載數據，嘗試使用空數據集")
+        print("警告: 無法從數據庫加載數據，嘗試使用空數據集", file=sys.stderr)
         historical_data = pd.DataFrame(columns=['Date', 'Attendance'])
     
     # 執行集成預測

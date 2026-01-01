@@ -656,7 +656,8 @@ def add_weather_features(df, weather_df=None):
     
     # 如果沒有天氣數據，使用季節性估計值
     if weather_df is None or len(weather_df) == 0:
-        print("ℹ️ 無天氣歷史數據，使用季節性估計值")
+        import sys as _sys
+        print("ℹ️ 無天氣歷史數據，使用季節性估計值", file=_sys.stderr)
         
         # 季節性平均溫度（香港）
         seasonal_temps = {
@@ -679,7 +680,8 @@ def add_weather_features(df, weather_df=None):
         df['Weather_Min_Temp'] = df['Date'].dt.month.map(lambda m: seasonal_temps[m]['min'])
         df['Weather_Has_Data'] = 0
     else:
-        print(f"✅ 合併天氣歷史數據 ({len(weather_df)} 天)")
+        import sys as _sys
+        print(f"✅ 合併天氣歷史數據 ({len(weather_df)} 天)", file=_sys.stderr)
         
         # 確保天氣數據的 Date 列是 datetime 類型
         weather_df = weather_df.copy()
@@ -740,11 +742,13 @@ def load_weather_history():
             try:
                 df = pd.read_csv(path)
                 df['Date'] = pd.to_datetime(df['Date'])
-                print(f"✅ 已加載天氣歷史數據: {path} ({len(df)} 天)")
+                import sys as _sys
+                print(f"✅ 已加載天氣歷史數據: {path} ({len(df)} 天)", file=_sys.stderr)
                 return df
             except Exception as e:
-                print(f"⚠️ 讀取 {path} 失敗: {e}")
+                print(f"⚠️ 讀取 {path} 失敗: {e}", file=_sys.stderr)
     
-    print("ℹ️ 未找到天氣歷史數據文件")
+    import sys as _sys
+    print("ℹ️ 未找到天氣歷史數據文件", file=_sys.stderr)
     return None
 

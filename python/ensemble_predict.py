@@ -33,7 +33,7 @@ def load_xgboost_model():
                 model = xgb.XGBRegressor()
                 model.load_model(model_path)
             except Exception as e2:
-                print(f"無法加載 XGBoost 模型 (方法1: {e1}, 方法2: {e2})")
+                print(f"無法加載 XGBoost 模型 (方法1: {e1}, 方法2: {e2})", file=sys.stderr)
                 return None, None
         
         features_path = os.path.join(models_dir, 'xgboost_features.json')
@@ -42,7 +42,7 @@ def load_xgboost_model():
         
         return model, feature_cols
     except Exception as e:
-        print(f"無法加載 XGBoost 模型: {e}")
+        print(f"無法加載 XGBoost 模型: {e}", file=sys.stderr)
         return None, None
 
 
@@ -115,7 +115,7 @@ def load_ai_factors_from_db():
             return factors_cache
         return {}
     except Exception as e:
-        print(f"⚠️ 無法加載 AI 因子數據: {e}")
+        print(f"⚠️ 無法加載 AI 因子數據: {e}", file=sys.stderr)
         return {}
 
 def ensemble_predict(target_date, historical_data):
@@ -145,7 +145,7 @@ def ensemble_predict(target_date, historical_data):
     # 加載 AI 因子數據
     ai_factors = load_ai_factors_from_db()
     if ai_factors:
-        print(f"✅ 加載了 {len(ai_factors)} 個日期的 AI 因子數據用於預測")
+        print(f"✅ 加載了 {len(ai_factors)} 個日期的 AI 因子數據用於預測", file=sys.stderr)
     
     # 準備特徵數據
     if historical_data is not None and len(historical_data) > 0:
@@ -296,8 +296,8 @@ def ensemble_predict(target_date, historical_data):
 def main():
     """命令行接口"""
     if len(sys.argv) < 2:
-        print("用法: python ensemble_predict.py <target_date> [historical_data_path]")
-        print("注意: 現在只使用 XGBoost 模型")
+        print("用法: python ensemble_predict.py <target_date> [historical_data_path]", file=sys.stderr)
+        print("注意: 現在只使用 XGBoost 模型", file=sys.stderr)
         sys.exit(1)
     
     target_date = sys.argv[1]
@@ -320,7 +320,7 @@ def main():
     if result:
         print(json.dumps(result, indent=2))
     else:
-        print("錯誤: 無法生成預測")
+        print("錯誤: 無法生成預測", file=sys.stderr)
         sys.exit(1)
 
 if __name__ == '__main__':
