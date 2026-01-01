@@ -7249,7 +7249,7 @@ function initAlgorithmContent() {
     
     algorithmContentEl.innerHTML = `
         <div class="algorithm-formula" style="margin-bottom: var(--space-xl);">
-            <h4>核心預測算法（v2.4.15+）</h4>
+            <h4>核心預測算法（v2.9.7 - 僅 XGBoost）</h4>
             <div style="background: var(--bg-secondary); padding: var(--space-lg); border-radius: var(--radius-md); margin-top: var(--space-md); margin-bottom: var(--space-lg);">
                 <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">機器學習模型：XGBoost</h5>
                 <div style="padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.9rem; line-height: 1.8; color: var(--text-secondary);">
