@@ -136,19 +136,146 @@ def load_data_from_csv(csv_path):
         print(f"無法從 CSV 加載數據: {e}")
         return None
 
+def time_series_cross_validate(df, feature_cols, n_splits=5):
+    """
+    時間序列交叉驗證 (Walk-Forward Validation)
+    
+    確保模型在訓練期間永遠不會看到未來數據：
+    - 每個 fold 只使用過去的數據進行訓練
+    - 驗證集總是在訓練集之後的時間段
+    - 最終測試集完全獨立，從未參與任何訓練過程
+    """
+    print(f"\n{'='*60}")
+    print("🔄 時間序列交叉驗證 (Walk-Forward Validation)")
+    print(f"{'='*60}")
+    print(f"⚠️ 重要：確保模型無法訪問未來數據！")
+    print(f"📊 交叉驗證折數: {n_splits}")
+    
+    tscv = TimeSeriesSplit(n_splits=n_splits)
+    
+    cv_scores = {'mae': [], 'rmse': [], 'mape': []}
+    
+    X = df[feature_cols].fillna(0)
+    y = df['Attendance']
+    dates = df['Date'].values
+    
+    for fold, (train_idx, val_idx) in enumerate(tscv.split(X)):
+        # 獲取訓練和驗證的日期範圍
+        train_dates = dates[train_idx]
+        val_dates = dates[val_idx]
+        
+        # 驗證：確保驗證集日期都在訓練集日期之後
+        train_max = pd.to_datetime(train_dates).max()
+        val_min = pd.to_datetime(val_dates).min()
+        
+        if val_min <= train_max:
+            print(f"❌ Fold {fold+1}: 數據洩漏！驗證集包含訓練期間的數據")
+            continue
+        
+        X_train_cv, X_val_cv = X.iloc[train_idx], X.iloc[val_idx]
+        y_train_cv, y_val_cv = y.iloc[train_idx], y.iloc[val_idx]
+        
+        print(f"\n📂 Fold {fold+1}/{n_splits}:")
+        print(f"   訓練集: {len(train_idx)} 筆 ({train_dates[0]} 至 {train_dates[-1]})")
+        print(f"   驗證集: {len(val_idx)} 筆 ({val_dates[0]} 至 {val_dates[-1]})")
+        print(f"   ✅ 時間順序驗證通過：驗證集開始日期 > 訓練集結束日期")
+        
+        # 創建模型（不使用 early stopping 以避免需要額外驗證集）
+        model = xgb.XGBRegressor(
+            n_estimators=300,
+            max_depth=6,
+            learning_rate=0.05,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            objective='reg:squarederror',
+            alpha=1.0,
+            reg_lambda=1.0,
+            random_state=42,
+            n_jobs=-1
+        )
+        
+        model.fit(X_train_cv, y_train_cv, verbose=False)
+        
+        y_pred_cv = model.predict(X_val_cv)
+        
+        mae = mean_absolute_error(y_val_cv, y_pred_cv)
+        rmse = np.sqrt(mean_squared_error(y_val_cv, y_pred_cv))
+        mape = np.mean(np.abs((y_val_cv - y_pred_cv) / y_val_cv)) * 100
+        
+        cv_scores['mae'].append(mae)
+        cv_scores['rmse'].append(rmse)
+        cv_scores['mape'].append(mape)
+        
+        print(f"   📈 MAE: {mae:.2f}, RMSE: {rmse:.2f}, MAPE: {mape:.2f}%")
+    
+    # 計算平均分數
+    avg_scores = {
+        'cv_mae_mean': np.mean(cv_scores['mae']),
+        'cv_mae_std': np.std(cv_scores['mae']),
+        'cv_rmse_mean': np.mean(cv_scores['rmse']),
+        'cv_rmse_std': np.std(cv_scores['rmse']),
+        'cv_mape_mean': np.mean(cv_scores['mape']),
+        'cv_mape_std': np.std(cv_scores['mape']),
+    }
+    
+    print(f"\n{'='*60}")
+    print("📊 交叉驗證結果總結:")
+    print(f"{'='*60}")
+    print(f"   MAE:  {avg_scores['cv_mae_mean']:.2f} ± {avg_scores['cv_mae_std']:.2f} 病人")
+    print(f"   RMSE: {avg_scores['cv_rmse_mean']:.2f} ± {avg_scores['cv_rmse_std']:.2f} 病人")
+    print(f"   MAPE: {avg_scores['cv_mape_mean']:.2f} ± {avg_scores['cv_mape_std']:.2f}%")
+    
+    return avg_scores
+
+
 def train_xgboost_model(train_data, test_data, feature_cols):
-    """訓練 XGBoost 模型"""
+    """
+    訓練 XGBoost 模型（使用正確的時間序列驗證）
+    
+    關鍵：Early stopping 使用訓練集內的驗證集，而非測試集！
+    這樣確保測試集在整個訓練過程中完全未被模型看到。
+    """
     print(f"\n📊 開始訓練 XGBoost 模型...")
     print(f"訓練集大小: {len(train_data)} 筆")
-    print(f"測試集大小: {len(test_data)} 筆")
+    print(f"測試集大小: {len(test_data)} 筆 (完全隔離，未參與訓練)")
     print(f"特徵數量: {len(feature_cols)} 個")
     
-    X_train = train_data[feature_cols].fillna(0)
-    y_train = train_data['Attendance']
+    # 從訓練集中分出一部分作為 early stopping 驗證集
+    # 使用訓練集的最後 15% 作為驗證集（保持時間順序）
+    val_split_idx = int(len(train_data) * 0.85)
+    train_subset = train_data[:val_split_idx].copy()
+    val_subset = train_data[val_split_idx:].copy()
+    
+    X_train = train_subset[feature_cols].fillna(0)
+    y_train = train_subset['Attendance']
+    X_val = val_subset[feature_cols].fillna(0)
+    y_val = val_subset['Attendance']
     X_test = test_data[feature_cols].fillna(0)
     y_test = test_data['Attendance']
     
-    print(f"訓練集目標值範圍: {y_train.min():.1f} - {y_train.max():.1f} 病人 (平均: {y_train.mean():.1f})")
+    print(f"\n⚠️ 時間序列數據分割驗證:")
+    print(f"   訓練子集: {len(train_subset)} 筆 ({train_subset['Date'].min()} 至 {train_subset['Date'].max()})")
+    print(f"   驗證子集: {len(val_subset)} 筆 ({val_subset['Date'].min()} 至 {val_subset['Date'].max()})")
+    print(f"   測試集:   {len(test_data)} 筆 ({test_data['Date'].min()} 至 {test_data['Date'].max()})")
+    
+    # 驗證時間順序
+    train_max_date = pd.to_datetime(train_subset['Date']).max()
+    val_min_date = pd.to_datetime(val_subset['Date']).min()
+    test_min_date = pd.to_datetime(test_data['Date']).min()
+    val_max_date = pd.to_datetime(val_subset['Date']).max()
+    
+    if val_min_date > train_max_date:
+        print(f"   ✅ 驗證集日期 > 訓練集日期 (無數據洩漏)")
+    else:
+        print(f"   ❌ 警告：驗證集可能包含訓練期間的數據！")
+    
+    if test_min_date > val_max_date:
+        print(f"   ✅ 測試集日期 > 驗證集日期 (無數據洩漏)")
+    else:
+        print(f"   ❌ 警告：測試集可能包含驗證期間的數據！")
+    
+    print(f"\n訓練集目標值範圍: {y_train.min():.1f} - {y_train.max():.1f} 病人 (平均: {y_train.mean():.1f})")
+    print(f"驗證集目標值範圍: {y_val.min():.1f} - {y_val.max():.1f} 病人 (平均: {y_val.mean():.1f})")
     print(f"測試集目標值範圍: {y_test.min():.1f} - {y_test.max():.1f} 病人 (平均: {y_test.mean():.1f})")
     
     # 創建自定義 XGBoost 類以修復 _estimator_type 錯誤
@@ -191,21 +318,23 @@ def train_xgboost_model(train_data, test_data, feature_cols):
     )
     
     print(f"\n🚀 開始模型訓練 (梯度提升過程)...")
+    print(f"⚠️ Early stopping 使用訓練集內的驗證子集，非測試集！")
     import time
     fit_start = time.time()
     
+    # 使用驗證子集進行 early stopping，而非測試集
     model.fit(
         X_train, y_train,
-        eval_set=[(X_test, y_test)],
+        eval_set=[(X_val, y_val)],  # 使用訓練集內的驗證子集
         verbose=False
     )
     
     fit_time = time.time() - fit_start
     print(f"訓練完成，耗時: {fit_time:.2f} 秒")
-    print(f"實際訓練輪數: {model.n_estimators} 輪")
+    print(f"實際訓練輪數: {model.best_iteration + 1 if hasattr(model, 'best_iteration') else model.n_estimators} 輪")
     
-    # 評估
-    print(f"\n📈 開始模型評估...")
+    # 在完全未見過的測試集上評估
+    print(f"\n📈 開始模型評估 (在完全未見過的測試集上)...")
     y_pred = model.predict(X_test)
     
     # 計算各種誤差指標
@@ -218,7 +347,7 @@ def train_xgboost_model(train_data, test_data, feature_cols):
     std_error = np.std(y_pred - y_test)
     r2_score = 1 - (np.sum((y_test - y_pred) ** 2) / np.sum((y_test - np.mean(y_test)) ** 2))
     
-    print(f"\nXGBoost 模型性能指標:")
+    print(f"\nXGBoost 模型性能指標 (測試集 - 完全獨立):")
     print(f"  MAE (平均絕對誤差): {mae:.2f} 病人")
     print(f"  RMSE (均方根誤差): {rmse:.2f} 病人")
     print(f"  MAPE (平均絕對百分比誤差): {mape:.2f}%")
@@ -323,7 +452,10 @@ def main():
     
     print(f"使用 {len(feature_cols)} 個特徵進行訓練")
     
-    # 訓練模型
+    # 時間序列交叉驗證（確保無數據洩漏）
+    cv_scores = time_series_cross_validate(train_data, feature_cols, n_splits=5)
+    
+    # 訓練最終模型
     model, metrics = train_xgboost_model(train_data, test_data, feature_cols)
     
     # 保存模型（使用絕對路徑）
@@ -360,7 +492,15 @@ def main():
         'train_count': len(train_data),
         'test_count': len(test_data),
         'feature_count': len(feature_cols),
-        'ai_factors_count': len(ai_factors) if ai_factors else 0
+        'ai_factors_count': len(ai_factors) if ai_factors else 0,
+        # 交叉驗證分數（確保無未來數據洩漏）
+        'cv_mae_mean': cv_scores['cv_mae_mean'],
+        'cv_mae_std': cv_scores['cv_mae_std'],
+        'cv_rmse_mean': cv_scores['cv_rmse_mean'],
+        'cv_rmse_std': cv_scores['cv_rmse_std'],
+        'cv_mape_mean': cv_scores['cv_mape_mean'],
+        'cv_mape_std': cv_scores['cv_mape_std'],
+        'time_series_validation': True  # 標記使用了正確的時間序列驗證
     }
     
     # 保存評估指標
