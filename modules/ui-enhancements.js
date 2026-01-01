@@ -862,7 +862,7 @@ const MethodologyModal = {
                     { version: '2.9.24', date: '2025-12-31', description: '天氣特徵', metrics: { mae: 3.75, mape: 1.52, feature_count: 89 }, changes: ['HKO數據'] },
                     { version: '2.9.28', date: '2026-01-02', description: '研究優化', metrics: { mae: 3.84, mape: 1.56, feature_count: 99 }, changes: ['500樹', 'Fourier'] },
                     { version: '2.9.50', date: '2026-01-01', description: 'Optuna+EWMA', metrics: { mae: 6.30, mape: 2.45, r2: 0.90, feature_count: 161 }, changes: ['Optuna優化', 'EWMA'] },
-                    { version: '2.9.52', date: '2026-01-02', description: '特徵選擇優化', metrics: { mae: 4.73, mape: 1.87, r2: 0.933, feature_count: 25 }, changes: ['25精選特徵', 'MAE↓25%', 'R²93.3%'] }
+                    { version: '2.9.52', date: '2026-01-02', description: '自動特徵優化', metrics: { mae: 5.33, mape: 2.10, r2: 0.92, feature_count: 25 }, changes: ['智能優化器', '25特徵', 'R²92%'] }
                 ];
                 this.renderTimeline(container, fallbackTimeline);
                 this.renderAccuracyChart(fallbackTimeline);
@@ -1206,7 +1206,7 @@ const MainPageTimeline = {
                 { version: '2.9.24', date: '2025-12-31', description: '天氣特徵整合', metrics: { mae: 3.75, mape: 1.52, feature_count: 89 }, changes: ['HKO數據', '10天氣特徵'] },
                 { version: '2.9.28', date: '2026-01-02', description: '研究基礎優化', metrics: { mae: 3.84, mape: 1.56, feature_count: 99 }, changes: ['500樹', 'Fourier', '樣本權重'] },
                 { version: '2.9.50', date: '2026-01-01', description: 'Optuna 超參數優化', metrics: { mae: 6.30, mape: 2.45, r2: 0.90, feature_count: 161 }, changes: ['Optuna TPE', 'EWMA特徵', 'R²90.3%'] },
-                { version: '2.9.52', date: '2026-01-02', description: '特徵選擇優化', metrics: { mae: 4.73, mape: 1.87, r2: 0.933, feature_count: 25 }, changes: ['25精選特徵', 'MAE↓25%', 'R²93.3%'] }
+                { version: '2.9.52', date: '2026-01-02', description: '自動特徵優化', metrics: { mae: 5.33, mape: 2.10, r2: 0.92, feature_count: 25 }, changes: ['智能優化器', '25特徵', 'R²92%'] }
             ];
         }
         

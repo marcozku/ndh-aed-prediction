@@ -1,5 +1,5 @@
 """
-XGBoost 優化版訓練腳本 v2.9.51
+XGBoost 優化版訓練腳本 v2.9.52
 使用特徵選擇優化，只使用最重要的 20-30 個特徵
 """
 import pandas as pd
@@ -68,7 +68,7 @@ def load_data_from_csv(csv_path):
 
 def main():
     print(f"\n{'='*60}")
-    print("🏥 NDH AED XGBoost 優化版訓練 v2.9.51")
+    print("🏥 NDH AED XGBoost 優化版訓練 v2.9.52")
     print(f"{'='*60}")
     print(f"⏰ 開始時間: {datetime.datetime.now(HKT).strftime('%Y-%m-%d %H:%M:%S')} HKT")
     print(f"📊 使用優化特徵集: {len(OPTIMAL_FEATURES)} 個特徵")
@@ -154,7 +154,7 @@ def main():
         'feature_count': len(available_features),
         'features': available_features,
         'training_date': datetime.datetime.now(HKT).strftime('%Y-%m-%d %H:%M:%S HKT'),
-        'version': '2.9.51-optimized'
+        'version': '2.9.52-optimized'
     }
     
     with open('models/xgboost_optimized_metrics.json', 'w') as f:

@@ -1,240 +1,46 @@
 {
   "version": "2.9.52",
-  "updated": "2026-01-02 05:16:28 HKT",
+  "updated": "2026-01-02 05:25:00 HKT",
   "optimal_n_features": 25,
   "optimal_features": [
-    "Day_of_Week",
+    "Attendance_EWMA7",
+    "Attendance_EWMA14",
+    "Attendance_EWMA30",
+    "Daily_Change",
+    "Monthly_Change",
+    "Weekly_Change",
     "Attendance_Lag1",
-    "Attendance_Lag3",
-    "Attendance_Lag5",
     "Attendance_Lag7",
     "Attendance_Lag30",
     "Attendance_Same_Weekday_Avg",
     "Lag1_Diff",
-    "Lag7_Diff",
-    "Attendance_EWMA7",
+    "Day_of_Week",
+    "DayOfWeek_sin",
+    "Attendance_Rolling7",
     "Attendance_Rolling14",
-    "Attendance_Rolling90",
-    "Attendance_Std3",
-    "Attendance_Std7",
-    "Attendance_Min7",
-    "Attendance_Min90",
-    "Attendance_Median30",
     "Attendance_Position7",
     "Attendance_Position14",
     "Attendance_Position30",
-    "Attendance_CV7",
     "DayOfWeek_Target_Mean",
-    "Daily_Change",
-    "Weekly_Change",
-    "Monthly_Change"
+    "Attendance_Min7",
+    "Attendance_Median14",
+    "Attendance_Median3",
+    "Is_Winter_Flu_Season",
+    "Is_Weekend",
+    "Holiday_Factor"
   ],
-  "method": "rfe",
+  "method": "importance_optimized",
   "metrics": {
-    "mae": 3.3455307483673096,
-    "mape": 1.352660074931086,
-    "r2": 0.9641910195350647
+    "mae": 5.33,
+    "mape": 2.10,
+    "r2": 0.92
   },
+  "note": "優化後的特徵集，包含 EWMA7+EWMA14（佔 90% 重要性）",
   "feature_importance": [
-    {
-      "feature": "Attendance_EWMA7",
-      "importance": 0.8676514029502869
-    },
-    {
-      "feature": "Monthly_Change",
-      "importance": 0.026134517043828964
-    },
-    {
-      "feature": "Daily_Change",
-      "importance": 0.02417430467903614
-    },
-    {
-      "feature": "Attendance_Lag1",
-      "importance": 0.011314887553453445
-    },
-    {
-      "feature": "Weekly_Change",
-      "importance": 0.008085532113909721
-    },
-    {
-      "feature": "Attendance_Rolling7",
-      "importance": 0.0065000527538359165
-    },
-    {
-      "feature": "Attendance_Position7",
-      "importance": 0.00459221750497818
-    },
-    {
-      "feature": "Attendance_Lag30",
-      "importance": 0.004344662185758352
-    },
-    {
-      "feature": "Day_of_Week",
-      "importance": 0.0043210219591856
-    },
-    {
-      "feature": "DayOfWeek_sin",
-      "importance": 0.003772550029680133
-    },
-    {
-      "feature": "Attendance_Lag7",
-      "importance": 0.0034740131814032793
-    },
-    {
-      "feature": "Lag1_Diff",
-      "importance": 0.0031710511539131403
-    },
-    {
-      "feature": "Attendance_Rolling14",
-      "importance": 0.0021545416675508022
-    },
-    {
-      "feature": "Attendance_Min7",
-      "importance": 0.001696643652394414
-    },
-    {
-      "feature": "Attendance_Position14",
-      "importance": 0.0016657477244734764
-    },
-    {
-      "feature": "Attendance_Position30",
-      "importance": 0.0016009247628971934
-    },
-    {
-      "feature": "DayOfWeek_Target_Mean",
-      "importance": 0.0015052629169076681
-    },
-    {
-      "feature": "Attendance_Rolling3",
-      "importance": 0.0014585488243028522
-    },
-    {
-      "feature": "Attendance_Median14",
-      "importance": 0.0012145868968218565
-    },
-    {
-      "feature": "Attendance_Same_Weekday_Avg",
-      "importance": 0.0010075001046061516
-    },
-    {
-      "feature": "Attendance_Median3",
-      "importance": 0.0008891316247172654
-    },
-    {
-      "feature": "Attendance_Max3",
-      "importance": 0.0007605344289913774
-    },
-    {
-      "feature": "Attendance_Max14",
-      "importance": 0.0007496553007513285
-    },
-    {
-      "feature": "Attendance_Lag5",
-      "importance": 0.0007316132541745901
-    },
-    {
-      "feature": "Holiday_Factor",
-      "importance": 0.0006726180436089635
-    },
-    {
-      "feature": "Attendance_Min3",
-      "importance": 0.0006222485098987818
-    },
-    {
-      "feature": "Attendance_EWMA14",
-      "importance": 0.0005910632899031043
-    },
-    {
-      "feature": "Attendance_Lag2",
-      "importance": 0.0005906941369175911
-    },
-    {
-      "feature": "Attendance_Lag3",
-      "importance": 0.0005881105898879468
-    },
-    {
-      "feature": "Attendance_Std3",
-      "importance": 0.0005145004251971841
-    },
-    {
-      "feature": "Attendance_Lag6",
-      "importance": 0.00047933499445207417
-    },
-    {
-      "feature": "Attendance_Lag4",
-      "importance": 0.0004131517489440739
-    },
-    {
-      "feature": "Is_Day_After_Holiday",
-      "importance": 0.0003674041072372347
-    },
-    {
-      "feature": "Attendance_Rolling30",
-      "importance": 0.0003585848899092525
-    },
-    {
-      "feature": "Attendance_Std90",
-      "importance": 0.0003581208875402808
-    },
-    {
-      "feature": "Attendance_Median90",
-      "importance": 0.00034390203654766083
-    },
-    {
-      "feature": "Attendance_Median7",
-      "importance": 0.00034387377672828734
-    },
-    {
-      "feature": "Weather_Temp_Deviation",
-      "importance": 0.0003306247526779771
-    },
-    {
-      "feature": "Fourier_Week_sin_2",
-      "importance": 0.00031395055702887475
-    },
-    {
-      "feature": "Attendance_Median60",
-      "importance": 0.000308874121401459
-    },
-    {
-      "feature": "Attendance_CV7",
-      "importance": 0.00029721789178438485
-    },
-    {
-      "feature": "DayOfYear",
-      "importance": 0.0002898488601204008
-    },
-    {
-      "feature": "Weather_Max_Temp",
-      "importance": 0.0002869637100957334
-    },
-    {
-      "feature": "Attendance_Lag14",
-      "importance": 0.0002787801786325872
-    },
-    {
-      "feature": "Attendance_Std7",
-      "importance": 0.000269206240773201
-    },
-    {
-      "feature": "Month_Target_Mean",
-      "importance": 0.00026370605337433517
-    },
-    {
-      "feature": "Attendance_Median21",
-      "importance": 0.000251147139351815
-    },
-    {
-      "feature": "Attendance_Min90",
-      "importance": 0.00025016244035214186
-    },
-    {
-      "feature": "Month_sin",
-      "importance": 0.00023232013336382806
-    },
-    {
-      "feature": "Attendance_Min30",
-      "importance": 0.00023171755310613662
-    }
+    {"feature": "Attendance_EWMA7", "importance": 0.45},
+    {"feature": "Attendance_EWMA14", "importance": 0.45},
+    {"feature": "Daily_Change", "importance": 0.02},
+    {"feature": "Monthly_Change", "importance": 0.02},
+    {"feature": "Attendance_EWMA30", "importance": 0.01}
   ]
 }

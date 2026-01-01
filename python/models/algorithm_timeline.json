@@ -71,9 +71,9 @@
       "improvement": "R² 從 59% 提升到 90.3%"
     },
     {
-      "version": "2.9.51",
+      "version": "2.9.52",
       "date": "2026-01-02",
-      "description": "特徵選擇優化 - 少即是多",
+      "description": "自動特徵優化系統",
       "changes": [
         "特徵數從 161 優化到 25 個精選特徵",
         "EWMA7+EWMA14 佔 90% 重要性",
@@ -105,9 +105,10 @@
         "訓練整合：--optimize 參數"
       ],
       "metrics": {
-        "mae": 3.35,
-        "mape": 1.35,
-        "r2": 0.964,
+        "mae": 5.33,
+        "mape": 2.10,
+        "r2": 0.92,
+        "adj_r2": 0.917,
         "feature_count": 25
       },
       "research": "維度災難研究、特徵選擇最佳實踐",
