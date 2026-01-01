@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.25';
+const MODEL_VERSION = '2.9.26';
 
 // AI 服務（僅在服務器端使用）
 let aiService = null;

@@ -342,37 +342,31 @@ def train_xgboost_model(train_data, test_data, feature_cols):
     print("🔥 開始梯度提升訓練 (Gradient Boosting)")
     print(f"{'='*60}")
     print(f"   每 10 輪輸出一次訓練進度...")
-    print(f"   Early stopping: 若 50 輪無改善則停止")
+    print(f"   Early stopping: 若 30 輪無改善則停止")
     print(f"")
     import time
-    fit_start = time.time()
     
-    # 創建自定義回調以顯示訓練進度
-    class TrainingProgressCallback(xgb.callback.TrainingCallback):
-        def __init__(self):
-            self.start_time = time.time()
-            
-        def after_iteration(self, model, epoch, evals_log):
-            if (epoch + 1) % 10 == 0 or epoch == 0:
-                elapsed = time.time() - self.start_time
-                val_mae = evals_log['validation_0']['mae'][-1] if 'validation_0' in evals_log else 0
-                progress = min(100, int((epoch + 1) / 300 * 100))  # 更新為 300 棵樹
-                bar_len = 20
-                filled = int(bar_len * progress / 100)
-                bar = '█' * filled + '░' * (bar_len - filled)
-                print(f"   [{bar}] {progress:3d}% | 樹 #{epoch+1:3d} | MAE: {val_mae:.2f} | ⏱️ {elapsed:.1f}s")
-                sys.stdout.flush()
-            return False  # 返回 False 繼續訓練
+    # 使用驗證子集進行 early stopping
+    # 注意：部分 XGBoost 版本不支持 callbacks 參數，使用 verbose 模式代替
+    print("   訓練中...")
+    fit_start_time = time.time()
     
-    # 使用驗證子集進行 early stopping，而非測試集
-    model.fit(
-        X_train, y_train,
-        eval_set=[(X_val, y_val)],
-        verbose=False,
-        callbacks=[TrainingProgressCallback()]
-    )
+    try:
+        # 嘗試使用 verbose=10 來顯示每 10 輪的進度
+        model.fit(
+            X_train, y_train,
+            eval_set=[(X_val, y_val)],
+            verbose=10  # 每 10 輪輸出一次
+        )
+    except TypeError as e:
+        # 如果 verbose 參數有問題，嘗試不帶 verbose
+        print(f"   ⚠️ XGBoost 版本兼容性調整: {e}")
+        model.fit(
+            X_train, y_train,
+            eval_set=[(X_val, y_val)]
+        )
     
-    fit_time = time.time() - fit_start
+    fit_time = time.time() - fit_start_time
     best_iter = model.best_iteration + 1 if hasattr(model, 'best_iteration') and model.best_iteration is not None else 300
     
     print(f"\n✅ 訓練完成!")

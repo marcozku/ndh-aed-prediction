@@ -1,5 +1,23 @@
 # 版本更新日誌
 
+## v2.9.26 - 2026-01-02 02:26 HKT
+
+### 🔧 修復 XGBoost 訓練兼容性問題
+
+**問題**：
+- Railway 環境的 XGBoost 版本不支持 `callbacks` 參數
+- 錯誤：`TypeError: XGBModel.fit() got an unexpected keyword argument 'callbacks'`
+
+**修復**：
+- 移除自定義 `TrainingProgressCallback` 回調類
+- 改用 `verbose=10` 參數顯示訓練進度
+- 添加 try-except 處理不同 XGBoost 版本的兼容性
+
+**修改的文件**：
+- `python/train_xgboost.py` - 移除 callbacks，改用 verbose
+
+---
+
 ## v2.9.25 - 2026-01-02 02:24 HKT
 
 ### 🔒 消除所有模擬/假數據 - 100% 真實數據來源
