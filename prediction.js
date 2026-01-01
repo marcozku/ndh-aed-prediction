@@ -7312,17 +7312,19 @@ function formatFileSize(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// 格式化訓練日期
+// 格式化訓練日期（HKT）
 function formatTrainingDate(dateStr) {
     if (!dateStr) return '未知';
     try {
         const date = new Date(dateStr);
         return date.toLocaleString('zh-HK', {
+            timeZone: 'Asia/Hong_Kong',
             year: 'numeric',
             month: '2-digit',
             day: '2-digit',
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
+            hour12: false
         });
     } catch (e) {
         return dateStr;

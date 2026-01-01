@@ -1124,7 +1124,18 @@ const MethodologyModal = {
                     mapeEl.textContent = metrics.mape.toFixed(2);
                 }
                 if (trainDateEl && metrics.training_date) {
-                    trainDateEl.textContent = metrics.training_date;
+                    // 格式化為 HKT 時間
+                    const date = new Date(metrics.training_date);
+                    const hktDate = date.toLocaleString('zh-HK', {
+                        timeZone: 'Asia/Hong_Kong',
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    });
+                    trainDateEl.textContent = hktDate;
                 }
                 if (dataCountEl && metrics.data_count !== undefined) {
                     dataCountEl.textContent = metrics.data_count.toLocaleString();
