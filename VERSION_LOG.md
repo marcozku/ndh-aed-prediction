@@ -2,27 +2,28 @@
 
 ## v2.9.7 - 2026-01-02 00:44 HKT
 
-### ⏰ 伺服器端自動預測（每 30 分鐘）
+### ⏰ 伺服器端自動預測 + 全面 XGBoost
 
-**新功能**：
-伺服器現在會自動每 30 分鐘產生預測，即使沒有用戶打開 app。
+**重大變更**：
+整個應用程式現在**僅使用 XGBoost 模型**，完全移除統計模型回退。
 
-**實現細節**：
+**伺服器端自動預測**：
 - 新增 `generateServerSidePredictions()` 函數
 - 新增 `scheduleAutoPredict()` 定時任務
-- **僅使用 XGBoost 模型**，不使用統計回退
-- 如果 XGBoost 模型未訓練，會跳過自動預測並記錄警告
-- 每次執行會產生今天 + 未來 7 天的預測
+- 伺服器啟動後 10 秒執行第一次，之後每 30 分鐘執行
+- 每日共產生 48 次預測（即使無用戶使用 app）
 - 預測保存到 `daily_predictions` 表
 
-**執行頻率**：
-- 伺服器啟動後 10 秒執行第一次
-- 之後每 30 分鐘執行一次
-- 每日共產生 48 次預測
+**XGBoost 專用模式**：
+- `/api/ensemble-predict` 端點改為僅使用 XGBoost
+- 移除 `fallback_to_statistical` 參數
+- 如果 XGBoost 模型未訓練，返回 503 錯誤
+- 前端會顯示錯誤提示，要求訓練模型
+- 新增 `getXGBoostPredictions()` 批量預測函數
 
 **修改的文件**：
-- `server.js` - 新增自動預測邏輯
-- `prediction.js` - 更新文檔說明
+- `server.js` - 自動預測 + API 改為 XGBoost 專用
+- `prediction.js` - 移除統計回退，強制 XGBoost
 
 ---
 

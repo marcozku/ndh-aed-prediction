@@ -24,11 +24,11 @@ async function checkXGBoostAvailability() {
             console.log('✅ XGBoost 模型可用');
         } else {
             xgboostAvailable = false;
-            console.log('ℹ️ XGBoost 模型不可用，使用統計模型');
+            console.warn('⚠️ XGBoost 模型未訓練！請運行 python/train_all_models.py');
         }
     } catch (e) {
         xgboostAvailable = false;
-        console.log('ℹ️ 無法檢查 XGBoost 狀態，使用統計模型');
+        console.error('❌ 無法檢查 XGBoost 狀態:', e);
     }
     return xgboostAvailable;
 }
@@ -41,17 +41,44 @@ async function getXGBoostPrediction(targetDate) {
             body: JSON.stringify({ 
                 target_date: targetDate,
                 use_ensemble: true,
-                fallback_to_statistical: true
+                fallback_to_statistical: false  // 不使用統計回退，僅 XGBoost
             })
         });
         const result = await response.json();
         if (result.success && result.data) {
             return result.data;
+        } else {
+            console.error('XGBoost 預測失敗:', result.error || '未知錯誤');
         }
     } catch (e) {
-        console.warn('XGBoost 預測失敗:', e);
+        console.error('XGBoost 預測請求失敗:', e);
     }
     return null;
+}
+
+// 批量獲取 XGBoost 預測（今天 + 未來 7 天）
+async function getXGBoostPredictions(startDate, days = 8) {
+    const predictions = [];
+    const start = new Date(startDate);
+    
+    for (let i = 0; i < days; i++) {
+        const targetDate = new Date(start);
+        targetDate.setDate(start.getDate() + i);
+        const dateStr = targetDate.toISOString().split('T')[0];
+        
+        const pred = await getXGBoostPrediction(dateStr);
+        if (pred) {
+            predictions.push({
+                date: dateStr,
+                predicted: Math.round(pred.prediction),
+                ci80: pred.ci80,
+                ci95: pred.ci95,
+                method: 'xgboost'
+            });
+        }
+    }
+    
+    return predictions;
 }
 
 // 暴露到全局
@@ -1153,9 +1180,23 @@ async function initCharts(predictor) {
         return;
     }
     
-    // 檢查 XGBoost 模型是否可用
+    // 檢查 XGBoost 模型是否可用（必須可用）
     const isXGBoostAvailable = await checkXGBoostAvailability();
-    console.log(`📊 預測引擎: ${isXGBoostAvailable ? 'XGBoost 機器學習模型 (MAE 3.84, MAPE 1.56%)' : '統計模型'}`);
+    if (!isXGBoostAvailable) {
+        console.error('❌ XGBoost 模型未訓練！系統無法產生預測。請先運行 python/train_all_models.py');
+        // 顯示錯誤給用戶
+        const alertEl = document.createElement('div');
+        alertEl.className = 'xgboost-error-alert';
+        alertEl.innerHTML = `
+            <div style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white; padding: 16px 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);">
+                <strong>⚠️ XGBoost 模型未訓練</strong><br>
+                <span style="font-size: 0.9em; opacity: 0.9;">系統無法產生預測。請先運行模型訓練：python/train_all_models.py</span>
+            </div>
+        `;
+        const mainContent = document.querySelector('main') || document.body;
+        mainContent.insertBefore(alertEl, mainContent.firstChild);
+    }
+    console.log(`📊 預測引擎: XGBoost 機器學習模型 ${isXGBoostAvailable ? '(已就緒)' : '(未訓練)'}`);
     
     // 獲取今天日期 (香港時間 HKT UTC+8)
     const hk = getHKTime();

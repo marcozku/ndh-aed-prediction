@@ -1341,39 +1341,37 @@ const apiHandlers = {
         }
     },
 
-    // XGBoost 預測
+    // XGBoost 預測（僅使用 XGBoost，不使用統計回退）
     'POST /api/ensemble-predict': async (req, res) => {
         try {
             const data = await parseBody(req);
-            const { target_date, use_ensemble = true, fallback_to_statistical = true } = data;
+            const { target_date } = data;
             
             if (!target_date) {
                 return sendJson(res, { error: '需要提供 target_date' }, 400);
             }
             
-            // 獲取歷史數據
-            let historicalData = [];
-            if (db && db.pool) {
-                const result = await db.getActualData(null, null);
-                historicalData = result || [];
+            // 使用 EnsemblePredictor（僅 XGBoost）
+            const { EnsemblePredictor } = require('./modules/ensemble-predictor');
+            const predictor = new EnsemblePredictor();
+            
+            // 檢查模型是否可用
+            if (!predictor.isModelAvailable()) {
+                return sendJson(res, { 
+                    success: false, 
+                    error: 'XGBoost 模型未訓練。請先運行 python/train_all_models.py'
+                }, 503);
             }
             
-            // 創建預測器
-            const { NDHAttendancePredictor } = require('./prediction');
-            const predictor = new NDHAttendancePredictor(historicalData);
-            
-            // 執行集成預測
-            const prediction = await predictor.predictWithEnsemble(target_date, {
-                useEnsemble: use_ensemble,
-                fallbackToStatistical: fallback_to_statistical
-            });
+            // 執行 XGBoost 預測
+            const prediction = await predictor.predict(target_date);
             
             sendJson(res, {
                 success: true,
                 data: prediction
             });
         } catch (err) {
-            console.error('集成預測錯誤:', err);
+            console.error('XGBoost 預測錯誤:', err);
             sendJson(res, { 
                 success: false, 
                 error: err.message 
