@@ -1,5 +1,54 @@
 # 版本更新日誌
 
+## v2.9.20 - 2026-01-02 01:57 HKT
+
+### 🔴 實現 SSE 實時訓練日誌推送
+
+**問題**：
+- 訓練日誌無法實時顯示，只能看到緩存的輸出
+- 前端通過輪詢 API 獲取日誌，但後端只是每 5 秒保存一次到數據庫
+- Railway 環境下可能因為容器重啟導致日誌丟失
+
+**解決方案**：
+- 實現 **Server-Sent Events (SSE)** 實時日誌推送機制
+- 後端在收到 Python 訓練輸出時，立即廣播到所有已連接的 SSE 客戶端
+- 前端使用 `EventSource` API 建立持久連接，實時接收訓練日誌
+
+**技術細節**：
+1. **後端 (`modules/auto-train-manager.js`)**：
+   - 添加 `sseClients` 集合管理所有 SSE 連接
+   - 添加 `addSSEClient()` 方法註冊 SSE 客戶端
+   - 添加 `broadcastLog()` 方法實時廣播日誌
+   - 添加 `broadcastStatusChange()` 方法廣播訓練狀態變更
+   - 在 `_attachPythonHandlers()` 中，每收到一行輸出立即廣播
+
+2. **後端 (`server.js`)**：
+   - 添加 `GET /api/training-log-stream` SSE 端點
+   - 設置正確的 SSE 響應頭（`text/event-stream`, `no-cache` 等）
+   - 實現心跳機制（每 30 秒）保持連接活躍
+   - 禁用 nginx 緩衝（`X-Accel-Buffering: no`）
+
+3. **前端 (`prediction.js`)**：
+   - 添加 `startTrainingSSE()` 和 `stopTrainingSSE()` 函數
+   - 使用 `EventSource` 連接 SSE 端點
+   - 監聽 `log`, `error`, `status`, `heartbeat` 事件
+   - 實時更新 `live-training-log` 元素
+   - 自動重連機制（3 秒後重試）
+
+**效果**：
+- 訓練日誌現在真正實時顯示，無需等待 API 輪詢
+- 每一行 Python 輸出都會立即推送到瀏覽器
+- 顯示 SSE 連接狀態指示器
+- 降低 API 輪詢頻率（從 1 秒改為 2 秒）
+
+**修改的文件**：
+- `modules/auto-train-manager.js` - 添加 SSE 客戶端管理和廣播功能
+- `server.js` - 添加 SSE 端點、更新版本號
+- `prediction.js` - 添加 EventSource 連接和實時日誌更新
+- `index.html` - 更新版本號
+
+---
+
 ## v2.9.19 - 2026-01-02 01:42 HKT
 
 ### 🔧 強化 Service Worker POST 請求過濾

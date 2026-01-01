@@ -7061,16 +7061,108 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ============================================
-// 模型訓練狀態檢查
+// 模型訓練狀態檢查 (v2.9.20 - SSE 實時日誌)
 // ============================================
 let trainingStatus = null;
 let trainingPollingInterval = null;
 let trainingWasInProgress = false;  // 追蹤之前是否在訓練中
+let trainingSSE = null;  // SSE 連接
+let sseRealtimeLogs = [];  // SSE 接收的實時日誌
+
+// 🔴 啟動 SSE 實時日誌連接
+function startTrainingSSE() {
+    if (trainingSSE) {
+        console.log('📡 SSE 已連接');
+        return;
+    }
+    
+    console.log('📡 建立 SSE 實時日誌連接...');
+    trainingSSE = new EventSource('/api/training-log-stream');
+    sseRealtimeLogs = [];  // 重置日誌
+    
+    trainingSSE.addEventListener('connected', (e) => {
+        const data = JSON.parse(e.data);
+        console.log('📡 SSE 連接成功:', data.message);
+    });
+    
+    trainingSSE.addEventListener('log', (e) => {
+        const data = JSON.parse(e.data);
+        console.log('📋 [訓練日誌]', data.message);
+        sseRealtimeLogs.push(data.message);
+        updateLiveTrainingLog();
+    });
+    
+    trainingSSE.addEventListener('error', (e) => {
+        try {
+            const data = JSON.parse(e.data);
+            console.error('⚠️ [訓練錯誤]', data.message);
+            sseRealtimeLogs.push(`⚠️ ${data.message}`);
+            updateLiveTrainingLog();
+        } catch (err) {
+            // SSE 連接錯誤
+            console.warn('📡 SSE 連接錯誤，將嘗試重連...');
+        }
+    });
+    
+    trainingSSE.addEventListener('status', (e) => {
+        const data = JSON.parse(e.data);
+        console.log('📊 訓練狀態更新:', data);
+        
+        if (data.isTraining === false) {
+            // 訓練完成
+            if (data.message) {
+                sseRealtimeLogs.push(data.message);
+                updateLiveTrainingLog();
+            }
+            // 重新載入完整狀態
+            loadTrainingStatus();
+        }
+    });
+    
+    trainingSSE.addEventListener('heartbeat', (e) => {
+        // 心跳，保持連接
+    });
+    
+    trainingSSE.onerror = (err) => {
+        console.warn('📡 SSE 連接錯誤，嘗試重連...');
+        // 3 秒後重連
+        setTimeout(() => {
+            if (trainingWasInProgress) {
+                stopTrainingSSE();
+                startTrainingSSE();
+            }
+        }, 3000);
+    };
+}
+
+// 🔴 停止 SSE 連接
+function stopTrainingSSE() {
+    if (trainingSSE) {
+        trainingSSE.close();
+        trainingSSE = null;
+        console.log('📡 SSE 連接已關閉');
+    }
+}
+
+// 🔴 更新實時訓練日誌顯示
+function updateLiveTrainingLog() {
+    const liveLog = document.getElementById('live-training-log');
+    if (liveLog && sseRealtimeLogs.length > 0) {
+        // 只顯示最後 200 行
+        const displayLogs = sseRealtimeLogs.slice(-200);
+        liveLog.textContent = displayLogs.join('\n');
+        liveLog.scrollTop = liveLog.scrollHeight;
+    }
+}
 
 // 開始訓練狀態輪詢
 function startTrainingPolling() {
     if (trainingPollingInterval) return; // 已經在輪詢中
     console.log('🔄 開始訓練狀態輪詢...');
+    
+    // 🔴 同時啟動 SSE 實時日誌
+    startTrainingSSE();
+    
     trainingPollingInterval = setInterval(async () => {
         const status = await loadTrainingStatus();
         if (status && status.data && !status.data.training?.isTraining) {
@@ -7097,7 +7189,7 @@ function startTrainingPolling() {
                 }
             }
         }
-    }, 1000); // 每秒更新一次
+    }, 2000); // 每 2 秒更新一次（因為有 SSE 實時日誌，可以減少輪詢頻率）
 }
 
 // 停止訓練狀態輪詢
@@ -7107,6 +7199,8 @@ function stopTrainingPolling() {
         trainingPollingInterval = null;
         console.log('⏹️ 停止訓練狀態輪詢');
     }
+    // 🔴 也停止 SSE
+    stopTrainingSSE();
 }
 
 async function loadTrainingStatus() {
@@ -7305,17 +7399,16 @@ function renderTrainingStatus(data) {
                     <div>📊 預計總時長: <strong>5-10 分鐘</strong></div>
                 </div>
                 
-                <!-- 實時訓練輸出 -->
-                ${lastTrainingOutput ? `
-                    <div style="margin-top: var(--space-md);">
-                        <div style="font-size: 0.85rem; color: var(--text-tertiary); margin-bottom: var(--space-sm);">📋 實時訓練日誌：</div>
-                        <pre id="live-training-log" style="padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); overflow-x: auto; font-size: 0.75rem; max-height: 300px; overflow-y: auto; font-family: 'Fira Code', 'Monaco', 'Consolas', monospace; line-height: 1.5; border: 1px solid var(--border-subtle);">${escapeHtml(lastTrainingOutput)}</pre>
+                <!-- 🔴 實時訓練輸出 (v2.9.20 SSE) -->
+                <div style="margin-top: var(--space-md);">
+                    <div style="font-size: 0.85rem; color: var(--text-tertiary); margin-bottom: var(--space-sm);">
+                        📋 實時訓練日誌：
+                        <span id="sse-status" style="margin-left: 8px; font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; background: rgba(34, 197, 94, 0.2); color: #22c55e;">
+                            ${trainingSSE ? '🔴 SSE 已連接' : '⏳ 連接中...'}
+                        </span>
                     </div>
-                ` : `
-                    <div style="margin-top: var(--space-md); padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); text-align: center; color: var(--text-tertiary); font-size: 0.85rem;">
-                        ⏳ 等待訓練輸出...
-                    </div>
-                `}
+                    <pre id="live-training-log" style="padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); overflow-x: auto; font-size: 0.75rem; max-height: 300px; overflow-y: auto; font-family: 'Fira Code', 'Monaco', 'Consolas', monospace; line-height: 1.5; border: 1px solid var(--border-subtle);">${sseRealtimeLogs.length > 0 ? escapeHtml(sseRealtimeLogs.slice(-200).join('\n')) : (lastTrainingOutput ? escapeHtml(lastTrainingOutput) : '⏳ 等待訓練輸出...')}</pre>
+                </div>
             </div>
         `;
     } else if (lastTrainingDate) {

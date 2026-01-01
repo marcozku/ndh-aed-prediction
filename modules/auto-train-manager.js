@@ -2,6 +2,7 @@
  * 自動訓練管理器
  * 當有新實際數據時，自動觸發模型重訓練
  * 訓練狀態現在使用 PostgreSQL 數據庫持久化，解決 Railway 部署後狀態重置問題
+ * v2.9.20: 添加 SSE 實時日誌推送功能
  */
 const { spawn } = require('child_process');
 const path = require('path');
@@ -21,6 +22,9 @@ class AutoTrainManager {
         this.currentProcess = null;  // 當前訓練進程引用
         this.currentTimeout = null;  // 當前超時計時器
         this.wasStopped = false;  // 標記是否被用戶停止
+        
+        // SSE 客戶端管理
+        this.sseClients = new Set();  // 存儲所有連接的 SSE 客戶端
         
         // 配置
         this.config = {
@@ -251,6 +255,13 @@ class AutoTrainManager {
         if (dataCount !== null) {
             console.log(`   數據總數: ${dataCount}`);
         }
+        
+        // 🔴 廣播訓練開始狀態
+        this.broadcastStatusChange({
+            isTraining: true,
+            trainingStartTime: this.trainingStartTime,
+            message: '🚀 開始訓練模型...'
+        });
 
         return new Promise((resolve) => {
             // 確保模型目錄存在
@@ -345,6 +356,9 @@ class AutoTrainManager {
             this.lastTrainingOutput = output;
             console.log(`[訓練] ${text.trim()}`);
             
+            // 🔴 實時廣播到所有 SSE 客戶端
+            this.broadcastLog(text.trim(), false);
+            
             // 節流保存狀態（每 5 秒最多保存一次）
             const now = Date.now();
             if (now - lastSaveTime >= saveThrottle) {
@@ -359,6 +373,9 @@ class AutoTrainManager {
             // 實時更新錯誤輸出
             this.lastTrainingError = error;
             console.error(`[訓練錯誤] ${text.trim()}`);
+            
+            // 🔴 實時廣播錯誤到所有 SSE 客戶端
+            this.broadcastLog(text.trim(), true);
             
             // 錯誤輸出節流保存
             const now = Date.now();
@@ -413,6 +430,12 @@ class AutoTrainManager {
                     console.log(`✅ 模型訓練完成（耗時 ${duration} 分鐘）`);
                     console.log(`✅ 模型文件驗證通過`);
                     await this._saveTrainingStatusToDB(dataCount, false);
+                    // 🔴 廣播訓練完成狀態
+                    this.broadcastStatusChange({
+                        isTraining: false,
+                        success: true,
+                        message: `✅ 訓練完成（耗時 ${duration} 分鐘）`
+                    });
                     resolve({ success: true, duration: duration, models: modelStatus });
                 } else {
                     console.warn(`⚠️ 訓練腳本退出成功，但模型文件未找到`);
@@ -423,6 +446,12 @@ class AutoTrainManager {
                         console.warn(`錯誤輸出:\n${error}`);
                     }
                     await this._saveTrainingStatusToDB(dataCount, false);
+                    // 🔴 廣播訓練失敗狀態
+                    this.broadcastStatusChange({
+                        isTraining: false,
+                        success: false,
+                        message: '⚠️ 訓練完成但模型文件缺失'
+                    });
                     resolve({ 
                         success: false, 
                         reason: '訓練完成但模型文件缺失', 
@@ -436,6 +465,12 @@ class AutoTrainManager {
                 console.error('標準輸出:', output);
                 console.error('錯誤輸出:', error);
                 await this._saveTrainingStatusToDB(dataCount, false);
+                // 🔴 廣播訓練失敗狀態
+                this.broadcastStatusChange({
+                    isTraining: false,
+                    success: false,
+                    message: `❌ 訓練失敗（退出碼 ${code}）`
+                });
                 resolve({ 
                     success: false, 
                     reason: `訓練失敗（退出碼 ${code}）`, 
@@ -558,6 +593,73 @@ class AutoTrainManager {
     updateConfig(newConfig) {
         this.config = { ...this.config, ...newConfig };
         console.log('訓練配置已更新:', this.config);
+    }
+
+    /**
+     * 添加 SSE 客戶端
+     */
+    addSSEClient(res) {
+        this.sseClients.add(res);
+        console.log(`📡 SSE 客戶端已連接 (總數: ${this.sseClients.size})`);
+        
+        // 當連接關閉時移除客戶端
+        res.on('close', () => {
+            this.sseClients.delete(res);
+            console.log(`📡 SSE 客戶端已斷開 (剩餘: ${this.sseClients.size})`);
+        });
+        
+        // 立即發送當前狀態
+        this._sendSSEEvent(res, 'status', {
+            isTraining: this.isTraining,
+            trainingStartTime: this.trainingStartTime,
+            lastTrainingOutput: this.lastTrainingOutput || '',
+            lastTrainingError: this.lastTrainingError || ''
+        });
+    }
+
+    /**
+     * 向單個客戶端發送 SSE 事件
+     */
+    _sendSSEEvent(res, eventType, data) {
+        try {
+            if (!res.writableEnded) {
+                res.write(`event: ${eventType}\n`);
+                res.write(`data: ${JSON.stringify(data)}\n\n`);
+            }
+        } catch (e) {
+            // 客戶端可能已斷開
+            this.sseClients.delete(res);
+        }
+    }
+
+    /**
+     * 廣播訓練日誌到所有 SSE 客戶端
+     */
+    broadcastLog(logLine, isError = false) {
+        const eventType = isError ? 'error' : 'log';
+        const data = {
+            timestamp: new Date().toISOString(),
+            message: logLine,
+            isError: isError
+        };
+        
+        for (const client of this.sseClients) {
+            this._sendSSEEvent(client, eventType, data);
+        }
+    }
+
+    /**
+     * 廣播訓練狀態變更到所有 SSE 客戶端
+     */
+    broadcastStatusChange(status) {
+        const data = {
+            timestamp: new Date().toISOString(),
+            ...status
+        };
+        
+        for (const client of this.sseClients) {
+            this._sendSSEEvent(client, 'status', data);
+        }
     }
 }
 

@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.19';
+const MODEL_VERSION = '2.9.20';
 
 // AI 服務（僅在服務器端使用）
 let aiService = null;
@@ -1765,6 +1765,54 @@ const apiHandlers = {
                     statusFile: null
                 }
             });
+        }
+    },
+    
+    // 🔴 SSE 實時訓練日誌流 (v2.9.20)
+    'GET /api/training-log-stream': async (req, res) => {
+        console.log('📡 SSE 訓練日誌流連接請求');
+        
+        // 設置 SSE 響應頭
+        res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*',
+            'X-Accel-Buffering': 'no'  // 禁用 nginx 緩衝
+        });
+        
+        // 發送初始連接成功事件
+        res.write(`event: connected\n`);
+        res.write(`data: ${JSON.stringify({ message: 'SSE 連接成功', timestamp: new Date().toISOString() })}\n\n`);
+        
+        try {
+            const { getAutoTrainManager } = require('./modules/auto-train-manager');
+            const trainManager = getAutoTrainManager();
+            
+            // 將此響應對象註冊為 SSE 客戶端
+            trainManager.addSSEClient(res);
+            
+            // 保持連接活躍（每 30 秒發送心跳）
+            const heartbeat = setInterval(() => {
+                if (!res.writableEnded) {
+                    res.write(`event: heartbeat\n`);
+                    res.write(`data: ${JSON.stringify({ timestamp: new Date().toISOString() })}\n\n`);
+                } else {
+                    clearInterval(heartbeat);
+                }
+            }, 30000);
+            
+            // 客戶端斷開時清理
+            req.on('close', () => {
+                clearInterval(heartbeat);
+                console.log('📡 SSE 客戶端斷開連接');
+            });
+            
+        } catch (err) {
+            console.error('SSE 設置失敗:', err);
+            res.write(`event: error\n`);
+            res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+            res.end();
         }
     },
     
