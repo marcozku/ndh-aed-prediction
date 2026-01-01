@@ -1413,7 +1413,7 @@ const apiHandlers = {
         try {
             const { EnsemblePredictor } = require('./modules/ensemble-predictor');
             const predictor = new EnsemblePredictor();
-            const status = predictor.getModelStatus();
+            const status = await predictor.getModelStatusAsync();
             
             // 添加訓練狀態（從 DB 獲取）
             try {
@@ -1633,7 +1633,6 @@ const apiHandlers = {
     'GET /api/algorithm-timeline': async (req, res) => {
         try {
             const timelinePath = path.join(__dirname, 'python/models/algorithm_timeline.json');
-            const metricsPath = path.join(__dirname, 'python/models/xgboost_metrics.json');
             
             if (!fs.existsSync(timelinePath)) {
                 return sendJson(res, {
@@ -1644,9 +1643,35 @@ const apiHandlers = {
             
             const timelineData = JSON.parse(fs.readFileSync(timelinePath, 'utf8'));
             
+            // 優先從數據庫讀取最新模型指標
+            let currentMetrics = null;
+            if (db && db.pool) {
+                try {
+                    const dbMetrics = await db.getModelMetrics('xgboost');
+                    if (dbMetrics && dbMetrics.mae !== null) {
+                        currentMetrics = {
+                            mae: parseFloat(dbMetrics.mae),
+                            mape: parseFloat(dbMetrics.mape),
+                            rmse: parseFloat(dbMetrics.rmse),
+                            r2: dbMetrics.r2 ? parseFloat(dbMetrics.r2) : null,
+                            feature_count: dbMetrics.feature_count
+                        };
+                    }
+                } catch (e) {
+                    console.warn('從數據庫讀取模型指標失敗:', e.message);
+                }
+            }
+            
+            // 如果數據庫沒有，從文件讀取（向後兼容）
+            if (!currentMetrics) {
+                const metricsPath = path.join(__dirname, 'python/models/xgboost_metrics.json');
+                if (fs.existsSync(metricsPath)) {
+                    currentMetrics = JSON.parse(fs.readFileSync(metricsPath, 'utf8'));
+                }
+            }
+            
             // 更新最新版本的實際 metrics
-            if (fs.existsSync(metricsPath)) {
-                const currentMetrics = JSON.parse(fs.readFileSync(metricsPath, 'utf8'));
+            if (currentMetrics) {
                 const latestEntry = timelineData.timeline[timelineData.timeline.length - 1];
                 if (latestEntry && latestEntry.metrics) {
                     latestEntry.metrics.mae = currentMetrics.mae;
@@ -1674,7 +1699,7 @@ const apiHandlers = {
         try {
             const { EnsemblePredictor } = require('./modules/ensemble-predictor');
             const predictor = new EnsemblePredictor();
-            const status = predictor.getModelStatus();
+            const status = await predictor.getModelStatusAsync();
             
             // 檢查 Python 環境
             const { spawn } = require('child_process');

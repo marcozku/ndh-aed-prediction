@@ -80,7 +80,7 @@ class EnsemblePredictor {
     }
 
     /**
-     * 獲取模型狀態（詳細版本）
+     * 獲取模型狀態（詳細版本）- 同步版本，從文件讀取
      */
     getModelStatus() {
         const modelFiles = {
@@ -120,12 +120,13 @@ class EnsemblePredictor {
                 };
             }
             
-            // 讀取 metrics 文件內容（如果存在）
+            // 讀取 metrics 文件內容（如果存在）- 用於快速檢查
             const metricsPath = path.join(this.modelsDir, files.metrics);
             if (fs.existsSync(metricsPath)) {
                 try {
                     const metricsContent = fs.readFileSync(metricsPath, 'utf8');
                     modelDetails[modelKey].metrics = JSON.parse(metricsContent);
+                    modelDetails[modelKey].metricsSource = 'file';
                 } catch (err) {
                     console.error(`無法讀取 ${modelKey} metrics:`, err.message);
                     modelDetails[modelKey].metrics = null;
@@ -148,6 +149,48 @@ class EnsemblePredictor {
             // 列出目錄中的所有文件
             allFiles: fs.existsSync(this.modelsDir) ? fs.readdirSync(this.modelsDir) : []
         };
+    }
+
+    /**
+     * 獲取模型狀態（異步版本）- 優先從數據庫讀取 metrics
+     */
+    async getModelStatusAsync() {
+        const status = this.getModelStatus();
+        
+        // 優先從數據庫讀取 metrics
+        try {
+            const db = require('../database');
+            const dbMetrics = await db.getModelMetrics('xgboost');
+            
+            if (dbMetrics && dbMetrics.mae !== null) {
+                const metrics = {
+                    mae: parseFloat(dbMetrics.mae),
+                    mape: parseFloat(dbMetrics.mape),
+                    rmse: parseFloat(dbMetrics.rmse),
+                    r2: dbMetrics.r2 ? parseFloat(dbMetrics.r2) : null,
+                    training_date: dbMetrics.training_date,
+                    data_count: dbMetrics.data_count,
+                    train_count: dbMetrics.train_count,
+                    test_count: dbMetrics.test_count,
+                    feature_count: dbMetrics.feature_count,
+                    ai_factors_count: dbMetrics.ai_factors_count
+                };
+                
+                // 更新 status 中的 metrics
+                if (status.details && status.details.xgboost) {
+                    status.details.xgboost.metrics = metrics;
+                    status.details.xgboost.metricsSource = 'database';
+                }
+                if (status.xgboost) {
+                    status.xgboost.metrics = metrics;
+                    status.xgboost.metricsSource = 'database';
+                }
+            }
+        } catch (e) {
+            console.warn('從數據庫讀取模型指標失敗，使用文件版本:', e.message);
+        }
+        
+        return status;
     }
 }
 

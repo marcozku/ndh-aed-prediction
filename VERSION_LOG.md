@@ -2,11 +2,11 @@
 
 ## v2.9.32 - 2026-01-02 03:18 HKT
 
-### 🔧 模型指標持久化到數據庫
+### 🔧 模型指標全面持久化到數據庫
 
 **問題修復**：
-- 修復「模型擬合度」在開啟應用時總是顯示 100% 的問題
-- 模型指標現在保存到 PostgreSQL 數據庫，不會因 Railway 部署而丟失
+- 修復「模型擬合度」在開啟應用時顯示不準確的問題
+- 所有模型指標現在保存到 PostgreSQL 數據庫，不會因 Railway 部署而丟失
 - 訓練後的 MAE/MAPE/RMSE 等指標會持久化保存
 
 **技術更改**：
@@ -22,8 +22,16 @@
 
 3. **server.js**：
    - `/api/confidence` 端點優先從數據庫讀取模型指標
+   - `/api/algorithm-timeline` 端點優先從數據庫讀取模型指標
+   - `/api/ensemble-status` 使用異步方法從數據庫讀取
+   - `/api/model-diagnostics` 使用異步方法從數據庫讀取
    - 如果數據庫沒有指標，才從文件讀取（向後兼容）
    - 沒有指標時顯示 0%，而不是默認值
+
+4. **ensemble-predictor.js**：
+   - 新增 `getModelStatusAsync()` 異步方法
+   - 優先從數據庫讀取模型指標
+   - 保持 `getModelStatus()` 同步版本向後兼容
 
 **數據庫表結構**：
 ```sql
@@ -33,9 +41,14 @@ CREATE TABLE model_metrics (
     mae DECIMAL(10,6),
     rmse DECIMAL(10,6),
     mape DECIMAL(10,6),
+    r2 DECIMAL(10,6),
     training_date TIMESTAMP WITH TIME ZONE,
     data_count INTEGER,
+    train_count INTEGER,
+    test_count INTEGER,
     feature_count INTEGER,
+    ai_factors_count INTEGER DEFAULT 0,
+    extra_metrics JSONB,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(model_name)
 );
