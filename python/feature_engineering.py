@@ -195,34 +195,42 @@ def create_comprehensive_features(df, ai_factors_dict=None):
     
     df = df.sort_values('Date').reset_index(drop=True)
     
+    # ============ 批量建立特徵以避免 DataFrame 碎片化 ============
+    # 使用字典收集所有新欄位，最後一次性合併
+    new_cols = {}
+    
     # ============ 時間特徵 ============
-    df['Year'] = df['Date'].dt.year
-    df['Month'] = df['Date'].dt.month
-    df['Day_of_Week'] = df['Date'].dt.dayofweek  # 0=Monday, 6=Sunday
-    df['Day_of_Month'] = df['Date'].dt.day
-    df['Week_of_Year'] = df['Date'].dt.isocalendar().week
-    df['Quarter'] = df['Date'].dt.quarter
-    df['DayOfYear'] = df['Date'].dt.dayofyear
-    df['Days_Since_Start'] = (df['Date'] - df['Date'].min()).dt.days
+    new_cols['Year'] = df['Date'].dt.year
+    new_cols['Month'] = df['Date'].dt.month
+    new_cols['Day_of_Week'] = df['Date'].dt.dayofweek  # 0=Monday, 6=Sunday
+    new_cols['Day_of_Month'] = df['Date'].dt.day
+    new_cols['Week_of_Year'] = df['Date'].dt.isocalendar().week.values
+    new_cols['Quarter'] = df['Date'].dt.quarter
+    new_cols['DayOfYear'] = df['Date'].dt.dayofyear
+    new_cols['Days_Since_Start'] = (df['Date'] - df['Date'].min()).dt.days
     
     # ============ 循環編碼（關鍵！）============
-    df['Month_sin'] = np.sin(2 * np.pi * df['Month'] / 12)
-    df['Month_cos'] = np.cos(2 * np.pi * df['Month'] / 12)
-    df['DayOfWeek_sin'] = np.sin(2 * np.pi * df['Day_of_Week'] / 7)
-    df['DayOfWeek_cos'] = np.cos(2 * np.pi * df['Day_of_Week'] / 7)
+    month_vals = new_cols['Month']
+    dow_vals = new_cols['Day_of_Week']
+    doy_vals = new_cols['DayOfYear']
+    
+    new_cols['Month_sin'] = np.sin(2 * np.pi * month_vals / 12)
+    new_cols['Month_cos'] = np.cos(2 * np.pi * month_vals / 12)
+    new_cols['DayOfWeek_sin'] = np.sin(2 * np.pi * dow_vals / 7)
+    new_cols['DayOfWeek_cos'] = np.cos(2 * np.pi * dow_vals / 7)
     
     # ============ Fourier 季節特徵（研究基礎）============
     # 參考: Facebook Prophet, BMC Medical Informatics 2024
     # 多階 Fourier 特徵可以捕捉複雜的周期性模式
     days_in_year = 365.25
     for k in range(1, 4):  # 3 階 Fourier 特徵
-        df[f'Fourier_Year_sin_{k}'] = np.sin(2 * np.pi * k * df['DayOfYear'] / days_in_year)
-        df[f'Fourier_Year_cos_{k}'] = np.cos(2 * np.pi * k * df['DayOfYear'] / days_in_year)
+        new_cols[f'Fourier_Year_sin_{k}'] = np.sin(2 * np.pi * k * doy_vals / days_in_year)
+        new_cols[f'Fourier_Year_cos_{k}'] = np.cos(2 * np.pi * k * doy_vals / days_in_year)
     
     # 週內 Fourier 特徵
     for k in range(1, 3):  # 2 階 Fourier 特徵
-        df[f'Fourier_Week_sin_{k}'] = np.sin(2 * np.pi * k * df['Day_of_Week'] / 7)
-        df[f'Fourier_Week_cos_{k}'] = np.cos(2 * np.pi * k * df['Day_of_Week'] / 7)
+        new_cols[f'Fourier_Week_sin_{k}'] = np.sin(2 * np.pi * k * dow_vals / 7)
+        new_cols[f'Fourier_Week_cos_{k}'] = np.cos(2 * np.pi * k * dow_vals / 7)
     
     # ============ 滯後特徵 (擴展版 v2.9.30) ============
     # 研究基礎: 短期滯後對急診預測非常重要
@@ -232,91 +240,110 @@ def create_comprehensive_features(df, ai_factors_dict=None):
     long_lags = [30, 60, 90, 180, 365]  # 長期季節性
     all_lags = short_lags + medium_lags + long_lags
     
+    attendance = df['Attendance']
     for lag in all_lags:
-        df[f'Attendance_Lag{lag}'] = df['Attendance'].shift(lag)
-        df[f'Lag{lag}_Available'] = df[f'Attendance_Lag{lag}'].notna().astype(int)
+        lag_col = attendance.shift(lag)
+        new_cols[f'Attendance_Lag{lag}'] = lag_col
+        new_cols[f'Lag{lag}_Available'] = lag_col.notna().astype(int)
     
     # ============ 同星期歷史滯後 (關鍵改進!) ============
     # 上週同一天、兩週前同一天等（捕捉週期性模式）
+    same_weekday_cols = {}
     for weeks_ago in [1, 2, 3, 4]:
         lag_days = weeks_ago * 7
         col_name = f'Attendance_Same_Weekday_{weeks_ago}w'
-        df[col_name] = df['Attendance'].shift(lag_days)
+        same_weekday_cols[col_name] = attendance.shift(lag_days)
+        new_cols[col_name] = same_weekday_cols[col_name]
     
     # 計算同星期的平均值（過去4週的同一天平均）
-    df['Attendance_Same_Weekday_Avg'] = (
-        df['Attendance_Same_Weekday_1w'].fillna(0) + 
-        df['Attendance_Same_Weekday_2w'].fillna(0) + 
-        df['Attendance_Same_Weekday_3w'].fillna(0) + 
-        df['Attendance_Same_Weekday_4w'].fillna(0)
+    new_cols['Attendance_Same_Weekday_Avg'] = (
+        same_weekday_cols['Attendance_Same_Weekday_1w'].fillna(0) + 
+        same_weekday_cols['Attendance_Same_Weekday_2w'].fillna(0) + 
+        same_weekday_cols['Attendance_Same_Weekday_3w'].fillna(0) + 
+        same_weekday_cols['Attendance_Same_Weekday_4w'].fillna(0)
     ) / 4
     
     # ============ 差分特徵 (捕捉動量) ============
-    df['Lag1_Diff'] = df['Attendance_Lag1'] - df['Attendance_Lag2']  # 昨天 vs 前天
-    df['Lag7_Diff'] = df['Attendance_Lag7'] - df['Attendance_Lag14']  # 上週 vs 兩週前
+    lag1 = new_cols['Attendance_Lag1']
+    lag2 = new_cols['Attendance_Lag2']
+    lag7 = new_cols['Attendance_Lag7']
+    lag14 = new_cols['Attendance_Lag14']
+    new_cols['Lag1_Diff'] = lag1 - lag2  # 昨天 vs 前天
+    new_cols['Lag7_Diff'] = lag7 - lag14  # 上週 vs 兩週前
     
     # ============ 指數加權移動平均 (EWMA) ============
     # 研究表明 EWMA 比簡單滾動平均更能捕捉趨勢
     for span in [7, 14, 30]:
-        df[f'Attendance_EWMA{span}'] = df['Attendance'].ewm(span=span, min_periods=1).mean()
+        new_cols[f'Attendance_EWMA{span}'] = attendance.ewm(span=span, min_periods=1).mean()
     
     # 不填充 NaN - 讓 XGBoost 自行處理缺失值
     # XGBoost 原生支持缺失值處理，會自動學習最佳分割方向
     
     # ============ 滾動統計 (擴展版 v2.9.30) ============
     # 使用 min_periods 確保至少有足夠數據才計算，否則保留 NaN
+    attendance_shifted = attendance.shift(1)
+    rolling_cols = {}
     for window in [3, 7, 14, 21, 30, 60, 90]:
         min_req = max(2, window // 2)
-        df[f'Attendance_Rolling{window}'] = df['Attendance'].shift(1).rolling(window=window, min_periods=min_req).mean()
-        df[f'Attendance_Std{window}'] = df['Attendance'].shift(1).rolling(window=window, min_periods=min_req).std()
-        df[f'Attendance_Max{window}'] = df['Attendance'].shift(1).rolling(window=window, min_periods=min_req).max()
-        df[f'Attendance_Min{window}'] = df['Attendance'].shift(1).rolling(window=window, min_periods=min_req).min()
-        # 中位數
-        df[f'Attendance_Median{window}'] = df['Attendance'].shift(1).rolling(window=window, min_periods=min_req).median()
-        # 添加滾動數據可用性指標
-        df[f'Rolling{window}_Available'] = df[f'Attendance_Rolling{window}'].notna().astype(int)
+        roll = attendance_shifted.rolling(window=window, min_periods=min_req)
+        rolling_cols[f'Attendance_Rolling{window}'] = roll.mean()
+        rolling_cols[f'Attendance_Std{window}'] = roll.std()
+        rolling_cols[f'Attendance_Max{window}'] = roll.max()
+        rolling_cols[f'Attendance_Min{window}'] = roll.min()
+        rolling_cols[f'Attendance_Median{window}'] = roll.median()
+        rolling_cols[f'Rolling{window}_Available'] = rolling_cols[f'Attendance_Rolling{window}'].notna().astype(int)
+    
+    new_cols.update(rolling_cols)
     
     # ============ 相對位置特徵 (關鍵改進!) ============
     # 當前值相對於滾動範圍的位置（歸一化到 0-1）
     for window in [7, 14, 30]:
-        range_col = df[f'Attendance_Max{window}'] - df[f'Attendance_Min{window}']
-        df[f'Attendance_Position{window}'] = np.where(
+        range_col = rolling_cols[f'Attendance_Max{window}'] - rolling_cols[f'Attendance_Min{window}']
+        new_cols[f'Attendance_Position{window}'] = np.where(
             range_col > 0,
-            (df['Attendance_Lag1'] - df[f'Attendance_Min{window}']) / range_col,
+            (lag1 - rolling_cols[f'Attendance_Min{window}']) / range_col,
             0.5
         )
     
     # ============ 變異係數 (CV) ============
     # 標準差 / 平均值，衡量波動程度
     for window in [7, 14, 30]:
-        df[f'Attendance_CV{window}'] = np.where(
-            df[f'Attendance_Rolling{window}'] > 0,
-            df[f'Attendance_Std{window}'] / df[f'Attendance_Rolling{window}'],
+        new_cols[f'Attendance_CV{window}'] = np.where(
+            rolling_cols[f'Attendance_Rolling{window}'] > 0,
+            rolling_cols[f'Attendance_Std{window}'] / rolling_cols[f'Attendance_Rolling{window}'],
             0
         )
     
     # 不填充 NaN - 讓 XGBoost 自行處理缺失值
     
     # ============ 二進制事件指標 ============
-    df['Is_COVID_Period'] = ((df['Year'] >= 2020) & (df['Year'] <= 2022)).astype(int)
-    df['Is_Omicron_Wave'] = ((df['Year'] == 2022) & (df['Month'] <= 5)).astype(int)
-    df['Is_Winter_Flu_Season'] = df['Month'].isin([12, 1, 2, 3]).astype(int)
-    df['Is_Summer_Period'] = df['Month'].isin([6, 7, 8]).astype(int)
-    df['Is_Weekend'] = (df['Day_of_Week'] >= 5).astype(int)
-    df['Is_Monday'] = (df['Day_of_Week'] == 0).astype(int)
-    df['Is_Protest_Period'] = ((df['Year'] == 2019) & (df['Month'].isin([6, 7, 8, 9, 10, 11, 12]))).astype(int)
-    df['Is_Umbrella_Movement'] = ((df['Year'] == 2014) & (df['Month'].isin([9, 10, 11, 12]))).astype(int)
+    year_vals = new_cols['Year']
+    month_vals_series = pd.Series(month_vals) if not isinstance(month_vals, pd.Series) else month_vals
+    new_cols['Is_COVID_Period'] = ((year_vals >= 2020) & (year_vals <= 2022)).astype(int)
+    new_cols['Is_Omicron_Wave'] = ((year_vals == 2022) & (month_vals <= 5)).astype(int)
+    new_cols['Is_Winter_Flu_Season'] = month_vals_series.isin([12, 1, 2, 3]).astype(int)
+    new_cols['Is_Summer_Period'] = month_vals_series.isin([6, 7, 8]).astype(int)
+    new_cols['Is_Weekend'] = (dow_vals >= 5).astype(int)
+    new_cols['Is_Monday'] = (dow_vals == 0).astype(int)
+    new_cols['Is_Protest_Period'] = ((year_vals == 2019) & (month_vals_series.isin([6, 7, 8, 9, 10, 11, 12]))).astype(int)
+    new_cols['Is_Umbrella_Movement'] = ((year_vals == 2014) & (month_vals_series.isin([9, 10, 11, 12]))).astype(int)
     
     # ============ 交互特徵 ============
-    df['Is_COVID_AND_Winter'] = df['Is_COVID_Period'] * df['Is_Winter_Flu_Season']
-    df['Is_Monday_AND_Winter'] = df['Is_Monday'] * df['Is_Winter_Flu_Season']
-    df['Is_Weekend_AND_Summer'] = df['Is_Weekend'] * df['Is_Summer_Period']
+    new_cols['Is_COVID_AND_Winter'] = new_cols['Is_COVID_Period'] * new_cols['Is_Winter_Flu_Season']
+    new_cols['Is_Monday_AND_Winter'] = new_cols['Is_Monday'] * new_cols['Is_Winter_Flu_Season']
+    new_cols['Is_Weekend_AND_Summer'] = new_cols['Is_Weekend'] * new_cols['Is_Summer_Period']
     
     # ============ 趨勢特徵 ============
-    df['Trend_Normalized'] = df['Days_Since_Start'] / df['Days_Since_Start'].max() if df['Days_Since_Start'].max() > 0 else 0
+    days_since_start = new_cols['Days_Since_Start']
+    max_days = days_since_start.max() if hasattr(days_since_start, 'max') else max(days_since_start)
+    new_cols['Trend_Normalized'] = days_since_start / max_days if max_days > 0 else 0
     
     # 時代指標
-    df['Era_Indicator'] = df['Year'].apply(lambda y: 1 if y < 2020 else (2 if y <= 2022 else 3))
+    new_cols['Era_Indicator'] = pd.Series(year_vals).apply(lambda y: 1 if y < 2020 else (2 if y <= 2022 else 3)).values
+    
+    # ============ 一次性合併所有新欄位 ============
+    new_cols_df = pd.DataFrame(new_cols, index=df.index)
+    df = pd.concat([df, new_cols_df], axis=1)
     
     # ============ 目標編碼特徵 (關鍵改進 v2.9.30!) ============
     # 使用歷史數據計算每個分類的平均出席人數（防止數據洩漏）
@@ -340,19 +367,18 @@ def create_comprehensive_features(df, ai_factors_dict=None):
     df = df.drop(columns=['YearMonth'])
     
     # 填充初始 NaN（第一次出現的分組沒有歷史數據）
-    df['DayOfWeek_Target_Mean'] = df['DayOfWeek_Target_Mean'].fillna(df['Attendance'].expanding().mean().shift(1))
-    df['Month_Target_Mean'] = df['Month_Target_Mean'].fillna(df['Attendance'].expanding().mean().shift(1))
-    df['YearMonth_Target_Mean'] = df['YearMonth_Target_Mean'].fillna(df['Attendance'].expanding().mean().shift(1))
+    expanding_mean = df['Attendance'].expanding().mean().shift(1)
+    df['DayOfWeek_Target_Mean'] = df['DayOfWeek_Target_Mean'].fillna(expanding_mean)
+    df['Month_Target_Mean'] = df['Month_Target_Mean'].fillna(expanding_mean)
+    df['YearMonth_Target_Mean'] = df['YearMonth_Target_Mean'].fillna(expanding_mean)
     
     # ============ 變化率 ============
-    df['Daily_Change'] = df['Attendance'].diff()
-    df['Weekly_Change'] = df['Attendance'].diff(7)
-    df['Monthly_Change'] = df['Attendance'].diff(30)
+    df['Daily_Change'] = df['Attendance'].diff().fillna(0)
+    df['Weekly_Change'] = df['Attendance'].diff(7).fillna(0)
+    df['Monthly_Change'] = df['Attendance'].diff(30).fillna(0)
     
-    # 填充 NaN 變化率
-    df['Daily_Change'] = df['Daily_Change'].fillna(0)
-    df['Weekly_Change'] = df['Weekly_Change'].fillna(0)
-    df['Monthly_Change'] = df['Monthly_Change'].fillna(0)
+    # 反碎片化 DataFrame
+    df = df.copy()
     
     # ============ 假期特徵（完整香港公眾假期）============
     def get_holiday_features(date):
