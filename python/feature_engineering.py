@@ -224,28 +224,76 @@ def create_comprehensive_features(df, ai_factors_dict=None):
         df[f'Fourier_Week_sin_{k}'] = np.sin(2 * np.pi * k * df['Day_of_Week'] / 7)
         df[f'Fourier_Week_cos_{k}'] = np.cos(2 * np.pi * k * df['Day_of_Week'] / 7)
     
-    # ============ 滯後特徵 ============
-    # 只使用真實歷史數據，不進行任何填充（NaN 表示該數據不存在）
-    for lag in [1, 7, 14, 30, 60, 90, 365]:
+    # ============ 滯後特徵 (擴展版 v2.9.30) ============
+    # 研究基礎: 短期滯後對急診預測非常重要
+    # 添加連續短期滯後 (1-7天) 以捕捉短期趨勢
+    short_lags = [1, 2, 3, 4, 5, 6, 7]
+    medium_lags = [14, 21, 28]  # 兩週、三週、四週
+    long_lags = [30, 60, 90, 180, 365]  # 長期季節性
+    all_lags = short_lags + medium_lags + long_lags
+    
+    for lag in all_lags:
         df[f'Attendance_Lag{lag}'] = df['Attendance'].shift(lag)
-        # 添加滯後數據可用性指標（1=真實數據存在, 0=不存在）
         df[f'Lag{lag}_Available'] = df[f'Attendance_Lag{lag}'].notna().astype(int)
+    
+    # ============ 同星期歷史滯後 (關鍵改進!) ============
+    # 上週同一天、兩週前同一天等（捕捉週期性模式）
+    for weeks_ago in [1, 2, 3, 4]:
+        lag_days = weeks_ago * 7
+        col_name = f'Attendance_Same_Weekday_{weeks_ago}w'
+        df[col_name] = df['Attendance'].shift(lag_days)
+    
+    # 計算同星期的平均值（過去4週的同一天平均）
+    df['Attendance_Same_Weekday_Avg'] = (
+        df['Attendance_Same_Weekday_1w'].fillna(0) + 
+        df['Attendance_Same_Weekday_2w'].fillna(0) + 
+        df['Attendance_Same_Weekday_3w'].fillna(0) + 
+        df['Attendance_Same_Weekday_4w'].fillna(0)
+    ) / 4
+    
+    # ============ 差分特徵 (捕捉動量) ============
+    df['Lag1_Diff'] = df['Attendance_Lag1'] - df['Attendance_Lag2']  # 昨天 vs 前天
+    df['Lag7_Diff'] = df['Attendance_Lag7'] - df['Attendance_Lag14']  # 上週 vs 兩週前
+    
+    # ============ 指數加權移動平均 (EWMA) ============
+    # 研究表明 EWMA 比簡單滾動平均更能捕捉趨勢
+    for span in [7, 14, 30]:
+        df[f'Attendance_EWMA{span}'] = df['Attendance'].ewm(span=span, min_periods=1).mean()
     
     # 不填充 NaN - 讓 XGBoost 自行處理缺失值
     # XGBoost 原生支持缺失值處理，會自動學習最佳分割方向
-    # 這比使用虛假數據（如均值填充）更準確
     
-    # ============ 滾動統計 ============
+    # ============ 滾動統計 (擴展版 v2.9.30) ============
     # 使用 min_periods 確保至少有足夠數據才計算，否則保留 NaN
-    for window in [7, 14, 30]:
-        # 只有當有足夠的歷史數據時才計算滾動統計
-        min_req = max(2, window // 2)  # 至少需要一半的窗口數據
-        df[f'Attendance_Rolling{window}'] = df['Attendance'].rolling(window=window, min_periods=min_req).mean()
-        df[f'Attendance_Std{window}'] = df['Attendance'].rolling(window=window, min_periods=min_req).std()
-        df[f'Attendance_Max{window}'] = df['Attendance'].rolling(window=window, min_periods=min_req).max()
-        df[f'Attendance_Min{window}'] = df['Attendance'].rolling(window=window, min_periods=min_req).min()
+    for window in [3, 7, 14, 21, 30, 60, 90]:
+        min_req = max(2, window // 2)
+        df[f'Attendance_Rolling{window}'] = df['Attendance'].shift(1).rolling(window=window, min_periods=min_req).mean()
+        df[f'Attendance_Std{window}'] = df['Attendance'].shift(1).rolling(window=window, min_periods=min_req).std()
+        df[f'Attendance_Max{window}'] = df['Attendance'].shift(1).rolling(window=window, min_periods=min_req).max()
+        df[f'Attendance_Min{window}'] = df['Attendance'].shift(1).rolling(window=window, min_periods=min_req).min()
+        # 中位數
+        df[f'Attendance_Median{window}'] = df['Attendance'].shift(1).rolling(window=window, min_periods=min_req).median()
         # 添加滾動數據可用性指標
         df[f'Rolling{window}_Available'] = df[f'Attendance_Rolling{window}'].notna().astype(int)
+    
+    # ============ 相對位置特徵 (關鍵改進!) ============
+    # 當前值相對於滾動範圍的位置（歸一化到 0-1）
+    for window in [7, 14, 30]:
+        range_col = df[f'Attendance_Max{window}'] - df[f'Attendance_Min{window}']
+        df[f'Attendance_Position{window}'] = np.where(
+            range_col > 0,
+            (df['Attendance_Lag1'] - df[f'Attendance_Min{window}']) / range_col,
+            0.5
+        )
+    
+    # ============ 變異係數 (CV) ============
+    # 標準差 / 平均值，衡量波動程度
+    for window in [7, 14, 30]:
+        df[f'Attendance_CV{window}'] = np.where(
+            df[f'Attendance_Rolling{window}'] > 0,
+            df[f'Attendance_Std{window}'] / df[f'Attendance_Rolling{window}'],
+            0
+        )
     
     # 不填充 NaN - 讓 XGBoost 自行處理缺失值
     
@@ -269,6 +317,32 @@ def create_comprehensive_features(df, ai_factors_dict=None):
     
     # 時代指標
     df['Era_Indicator'] = df['Year'].apply(lambda y: 1 if y < 2020 else (2 if y <= 2022 else 3))
+    
+    # ============ 目標編碼特徵 (關鍵改進 v2.9.30!) ============
+    # 使用歷史數據計算每個分類的平均出席人數（防止數據洩漏）
+    # 這些特徵捕捉了「週一通常多少人」等模式
+    
+    # 星期幾的歷史平均（使用累積平均，避免洩漏）
+    df['DayOfWeek_Target_Mean'] = df.groupby('Day_of_Week')['Attendance'].transform(
+        lambda x: x.expanding().mean().shift(1)
+    )
+    
+    # 月份的歷史平均
+    df['Month_Target_Mean'] = df.groupby('Month')['Attendance'].transform(
+        lambda x: x.expanding().mean().shift(1)
+    )
+    
+    # 年-月組合的歷史平均（捕捉年度季節性變化）
+    df['YearMonth'] = df['Year'] * 100 + df['Month']
+    df['YearMonth_Target_Mean'] = df.groupby('YearMonth')['Attendance'].transform(
+        lambda x: x.expanding().mean().shift(1)
+    )
+    df = df.drop(columns=['YearMonth'])
+    
+    # 填充初始 NaN（第一次出現的分組沒有歷史數據）
+    df['DayOfWeek_Target_Mean'] = df['DayOfWeek_Target_Mean'].fillna(df['Attendance'].expanding().mean().shift(1))
+    df['Month_Target_Mean'] = df['Month_Target_Mean'].fillna(df['Attendance'].expanding().mean().shift(1))
+    df['YearMonth_Target_Mean'] = df['YearMonth_Target_Mean'].fillna(df['Attendance'].expanding().mean().shift(1))
     
     # ============ 變化率 ============
     df['Daily_Change'] = df['Attendance'].diff()
@@ -425,7 +499,7 @@ def create_comprehensive_features(df, ai_factors_dict=None):
     return df
 
 def get_feature_columns():
-    """返回所有特徵列名（排除目標變量和日期）"""
+    """返回所有特徵列名（排除目標變量和日期）- v2.9.30 擴展版"""
     # 這些是我們創建的所有特徵
     feature_cols = [
         # 時間特徵
@@ -442,20 +516,53 @@ def get_feature_columns():
         'Fourier_Week_sin_1', 'Fourier_Week_cos_1',
         'Fourier_Week_sin_2', 'Fourier_Week_cos_2',
         
-        # 滯後特徵（真實數據，XGBoost 處理 NaN）
-        'Attendance_Lag1', 'Attendance_Lag7', 'Attendance_Lag14', 
-        'Attendance_Lag30', 'Attendance_Lag60', 'Attendance_Lag90', 'Attendance_Lag365',
+        # 滯後特徵 (擴展版 v2.9.30)
+        'Attendance_Lag1', 'Attendance_Lag2', 'Attendance_Lag3', 'Attendance_Lag4',
+        'Attendance_Lag5', 'Attendance_Lag6', 'Attendance_Lag7',
+        'Attendance_Lag14', 'Attendance_Lag21', 'Attendance_Lag28',
+        'Attendance_Lag30', 'Attendance_Lag60', 'Attendance_Lag90', 
+        'Attendance_Lag180', 'Attendance_Lag365',
         # 滯後數據可用性指標
-        'Lag1_Available', 'Lag7_Available', 'Lag14_Available',
-        'Lag30_Available', 'Lag60_Available', 'Lag90_Available', 'Lag365_Available',
+        'Lag1_Available', 'Lag2_Available', 'Lag3_Available', 'Lag4_Available',
+        'Lag5_Available', 'Lag6_Available', 'Lag7_Available',
+        'Lag14_Available', 'Lag21_Available', 'Lag28_Available',
+        'Lag30_Available', 'Lag60_Available', 'Lag90_Available', 
+        'Lag180_Available', 'Lag365_Available',
         
-        # 滾動統計
-        'Attendance_Rolling7', 'Attendance_Rolling14', 'Attendance_Rolling30',
-        'Attendance_Std7', 'Attendance_Std14', 'Attendance_Std30',
-        'Attendance_Max7', 'Attendance_Max14', 'Attendance_Max30',
-        'Attendance_Min7', 'Attendance_Min14', 'Attendance_Min30',
+        # 同星期歷史滯後 (新增 v2.9.30)
+        'Attendance_Same_Weekday_1w', 'Attendance_Same_Weekday_2w',
+        'Attendance_Same_Weekday_3w', 'Attendance_Same_Weekday_4w',
+        'Attendance_Same_Weekday_Avg',
+        
+        # 差分特徵 (新增 v2.9.30)
+        'Lag1_Diff', 'Lag7_Diff',
+        
+        # 指數加權移動平均 EWMA (新增 v2.9.30)
+        'Attendance_EWMA7', 'Attendance_EWMA14', 'Attendance_EWMA30',
+        
+        # 滾動統計 (擴展版 v2.9.30)
+        'Attendance_Rolling3', 'Attendance_Rolling7', 'Attendance_Rolling14', 
+        'Attendance_Rolling21', 'Attendance_Rolling30', 'Attendance_Rolling60', 'Attendance_Rolling90',
+        'Attendance_Std3', 'Attendance_Std7', 'Attendance_Std14', 
+        'Attendance_Std21', 'Attendance_Std30', 'Attendance_Std60', 'Attendance_Std90',
+        'Attendance_Max3', 'Attendance_Max7', 'Attendance_Max14', 
+        'Attendance_Max21', 'Attendance_Max30', 'Attendance_Max60', 'Attendance_Max90',
+        'Attendance_Min3', 'Attendance_Min7', 'Attendance_Min14', 
+        'Attendance_Min21', 'Attendance_Min30', 'Attendance_Min60', 'Attendance_Min90',
+        'Attendance_Median3', 'Attendance_Median7', 'Attendance_Median14',
+        'Attendance_Median21', 'Attendance_Median30', 'Attendance_Median60', 'Attendance_Median90',
         # 滾動數據可用性指標
-        'Rolling7_Available', 'Rolling14_Available', 'Rolling30_Available',
+        'Rolling3_Available', 'Rolling7_Available', 'Rolling14_Available',
+        'Rolling21_Available', 'Rolling30_Available', 'Rolling60_Available', 'Rolling90_Available',
+        
+        # 相對位置特徵 (新增 v2.9.30)
+        'Attendance_Position7', 'Attendance_Position14', 'Attendance_Position30',
+        
+        # 變異係數 (新增 v2.9.30)
+        'Attendance_CV7', 'Attendance_CV14', 'Attendance_CV30',
+        
+        # 目標編碼特徵 (新增 v2.9.30)
+        'DayOfWeek_Target_Mean', 'Month_Target_Mean', 'YearMonth_Target_Mean',
         
         # 事件指標
         'Is_COVID_Period', 'Is_Omicron_Wave', 'Is_Winter_Flu_Season',

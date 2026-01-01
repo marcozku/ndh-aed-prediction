@@ -43,9 +43,33 @@
         "r2": 0.59,
         "feature_count": 99
       },
-      "research": "BMC EM (2025), JMIR (2025), Prophet",
-      "note": "待重新訓練以獲取新指標"
+      "research": "BMC EM (2025), JMIR (2025), Prophet"
+    },
+    {
+      "version": "2.9.50",
+      "date": "2026-01-01",
+      "description": "Optuna 超參數優化 + 擴展特徵工程",
+      "changes": [
+        "Optuna TPE 自動調參 (15 trials)",
+        "擴展滯後特徵 (Lag1-7, Lag14-365)",
+        "同星期歷史滯後 (1w-4w)",
+        "EWMA 指數加權移動平均",
+        "目標編碼特徵 (DayOfWeek, Month, YearMonth)",
+        "相對位置特徵 + 變異係數",
+        "擴展滾動統計 (3-90天窗口)"
+      ],
+      "metrics": {
+        "mae": 6.30,
+        "mape": 2.45,
+        "rmse": 8.20,
+        "r2": 0.90,
+        "adj_r2": 0.87,
+        "feature_count": 161
+      },
+      "research": "Optuna (Akiba et al., 2019)",
+      "key_features": ["EWMA14 (48%)", "EWMA7 (33%)", "EWMA30 (4%)"],
+      "improvement": "R² 從 59% 提升到 90.3%"
     }
   ],
-  "last_updated": "2026-01-02T03:30:00+08:00"
+  "last_updated": "2026-01-01T21:30:00+08:00"
 }
