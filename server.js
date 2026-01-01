@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.24';
+const MODEL_VERSION = '2.9.25';
 
 // AI 服務（僅在服務器端使用）
 let aiService = null;
@@ -1516,6 +1516,87 @@ const apiHandlers = {
                 success: false,
                 error: err.message
             }, 500);
+        }
+    },
+    
+    // 天氣月度平均（從真實歷史數據計算）
+    'GET /api/weather-monthly-averages': async (req, res) => {
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const weatherPath = path.join(__dirname, 'python/weather_history.csv');
+            
+            if (!fs.existsSync(weatherPath)) {
+                return sendJson(res, {
+                    success: false,
+                    error: '天氣歷史數據不存在',
+                    fallback: true,
+                    // 提供基於香港氣候的真實歷史平均值（來自 HKO 官方數據）
+                    data: {
+                        1: { mean: 16.3, max: 19.3, min: 13.7 },
+                        2: { mean: 16.9, max: 19.8, min: 14.5 },
+                        3: { mean: 19.4, max: 22.3, min: 17.1 },
+                        4: { mean: 23.4, max: 26.5, min: 21.0 },
+                        5: { mean: 26.4, max: 29.4, min: 24.1 },
+                        6: { mean: 28.2, max: 31.0, min: 26.0 },
+                        7: { mean: 28.9, max: 31.6, min: 26.8 },
+                        8: { mean: 28.6, max: 31.3, min: 26.5 },
+                        9: { mean: 27.7, max: 30.6, min: 25.5 },
+                        10: { mean: 25.3, max: 28.5, min: 23.0 },
+                        11: { mean: 21.6, max: 24.8, min: 19.1 },
+                        12: { mean: 17.8, max: 21.0, min: 15.2 }
+                    },
+                    source: 'HKO 官方氣候正常值 (1991-2020)'
+                });
+            }
+            
+            // 讀取並解析 CSV
+            const csvContent = fs.readFileSync(weatherPath, 'utf-8');
+            const lines = csvContent.trim().split('\n');
+            const headers = lines[0].split(',');
+            
+            // 計算月度平均
+            const monthlyData = {};
+            for (let m = 1; m <= 12; m++) {
+                monthlyData[m] = { mean: [], max: [], min: [] };
+            }
+            
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',');
+                const date = new Date(values[0]);
+                const month = date.getMonth() + 1;
+                const meanTemp = parseFloat(values[1]);
+                const maxTemp = parseFloat(values[2]);
+                const minTemp = parseFloat(values[3]);
+                
+                if (!isNaN(meanTemp) && monthlyData[month]) {
+                    monthlyData[month].mean.push(meanTemp);
+                    if (!isNaN(maxTemp)) monthlyData[month].max.push(maxTemp);
+                    if (!isNaN(minTemp)) monthlyData[month].min.push(minTemp);
+                }
+            }
+            
+            // 計算平均
+            const result = {};
+            for (let m = 1; m <= 12; m++) {
+                const data = monthlyData[m];
+                result[m] = {
+                    mean: data.mean.length > 0 ? Math.round(data.mean.reduce((a, b) => a + b, 0) / data.mean.length * 10) / 10 : null,
+                    max: data.max.length > 0 ? Math.round(data.max.reduce((a, b) => a + b, 0) / data.max.length * 10) / 10 : null,
+                    min: data.min.length > 0 ? Math.round(data.min.reduce((a, b) => a + b, 0) / data.min.length * 10) / 10 : null,
+                    count: data.mean.length
+                };
+            }
+            
+            sendJson(res, {
+                success: true,
+                data: result,
+                source: '香港天文台打鼓嶺站歷史數據 (1988-2025)',
+                totalDays: lines.length - 1
+            });
+        } catch (error) {
+            console.error('計算天氣月度平均失敗:', error);
+            sendJson(res, { success: false, error: error.message }, 500);
         }
     },
     

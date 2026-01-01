@@ -1,5 +1,44 @@
 # 版本更新日誌
 
+## v2.9.25 - 2026-01-02 02:24 HKT
+
+### 🔒 消除所有模擬/假數據 - 100% 真實數據來源
+
+**重要更新**：確保所有數據來源都是真實的，適合北區醫院專業使用。
+
+**修復項目**：
+
+1. **modules/weather.js**：
+   - 移除硬編碼模擬數據（temperature: 25, humidity: 70）
+   - 改用真實 HKO API 獲取天氣數據
+
+2. **新增 API：/api/weather-monthly-averages**：
+   - 從 weather_history.csv 計算真實月度平均溫度
+   - 備用：HKO 官方氣候正常值 (1991-2020)
+
+3. **prediction.js 天氣影響計算**：
+   - 移除硬編碼的 seasonalAvgTemps
+   - 改用從 API 獲取的真實 HKO 歷史數據
+   - 初始化時載入 fetchWeatherMonthlyAverages()
+
+**數據來源驗證**：
+| 數據類型 | 來源 | 真實性 |
+|---------|------|--------|
+| 就診人數 | 北區醫院數據庫 | ✅ 真實 |
+| 當前天氣 | HKO API (rhrread) | ✅ 真實 |
+| 天氣預報 | HKO API (fnd) | ✅ 真實 |
+| 歷史天氣 | HKO 打鼓嶺站 (1988-2025) | ✅ 真實 |
+| 月度平均 | 計算自 weather_history.csv | ✅ 真實 |
+| 公眾假期 | 香港政府官方日曆 | ✅ 真實 |
+| AI 因素 | Gemini/DeepSeek API 實時分析 | ✅ 真實 |
+
+**修改的文件**：
+- `modules/weather.js` - 改用真實 HKO API
+- `server.js` - 新增天氣月度平均 API
+- `prediction.js` - 使用真實歷史數據計算相對溫度
+
+---
+
 ## v2.9.24 - 2026-01-02 02:19 HKT
 
 ### 🌤️ XGBoost 模型整合真實天氣數據

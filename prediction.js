@@ -5000,13 +5000,44 @@ const WEATHER_CONFIG = {
 // 全局天氣數據
 let currentWeatherData = null;
 let weatherForecastData = null;
+let weatherMonthlyAverages = null; // 從 HKO 歷史數據計算的月度平均
 
 // 天氣快取
 const weatherCache = {
     current: { data: null, timestamp: 0, ttl: 10 * 60 * 1000 }, // 10分鐘快取
     forecast: { data: null, timestamp: 0, ttl: 60 * 60 * 1000 }, // 1小時快取
-    warnings: { data: null, timestamp: 0, ttl: 5 * 60 * 1000 }   // 5分鐘快取（警告較急需）
+    warnings: { data: null, timestamp: 0, ttl: 5 * 60 * 1000 },  // 5分鐘快取（警告較急需）
+    monthlyAvg: { data: null, timestamp: 0, ttl: 24 * 60 * 60 * 1000 } // 24小時快取
 };
+
+// 獲取月度天氣平均（從真實 HKO 歷史數據）
+async function fetchWeatherMonthlyAverages() {
+    // 檢查快取
+    const cache = weatherCache.monthlyAvg;
+    const now = Date.now();
+    if (cache.data && (now - cache.timestamp) < cache.ttl) {
+        weatherMonthlyAverages = cache.data;
+        return cache.data;
+    }
+    
+    try {
+        const response = await fetch('/api/weather-monthly-averages');
+        if (!response.ok) throw new Error('API error');
+        
+        const result = await response.json();
+        if (result.success || result.data) {
+            weatherMonthlyAverages = result.data;
+            weatherCache.monthlyAvg.data = result.data;
+            weatherCache.monthlyAvg.timestamp = Date.now();
+            console.log('📊 天氣月度平均已載入 (來源:', result.source || 'API', ')');
+            return result.data;
+        }
+    } catch (error) {
+        console.warn('⚠️ 無法獲取天氣月度平均:', error.message);
+    }
+    
+    return null;
+}
 
 // 全局 AI 分析因素
 let aiFactors = {};
@@ -5121,17 +5152,22 @@ function calculateWeatherImpact(weather, historicalData = null) {
         let tempDesc = '';
         let tempIcon = '';
         
-        // 計算歷史平均溫度（如果提供歷史數據）
+        // 計算歷史平均溫度（使用真實 HKO 歷史數據）
         let historicalAvgTemp = null;
-        if (historicalData && historicalData.length > 0) {
-            // 獲取同月份的歷史溫度平均值（簡化：使用固定值，實際應從天氣數據庫獲取）
-            // 這裡使用季節性估計：12月平均約18°C，1月約16°C等
-            const month = new Date().getMonth() + 1;
-            const seasonalAvgTemps = {
-                1: 16, 2: 17, 3: 19, 4: 23, 5: 26, 6: 28,
-                7: 29, 8: 29, 9: 28, 10: 25, 11: 21, 12: 18
+        const month = new Date().getMonth() + 1;
+        
+        // 優先使用從 API 獲取的真實歷史數據
+        if (weatherMonthlyAverages && weatherMonthlyAverages[month]) {
+            historicalAvgTemp = weatherMonthlyAverages[month].mean;
+            // console.log(`📊 使用 HKO 歷史月均溫度: ${month}月 = ${historicalAvgTemp}°C`);
+        } else {
+            // 備用：HKO 官方氣候正常值 (1991-2020)
+            const hkoClimateNormals = {
+                1: 16.3, 2: 16.9, 3: 19.4, 4: 23.4, 5: 26.4, 6: 28.2,
+                7: 28.9, 8: 28.6, 9: 27.7, 10: 25.3, 11: 21.6, 12: 17.8
             };
-            historicalAvgTemp = seasonalAvgTemps[month] || 22;
+            historicalAvgTemp = hkoClimateNormals[month] || 22;
+            console.log(`📊 使用 HKO 氣候正常值: ${month}月 = ${historicalAvgTemp}°C`);
         }
         
         // 使用相對溫度（與歷史平均比較）
@@ -6779,8 +6815,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateSectionProgress('today-prediction', 8);
     await checkAIStatus();
     
-    // 獲取並顯示天氣
+    // 獲取並顯示天氣（使用真實 HKO API 數據）
     updateSectionProgress('today-prediction', 10);
+    await fetchWeatherMonthlyAverages(); // 載入 HKO 歷史月度平均
     await fetchCurrentWeather();
     await fetchWeatherForecast();
     updateWeatherDisplay();
