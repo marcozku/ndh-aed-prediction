@@ -809,6 +809,8 @@ const ChartOnboarding = {
 // 方法論彈窗
 // ============================================
 const MethodologyModal = {
+    metricsLoaded: false,
+    
     init() {
         const modal = document.getElementById('methodology-modal');
         const openBtn = document.getElementById('methodology-btn');
@@ -817,6 +819,7 @@ const MethodologyModal = {
         if (openBtn) {
             openBtn.addEventListener('click', () => {
                 modal.style.display = 'flex';
+                this.loadModelMetrics();
             });
         }
         
@@ -825,6 +828,56 @@ const MethodologyModal = {
                 modal.style.display = 'none';
             });
         }
+    },
+    
+    async loadModelMetrics() {
+        // 只載入一次，除非強制刷新
+        if (this.metricsLoaded) return;
+        
+        try {
+            const response = await fetch('/api/model-diagnostics');
+            if (!response.ok) throw new Error('Failed to fetch model diagnostics');
+            
+            const result = await response.json();
+            if (result.success && result.data?.modelStatus?.xgboost?.metrics) {
+                const metrics = result.data.modelStatus.xgboost.metrics;
+                
+                // 更新方法論中的性能指標
+                const maeEl = document.getElementById('methodology-mae');
+                const mapeEl = document.getElementById('methodology-mape');
+                const trainDateEl = document.getElementById('methodology-train-date');
+                const dataCountEl = document.getElementById('methodology-data-count');
+                
+                if (maeEl && metrics.mae !== undefined) {
+                    maeEl.textContent = metrics.mae.toFixed(2);
+                }
+                if (mapeEl && metrics.mape !== undefined) {
+                    mapeEl.textContent = metrics.mape.toFixed(2);
+                }
+                if (trainDateEl && metrics.training_date) {
+                    trainDateEl.textContent = metrics.training_date;
+                }
+                if (dataCountEl && metrics.data_count !== undefined) {
+                    dataCountEl.textContent = metrics.data_count.toLocaleString();
+                }
+                
+                this.metricsLoaded = true;
+                console.log('📊 方法論模型指標已更新:', metrics);
+            }
+        } catch (error) {
+            console.error('❌ 載入模型指標失敗:', error);
+            // 設置錯誤顯示
+            const maeEl = document.getElementById('methodology-mae');
+            const mapeEl = document.getElementById('methodology-mape');
+            if (maeEl) maeEl.textContent = 'N/A';
+            if (mapeEl) mapeEl.textContent = 'N/A';
+        }
+    },
+    
+    // 強制刷新指標（訓練後調用）
+    refreshMetrics() {
+        this.metricsLoaded = false;
+        this.loadModelMetrics();
     }
 };
 

@@ -503,7 +503,7 @@
         <footer class="app-footer" role="contentinfo">
             <p id="data-source-info" style="cursor: pointer; text-decoration: underline;" data-lang-key="footer-source">數據來源：載入中...</p>
             <p id="last-update-info" class="last-update-info"></p>
-            <p>預測模型版本 2.9.22 · 香港時間 HKT</p>
+            <p>預測模型版本 2.9.23 · 香港時間 HKT</p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2025 Marco Ma. All Rights Reserved.</p>
             <div class="footer-links">
                 <a href="/api/docs" class="footer-link" data-lang-key="footer-api">API 文檔</a>
@@ -575,16 +575,16 @@
             <div class="methodology-content">
                 <div class="methodology-section">
                     <h4>🎯 核心算法</h4>
-                    <p>本系統採用 <strong>XGBoost 梯度提升樹</strong>作為主要預測模型，結合時間序列特徵工程與機器學習技術。</p>
+                    <p>本系統採用 <strong>XGBoost 梯度提升樹</strong>作為主要預測模型，結合時間序列特徵工程與實時天氣數據。</p>
                     <div class="formula-box">
-                        <code>預測 = XGBoost(時間特徵 + 滯後特徵 + 滾動統計 + 事件指標 + 假期 + AI因子)</code>
+                        <code>預測 = XGBoost(79特徵) × 天氣影響因子 + AI調整</code>
                     </div>
                     <p style="margin-top: 8px; font-size: 0.85em; color: var(--text-secondary);">
                         模型配置：300 棵樹、深度 6、學習率 0.08、Early Stopping 30 輪
                     </p>
                 </div>
                 <div class="methodology-section">
-                    <h4>📊 特徵工程（79 個特徵）</h4>
+                    <h4>📊 XGBoost 特徵工程（79 個特徵）</h4>
                     <ul class="feature-list">
                         <li><strong>時間特徵</strong>：星期、月份、季節、週次、循環編碼 (sin/cos)</li>
                         <li><strong>滯後特徵</strong>：Lag1、Lag7、Lag14、Lag30、Lag60、Lag90、Lag365</li>
@@ -592,17 +592,30 @@
                         <li><strong>事件指標</strong>：COVID 時期、Omicron 浪、流感季節、抗議運動</li>
                         <li><strong>假期特徵</strong>：完整香港公眾假期、農曆假期、前後日效應</li>
                         <li><strong>交互特徵</strong>：COVID×冬季、週一×冬季、週末×夏季</li>
-                        <li><strong>AI 因子</strong>：實時新聞影響、事件分析、健康/政策/天氣類型</li>
+                        <li><strong>AI 因子</strong>：實時新聞影響、事件分析、健康/政策類型</li>
+                    </ul>
+                </div>
+                <div class="methodology-section">
+                    <h4>🌤️ 實時天氣數據（香港天文台 API）</h4>
+                    <ul class="feature-list">
+                        <li><strong>數據來源</strong>：data.weather.gov.hk 實時 API</li>
+                        <li><strong>溫度影響</strong>：>33°C +8%、<10°C +10%（基於研究）</li>
+                        <li><strong>濕度影響</strong>：>90% +3%</li>
+                        <li><strong>降雨影響</strong>：暴雨 -8%、中雨 -4%</li>
+                        <li><strong>天氣警告</strong>：八號風球 -60%、紅雨 -25%、寒冷天氣 +8%</li>
                     </ul>
                 </div>
                 <div class="methodology-section">
                     <h4>📈 模型性能</h4>
                     <ul>
-                        <li><strong>MAE</strong>：3.84 人（平均絕對誤差）</li>
-                        <li><strong>MAPE</strong>：1.56%（平均絕對百分比誤差）</li>
+                        <li><strong>MAE</strong>：<span id="methodology-mae">--</span> 人（平均絕對誤差）</li>
+                        <li><strong>MAPE</strong>：<span id="methodology-mape">--</span>%（平均絕對百分比誤差）</li>
                         <li><strong>80% CI</strong>：±1.5σ（標準差）</li>
                         <li><strong>95% CI</strong>：±2.5σ（標準差）</li>
                     </ul>
+                    <p style="margin-top: 8px; font-size: 0.85em; color: var(--text-secondary);">
+                        訓練日期：<span id="methodology-train-date">--</span> · 數據量：<span id="methodology-data-count">--</span> 筆
+                    </p>
                 </div>
                 <div class="methodology-section">
                     <h4>🔬 研究基礎</h4>
