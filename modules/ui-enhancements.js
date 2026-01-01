@@ -839,8 +839,13 @@ const MethodologyModal = {
             if (!response.ok) throw new Error('Failed to fetch model diagnostics');
             
             const result = await response.json();
-            if (result.success && result.data?.modelStatus?.xgboost?.metrics) {
-                const metrics = result.data.modelStatus.xgboost.metrics;
+            // 嘗試多個路徑獲取 metrics
+            const modelStatus = result.data?.modelStatus;
+            const metrics = modelStatus?.xgboost?.metrics || 
+                           modelStatus?.details?.xgboost?.metrics ||
+                           null;
+            
+            if (result.success && metrics) {
                 
                 // 更新方法論中的性能指標
                 const maeEl = document.getElementById('methodology-mae');

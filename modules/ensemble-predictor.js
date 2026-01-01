@@ -119,6 +119,18 @@ class EnsemblePredictor {
                     path: filePath
                 };
             }
+            
+            // 讀取 metrics 文件內容（如果存在）
+            const metricsPath = path.join(this.modelsDir, files.metrics);
+            if (fs.existsSync(metricsPath)) {
+                try {
+                    const metricsContent = fs.readFileSync(metricsPath, 'utf8');
+                    modelDetails[modelKey].metrics = JSON.parse(metricsContent);
+                } catch (err) {
+                    console.error(`無法讀取 ${modelKey} metrics:`, err.message);
+                    modelDetails[modelKey].metrics = null;
+                }
+            }
         }
 
         return {
@@ -126,6 +138,11 @@ class EnsemblePredictor {
             models: models,
             modelsDir: this.modelsDir,
             details: modelDetails,
+            // 為了向後兼容，在頂層也添加 xgboost metrics
+            xgboost: modelDetails.xgboost ? {
+                ...modelDetails.xgboost,
+                metrics: modelDetails.xgboost.metrics || null
+            } : null,
             // 檢查目錄是否存在
             modelsDirExists: fs.existsSync(this.modelsDir),
             // 列出目錄中的所有文件
