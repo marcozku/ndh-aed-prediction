@@ -4,7 +4,36 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.30';
+const MODEL_VERSION = '2.9.31';
+
+// ============================================
+// HKT 時間工具函數
+// ============================================
+function getHKTTime() {
+    return new Date().toLocaleString('zh-HK', { 
+        timeZone: 'Asia/Hong_Kong',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    });
+}
+
+function getHKTDate() {
+    const now = new Date();
+    const hkDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' }));
+    const year = hkDate.getFullYear();
+    const month = String(hkDate.getMonth() + 1).padStart(2, '0');
+    const day = String(hkDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function getHKTTimestamp() {
+    return getHKTTime().replace(/\//g, '-');
+}
 
 // AI 服務（僅在服務器端使用）
 let aiService = null;
@@ -326,7 +355,7 @@ const apiHandlers = {
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         const data = await parseBody(req);
-        const today = new Date().toISOString().split('T')[0];
+        const today = getHKTDate();
         const result = await db.insertPrediction(
             today,
             data.target_date,
@@ -360,7 +389,7 @@ const apiHandlers = {
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         const data = await parseBody(req);
-        const targetDate = data.target_date || new Date().toISOString().split('T')[0];
+        const targetDate = data.target_date || getHKTDate();
         const result = await db.calculateFinalDailyPrediction(targetDate);
         
         if (!result) {
@@ -685,7 +714,7 @@ const apiHandlers = {
                             date: date,
                             patient_count: parseInt(attendance, 10),
                             source: 'csv_upload',
-                            notes: `從網頁上傳的 CSV 數據 (${new Date().toISOString()})`
+                            notes: `從網頁上傳的 CSV 數據 (${getHKTTime()} HKT)`
                         });
                     }
                 }
@@ -852,7 +881,7 @@ const apiHandlers = {
                             date: date,
                             patient_count: attendanceNum,
                             source: 'csv_upload',
-                            notes: `從網頁上傳的 CSV 數據 (${new Date().toISOString()})`
+                            notes: `從網頁上傳的 CSV 數據 (${getHKTTime()} HKT)`
                         });
                     }
                     
@@ -1199,7 +1228,7 @@ const apiHandlers = {
             sendJson(res, { 
                 success: true, 
                 ...analysis,
-                timestamp: new Date().toISOString()
+                timestamp: getHKTTime() + ' HKT'
             });
         } catch (err) {
             clearTimeout(timeoutId);
@@ -1250,7 +1279,7 @@ const apiHandlers = {
             sendJson(res, { 
                 success: true, 
                 ...analysis,
-                timestamp: new Date().toISOString()
+                timestamp: getHKTTime() + ' HKT'
             });
         } catch (err) {
             console.error('AI 分析錯誤:', err);
@@ -1306,7 +1335,7 @@ const apiHandlers = {
                 modelTier: modelTier,
                 apiHost: stats.apiHost,
                 usage: stats,
-                timestamp: new Date().toISOString()
+                timestamp: getHKTTime() + ' HKT'
             });
         } catch (err) {
             sendJson(res, { 
@@ -1904,7 +1933,7 @@ const apiHandlers = {
         
         // 發送初始連接成功事件
         res.write(`event: connected\n`);
-        res.write(`data: ${JSON.stringify({ message: 'SSE 連接成功', timestamp: new Date().toISOString() })}\n\n`);
+        res.write(`data: ${JSON.stringify({ message: 'SSE 連接成功', timestamp: getHKTTime() + ' HKT' })}\n\n`);
         
         try {
             const { getAutoTrainManager } = require('./modules/auto-train-manager');
@@ -1917,7 +1946,7 @@ const apiHandlers = {
             const heartbeat = setInterval(() => {
                 if (!res.writableEnded) {
                     res.write(`event: heartbeat\n`);
-                    res.write(`data: ${JSON.stringify({ timestamp: new Date().toISOString() })}\n\n`);
+                    res.write(`data: ${JSON.stringify({ timestamp: getHKTTime() + ' HKT' })}\n\n`);
                 } else {
                     clearInterval(heartbeat);
                 }
@@ -2394,7 +2423,7 @@ const apiHandlers = {
                     description: 'Get system and database status'
                 }
             ],
-            lastUpdated: new Date().toISOString()
+            lastUpdated: getHKTTime() + ' HKT'
         };
         sendJson(res, apiDocs);
     },
@@ -2407,7 +2436,7 @@ const apiHandlers = {
             ai: aiService ? 'available' : 'unavailable',
             uptime: process.uptime(),
             memory: process.memoryUsage(),
-            timestamp: new Date().toISOString()
+            timestamp: getHKTTime() + ' HKT'
         };
         sendJson(res, status);
     },
@@ -2515,7 +2544,7 @@ const apiHandlers = {
                 recentAccuracy: Math.min(100, Math.max(0, recentAccuracy)),
                 overall: Math.min(100, Math.max(0, overall)),
                 details,
-                timestamp: new Date().toISOString()
+                timestamp: getHKTTime() + ' HKT'
             });
         } catch (error) {
             console.error('置信度計算失敗:', error);
@@ -2540,7 +2569,7 @@ const apiHandlers = {
                 id: Date.now().toString(36),
                 url,
                 events: selectedEvents,
-                created: new Date().toISOString(),
+                created: getHKTTime() + ' HKT',
                 active: true
             };
             global.webhooks.push(webhook);

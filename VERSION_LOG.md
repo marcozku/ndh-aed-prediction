@@ -1,5 +1,21 @@
 # 版本更新日誌
 
+## v2.9.31 - 2026-01-02 04:00 HKT
+
+### 🕐 全面使用 HKT 時間
+
+**更新內容**：
+- 添加 `getHKTTime()`, `getHKTDate()` 函數到 server.js
+- 所有 API 時間戳使用 HKT 格式
+- Python 訓練腳本使用 Asia/Hong_Kong 時區
+- 訓練日期顯示包含 HKT 標記
+
+**修改的文件**：
+- `server.js` - HKT 時間函數和 API 時間戳
+- `python/train_xgboost.py` - 訓練時間使用 HKT
+
+---
+
 ## v2.9.30 - 2026-01-02 03:20 HKT
 
 ### 📈 算法演進時間線 + 文檔全面更新

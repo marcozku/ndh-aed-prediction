@@ -10,7 +10,16 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 import json
 import os
 import sys
+import datetime
+import time
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo
 from feature_engineering import create_comprehensive_features, get_feature_columns
+
+# HKT 時區
+HKT = ZoneInfo('Asia/Hong_Kong')
 
 def load_ai_factors_from_db(conn):
     """從數據庫加載 AI 因子數據"""
@@ -483,7 +492,7 @@ def main():
     print(f"\n{'='*60}")
     print("🏥 NDH AED XGBoost 模型訓練系統")
     print(f"{'='*60}")
-    print(f"⏰ 開始時間: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"⏰ 開始時間: {datetime.datetime.now(HKT).strftime('%Y-%m-%d %H:%M:%S')} HKT")
     
     parser = argparse.ArgumentParser(description='Train XGBoost model')
     parser.add_argument('--csv', type=str, help='Path to CSV file with historical data')
@@ -664,12 +673,11 @@ def main():
         json.dump(feature_cols, f)
     
     # 添加更多訓練信息到指標
-    import datetime
     training_info = {
         'mae': metrics['mae'],
         'rmse': metrics['rmse'],
         'mape': metrics['mape'],
-        'training_date': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'training_date': datetime.datetime.now(HKT).strftime('%Y-%m-%d %H:%M:%S HKT'),
         'data_count': len(df),
         'train_count': len(train_data),
         'test_count': len(test_data),
