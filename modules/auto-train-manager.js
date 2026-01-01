@@ -32,8 +32,18 @@ class AutoTrainManager {
             minNewDataRecords: 1,           // 至少 1 筆新數據才觸發（降低門檻，更靈敏）
             maxTrainingInterval: 7,         // 最多 7 天訓練一次
             trainingTimeout: 3600000,       // 訓練超時：1 小時
-            enableAutoTrain: process.env.ENABLE_AUTO_TRAIN !== 'false' // 默認啟用
+            enableAutoTrain: process.env.ENABLE_AUTO_TRAIN !== 'false', // 默認啟用
+            // 🔬 自動特徵優化配置 (v2.9.52)
+            enableAutoOptimize: process.env.ENABLE_AUTO_OPTIMIZE !== 'false', // 默認啟用
+            optimizeEveryNTrains: 5,        // 每 5 次訓練自動優化一次特徵
+            optimizeOnNewData: 50           // 每 50 筆新數據自動優化一次
         };
+        
+        // 優化追蹤
+        this.trainCountSinceOptimize = 0;
+        this.dataCountSinceOptimize = 0;
+        this.lastOptimizeDate = null;
+        this.isOptimizing = false;
         
         // 確保模型目錄存在
         const modelsDir = path.join(__dirname, '../python/models');
@@ -476,6 +486,17 @@ class AutoTrainManager {
                         success: true,
                         message: `✅ 訓練完成（耗時 ${duration} 分鐘）`
                     });
+                    
+                    // 🔬 檢查是否需要自動特徵優化 (v2.9.52)
+                    const newDataAdded = dataCount ? dataCount - this.lastDataCount : 0;
+                    this.checkAndTriggerOptimization(newDataAdded).then(optResult => {
+                        if (optResult.triggered) {
+                            console.log(`🔬 已觸發自動特徵優化: ${optResult.reason}`);
+                        }
+                    }).catch(err => {
+                        console.error('優化檢查失敗:', err);
+                    });
+                    
                     resolve({ success: true, duration: duration, models: modelStatus });
                 } else {
                     console.warn(`⚠️ 訓練腳本退出成功，但模型文件未找到`);
@@ -700,6 +721,152 @@ class AutoTrainManager {
         for (const client of this.sseClients) {
             this._sendSSEEvent(client, 'status', data);
         }
+    }
+    
+    // ============ 🔬 自動特徵優化 (v2.9.52) ============
+    
+    /**
+     * 檢查是否需要運行特徵優化
+     */
+    shouldOptimize(newDataCount = 0) {
+        if (!this.config.enableAutoOptimize) {
+            return { shouldOptimize: false, reason: '自動優化已禁用' };
+        }
+        
+        if (this.isOptimizing) {
+            return { shouldOptimize: false, reason: '優化正在進行中' };
+        }
+        
+        // 每 N 次訓練優化一次
+        if (this.trainCountSinceOptimize >= this.config.optimizeEveryNTrains) {
+            return { 
+                shouldOptimize: true, 
+                reason: `已訓練 ${this.trainCountSinceOptimize} 次，達到優化閾值` 
+            };
+        }
+        
+        // 每 N 筆新數據優化一次
+        this.dataCountSinceOptimize += newDataCount;
+        if (this.dataCountSinceOptimize >= this.config.optimizeOnNewData) {
+            return { 
+                shouldOptimize: true, 
+                reason: `新增 ${this.dataCountSinceOptimize} 筆數據，達到優化閾值` 
+            };
+        }
+        
+        return { shouldOptimize: false, reason: '未達到優化條件' };
+    }
+    
+    /**
+     * 運行特徵優化
+     */
+    async runFeatureOptimization(quick = true) {
+        if (this.isOptimizing) {
+            console.log('⚠️ 優化已在進行中，跳過');
+            return { success: false, reason: '優化已在進行中' };
+        }
+        
+        this.isOptimizing = true;
+        console.log('🔬 開始自動特徵優化...');
+        
+        return new Promise((resolve) => {
+            const pythonScript = path.join(__dirname, '../python/auto_feature_optimizer.py');
+            const args = quick ? ['--quick'] : [];
+            
+            const python = spawn('python3', [pythonScript, ...args], {
+                cwd: path.join(__dirname, '../python'),
+                stdio: ['pipe', 'pipe', 'pipe'],
+                env: { ...process.env, PYTHONUNBUFFERED: '1' }
+            });
+            
+            let output = '';
+            let error = '';
+            
+            python.stdout.on('data', (data) => {
+                output += data.toString();
+                console.log(`[優化] ${data.toString().trim()}`);
+            });
+            
+            python.stderr.on('data', (data) => {
+                error += data.toString();
+            });
+            
+            python.on('close', (code) => {
+                this.isOptimizing = false;
+                this.lastOptimizeDate = new Date().toISOString();
+                this.trainCountSinceOptimize = 0;
+                this.dataCountSinceOptimize = 0;
+                
+                if (code === 0) {
+                    console.log('✅ 特徵優化完成');
+                    
+                    // 嘗試讀取優化結果
+                    try {
+                        const optimalPath = path.join(__dirname, '../python/models/optimal_features.json');
+                        if (fs.existsSync(optimalPath)) {
+                            const config = JSON.parse(fs.readFileSync(optimalPath, 'utf8'));
+                            console.log(`📊 最佳配置: ${config.optimal_n_features} 特徵, MAE=${config.metrics?.mae?.toFixed(2)}`);
+                        }
+                    } catch (e) {
+                        console.error('讀取優化結果失敗:', e);
+                    }
+                    
+                    resolve({ success: true, output });
+                } else {
+                    console.error('❌ 特徵優化失敗:', error);
+                    resolve({ success: false, error });
+                }
+            });
+            
+            python.on('error', (err) => {
+                this.isOptimizing = false;
+                console.error('❌ 無法啟動優化進程:', err);
+                resolve({ success: false, error: err.message });
+            });
+        });
+    }
+    
+    /**
+     * 訓練後檢查並觸發優化
+     */
+    async checkAndTriggerOptimization(newDataCount = 0) {
+        this.trainCountSinceOptimize++;
+        
+        const checkResult = this.shouldOptimize(newDataCount);
+        
+        if (checkResult.shouldOptimize) {
+            console.log(`🔬 觸發自動優化: ${checkResult.reason}`);
+            // 異步運行優化，不阻塞
+            this.runFeatureOptimization(true).then(result => {
+                if (result.success) {
+                    console.log('✅ 自動特徵優化完成');
+                } else {
+                    console.error('❌ 自動特徵優化失敗');
+                }
+            }).catch(err => {
+                console.error('❌ 自動優化異常:', err);
+            });
+            return { triggered: true, reason: checkResult.reason };
+        }
+        
+        return { triggered: false, reason: checkResult.reason };
+    }
+    
+    /**
+     * 獲取優化狀態
+     */
+    getOptimizationStatus() {
+        return {
+            isOptimizing: this.isOptimizing,
+            lastOptimizeDate: this.lastOptimizeDate,
+            trainCountSinceOptimize: this.trainCountSinceOptimize,
+            dataCountSinceOptimize: this.dataCountSinceOptimize,
+            config: {
+                enabled: this.config.enableAutoOptimize,
+                everyNTrains: this.config.optimizeEveryNTrains,
+                onNewData: this.config.optimizeOnNewData
+            }
+        };
     }
 }
 
