@@ -1611,8 +1611,16 @@ async function initCharts(predictor) {
 // 數據更新後刷新所有圖表
 // 當用戶上傳新的歷史數據後調用此函數
 // ============================================
+/**
+ * 刷新所有圖表和數據組件
+ * 當以下情況發生時調用：
+ * 1. 添加新的實際數據 (actual_data)
+ * 2. AI 因素更新 (ai_factors)
+ * 3. 模型訓練完成
+ * 4. 手動刷新
+ */
 async function refreshAllChartsAfterDataUpdate() {
-    console.log('🔄 開始刷新所有圖表（數據更新後）...');
+    console.log('🔄 開始刷新所有圖表和數據組件...');
     
     try {
         // 1. 更新數據庫狀態
@@ -8113,11 +8121,15 @@ async function forceRefreshAI() {
         updateFactorsLoadingProgress(90, '📊 更新預測結果...');
         
         try {
-            const predictor = new NDHAttendancePredictor();
-            updateUI(predictor);
-            console.log('✅ 預測結果已更新');
+            // 刷新所有圖表和數據（包括置信度、統計摘要等）
+            await refreshAllChartsAfterDataUpdate();
+            console.log('✅ 所有組件已刷新');
         } catch (uiError) {
-            console.warn('⚠️ 更新預測 UI 失敗:', uiError);
+            console.warn('⚠️ 更新 UI 失敗，嘗試基本更新:', uiError);
+            try {
+                const predictor = new NDHAttendancePredictor();
+                updateUI(predictor);
+            } catch (e) {}
         }
         
         console.log('✅ AI 強制刷新完成');
