@@ -345,6 +345,36 @@ async function initDatabase() {
             `);
         }
 
+        // Table for model metrics (persists across deploys)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS model_metrics (
+                id SERIAL PRIMARY KEY,
+                model_name VARCHAR(50) NOT NULL DEFAULT 'xgboost',
+                mae DECIMAL(10,6),
+                rmse DECIMAL(10,6),
+                mape DECIMAL(10,6),
+                r2 DECIMAL(10,6),
+                training_date TIMESTAMP WITH TIME ZONE,
+                data_count INTEGER,
+                train_count INTEGER,
+                test_count INTEGER,
+                feature_count INTEGER,
+                ai_factors_count INTEGER DEFAULT 0,
+                extra_metrics JSONB,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(model_name)
+            )
+        `);
+
+        // Initialize model_metrics if empty
+        const modelMetricsCheck = await client.query('SELECT COUNT(*) FROM model_metrics');
+        if (parseInt(modelMetricsCheck.rows[0].count) === 0) {
+            await client.query(`
+                INSERT INTO model_metrics (model_name, mae, rmse, mape)
+                VALUES ('xgboost', NULL, NULL, NULL)
+            `);
+        }
+
         // Initialize with default record if empty
         const checkResult = await client.query('SELECT COUNT(*) FROM ai_factors_cache');
         if (parseInt(checkResult.rows[0].count) === 0) {
@@ -1149,6 +1179,74 @@ async function clearAllData() {
     }
 }
 
+// Get model metrics from database
+async function getModelMetrics(modelName = 'xgboost') {
+    if (!pool) return null;
+    try {
+        const result = await pool.query(
+            'SELECT * FROM model_metrics WHERE model_name = $1',
+            [modelName]
+        );
+        if (result.rows.length > 0) {
+            return result.rows[0];
+        }
+        return null;
+    } catch (error) {
+        console.error('❌ 獲取模型指標失敗:', error.message);
+        return null;
+    }
+}
+
+// Save model metrics to database
+async function saveModelMetrics(modelName = 'xgboost', metrics) {
+    if (!pool) return null;
+    try {
+        const result = await pool.query(
+            `INSERT INTO model_metrics 
+             (model_name, mae, rmse, mape, r2, training_date, data_count, 
+              train_count, test_count, feature_count, ai_factors_count, extra_metrics, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+             ON CONFLICT (model_name) DO UPDATE SET
+                mae = EXCLUDED.mae,
+                rmse = EXCLUDED.rmse,
+                mape = EXCLUDED.mape,
+                r2 = COALESCE(EXCLUDED.r2, model_metrics.r2),
+                training_date = EXCLUDED.training_date,
+                data_count = COALESCE(EXCLUDED.data_count, model_metrics.data_count),
+                train_count = COALESCE(EXCLUDED.train_count, model_metrics.train_count),
+                test_count = COALESCE(EXCLUDED.test_count, model_metrics.test_count),
+                feature_count = COALESCE(EXCLUDED.feature_count, model_metrics.feature_count),
+                ai_factors_count = COALESCE(EXCLUDED.ai_factors_count, model_metrics.ai_factors_count),
+                extra_metrics = COALESCE(EXCLUDED.extra_metrics, model_metrics.extra_metrics),
+                updated_at = NOW()
+             RETURNING *`,
+            [
+                modelName,
+                metrics.mae || null,
+                metrics.rmse || null,
+                metrics.mape || null,
+                metrics.r2 || null,
+                metrics.training_date || new Date().toISOString(),
+                metrics.data_count || null,
+                metrics.train_count || null,
+                metrics.test_count || null,
+                metrics.feature_count || null,
+                metrics.ai_factors_count || 0,
+                metrics.extra_metrics ? JSON.stringify(metrics.extra_metrics) : null
+            ]
+        );
+        console.log('✅ 模型指標已保存到數據庫:', {
+            model: modelName,
+            mae: metrics.mae?.toFixed(4),
+            mape: metrics.mape?.toFixed(4)
+        });
+        return result.rows[0];
+    } catch (error) {
+        console.error('❌ 保存模型指標失敗:', error.message);
+        return null;
+    }
+}
+
 // Get training status from database
 async function getTrainingStatus(statusKey = 'xgboost') {
     if (!pool) return null;
@@ -1248,6 +1346,9 @@ module.exports = {
     updateSmoothingConfig,
     // 新增：訓練狀態函數
     getTrainingStatus,
-    saveTrainingStatus
+    saveTrainingStatus,
+    // 新增：模型指標函數
+    getModelMetrics,
+    saveModelMetrics
 };
 

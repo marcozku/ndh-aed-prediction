@@ -1,5 +1,48 @@
 # 版本更新日誌
 
+## v2.9.32 - 2026-01-02 03:18 HKT
+
+### 🔧 模型指標持久化到數據庫
+
+**問題修復**：
+- 修復「模型擬合度」在開啟應用時總是顯示 100% 的問題
+- 模型指標現在保存到 PostgreSQL 數據庫，不會因 Railway 部署而丟失
+- 訓練後的 MAE/MAPE/RMSE 等指標會持久化保存
+
+**技術更改**：
+
+1. **database.js**：
+   - 新增 `model_metrics` 數據表
+   - 新增 `getModelMetrics()` 函數
+   - 新增 `saveModelMetrics()` 函數
+
+2. **auto-train-manager.js**：
+   - 新增 `_saveModelMetricsToDB()` 方法
+   - 訓練完成後自動保存指標到數據庫
+
+3. **server.js**：
+   - `/api/confidence` 端點優先從數據庫讀取模型指標
+   - 如果數據庫沒有指標，才從文件讀取（向後兼容）
+   - 沒有指標時顯示 0%，而不是默認值
+
+**數據庫表結構**：
+```sql
+CREATE TABLE model_metrics (
+    id SERIAL PRIMARY KEY,
+    model_name VARCHAR(50) NOT NULL DEFAULT 'xgboost',
+    mae DECIMAL(10,6),
+    rmse DECIMAL(10,6),
+    mape DECIMAL(10,6),
+    training_date TIMESTAMP WITH TIME ZONE,
+    data_count INTEGER,
+    feature_count INTEGER,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(model_name)
+);
+```
+
+---
+
 ## v2.9.31 - 2026-01-02 04:00 HKT
 
 ### 🕐 全面使用 HKT 時間

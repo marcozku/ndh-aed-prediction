@@ -82,6 +82,42 @@ class AutoTrainManager {
     }
 
     /**
+     * 保存模型指標到數據庫（訓練完成後調用）
+     */
+    async _saveModelMetricsToDB() {
+        try {
+            const metricsPath = path.join(__dirname, '../python/models/xgboost_metrics.json');
+            
+            if (!fs.existsSync(metricsPath)) {
+                console.warn('⚠️ 模型指標文件不存在，跳過保存到數據庫');
+                return null;
+            }
+            
+            const metricsData = JSON.parse(fs.readFileSync(metricsPath, 'utf8'));
+            
+            const db = require('../database');
+            const result = await db.saveModelMetrics('xgboost', {
+                mae: metricsData.mae,
+                rmse: metricsData.rmse,
+                mape: metricsData.mape,
+                r2: metricsData.r2,
+                training_date: metricsData.training_date || new Date().toISOString(),
+                data_count: metricsData.data_count,
+                train_count: metricsData.train_count,
+                test_count: metricsData.test_count,
+                feature_count: metricsData.feature_count,
+                ai_factors_count: metricsData.ai_factors_count || 0
+            });
+            
+            console.log('✅ 模型指標已同步到數據庫');
+            return result;
+        } catch (e) {
+            console.error('❌ 保存模型指標到數據庫失敗:', e.message);
+            return null;
+        }
+    }
+
+    /**
      * 保存訓練狀態到數據庫
      */
     async _saveTrainingStatusToDB(dataCount = null, isTraining = false) {
@@ -429,6 +465,10 @@ class AutoTrainManager {
                 if (modelStatus.available) {
                     console.log(`✅ 模型訓練完成（耗時 ${duration} 分鐘）`);
                     console.log(`✅ 模型文件驗證通過`);
+                    
+                    // 🔴 保存模型指標到數據庫（持久化）
+                    await this._saveModelMetricsToDB();
+                    
                     await this._saveTrainingStatusToDB(dataCount, false);
                     // 🔴 廣播訓練完成狀態
                     this.broadcastStatusChange({

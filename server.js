@@ -2476,15 +2476,43 @@ const apiHandlers = {
                 }
             }
             
-            // 2. 模型擬合度：基於 XGBoost 模型指標
+            // 2. 模型擬合度：優先從數據庫讀取（持久化），否則從文件讀取
             try {
-                const fs = require('fs');
-                const path = require('path');
-                const metricsPath = path.join(__dirname, 'python/models/xgboost_metrics.json');
+                let metrics = null;
                 
-                if (fs.existsSync(metricsPath)) {
-                    const metrics = JSON.parse(fs.readFileSync(metricsPath, 'utf8'));
+                // 優先從數據庫讀取（持久化的指標）
+                if (db && db.pool) {
+                    try {
+                        const dbMetrics = await db.getModelMetrics('xgboost');
+                        if (dbMetrics && dbMetrics.mae !== null) {
+                            metrics = {
+                                mae: parseFloat(dbMetrics.mae),
+                                mape: parseFloat(dbMetrics.mape),
+                                rmse: parseFloat(dbMetrics.rmse),
+                                training_date: dbMetrics.training_date,
+                                feature_count: dbMetrics.feature_count,
+                                data_count: dbMetrics.data_count
+                            };
+                            details.metricsSource = 'database';
+                        }
+                    } catch (dbErr) {
+                        console.warn('從數據庫讀取模型指標失敗:', dbErr.message);
+                    }
+                }
+                
+                // 如果數據庫沒有，從文件讀取（向後兼容）
+                if (!metrics) {
+                    const fs = require('fs');
+                    const path = require('path');
+                    const metricsPath = path.join(__dirname, 'python/models/xgboost_metrics.json');
                     
+                    if (fs.existsSync(metricsPath)) {
+                        metrics = JSON.parse(fs.readFileSync(metricsPath, 'utf8'));
+                        details.metricsSource = 'file';
+                    }
+                }
+                
+                if (metrics && metrics.mae !== undefined && metrics.mape !== undefined) {
                     // MAE 評分：MAE < 5 = 100分，每增加1 -10分
                     const maeScore = Math.max(0, 100 - (metrics.mae - 5) * 10);
                     // MAPE 評分：MAPE < 2% = 100分，每增加1% -20分
@@ -2500,10 +2528,12 @@ const apiHandlers = {
                 } else {
                     modelFit = 0;
                     details.modelExists = false;
+                    details.metricsSource = 'none';
                 }
             } catch (e) {
                 console.warn('模型指標讀取失敗:', e.message);
-                modelFit = 50; // 預設值
+                modelFit = 0; // 沒有指標時顯示 0%，而不是默認值
+                details.modelExists = false;
             }
             
             // 3. 近期準確度：基於最近7天的預測 vs 實際對比
