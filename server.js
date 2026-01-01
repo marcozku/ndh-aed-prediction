@@ -2458,6 +2458,161 @@ function scheduleDailyFinalPrediction() {
     console.log('⏰ 已設置每日最終預測計算任務（每天00:00 HKT執行）');
 }
 
+// ============================================================
+// 伺服器端自動預測（每 30 分鐘執行一次）
+// ============================================================
+async function generateServerSidePredictions() {
+    if (!db || !db.pool) {
+        console.log('⚠️ 數據庫未配置，跳過伺服器端自動預測');
+        return;
+    }
+    
+    const hk = getHKTime();
+    console.log(`\n🔮 [${hk.dateStr} ${String(hk.hour).padStart(2, '0')}:${String(hk.minute).padStart(2, '0')} HKT] 開始伺服器端自動預測...`);
+    
+    try {
+        // 獲取歷史數據統計
+        const statsResult = await db.pool.query(`
+            SELECT 
+                AVG(patient_count) as avg,
+                STDDEV(patient_count) as stddev,
+                COUNT(*) as count
+            FROM actual_data
+        `);
+        const globalMean = parseFloat(statsResult.rows[0].avg) || 255;
+        const globalStdDev = parseFloat(statsResult.rows[0].stddev) || 30;
+        const dataCount = parseInt(statsResult.rows[0].count) || 0;
+        
+        if (dataCount < 7) {
+            console.log(`⚠️ 歷史數據不足（${dataCount} 筆），跳過自動預測`);
+            return;
+        }
+        
+        // 獲取最近 7 天的平均值（用於更準確的基準）
+        const recent7Result = await db.pool.query(`
+            SELECT AVG(patient_count) as avg
+            FROM (
+                SELECT patient_count FROM actual_data ORDER BY date DESC LIMIT 7
+            ) sub
+        `);
+        const recent7Mean = parseFloat(recent7Result.rows[0].avg) || globalMean;
+        
+        // 獲取按星期幾的平均值
+        const dowResult = await db.pool.query(`
+            SELECT 
+                EXTRACT(DOW FROM date) as dow,
+                AVG(patient_count) as avg
+            FROM actual_data
+            GROUP BY EXTRACT(DOW FROM date)
+        `);
+        const dowFactors = {};
+        dowResult.rows.forEach(row => {
+            dowFactors[parseInt(row.dow)] = parseFloat(row.avg) / globalMean;
+        });
+        
+        // 嘗試使用 XGBoost 模型
+        let useXGBoost = false;
+        let ensemblePredictor = null;
+        try {
+            const { EnsemblePredictor } = require('./modules/ensemble-predictor');
+            ensemblePredictor = new EnsemblePredictor();
+            useXGBoost = ensemblePredictor.isModelAvailable();
+        } catch (e) {
+            useXGBoost = false;
+        }
+        
+        // 生成今天和未來 7 天的預測
+        const predictions = [];
+        const today = new Date(`${hk.dateStr}T00:00:00+08:00`);
+        
+        for (let i = 0; i <= 7; i++) {
+            const targetDate = new Date(today);
+            targetDate.setDate(today.getDate() + i);
+            const dateStr = targetDate.toISOString().split('T')[0];
+            const dow = targetDate.getDay();
+            
+            let predicted, ci80, ci95;
+            
+            if (useXGBoost) {
+                try {
+                    const result = await ensemblePredictor.predict(dateStr);
+                    if (result && result.prediction) {
+                        predicted = Math.round(result.prediction);
+                        ci80 = result.ci80 || { low: predicted - 32, high: predicted + 32 };
+                        ci95 = result.ci95 || { low: predicted - 49, high: predicted + 49 };
+                    } else {
+                        throw new Error('XGBoost 預測失敗');
+                    }
+                } catch (e) {
+                    // 回退到統計預測
+                    useXGBoost = false;
+                }
+            }
+            
+            if (!useXGBoost) {
+                // 統計預測：使用最近 7 天平均值 + 星期效應
+                const dowFactor = dowFactors[dow] || 1.0;
+                predicted = Math.round(recent7Mean * dowFactor);
+                
+                // 基於標準差計算信賴區間
+                const margin80 = Math.round(globalStdDev * 1.28);
+                const margin95 = Math.round(globalStdDev * 1.96);
+                ci80 = { low: predicted - margin80, high: predicted + margin80 };
+                ci95 = { low: predicted - margin95, high: predicted + margin95 };
+            }
+            
+            predictions.push({
+                date: dateStr,
+                predicted,
+                ci80,
+                ci95,
+                method: useXGBoost ? 'xgboost' : 'statistical'
+            });
+        }
+        
+        // 保存預測到數據庫
+        let savedCount = 0;
+        for (const pred of predictions) {
+            try {
+                await db.insertDailyPrediction(
+                    pred.date,
+                    pred.predicted,
+                    pred.ci80,
+                    pred.ci95,
+                    MODEL_VERSION,
+                    null, // weather_data
+                    null  // ai_factors
+                );
+                savedCount++;
+            } catch (err) {
+                console.error(`❌ 保存 ${pred.date} 預測失敗:`, err.message);
+            }
+        }
+        
+        const method = useXGBoost ? 'XGBoost' : '統計';
+        console.log(`✅ 伺服器端自動預測完成：已保存 ${savedCount}/${predictions.length} 筆預測（${method}方法）`);
+        console.log(`   今日預測: ${predictions[0].predicted} 人 (${predictions[0].date})`);
+        
+    } catch (error) {
+        console.error('❌ 伺服器端自動預測失敗:', error);
+    }
+}
+
+// 設置每 30 分鐘自動預測
+function scheduleAutoPredict() {
+    // 啟動時立即執行一次
+    setTimeout(() => {
+        generateServerSidePredictions();
+    }, 10000); // 10 秒後執行（等待數據庫連接穩定）
+    
+    // 每 30 分鐘執行一次
+    setInterval(() => {
+        generateServerSidePredictions();
+    }, 30 * 60 * 1000); // 30 分鐘
+    
+    console.log('⏰ 已設置伺服器端自動預測任務（每 30 分鐘執行一次）');
+}
+
 server.listen(PORT, () => {
     console.log(`🏥 NDH AED 預測系統運行於 http://localhost:${PORT}`);
     console.log(`📊 預測模型版本 ${MODEL_VERSION}`);
