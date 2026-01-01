@@ -1,5 +1,24 @@
 # 版本更新日誌
 
+## v2.9.17 - 2026-01-02 01:32 HKT
+
+### 🐛 修復 Service Worker POST 請求緩存錯誤
+
+**問題**：
+- `sw.js` 嘗試緩存 POST 請求導致錯誤：
+  `Failed to execute 'put' on 'Cache': Request method 'POST' is unsupported`
+- Cache API 只支援 GET 請求
+
+**修復**：
+- 在 fetch 事件處理器中跳過非 GET 請求
+- 添加 `if (request.method !== 'GET') return;` 檢查
+- POST/PUT/DELETE 請求直接透過網絡，不經過 Service Worker 緩存邏輯
+
+**修改的文件**：
+- `sw.js` - 跳過 POST 請求、更新版本號至 v2.6.4
+
+---
+
 ## v2.9.16 - 2026-01-02 01:29 HKT
 
 ### 🔧 修復數據庫查詢錯誤 + 減少警告日誌

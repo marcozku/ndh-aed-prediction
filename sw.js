@@ -1,12 +1,12 @@
 /**
  * NDH AED 預測系統 - Service Worker
  * 提供離線支援和快取管理
- * v2.6.1
+ * v2.6.4
  */
 
-const CACHE_NAME = 'ndh-aed-v2.9.1';
-const STATIC_CACHE = 'ndh-static-v2.6.3';
-const DYNAMIC_CACHE = 'ndh-dynamic-v2.6.3';
+const CACHE_NAME = 'ndh-aed-v2.9.17';
+const STATIC_CACHE = 'ndh-static-v2.6.4';
+const DYNAMIC_CACHE = 'ndh-dynamic-v2.6.4';
 
 // 靜態資源（始終快取）
 const STATIC_ASSETS = [
@@ -72,6 +72,9 @@ self.addEventListener('fetch', (event) => {
     
     // 跳過非 HTTP 請求
     if (!url.protocol.startsWith('http')) return;
+    
+    // 跳過 POST 請求（Cache API 不支援 POST）
+    if (request.method !== 'GET') return;
     
     // API 請求 - 網絡優先，失敗時使用快取
     if (url.pathname.startsWith('/api/')) {
@@ -200,5 +203,5 @@ self.addEventListener('notificationclick', (event) => {
     );
 });
 
-console.log('[SW] Service Worker 已載入 v2.6.3');
+console.log('[SW] Service Worker 已載入 v2.6.4');
 
