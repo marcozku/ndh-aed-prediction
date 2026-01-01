@@ -7501,47 +7501,59 @@ function initAlgorithmContent() {
     
     algorithmContentEl.innerHTML = `
         <div class="algorithm-formula" style="margin-bottom: var(--space-xl);">
-            <h4>核心預測算法（v2.9.21 - XGBoost 優化版）</h4>
+            <h4>核心預測算法（v2.9.30 - 研究基礎優化版）</h4>
             <div style="background: var(--bg-secondary); padding: var(--space-lg); border-radius: var(--radius-md); margin-top: var(--space-md); margin-bottom: var(--space-lg);">
                 <h5 style="color: var(--text-primary); font-size: 1rem; font-weight: 600; margin-bottom: var(--space-sm);">機器學習模型：XGBoost（極端梯度提升）</h5>
                 <div style="padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-sm); font-size: 0.9rem; line-height: 1.8; color: var(--text-secondary);">
                     <p style="margin-bottom: var(--space-sm);">
-                        本系統使用 <strong style="color: var(--text-primary);">XGBoost（極端梯度提升）</strong> 機器學習模型進行預測。
-                        XGBoost 是一種基於決策樹的集成學習算法，通過梯度提升框架優化模型性能。
+                        本系統使用 <strong style="color: var(--text-primary);">XGBoost（極端梯度提升）</strong> 機器學習模型進行預測，基於最新學術研究優化。
                     </p>
                     <div style="margin-top: var(--space-md);">
-                        <strong style="color: var(--text-primary);">v2.9.21 優化配置：</strong>
+                        <strong style="color: var(--text-primary);">v2.9.30 研究基礎配置（BMC EM 2025）：</strong>
                         <ul style="margin-top: var(--space-xs); padding-left: var(--space-lg);">
-                            <li><strong>交叉驗證</strong>：3-fold（原 5-fold），100 棵樹/fold（原 300）</li>
-                            <li><strong>最終模型</strong>：300 棵樹（原 500），early stopping=30 輪（原 50）</li>
-                            <li><strong>學習率</strong>：0.08（原 0.05），補償較少樹數</li>
-                            <li><strong>訓練時間</strong>：約 2-4 分鐘（原 5-10 分鐘）</li>
-                            <li><strong>tree_method</strong>：histogram（更快的樹構建）</li>
+                            <li><strong>n_estimators</strong>：500 棵樹（增強模型能力）</li>
+                            <li><strong>max_depth</strong>：8（捕捉複雜交互）</li>
+                            <li><strong>learning_rate</strong>：0.05（配合更多樹數）</li>
+                            <li><strong>min_child_weight</strong>：3（防止過擬合）</li>
+                            <li><strong>gamma</strong>：0.1（分裂閾值）</li>
+                            <li><strong>正則化</strong>：alpha=0.5, reg_lambda=1.5</li>
+                            <li><strong>early_stopping</strong>：50 輪</li>
+                        </ul>
+                    </div>
+                    <div style="margin-top: var(--space-md); background: rgba(5, 150, 105, 0.1); padding: var(--space-md); border-radius: var(--radius-sm);">
+                        <strong style="color: #059669;">⚖️ 樣本權重（研究基礎：JMIR 2025）：</strong>
+                        <ul style="margin-top: var(--space-xs); padding-left: var(--space-lg);">
+                            <li><strong>時間衰減</strong>：半衰期 365 天，近期數據權重更高</li>
+                            <li><strong>COVID 調整</strong>：2020-02 至 2022-06 期間權重 30%（異常期間）</li>
+                            <li><strong>異常值處理</strong>：Z-score > 3 的極端值權重減半</li>
                         </ul>
                     </div>
                     <div style="margin-top: var(--space-md);">
                         <strong style="color: var(--text-primary);">XGBoost 模型特點：</strong>
                         <ul style="margin-top: var(--space-xs); padding-left: var(--space-lg);">
                             <li>捕捉複雜的非線性關係和特徵交互</li>
-                            <li>自動特徵工程：處理 <strong>78 個特徵</strong>（時間特徵、滯後特徵、滾動統計、事件指標、假期特徵、AI 因子等）</li>
-                            <li>整合 AI 分析數據：使用實時 AI 分析結果作為 13 維特徵，提高預測準確度</li>
-                            <li>高準確度：MAE 目標 < 15 病人</li>
-                            <li>快速訓練和預測：訓練時間 2-4 分鐘，預測時間 < 1 秒</li>
-                            <li>原生處理缺失值：XGBoost 自動學習最佳分割方向，不需填充虛假數據</li>
-                            <li>提供預測不確定性量化</li>
+                            <li>自動特徵工程：處理 <strong>99 個特徵</strong>（含天氣、Fourier 季節）</li>
+                            <li>整合 AI 分析數據：使用實時 AI 分析結果作為 13 維特徵</li>
+                            <li>整合 HKO 天氣數據：37 年歷史氣象特徵（1988-2025）</li>
+                            <li>高準確度：MAE 目標 < 2.5 病人（參考 BMC EM 2025: 2.63）</li>
+                            <li>原生處理缺失值：XGBoost 自動學習最佳分割方向</li>
+                            <li>提供預測不確定性量化（80%/95% CI）</li>
                         </ul>
                     </div>
                     <div style="margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border-color);">
-                        <strong style="color: var(--text-primary);">特徵工程（78 個特徵）：</strong>
+                        <strong style="color: var(--text-primary);">特徵工程（99 個特徵）：</strong>
                         <ul style="margin-top: var(--space-xs); padding-left: var(--space-lg); font-size: 0.85rem;">
                             <li><strong>時間特徵</strong>（8個）：年、月、星期、季度、一年中的第幾天等</li>
-                            <li><strong>循環編碼</strong>（4個）：月份和星期的正弦/餘弦編碼（捕捉周期性）</li>
+                            <li><strong>循環編碼</strong>（4個）：月份和星期的正弦/餘弦編碼</li>
+                            <li><strong>Fourier 季節</strong>（10個）：3階年度 + 2階週內 Fourier 特徵 <em>(Prophet)</em></li>
                             <li><strong>滯後特徵</strong>（14個）：Lag1-Lag365 真實歷史數據 + 可用性指標</li>
-                            <li><strong>滾動統計</strong>（15個）：7天/14天/30天移動平均、標準差、最大值、最小值 + 可用性指標</li>
-                            <li><strong>事件指標</strong>（8個）：COVID 期間、流感季節、週一、週末等</li>
-                            <li><strong>交互特徵</strong>（3個）：COVID × 冬季、週一 × 冬季等</li>
-                            <li><strong>假期特徵</strong>（9個）：完整香港公眾假期（含農曆新年、清明、端午、中秋、重陽、佛誕、復活節）、假期前後效應</li>
-                            <li><strong>AI 因子特徵</strong>（13個）：多維度 AI 分析特徵（見下方詳細說明）</li>
+                            <li><strong>滾動統計</strong>（15個）：7天/14天/30天移動平均、標準差、最大值、最小值</li>
+                            <li><strong>事件指標</strong>（8個）：COVID 期間、Omicron 浪、流感季節、抗議運動等</li>
+                            <li><strong>交互特徵</strong>（3個）：COVID × 冬季、週一 × 冬季、週末 × 夏季</li>
+                            <li><strong>趨勢特徵</strong>（5個）：歸一化趨勢、時代指標、日/週/月變化</li>
+                            <li><strong>假期特徵</strong>（9個）：完整香港公眾假期、農曆假期、前後日效應</li>
+                            <li><strong>AI 因子特徵</strong>（13個）：多維度 AI 分析特徵（見下方說明）</li>
+                            <li><strong>天氣特徵</strong>（10個）：日均/最高/最低溫度、溫差、極端天氣標記 <em>(HKO 1988-2025)</em></li>
                         </ul>
                     </div>
                     <div style="margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border-color); background: rgba(59, 130, 246, 0.05); padding: var(--space-md); border-radius: var(--radius-sm);">
@@ -7650,19 +7662,19 @@ function initAlgorithmContent() {
         </div>
         
         <div style="grid-column: 1 / -1; margin-top: var(--space-lg);">
-            <h4 style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600; margin-bottom: var(--space-md);">算法特點</h4>
+            <h4 style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600; margin-bottom: var(--space-md);">算法特點（v2.9.30）</h4>
             <ul style="color: var(--text-primary); line-height: 1.8; padding-left: var(--space-lg);">
-                <li><strong>XGBoost 機器學習模型</strong>：使用梯度提升樹算法，自動學習複雜模式和非線性關係</li>
-                <li><strong>78 個特徵工程</strong>：時間特徵、滯後特徵、滾動統計、事件指標、完整香港假期、13維 AI 因子特徵</li>
-                <li><strong>多維 AI 因子整合</strong>：將實時 AI 分析結果提取為 13 個特徵（影響幅度、方向、信心、類型等），讓模型學習事件對就診人數的影響</li>
-                <li>基於真實歷史數據（3,431+ 筆記錄）進行訓練和驗證</li>
-                <li>考慮多維度影響因子，包括時間、天氣、假期等</li>
-                <li>使用月份-星期交互因子，提高預測準確度</li>
+                <li><strong>XGBoost 機器學習模型</strong>：500 棵樹、深度 8、研究基礎超參數（BMC EM 2025）</li>
+                <li><strong>99 個特徵工程</strong>：時間、Fourier 季節、滯後、滾動統計、事件、假期、天氣、AI 因子</li>
+                <li><strong>樣本權重</strong>：時間衰減（半衰期 365 天）+ COVID 期間調整 + 異常值處理（JMIR 2025）</li>
+                <li><strong>Fourier 季節特徵</strong>：3階年度 + 2階週內正弦/餘弦編碼（Facebook Prophet）</li>
+                <li><strong>天氣特徵</strong>：香港天文台 37 年歷史數據（1988-2025）+ 實時 API</li>
+                <li><strong>多維 AI 因子整合</strong>：13 個特徵（影響幅度、方向、信心、類型等）</li>
+                <li>基於真實歷史數據（4,000+ 筆記錄）進行訓練和驗證</li>
+                <li>使用月份-星期交互因子，捕捉複雜周期模式</li>
                 <li>整合滯後特徵（lag1-lag365）和移動平均，使用真實數據（不填充虛假值）</li>
-                <li>整合 AI 分析，動態調整預測值</li>
                 <li>提供 80% 和 95% 信賴區間，量化預測不確定性</li>
-                <li>持續學習和優化，根據實際數據反饋重新訓練模型</li>
-                <li>基於最新研究（2024-2025）持續改進，目標 MAE < 2.0</li>
+                <li>持續學習和優化，目標 MAE < 2.5（參考 BMC EM 2025: 2.63）</li>
             </ul>
         </div>
         
@@ -7781,7 +7793,23 @@ function initAlgorithmContent() {
                     <a href="https://bmcmedinformdecismak.biomedcentral.com/articles/10.1186/s12911-024-02788-6" target="_blank" style="color: var(--accent-primary);">查看研究</a>
                 </p>
                 
-                <p style="margin-bottom: var(--space-sm);"><strong>3. 深度學習登機預測（2025）</strong></p>
+                <p style="margin-bottom: var(--space-sm);"><strong>3. JMIR 時間衰減權重研究（2025）⭐ 樣本權重</strong></p>
+                <p style="margin-bottom: var(--space-md); margin-left: var(--space-md); color: var(--text-secondary);">
+                    JMIR Medical Informatics (2025). "AI Framework for Predicting ED Overcrowding".
+                    <br><strong>方法</strong>：時間衰減權重、多數據源整合
+                    <br><strong>應用</strong>：本系統使用半衰期 365 天的時間衰減權重
+                    <br>
+                    <a href="https://medinform.jmir.org/2025/1/e73960" target="_blank" style="color: var(--accent-primary);">查看研究</a>
+                </p>
+                
+                <p style="margin-bottom: var(--space-sm);"><strong>4. Facebook Prophet Fourier 特徵 ⭐ 季節特徵</strong></p>
+                <p style="margin-bottom: var(--space-md); margin-left: var(--space-md); color: var(--text-secondary);">
+                    Taylor, S.J. & Letham, B. (2018). "Forecasting at Scale".
+                    <br><strong>方法</strong>：Fourier 季節特徵捕捉年度和週內周期性
+                    <br><strong>應用</strong>：本系統使用 3 階年度 + 2 階週內 Fourier 特徵（10 個特徵）
+                </p>
+                
+                <p style="margin-bottom: var(--space-sm);"><strong>5. 深度學習登機預測（2025）</strong></p>
                 <p style="margin-bottom: var(--space-md); margin-left: var(--space-md); color: var(--text-secondary);">
                     arXiv (2025). "Deep Learning-Based Forecasting of Boarding Patient Counts to Address ED Overcrowding".
                     <br>方法：深度學習模型，提前6小時預測 | 數據整合：急診室追蹤系統 + 住院患者數據 + 天氣 + 本地事件 |
@@ -7823,19 +7851,18 @@ function initAlgorithmContent() {
                     <strong>Rolling7（7天移動平均）</strong>：係數約 0.12-0.16，捕捉短期趨勢（BMC Medical Informatics，2024）
                 </p>
                 
-                <p style="margin-bottom: var(--space-sm);"><strong>9. 算法組件研究基礎</strong></p>
+                <p style="margin-bottom: var(--space-sm);"><strong>9. 算法組件研究基礎（v2.9.30）</strong></p>
                 <ul style="margin-left: var(--space-md); color: var(--text-secondary); margin-bottom: var(--space-md);">
-                    <li><strong>XGBoost 模型</strong>：基於法國醫院研究（2025），使用梯度提升樹捕捉複雜模式，MAE 可達 2.63-2.64 病人</li>
-                    <li><strong>特徵工程</strong>：基於特徵工程研究（2024），創建 78 個特徵包括時間、滯後（真實數據）、滾動統計、完整香港假期、13維 AI 因子</li>
-                    <li><strong>AI 因子整合</strong>：將 AI 分析結果作為特徵加入模型，讓 XGBoost 學習實時事件對就診人數的影響模式</li>
-                    <li><strong>滾動窗口計算</strong>：基於時間序列研究，適應數據分佈變化（arXiv 2025）</li>
-                    <li><strong>加權平均</strong>：基於時間序列研究，指數衰減權重（DeepAR 2017）</li>
+                    <li><strong>XGBoost 模型</strong>：基於法國醫院研究（BMC EM 2025），500 棵樹、深度 8，MAE 目標 < 2.5 病人</li>
+                    <li><strong>特徵工程（99 個）</strong>：時間、Fourier 季節、滯後、滾動統計、事件、假期、天氣、AI 因子（BMC MIDM 2024）</li>
+                    <li><strong>樣本權重</strong>：時間衰減（半衰期 365 天）+ COVID 期間調整（30%）+ 異常值處理（JMIR 2025）</li>
+                    <li><strong>Fourier 季節特徵</strong>：3階年度 + 2階週內正弦/餘弦編碼，捕捉複雜季節性（Facebook Prophet）</li>
+                    <li><strong>天氣特徵</strong>：香港天文台 37 年歷史數據（1988-2025），10 個特徵（溫度、溫差、極端天氣）</li>
+                    <li><strong>AI 因子整合</strong>：13 維特徵，讓 XGBoost 學習實時事件對就診人數的影響模式</li>
                     <li><strong>月份-星期交互</strong>：基於星期效應研究，不同月份的星期模式不同（BMC MIDM 2024）</li>
-                    <li><strong>趨勢調整</strong>：基於時間序列研究，短期和長期趨勢組合（時間序列分析 2017）</li>
-                    <li><strong>相對溫度</strong>：基於天氣影響研究，相對溫度比絕對溫度更重要（ResearchGate 2024）</li>
-                    <li><strong>異常檢測</strong>：基於異常檢測研究，自動調整到合理範圍（異常檢測研究 2024）</li>
-                    <li><strong>滯後特徵</strong>：基於自相關性研究，lag1-lag365 使用真實歷史數據，XGBoost 原生處理缺失值（特徵工程研究 2024）</li>
-                    <li><strong>移動平均</strong>：基於時間序列研究，7天和30天移動平均捕捉趨勢（TCN 2019）</li>
+                    <li><strong>相對溫度</strong>：基於天氣影響研究，比較月度平均計算偏差（ResearchGate 2024）</li>
+                    <li><strong>滯後特徵</strong>：lag1-lag365 使用真實歷史數據，XGBoost 原生處理缺失值</li>
+                    <li><strong>滾動統計</strong>：7/14/30 天移動平均、標準差、最大/最小值（TCN 2019）</li>
                 </ul>
             </div>
         </div>
