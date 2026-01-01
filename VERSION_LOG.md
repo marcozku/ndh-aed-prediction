@@ -1,5 +1,36 @@
 # 版本更新日誌
 
+## v2.9.29 - 2026-01-02 03:00 HKT
+
+### 📚 研究文檔更新與參考完善
+
+**更新內容**：
+
+1. **WORLD_CLASS_ALGORITHM.md**：
+   - 新增完整研究引用表格
+   - 列出所有已實施的研究基礎及狀態
+   - 添加研究引用詳情（標題、URL、應用）
+
+2. **PREDICTION_FORMULA_DETAILED.md**：
+   - 更新核心公式為 99 特徵 XGBoost
+   - 添加模型架構說明
+   - 記錄樣本權重計算公式
+
+3. **index.html 方法論 Tab**：
+   - 更新特徵數量：89 → 99
+   - 更新模型配置：500 棵樹、深度 8
+   - 新增樣本權重說明
+   - 新增 Fourier 特徵說明
+   - 添加研究參考列表（BMC EM、JMIR、Prophet）
+
+**研究參考**：
+- BMC Emergency Medicine (2025) - XGBoost 法國醫院研究
+- BMC Medical Informatics (2024) - 特徵工程增強
+- JMIR Medical Informatics (2025) - 時間衰減權重
+- Facebook Prophet - Fourier 季節特徵
+
+---
+
 ## v2.9.28 - 2026-01-02 02:35 HKT
 
 ### 🔬 基於研究的 XGBoost 準確度優化
