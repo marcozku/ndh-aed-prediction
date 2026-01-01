@@ -1153,6 +1153,203 @@ const MethodologyModal = {
 };
 
 // ============================================
+// 主頁面算法時間線
+// ============================================
+const MainPageTimeline = {
+    chart: null,
+    loaded: false,
+    
+    async init() {
+        const container = document.getElementById('main-algorithm-timeline');
+        const canvas = document.getElementById('main-accuracy-chart');
+        
+        if (!container) {
+            console.warn('MainPageTimeline: container not found');
+            return;
+        }
+        
+        console.log('📈 初始化主頁面時間線...');
+        
+        // 獲取時間線數據
+        let timeline;
+        try {
+            const response = await fetch('/api/algorithm-timeline');
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success && result.data?.timeline) {
+                    timeline = result.data.timeline;
+                }
+            }
+        } catch (e) {
+            console.warn('API 獲取失敗，使用備用數據');
+        }
+        
+        // 備用數據
+        if (!timeline) {
+            timeline = [
+                { version: '2.9.20', date: '2025-12-30', description: '基礎 XGBoost', metrics: { mae: 3.84, mape: 1.56, feature_count: 52 }, changes: ['300樹', '深度6'] },
+                { version: '2.9.24', date: '2025-12-31', description: '天氣特徵整合', metrics: { mae: 3.75, mape: 1.52, feature_count: 89 }, changes: ['HKO數據', '10天氣特徵'] },
+                { version: '2.9.30', date: '2026-01-02', description: '研究基礎優化', metrics: { mae: 3.84, mape: 1.56, feature_count: 99 }, changes: ['500樹', 'Fourier', '樣本權重'] }
+            ];
+        }
+        
+        // 渲染時間線列表
+        this.renderTimeline(container, timeline);
+        
+        // 渲染圖表
+        if (canvas && typeof Chart !== 'undefined') {
+            this.renderChart(canvas, timeline);
+        } else if (canvas) {
+            // 延遲等待 Chart.js
+            setTimeout(() => {
+                if (typeof Chart !== 'undefined') {
+                    this.renderChart(canvas, timeline);
+                }
+            }, 1000);
+        }
+        
+        this.loaded = true;
+        console.log('✅ 主頁面時間線初始化完成');
+    },
+    
+    renderTimeline(container, timeline) {
+        let html = '';
+        const latestIdx = timeline.length - 1;
+        
+        for (let i = latestIdx; i >= 0; i--) {
+            const item = timeline[i];
+            const isLatest = i === latestIdx;
+            const prevItem = i > 0 ? timeline[i - 1] : null;
+            
+            let maeImproved = false, mapeImproved = false;
+            if (prevItem && item.metrics?.mae && prevItem.metrics?.mae) {
+                maeImproved = item.metrics.mae < prevItem.metrics.mae;
+            }
+            if (prevItem && item.metrics?.mape && prevItem.metrics?.mape) {
+                mapeImproved = item.metrics.mape < prevItem.metrics.mape;
+            }
+            
+            html += `
+                <div class="timeline-item ${isLatest ? 'latest' : ''}">
+                    <div class="timeline-version">${item.version}${isLatest ? ' 🆕' : ''}</div>
+                    <div class="timeline-info">
+                        <div class="timeline-date">${item.date}</div>
+                        <div class="timeline-desc">${item.description}</div>
+                        <div class="timeline-metrics">
+                            <span class="timeline-metric ${maeImproved ? 'improved' : ''}">
+                                <strong>MAE:</strong> ${item.metrics?.mae?.toFixed(2) || '--'}${maeImproved ? ' ↓' : ''}
+                            </span>
+                            <span class="timeline-metric ${mapeImproved ? 'improved' : ''}">
+                                <strong>MAPE:</strong> ${item.metrics?.mape?.toFixed(2) || '--'}%${mapeImproved ? ' ↓' : ''}
+                            </span>
+                            <span class="timeline-metric">
+                                <strong>特徵:</strong> ${item.metrics?.feature_count || '--'}
+                            </span>
+                        </div>
+                        ${item.changes?.length > 0 ? `
+                        <div class="timeline-changes">
+                            ${item.changes.map(c => `<span class="timeline-tag">${c}</span>`).join('')}
+                        </div>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        
+        container.innerHTML = html;
+    },
+    
+    renderChart(canvas, timeline) {
+        const validData = timeline.filter(t => t.metrics?.mae != null);
+        if (validData.length === 0) return;
+        
+        const labels = validData.map(t => t.version);
+        const maeData = validData.map(t => t.metrics.mae);
+        const mapeData = validData.map(t => t.metrics.mape);
+        const featureData = validData.map(t => t.metrics.feature_count);
+        
+        if (this.chart) {
+            this.chart.destroy();
+        }
+        
+        try {
+            this.chart = new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'MAE (人)',
+                            data: maeData,
+                            borderColor: '#4f46e5',
+                            backgroundColor: 'rgba(79, 70, 229, 0.15)',
+                            borderWidth: 3,
+                            pointRadius: 8,
+                            pointBackgroundColor: '#4f46e5',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            tension: 0.3,
+                            fill: true
+                        },
+                        {
+                            label: 'MAPE (%)',
+                            data: mapeData,
+                            borderColor: '#059669',
+                            borderWidth: 2,
+                            pointRadius: 6,
+                            pointBackgroundColor: '#059669',
+                            tension: 0.3,
+                            borderDash: [5, 5]
+                        },
+                        {
+                            label: '特徵數',
+                            data: featureData,
+                            borderColor: '#f59e0b',
+                            borderWidth: 2,
+                            pointRadius: 5,
+                            pointBackgroundColor: '#f59e0b',
+                            tension: 0.3,
+                            borderDash: [2, 2],
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { boxWidth: 12, padding: 10, font: { size: 11 }, usePointStyle: true }
+                        },
+                        title: {
+                            display: true,
+                            text: '📊 算法更新效果分析',
+                            font: { size: 14, weight: 'bold' }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            title: { display: true, text: 'MAE / MAPE', font: { size: 11 } }
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            title: { display: true, text: '特徵數', font: { size: 11 } },
+                            grid: { drawOnChartArea: false }
+                        }
+                    }
+                }
+            });
+            console.log('✅ 主頁面圖表已渲染');
+        } catch (e) {
+            console.error('圖表渲染失敗:', e);
+        }
+    }
+};
+
+// ============================================
 // 全視窗拖放
 // ============================================
 const FullWindowDrop = {
@@ -1489,6 +1686,11 @@ export function initUIEnhancements() {
         MethodologyModal.init();
         console.log('  ✓ MethodologyModal');
     } catch (e) { console.error('MethodologyModal error:', e); }
+    
+    try {
+        MainPageTimeline.init();
+        console.log('  ✓ MainPageTimeline');
+    } catch (e) { console.error('MainPageTimeline error:', e); }
     
     try {
         FullWindowDrop.init();

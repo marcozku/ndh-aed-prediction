@@ -5372,6 +5372,43 @@ section h2 {
     border-bottom: none;
 }
 
+/* Algorithm Timeline Section (Main Page) */
+.algorithm-timeline-section {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    margin-bottom: var(--space-xl);
+    box-shadow: var(--shadow-md);
+}
+
+.timeline-main-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-xl);
+}
+
+@media (max-width: 768px) {
+    .timeline-main-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.timeline-chart-wrapper {
+    background: var(--bg-primary);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    min-height: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.timeline-chart-wrapper canvas {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 260px;
+}
+
 /* Algorithm Timeline */
 .algorithm-timeline {
     display: flex;
