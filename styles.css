@@ -1361,9 +1361,25 @@ section h2 {
     box-sizing: border-box;
 }
 
-@media (min-width: 900px) {
+/* 中等屏幕：2列佈局 */
+@media (min-width: 768px) {
     .prediction-grid {
-        grid-template-columns: 1.2fr 1fr;
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .prediction-grid .main-prediction-card {
+        grid-column: 1 / 2;
+    }
+    
+    .prediction-grid .stats-card {
+        grid-column: 2 / 3;
+    }
+}
+
+/* 大屏幕：加大主卡片 */
+@media (min-width: 1024px) {
+    .prediction-grid {
+        grid-template-columns: 1.3fr 1fr;
     }
 }
 
@@ -1373,6 +1389,7 @@ section h2 {
 .prediction-card {
     width: 100%;
     max-width: 100%;
+    min-height: 0;
     background: var(--bg-glass);
     backdrop-filter: var(--blur-sm);
     -webkit-backdrop-filter: var(--blur-sm);
@@ -1384,6 +1401,8 @@ section h2 {
     position: relative;
     overflow: hidden;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
 }
 
 .prediction-card::before {
@@ -1780,6 +1799,23 @@ section h2 {
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-md);
     box-sizing: border-box;
+    height: 100%;
+}
+
+/* 統計卡片內容自適應填滿 */
+.stats-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.stats-card .card-header {
+    flex-shrink: 0;
+}
+
+.stats-card .stats-grid {
+    flex: 1;
+    align-content: center;
 }
 
 .stat-item {
@@ -2238,11 +2274,34 @@ section h2 {
     width: 100%;
     max-width: 100%;
     display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    /* 自適應：每張卡片最小100px，自動填滿可用空間 */
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
     gap: var(--space-md);
-    overflow-x: auto;
+    overflow-x: visible;
     -webkit-overflow-scrolling: touch;
     box-sizing: border-box;
+}
+
+/* 大屏幕固定7列 */
+@media (min-width: 900px) {
+    .forecast-cards {
+        grid-template-columns: repeat(7, 1fr);
+    }
+}
+
+/* 中等屏幕4-3佈局 */
+@media (min-width: 600px) and (max-width: 899px) {
+    .forecast-cards {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* 小屏幕2-3列 */
+@media (max-width: 599px) {
+    .forecast-cards {
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: var(--space-sm);
+    }
 }
 
 .forecast-day-card {
@@ -3563,18 +3622,16 @@ section h2 {
     
     .forecast-cards {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
         gap: var(--space-sm);
-        padding: var(--space-sm) 0; /* 移動端優化：減少上下 padding */
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: thin;
+        padding: var(--space-sm) 0;
+        overflow-x: visible;
     }
 
     .forecast-day-card {
-        min-width: 90px;
+        min-width: 0;
         max-width: 100%;
-        padding: var(--space-md) var(--space-sm) !important; /* 移動端優化：減少 padding */
+        padding: var(--space-md) var(--space-sm) !important;
     }
 }
 
@@ -3692,15 +3749,15 @@ section h2 {
     }
     
     .forecast-cards {
-        grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
         gap: var(--space-xs);
-        padding: var(--space-xs) 0; /* 移動端優化：減少上下 padding */
+        padding: var(--space-xs) 0;
     }
     
     .forecast-day-card {
-        min-width: 75px;
-        padding: var(--space-sm) var(--space-xs) !important; /* 移動端優化：減少 padding */
-        border-radius: var(--radius-md) !important; /* 移動端優化：稍微減小圓角 */
+        min-width: 0;
+        padding: var(--space-sm) var(--space-xs) !important;
+        border-radius: var(--radius-md) !important;
     }
     
     .forecast-value {
@@ -4026,17 +4083,17 @@ section h2 {
     }
     
     .forecast-cards {
-        grid-template-columns: repeat(auto-fit, minmax(65px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
         gap: var(--space-xs);
         width: 100%;
         max-width: 100%;
-        padding: var(--space-xs) 0; /* 小屏幕優化：減少上下 padding */
+        padding: var(--space-xs) 0;
     }
     
     .forecast-day-card {
-        min-width: 65px;
-        padding: var(--space-xs) 4px !important; /* 小屏幕優化：進一步減少 padding */
-        border-radius: var(--radius-sm) !important; /* 小屏幕優化：更小的圓角 */
+        min-width: 0;
+        padding: var(--space-xs) 4px !important;
+        border-radius: var(--radius-sm) !important;
     }
     
     .forecast-value {
