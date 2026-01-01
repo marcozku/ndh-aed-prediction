@@ -64,10 +64,11 @@ def parse_model_metrics(output):
     return metrics
 
 def run_training_script(script_name):
-    """運行訓練腳本"""
+    """運行訓練腳本（實時輸出）"""
     print(f"\n{'='*60}")
     print(f"開始訓練: {script_name}")
     print(f"{'='*60}\n")
+    sys.stdout.flush()
     
     # 確保在 python 目錄下運行
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -75,34 +76,75 @@ def run_training_script(script_name):
     
     print(f"工作目錄: {script_dir}")
     print(f"腳本路徑: {script_path}")
+    sys.stdout.flush()
     
     env = os.environ.copy()
+    env['PYTHONUNBUFFERED'] = '1'  # 確保子進程也不緩衝輸出
     
     start_time = time.time()
     
-    result = subprocess.run(
-        [sys.executable, script_path],
-        cwd=script_dir,  # 在 python 目錄下運行
-        capture_output=True,
+    # 使用 Popen 實時輸出，而不是等待完成
+    process = subprocess.Popen(
+        [sys.executable, '-u', script_path],  # -u 強制無緩衝
+        cwd=script_dir,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        env=env  # 使用修改後的環境變數
+        env=env,
+        bufsize=1  # 行緩衝
     )
+    
+    stdout_lines = []
+    stderr_lines = []
+    
+    # 實時讀取輸出
+    import threading
+    import queue
+    
+    def read_stream(stream, lines_list, stream_name):
+        """讀取流並實時輸出"""
+        try:
+            for line in iter(stream.readline, ''):
+                if line:
+                    lines_list.append(line)
+                    if stream_name == 'stdout':
+                        print(line, end='', flush=True)
+                    else:
+                        print(f"[stderr] {line}", end='', flush=True)
+        except Exception as e:
+            pass
+        finally:
+            stream.close()
+    
+    # 啟動讀取線程
+    stdout_thread = threading.Thread(target=read_stream, args=(process.stdout, stdout_lines, 'stdout'))
+    stderr_thread = threading.Thread(target=read_stream, args=(process.stderr, stderr_lines, 'stderr'))
+    
+    stdout_thread.start()
+    stderr_thread.start()
+    
+    # 等待進程完成
+    process.wait()
+    
+    # 等待讀取線程完成
+    stdout_thread.join(timeout=5)
+    stderr_thread.join(timeout=5)
     
     elapsed_time = time.time() - start_time
     elapsed_minutes = elapsed_time / 60
     
-    print(result.stdout)
-    if result.stderr:
-        print("錯誤輸出:", result.stderr)
+    stdout_text = ''.join(stdout_lines)
+    stderr_text = ''.join(stderr_lines)
     
     # 解析性能指標
-    metrics = parse_model_metrics(result.stdout)
+    metrics = parse_model_metrics(stdout_text)
     
-    if result.returncode != 0:
+    if process.returncode != 0:
         print(f"\n❌ {script_name} 訓練失敗")
         print(f"⏱️  訓練時間: {elapsed_minutes:.2f} 分鐘")
-        if result.stderr:
-            print(f"❌ 錯誤信息: {result.stderr[:500]}")
+        if stderr_text:
+            print(f"❌ 錯誤信息: {stderr_text[:500]}")
+        sys.stdout.flush()
         return False, elapsed_minutes, metrics
     else:
         print(f"\n✅ {script_name} 訓練完成")
@@ -115,6 +157,7 @@ def run_training_script(script_name):
                 print(f"   RMSE: {metrics['RMSE']:.2f} 病人")
             if 'MAPE' in metrics:
                 print(f"   MAPE: {metrics['MAPE']:.2f}%")
+        sys.stdout.flush()
         return True, elapsed_minutes, metrics
 
 def main():

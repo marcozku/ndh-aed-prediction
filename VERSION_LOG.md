@@ -1,5 +1,29 @@
 # 版本更新日誌
 
+## v2.9.18 - 2026-01-02 01:35 HKT
+
+### 🔧 修復訓練日誌無法實時顯示問題
+
+**問題**：
+- 訓練日誌只顯示開頭幾行，無法看到詳細進度
+- `train_all_models.py` 使用 `subprocess.run(capture_output=True)` 導致輸出被緩衝到訓練完成才顯示
+
+**修復**：
+- 改用 `subprocess.Popen` 配合線程實時讀取 stdout/stderr
+- 添加 `-u` 參數強制 Python 無緩衝輸出
+- 設置 `PYTHONUNBUFFERED=1` 環境變數
+- 使用 `bufsize=1` 行緩衝模式
+- 每行輸出後立即 `flush()`
+
+**效果**：
+- 訓練進度條、MAE 指標等可以實時在前端顯示
+- 交叉驗證每個 fold 的結果即時輸出
+
+**修改的文件**：
+- `python/train_all_models.py` - 改用實時輸出機制
+
+---
+
 ## v2.9.17 - 2026-01-02 01:32 HKT
 
 ### 🐛 修復 Service Worker POST 請求緩存錯誤
