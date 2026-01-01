@@ -211,6 +211,19 @@ def create_comprehensive_features(df, ai_factors_dict=None):
     df['DayOfWeek_sin'] = np.sin(2 * np.pi * df['Day_of_Week'] / 7)
     df['DayOfWeek_cos'] = np.cos(2 * np.pi * df['Day_of_Week'] / 7)
     
+    # ============ Fourier 季節特徵（研究基礎）============
+    # 參考: Facebook Prophet, BMC Medical Informatics 2024
+    # 多階 Fourier 特徵可以捕捉複雜的周期性模式
+    days_in_year = 365.25
+    for k in range(1, 4):  # 3 階 Fourier 特徵
+        df[f'Fourier_Year_sin_{k}'] = np.sin(2 * np.pi * k * df['DayOfYear'] / days_in_year)
+        df[f'Fourier_Year_cos_{k}'] = np.cos(2 * np.pi * k * df['DayOfYear'] / days_in_year)
+    
+    # 週內 Fourier 特徵
+    for k in range(1, 3):  # 2 階 Fourier 特徵
+        df[f'Fourier_Week_sin_{k}'] = np.sin(2 * np.pi * k * df['Day_of_Week'] / 7)
+        df[f'Fourier_Week_cos_{k}'] = np.cos(2 * np.pi * k * df['Day_of_Week'] / 7)
+    
     # ============ 滯後特徵 ============
     # 只使用真實歷史數據，不進行任何填充（NaN 表示該數據不存在）
     for lag in [1, 7, 14, 30, 60, 90, 365]:
@@ -421,6 +434,13 @@ def get_feature_columns():
         
         # 循環編碼
         'Month_sin', 'Month_cos', 'DayOfWeek_sin', 'DayOfWeek_cos',
+        
+        # Fourier 季節特徵（研究基礎: Prophet, BMC 2024）
+        'Fourier_Year_sin_1', 'Fourier_Year_cos_1',
+        'Fourier_Year_sin_2', 'Fourier_Year_cos_2',
+        'Fourier_Year_sin_3', 'Fourier_Year_cos_3',
+        'Fourier_Week_sin_1', 'Fourier_Week_cos_1',
+        'Fourier_Week_sin_2', 'Fourier_Week_cos_2',
         
         # 滯後特徵（真實數據，XGBoost 處理 NaN）
         'Attendance_Lag1', 'Attendance_Lag7', 'Attendance_Lag14', 

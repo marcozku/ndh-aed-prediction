@@ -1,5 +1,48 @@
 # 版本更新日誌
 
+## v2.9.28 - 2026-01-02 02:35 HKT
+
+### 🔬 基於研究的 XGBoost 準確度優化
+
+**研究基礎**：
+- BMC Emergency Medicine (2025) - 法國醫院 MAE 2.63-2.64
+- BMC Medical Informatics (2024) - 特徵工程增強預測
+- JMIR Medical Informatics (2025) - 時間衰減權重
+- Facebook Prophet - Fourier 季節特徵
+
+**優化內容**：
+
+1. **超參數優化（研究建議）**：
+   - n_estimators: 300 → 500（更多樹提高準確度）
+   - max_depth: 6 → 8（增加深度捕捉複雜模式）
+   - learning_rate: 0.08 → 0.05（較低學習率+更多樹=更好泛化）
+   - 新增 min_child_weight: 3（防止過擬合）
+   - 新增 gamma: 0.1（分裂閾值）
+   - 調整正則化：alpha=0.5, reg_lambda=1.5
+
+2. **樣本權重（研究基礎：JMIR 2025）**：
+   - 時間衰減：半衰期 365 天，近期數據權重更高
+   - COVID 調整：2020-02 至 2022-06 權重降低到 30%
+   - 異常值調整：Z-score > 3 的極端值權重減半
+
+3. **Fourier 季節特徵（研究基礎：Prophet）**：
+   - 新增 3 階年度 Fourier 特徵（sin/cos）
+   - 新增 2 階週內 Fourier 特徵（sin/cos）
+   - 捕捉複雜周期性模式
+
+**特徵總數**：89 → 99 個特徵
+
+**預期效果**：
+- MAE 降低 10-20%
+- 模型擬合度提升
+- 減少 COVID 期間異常影響
+
+**修改的文件**：
+- `python/train_xgboost.py` - 超參數優化、樣本權重
+- `python/feature_engineering.py` - Fourier 特徵
+
+---
+
 ## v2.9.27 - 2026-01-02 02:28 HKT
 
 ### 📊 修復方法論模型性能指標顯示

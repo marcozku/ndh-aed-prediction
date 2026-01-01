@@ -295,76 +295,152 @@ def train_xgboost_model(train_data, test_data, feature_cols):
     class XGBoostModel(xgb.XGBRegressor):
         _estimator_type = "regressor"
     
-    # 根據算法規格文件配置 - v2.9.21 優化版
+    # ============ 研究基礎改進 v2.9.28 ============
+    # 參考: BMC Emergency Medicine 2025, BMC Medical Informatics 2024
     print(f"\n{'='*60}")
-    print("⚙️ XGBoost 超參數配置 (v2.9.21 優化)")
+    print("⚙️ XGBoost 超參數配置 (v2.9.28 研究優化)")
     print(f"{'='*60}")
+    
+    # 基於法國醫院研究（BMC EM 2025）的最佳參數
     params = {
-        'n_estimators': 300,  # 減少到 300（原 500），配合更激進的 early stopping
-        'max_depth': 6,
-        'learning_rate': 0.08,  # 提高學習率（原 0.05）以補償較少樹數
-        'subsample': 0.8,
-        'colsample_bytree': 0.8,
-        'colsample_bylevel': 0.8,
-        'alpha': 1.0,
-        'reg_lambda': 1.0,
+        'n_estimators': 500,          # 增加樹數以提高準確度
+        'max_depth': 8,               # 增加深度以捕捉複雜模式
+        'learning_rate': 0.05,        # 較低學習率 + 更多樹 = 更好泛化
+        'min_child_weight': 3,        # 防止過擬合
+        'subsample': 0.85,            # 行採樣
+        'colsample_bytree': 0.85,     # 列採樣
+        'colsample_bylevel': 0.85,
+        'gamma': 0.1,                 # 分裂所需的最小損失減少
+        'alpha': 0.5,                 # L1 正則化（研究建議）
+        'reg_lambda': 1.5,            # L2 正則化（研究建議）
     }
-    print(f"   🌲 n_estimators (最大樹數): {params['n_estimators']}")
-    print(f"   📏 max_depth (樹最大深度): {params['max_depth']}")
-    print(f"   📉 learning_rate (學習率): {params['learning_rate']}")
-    print(f"   🎲 subsample (行採樣率): {params['subsample']}")
-    print(f"   🎯 colsample_bytree (列採樣率): {params['colsample_bytree']}")
-    print(f"   🔧 alpha (L1正則化): {params['alpha']}")
-    print(f"   🔧 reg_lambda (L2正則化): {params['reg_lambda']}")
+    
+    print(f"   🌲 n_estimators: {params['n_estimators']} (研究建議: 更多樹)")
+    print(f"   📏 max_depth: {params['max_depth']} (研究建議: 增加深度)")
+    print(f"   📉 learning_rate: {params['learning_rate']} (研究建議: 較低)")
+    print(f"   👶 min_child_weight: {params['min_child_weight']} (防止過擬合)")
+    print(f"   🎲 subsample: {params['subsample']}")
+    print(f"   🎯 colsample_bytree: {params['colsample_bytree']}")
+    print(f"   📐 gamma: {params['gamma']} (分裂閾值)")
+    print(f"   🔧 alpha (L1): {params['alpha']}")
+    print(f"   🔧 reg_lambda (L2): {params['reg_lambda']}")
     print(f"   🎯 objective: reg:squarederror")
     print(f"   📊 eval_metric: mae")
-    print(f"   ⏹️ early_stopping_rounds: 30 (更激進)")
+    print(f"   ⏹️ early_stopping_rounds: 50")
     
     model = XGBoostModel(
-        n_estimators=300,  # 減少到 300
-        max_depth=6,
-        learning_rate=0.08,  # 提高學習率
-        subsample=0.8,
-        colsample_bytree=0.8,
-        colsample_bylevel=0.8,
+        n_estimators=params['n_estimators'],
+        max_depth=params['max_depth'],
+        learning_rate=params['learning_rate'],
+        min_child_weight=params['min_child_weight'],
+        subsample=params['subsample'],
+        colsample_bytree=params['colsample_bytree'],
+        colsample_bylevel=params['colsample_bylevel'],
+        gamma=params['gamma'],
         objective='reg:squarederror',
-        alpha=1.0,
-        reg_lambda=1.0,
+        alpha=params['alpha'],
+        reg_lambda=params['reg_lambda'],
         tree_method='hist',
         grow_policy='depthwise',
-        early_stopping_rounds=30,  # 更激進的 early stopping（原 50）
+        early_stopping_rounds=50,
         eval_metric='mae',
         random_state=42,
         n_jobs=-1
     )
     
+    # ============ 樣本權重（時間衰減 + COVID 調整）============
+    # 研究基礎: JMIR Medical Informatics 2025 - 近期數據更重要
+    print(f"\n{'='*60}")
+    print("⚖️ 計算樣本權重 (研究基礎: 時間衰減)")
+    print(f"{'='*60}")
+    
+    def calculate_sample_weights(dates, target_values):
+        """
+        計算樣本權重:
+        1. 時間衰減: 近期數據權重更高
+        2. COVID 調整: 減少 COVID 異常期間的權重
+        """
+        weights = np.ones(len(dates))
+        
+        # 1. 時間衰減權重 (半衰期 = 365 天)
+        max_date = dates.max()
+        days_from_latest = (max_date - dates).dt.days
+        half_life = 365  # 一年半衰期
+        time_weights = np.exp(-0.693 * days_from_latest / half_life)
+        weights *= time_weights
+        
+        # 2. COVID 期間權重調整 (2020-02 到 2022-06)
+        covid_start = pd.Timestamp('2020-02-01')
+        covid_end = pd.Timestamp('2022-06-30')
+        is_covid = (dates >= covid_start) & (dates <= covid_end)
+        weights[is_covid] *= 0.3  # COVID 期間權重降低到 30%
+        
+        # 3. 異常值權重調整
+        mean_val = target_values.mean()
+        std_val = target_values.std()
+        z_scores = np.abs((target_values - mean_val) / std_val)
+        outlier_mask = z_scores > 3
+        weights[outlier_mask] *= 0.5  # 極端異常值權重降低
+        
+        # 歸一化
+        weights = weights / weights.mean()
+        
+        return weights
+    
+    train_weights = calculate_sample_weights(
+        pd.to_datetime(train_data['Date']), 
+        train_data['Attendance'].values
+    )
+    
+    # 計算訓練子集的權重
+    train_subset_weights = calculate_sample_weights(
+        pd.to_datetime(train_subset['Date']), 
+        train_subset['Attendance'].values
+    )
+    
+    covid_count = ((pd.to_datetime(train_subset['Date']) >= '2020-02-01') & 
+                   (pd.to_datetime(train_subset['Date']) <= '2022-06-30')).sum()
+    print(f"   📊 COVID 期間樣本數: {covid_count}")
+    print(f"   📊 權重範圍: {train_subset_weights.min():.3f} - {train_subset_weights.max():.3f}")
+    print(f"   📊 平均權重: {train_subset_weights.mean():.3f}")
+    
     print(f"\n{'='*60}")
     print("🔥 開始梯度提升訓練 (Gradient Boosting)")
     print(f"{'='*60}")
     print(f"   每 10 輪輸出一次訓練進度...")
-    print(f"   Early stopping: 若 30 輪無改善則停止")
+    print(f"   Early stopping: 若 50 輪無改善則停止")
+    print(f"   使用樣本權重: ✅ (時間衰減 + COVID 調整)")
     print(f"")
     import time
     
     # 使用驗證子集進行 early stopping
-    # 注意：部分 XGBoost 版本不支持 callbacks 參數，使用 verbose 模式代替
     print("   訓練中...")
     fit_start_time = time.time()
     
     try:
-        # 嘗試使用 verbose=10 來顯示每 10 輪的進度
+        # 使用樣本權重訓練（研究建議）
         model.fit(
             X_train, y_train,
+            sample_weight=train_subset_weights,  # 時間衰減 + COVID 調整權重
             eval_set=[(X_val, y_val)],
-            verbose=10  # 每 10 輪輸出一次
+            verbose=10
         )
     except TypeError as e:
-        # 如果 verbose 參數有問題，嘗試不帶 verbose
+        # 兼容性處理
         print(f"   ⚠️ XGBoost 版本兼容性調整: {e}")
-        model.fit(
-            X_train, y_train,
-            eval_set=[(X_val, y_val)]
-        )
+        try:
+            model.fit(
+                X_train, y_train,
+                sample_weight=train_subset_weights,
+                eval_set=[(X_val, y_val)]
+            )
+        except:
+            # 最後的 fallback - 不使用權重
+            print(f"   ⚠️ 無法使用樣本權重，使用標準訓練")
+            model.fit(
+                X_train, y_train,
+                eval_set=[(X_val, y_val)]
+            )
     
     fit_time = time.time() - fit_start_time
     best_iter = model.best_iteration + 1 if hasattr(model, 'best_iteration') and model.best_iteration is not None else 300
