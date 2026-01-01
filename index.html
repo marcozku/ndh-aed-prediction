@@ -503,7 +503,7 @@
         <footer class="app-footer" role="contentinfo">
             <p id="data-source-info" style="cursor: pointer; text-decoration: underline;" data-lang-key="footer-source">數據來源：載入中...</p>
             <p id="last-update-info" class="last-update-info"></p>
-            <p>預測模型版本 2.9.23 · 香港時間 HKT</p>
+            <p>預測模型版本 2.9.24 · 香港時間 HKT</p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2025 Marco Ma. All Rights Reserved.</p>
             <div class="footer-links">
                 <a href="/api/docs" class="footer-link" data-lang-key="footer-api">API 文檔</a>
@@ -577,14 +577,14 @@
                     <h4>🎯 核心算法</h4>
                     <p>本系統採用 <strong>XGBoost 梯度提升樹</strong>作為主要預測模型，結合時間序列特徵工程與實時天氣數據。</p>
                     <div class="formula-box">
-                        <code>預測 = XGBoost(79特徵) × 天氣影響因子 + AI調整</code>
+                        <code>預測 = XGBoost(89特徵，含天氣) × 實時天氣調整 + AI調整</code>
                     </div>
                     <p style="margin-top: 8px; font-size: 0.85em; color: var(--text-secondary);">
                         模型配置：300 棵樹、深度 6、學習率 0.08、Early Stopping 30 輪
                     </p>
                 </div>
                 <div class="methodology-section">
-                    <h4>📊 XGBoost 特徵工程（79 個特徵）</h4>
+                    <h4>📊 XGBoost 特徵工程（89 個特徵）</h4>
                     <ul class="feature-list">
                         <li><strong>時間特徵</strong>：星期、月份、季節、週次、循環編碼 (sin/cos)</li>
                         <li><strong>滯後特徵</strong>：Lag1、Lag7、Lag14、Lag30、Lag60、Lag90、Lag365</li>
@@ -593,6 +593,7 @@
                         <li><strong>假期特徵</strong>：完整香港公眾假期、農曆假期、前後日效應</li>
                         <li><strong>交互特徵</strong>：COVID×冬季、週一×冬季、週末×夏季</li>
                         <li><strong>AI 因子</strong>：實時新聞影響、事件分析、健康/政策類型</li>
+                        <li><strong>天氣特徵</strong>：日均/最高/最低溫度、溫差、極端天氣標記（HKO 歷史數據）</li>
                     </ul>
                 </div>
                 <div class="methodology-section">

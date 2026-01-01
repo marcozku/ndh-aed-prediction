@@ -405,6 +405,10 @@ def create_comprehensive_features(df, ai_factors_dict=None):
         df['AI_Impact_Rolling7'] = 1.0
         df['AI_Impact_Trend'] = 0.0
     
+    # ============ 天氣特徵（香港天文台歷史數據）============
+    weather_df = load_weather_history()
+    df = add_weather_features(df, weather_df)
+    
     return df
 
 def get_feature_columns():
@@ -466,6 +470,128 @@ def get_feature_columns():
         'Has_AI_Factor',           # 是否有 AI 因子
         'AI_Impact_Rolling7',      # 7天滾動平均影響
         'AI_Impact_Trend',         # 影響趨勢變化
+        
+        # 天氣特徵（香港天文台歷史數據）
+        'Weather_Mean_Temp',       # 日平均氣溫
+        'Weather_Max_Temp',        # 日最高氣溫
+        'Weather_Min_Temp',        # 日最低氣溫
+        'Weather_Temp_Range',      # 日溫差
+        'Weather_Is_Very_Hot',     # 是否酷熱 (>=33°C)
+        'Weather_Is_Hot',          # 是否炎熱 (>=30°C)
+        'Weather_Is_Cold',         # 是否寒冷 (<=12°C)
+        'Weather_Is_Very_Cold',    # 是否嚴寒 (<=8°C)
+        'Weather_Temp_Deviation',  # 溫度偏離月平均
+        'Weather_Has_Data',        # 是否有天氣數據
     ]
     return feature_cols
+
+
+def add_weather_features(df, weather_df=None):
+    """
+    添加天氣特徵到數據框
+    
+    參數:
+        df: 出席數據 DataFrame（需有 'Date' 列）
+        weather_df: 天氣歷史數據 DataFrame（需有 'Date', 'mean_temp', 'max_temp', 'min_temp' 列）
+    
+    返回:
+        添加了天氣特徵的 DataFrame
+    """
+    # 確保 Date 列是 datetime 類型
+    if 'Date' in df.columns:
+        df['Date'] = pd.to_datetime(df['Date'])
+    
+    # 如果沒有天氣數據，使用季節性估計值
+    if weather_df is None or len(weather_df) == 0:
+        print("ℹ️ 無天氣歷史數據，使用季節性估計值")
+        
+        # 季節性平均溫度（香港）
+        seasonal_temps = {
+            1: {'mean': 16, 'max': 19, 'min': 13},
+            2: {'mean': 17, 'max': 20, 'min': 14},
+            3: {'mean': 19, 'max': 22, 'min': 17},
+            4: {'mean': 23, 'max': 26, 'min': 21},
+            5: {'mean': 26, 'max': 29, 'min': 24},
+            6: {'mean': 28, 'max': 31, 'min': 26},
+            7: {'mean': 29, 'max': 32, 'min': 27},
+            8: {'mean': 29, 'max': 32, 'min': 27},
+            9: {'mean': 28, 'max': 31, 'min': 26},
+            10: {'mean': 25, 'max': 28, 'min': 23},
+            11: {'mean': 21, 'max': 24, 'min': 19},
+            12: {'mean': 18, 'max': 21, 'min': 15},
+        }
+        
+        df['Weather_Mean_Temp'] = df['Date'].dt.month.map(lambda m: seasonal_temps[m]['mean'])
+        df['Weather_Max_Temp'] = df['Date'].dt.month.map(lambda m: seasonal_temps[m]['max'])
+        df['Weather_Min_Temp'] = df['Date'].dt.month.map(lambda m: seasonal_temps[m]['min'])
+        df['Weather_Has_Data'] = 0
+    else:
+        print(f"✅ 合併天氣歷史數據 ({len(weather_df)} 天)")
+        
+        # 確保天氣數據的 Date 列是 datetime 類型
+        weather_df = weather_df.copy()
+        weather_df['Date'] = pd.to_datetime(weather_df['Date'])
+        
+        # 重命名列以避免衝突
+        weather_cols = {
+            'mean_temp': 'Weather_Mean_Temp',
+            'max_temp': 'Weather_Max_Temp',
+            'min_temp': 'Weather_Min_Temp',
+        }
+        
+        weather_subset = weather_df[['Date'] + list(weather_cols.keys())].copy()
+        weather_subset = weather_subset.rename(columns=weather_cols)
+        
+        # 合併
+        df = df.merge(weather_subset, on='Date', how='left')
+        
+        # 標記有天氣數據的日期
+        df['Weather_Has_Data'] = df['Weather_Mean_Temp'].notna().astype(int)
+        
+        # 填充缺失值（使用月份平均）
+        for col in ['Weather_Mean_Temp', 'Weather_Max_Temp', 'Weather_Min_Temp']:
+            if col in df.columns:
+                # 計算每月平均
+                monthly_avg = df.groupby(df['Date'].dt.month)[col].transform('mean')
+                df[col] = df[col].fillna(monthly_avg)
+    
+    # 計算衍生天氣特徵
+    df['Weather_Temp_Range'] = df['Weather_Max_Temp'] - df['Weather_Min_Temp']
+    
+    # 極端天氣標記
+    df['Weather_Is_Very_Hot'] = (df['Weather_Max_Temp'] >= 33).astype(int)
+    df['Weather_Is_Hot'] = (df['Weather_Max_Temp'] >= 30).astype(int)
+    df['Weather_Is_Cold'] = (df['Weather_Min_Temp'] <= 12).astype(int)
+    df['Weather_Is_Very_Cold'] = (df['Weather_Min_Temp'] <= 8).astype(int)
+    
+    # 溫度偏離（相對於該月平均）
+    monthly_mean = df.groupby(df['Date'].dt.month)['Weather_Mean_Temp'].transform('mean')
+    df['Weather_Temp_Deviation'] = df['Weather_Mean_Temp'] - monthly_mean
+    
+    return df
+
+
+def load_weather_history():
+    """從 CSV 文件加載天氣歷史數據"""
+    import os
+    
+    # 嘗試多個可能的路徑
+    possible_paths = [
+        'weather_history.csv',
+        'python/weather_history.csv',
+        os.path.join(os.path.dirname(__file__), 'weather_history.csv'),
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            try:
+                df = pd.read_csv(path)
+                df['Date'] = pd.to_datetime(df['Date'])
+                print(f"✅ 已加載天氣歷史數據: {path} ({len(df)} 天)")
+                return df
+            except Exception as e:
+                print(f"⚠️ 讀取 {path} 失敗: {e}")
+    
+    print("ℹ️ 未找到天氣歷史數據文件")
+    return None
 
