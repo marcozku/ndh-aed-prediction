@@ -1,5 +1,5 @@
 """
-XGBoost 模型訓練腳本 v2.9.51
+XGBoost 模型訓練腳本 v2.9.52
 根據 AI-AED-Algorithm-Specification.txt Section 6.1
 新增: Optuna 超參數優化、特徵選擇優化（25特徵）、R² 指標
 """
@@ -669,14 +669,34 @@ def main():
     
     parser = argparse.ArgumentParser(description='Train XGBoost model')
     parser.add_argument('--csv', type=str, help='Path to CSV file with historical data')
-    parser.add_argument('--full', action='store_true', help='Use full feature set (161 features) instead of optimized (25)')
+    parser.add_argument('--full', action='store_true', help='Use full feature set (161 features) instead of optimized')
+    parser.add_argument('--optimize', action='store_true', help='Run feature optimization before training')
+    parser.add_argument('--quick-optimize', action='store_true', help='Run quick feature optimization')
     args = parser.parse_args()
     
-    # 優化特徵集（基於特徵重要性分析）
-    OPTIMAL_FEATURES = [
-        "Attendance_EWMA7",        # 87.87% - 核心特徵
+    # 動態加載優化特徵集（從 optimal_features.json）
+    def load_optimal_features():
+        """從 JSON 文件加載最佳特徵配置"""
+        optimal_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'optimal_features.json')
+        if os.path.exists(optimal_path):
+            try:
+                with open(optimal_path, 'r') as f:
+                    config = json.load(f)
+                if 'optimal_features' in config:
+                    print(f"   📂 從 optimal_features.json 加載 {len(config['optimal_features'])} 個特徵")
+                    print(f"   📊 上次優化: {config.get('updated', 'N/A')}")
+                    print(f"   📈 預期 MAE: {config.get('metrics', {}).get('mae', 'N/A')}")
+                    return config['optimal_features']
+            except Exception as e:
+                print(f"   ⚠️ 無法加載 optimal_features.json: {e}")
+        return None
+    
+    # 默認優化特徵集（備用）
+    DEFAULT_OPTIMAL_FEATURES = [
+        "Attendance_EWMA7",        # 核心特徵
+        "Attendance_EWMA14",
+        "Daily_Change",
         "Monthly_Change",
-        "Daily_Change", 
         "Attendance_Lag1",
         "Weekly_Change",
         "Attendance_Rolling7",
@@ -694,12 +714,30 @@ def main():
         "Attendance_Median14",
         "DayOfWeek_Target_Mean",
         "Attendance_Median3",
-        "Attendance_EWMA14",
         "Attendance_EWMA30",
         "Is_Winter_Flu_Season",
         "Is_Weekend",
         "Holiday_Factor",
     ]
+    
+    # 如果請求優化，先運行特徵優化器
+    if args.optimize or args.quick_optimize:
+        print("\n" + "=" * 60)
+        print("🔬 運行自動特徵優化器...")
+        print("=" * 60)
+        try:
+            from auto_feature_optimizer import run_optimization
+            run_optimization(quick=args.quick_optimize)
+            print("\n" + "=" * 60)
+            print("✅ 特徵優化完成，繼續訓練...")
+            print("=" * 60)
+        except ImportError:
+            print("⚠️ 無法導入 auto_feature_optimizer，使用默認特徵集")
+        except Exception as e:
+            print(f"⚠️ 優化過程出錯: {e}")
+    
+    # 加載最佳特徵
+    OPTIMAL_FEATURES = load_optimal_features() or DEFAULT_OPTIMAL_FEATURES
     
     # 創建模型目錄（相對於當前腳本目錄）
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -912,7 +950,7 @@ def main():
         'cv_mape_mean': cv_scores['cv_mape_mean'],
         'cv_mape_std': cv_scores['cv_mape_std'],
         'time_series_validation': True,  # 標記使用了正確的時間序列驗證
-        'version': '2.9.51',
+        'version': '2.9.52',
         'optuna_optimized': metrics.get('optuna_optimized', False)
     }
     

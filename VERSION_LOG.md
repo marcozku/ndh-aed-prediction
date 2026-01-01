@@ -1,5 +1,41 @@
 # 版本更新日誌
 
+## v2.9.52 - 2026-01-02 05:20 HKT
+
+### 🔬 自動特徵優化系統
+
+**新功能**：智能特徵選擇優化器，持續尋找最佳特徵組合
+
+**優化算法**：
+1. **特徵重要性排序** - 基於 XGBoost 特徵重要性
+2. **遞歸特徵消除 (RFE)** - 逐步移除最不重要的特徵
+3. **相關性選擇** - 基於與目標變量的相關性
+4. **混合策略** - 結合多種方法的優勢
+
+**API 端點**：
+- `POST /api/optimize-features` - 觸發特徵優化
+- `GET /api/optimization-history` - 查看優化歷史
+
+**訓練整合**：
+```bash
+# 訓練前先優化特徵
+python train_xgboost.py --optimize
+
+# 快速優化模式
+python train_xgboost.py --quick-optimize
+```
+
+**動態特徵加載**：
+- 訓練時自動從 `optimal_features.json` 加載最佳配置
+- 無需修改代碼即可更新特徵集
+
+**文件結構**：
+- `python/auto_feature_optimizer.py` - 優化器主腳本
+- `python/models/optimal_features.json` - 當前最佳特徵配置
+- `python/models/feature_optimization_history.json` - 優化歷史記錄
+
+---
+
 ## v2.9.51 - 2026-01-02 05:09 HKT
 
 ### 🏆 正式版：特徵選擇優化

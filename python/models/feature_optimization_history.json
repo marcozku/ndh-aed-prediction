@@ -1,0 +1,237 @@
+{
+  "optimizations": [
+    {
+      "timestamp": "2026-01-02 05:15:09 HKT",
+      "mode": "quick",
+      "total_features_tested": 161,
+      "best_method": "rfe",
+      "best_n_features": 25,
+      "best_mae": 3.3455307483673096,
+      "best_mape": 1.352660074931086,
+      "best_r2": 0.9641910195350647,
+      "best_features": [
+        "Day_of_Week",
+        "Attendance_Lag1",
+        "Attendance_Lag3",
+        "Attendance_Lag5",
+        "Attendance_Lag7",
+        "Attendance_Lag30",
+        "Attendance_Same_Weekday_Avg",
+        "Lag1_Diff",
+        "Lag7_Diff",
+        "Attendance_EWMA7",
+        "Attendance_Rolling14",
+        "Attendance_Rolling90",
+        "Attendance_Std3",
+        "Attendance_Std7",
+        "Attendance_Min7",
+        "Attendance_Min90",
+        "Attendance_Median30",
+        "Attendance_Position7",
+        "Attendance_Position14",
+        "Attendance_Position30",
+        "Attendance_CV7",
+        "DayOfWeek_Target_Mean",
+        "Daily_Change",
+        "Weekly_Change",
+        "Monthly_Change"
+      ],
+      "all_results_summary": [
+        {
+          "method": "rfe",
+          "n_features": 25,
+          "mae": 3.3455307483673096,
+          "r2": 0.9641910195350647
+        },
+        {
+          "method": "hybrid_hybrid_15+10",
+          "n_features": 22,
+          "mae": 3.412461757659912,
+          "r2": 0.9646505117416382
+        },
+        {
+          "method": "importance",
+          "n_features": 25,
+          "mae": 3.4525980949401855,
+          "r2": 0.9627036452293396
+        },
+        {
+          "method": "hybrid_importance_top25",
+          "n_features": 25,
+          "mae": 3.4525980949401855,
+          "r2": 0.9627036452293396
+        },
+        {
+          "method": "importance",
+          "n_features": 30,
+          "mae": 3.472510814666748,
+          "r2": 0.9619415402412415
+        },
+        {
+          "method": "hybrid_importance_top30",
+          "n_features": 30,
+          "mae": 3.472510814666748,
+          "r2": 0.9619415402412415
+        },
+        {
+          "method": "importance",
+          "n_features": 50,
+          "mae": 3.4977242946624756,
+          "r2": 0.9617174863815308
+        },
+        {
+          "method": "rfe",
+          "n_features": 20,
+          "mae": 3.5004971027374268,
+          "r2": 0.9619337916374207
+        },
+        {
+          "method": "hybrid_hybrid_15+15",
+          "n_features": 26,
+          "mae": 3.506147623062134,
+          "r2": 0.9629379510879517
+        },
+        {
+          "method": "importance",
+          "n_features": 20,
+          "mae": 3.5369045734405518,
+          "r2": 0.9616668820381165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-02 05:16:28 HKT",
+      "mode": "full",
+      "total_features_tested": 161,
+      "best_method": "rfe",
+      "best_n_features": 25,
+      "best_mae": 3.3455307483673096,
+      "best_mape": 1.352660074931086,
+      "best_r2": 0.9641910195350647,
+      "best_features": [
+        "Day_of_Week",
+        "Attendance_Lag1",
+        "Attendance_Lag3",
+        "Attendance_Lag5",
+        "Attendance_Lag7",
+        "Attendance_Lag30",
+        "Attendance_Same_Weekday_Avg",
+        "Lag1_Diff",
+        "Lag7_Diff",
+        "Attendance_EWMA7",
+        "Attendance_Rolling14",
+        "Attendance_Rolling90",
+        "Attendance_Std3",
+        "Attendance_Std7",
+        "Attendance_Min7",
+        "Attendance_Min90",
+        "Attendance_Median30",
+        "Attendance_Position7",
+        "Attendance_Position14",
+        "Attendance_Position30",
+        "Attendance_CV7",
+        "DayOfWeek_Target_Mean",
+        "Daily_Change",
+        "Weekly_Change",
+        "Monthly_Change"
+      ],
+      "all_results_summary": [
+        {
+          "method": "rfe",
+          "n_features": 25,
+          "mae": 3.3455307483673096,
+          "r2": 0.9641910195350647
+        },
+        {
+          "method": "hybrid_hybrid_15+10",
+          "n_features": 22,
+          "mae": 3.418052911758423,
+          "r2": 0.9646208882331848
+        },
+        {
+          "method": "importance",
+          "n_features": 25,
+          "mae": 3.4525980949401855,
+          "r2": 0.9627036452293396
+        },
+        {
+          "method": "hybrid_importance_top25",
+          "n_features": 25,
+          "mae": 3.4525980949401855,
+          "r2": 0.9627036452293396
+        },
+        {
+          "method": "importance",
+          "n_features": 30,
+          "mae": 3.472510814666748,
+          "r2": 0.9619415402412415
+        },
+        {
+          "method": "hybrid_importance_top30",
+          "n_features": 30,
+          "mae": 3.472510814666748,
+          "r2": 0.9619415402412415
+        },
+        {
+          "method": "importance",
+          "n_features": 100,
+          "mae": 3.485624074935913,
+          "r2": 0.9617109298706055
+        },
+        {
+          "method": "importance",
+          "n_features": 130,
+          "mae": 3.485624074935913,
+          "r2": 0.9617109298706055
+        },
+        {
+          "method": "importance",
+          "n_features": 160,
+          "mae": 3.485624074935913,
+          "r2": 0.9617109298706055
+        },
+        {
+          "method": "importance",
+          "n_features": 50,
+          "mae": 3.4977242946624756,
+          "r2": 0.9617174863815308
+        }
+      ]
+    }
+  ],
+  "best_ever": {
+    "timestamp": "2026-01-02 05:15:09 HKT",
+    "mae": 3.3455307483673096,
+    "mape": 1.352660074931086,
+    "r2": 0.9641910195350647,
+    "n_features": 25,
+    "method": "rfe",
+    "features": [
+      "Day_of_Week",
+      "Attendance_Lag1",
+      "Attendance_Lag3",
+      "Attendance_Lag5",
+      "Attendance_Lag7",
+      "Attendance_Lag30",
+      "Attendance_Same_Weekday_Avg",
+      "Lag1_Diff",
+      "Lag7_Diff",
+      "Attendance_EWMA7",
+      "Attendance_Rolling14",
+      "Attendance_Rolling90",
+      "Attendance_Std3",
+      "Attendance_Std7",
+      "Attendance_Min7",
+      "Attendance_Min90",
+      "Attendance_Median30",
+      "Attendance_Position7",
+      "Attendance_Position14",
+      "Attendance_Position30",
+      "Attendance_CV7",
+      "DayOfWeek_Target_Mean",
+      "Daily_Change",
+      "Weekly_Change",
+      "Monthly_Change"
+    ]
+  }
+}

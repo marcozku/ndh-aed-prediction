@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.51';
+const MODEL_VERSION = '2.9.52';
 
 // ============================================
 // HKT 時間工具函數
@@ -1930,6 +1930,119 @@ const apiHandlers = {
         }
     },
     
+    // 🔬 特徵優化 API (v2.9.52)
+    'POST /api/optimize-features': async (req, res) => {
+        console.log('🔬 收到特徵優化請求');
+        
+        try {
+            const { spawn } = require('child_process');
+            const path = require('path');
+            
+            // 解析請求參數
+            const quick = req.body?.quick !== false; // 默認快速模式
+            
+            const pythonScript = path.join(__dirname, 'python', 'auto_feature_optimizer.py');
+            const args = quick ? ['--quick'] : [];
+            
+            console.log(`🚀 啟動特徵優化器 (${quick ? '快速' : '完整'}模式)`);
+            
+            // 啟動優化進程
+            const optimizer = spawn('python3', [pythonScript, ...args], {
+                cwd: path.join(__dirname, 'python'),
+                env: { ...process.env, PYTHONUNBUFFERED: '1' }
+            });
+            
+            let output = '';
+            let errorOutput = '';
+            
+            optimizer.stdout.on('data', (data) => {
+                const text = data.toString();
+                output += text;
+                console.log('[優化器]', text.trim());
+            });
+            
+            optimizer.stderr.on('data', (data) => {
+                const text = data.toString();
+                errorOutput += text;
+                console.error('[優化器錯誤]', text.trim());
+            });
+            
+            optimizer.on('close', (code) => {
+                console.log(`✅ 特徵優化完成，退出碼: ${code}`);
+                
+                // 嘗試讀取優化結果
+                try {
+                    const fs = require('fs');
+                    const optimalPath = path.join(__dirname, 'python', 'models', 'optimal_features.json');
+                    if (fs.existsSync(optimalPath)) {
+                        const config = JSON.parse(fs.readFileSync(optimalPath, 'utf8'));
+                        console.log(`📊 最佳配置: ${config.optimal_n_features} 特徵, MAE=${config.metrics?.mae?.toFixed(2)}`);
+                    }
+                } catch (e) {
+                    console.error('讀取優化結果失敗:', e);
+                }
+            });
+            
+            // 立即返回，優化在後台運行
+            sendJson(res, {
+                success: true,
+                message: `特徵優化已啟動（${quick ? '快速' : '完整'}模式）`,
+                note: '優化在後台運行，完成後會自動更新 optimal_features.json'
+            });
+            
+        } catch (err) {
+            console.error('啟動特徵優化失敗:', err);
+            sendJson(res, {
+                success: false,
+                error: err.message
+            }, 500);
+        }
+    },
+    
+    // 🔬 獲取優化歷史 (v2.9.52)
+    'GET /api/optimization-history': async (req, res) => {
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            
+            const historyPath = path.join(__dirname, 'python', 'models', 'feature_optimization_history.json');
+            const optimalPath = path.join(__dirname, 'python', 'models', 'optimal_features.json');
+            
+            let history = null;
+            let current = null;
+            
+            if (fs.existsSync(historyPath)) {
+                history = JSON.parse(fs.readFileSync(historyPath, 'utf8'));
+            }
+            
+            if (fs.existsSync(optimalPath)) {
+                current = JSON.parse(fs.readFileSync(optimalPath, 'utf8'));
+            }
+            
+            sendJson(res, {
+                success: true,
+                current: current ? {
+                    n_features: current.optimal_n_features,
+                    method: current.method,
+                    metrics: current.metrics,
+                    updated: current.updated,
+                    top_features: current.optimal_features?.slice(0, 10)
+                } : null,
+                history: history ? {
+                    total_optimizations: history.optimizations?.length || 0,
+                    best_ever: history.best_ever,
+                    recent: history.optimizations?.slice(-5)
+                } : null
+            });
+        } catch (err) {
+            console.error('獲取優化歷史失敗:', err);
+            sendJson(res, {
+                success: false,
+                error: err.message
+            }, 500);
+        }
+    },
+    
     // 獲取訓練狀態
     'GET /api/training-status': async (req, res) => {
         try {
@@ -2513,7 +2626,7 @@ const apiHandlers = {
     // System Status
     'GET /api/status': async (req, res) => {
         const status = {
-            version: '2.9.51',
+            version: '2.9.52',
             database: db && db.pool ? 'connected' : 'disconnected',
             ai: aiService ? 'available' : 'unavailable',
             uptime: process.uptime(),
@@ -2599,7 +2712,7 @@ const apiHandlers = {
                     const maeScore = Math.max(0, Math.min(100, 100 - (metrics.mae - 5) * 10));
                     // MAPE 評分：MAPE < 2% = 100分，每增加1% -20分
                     const mapeScore = Math.max(0, Math.min(100, 100 - (metrics.mape - 2) * 20));
-                    // R² 評分：直接使用 R² * 100（v2.9.51 新增）
+                    // R² 評分：直接使用 R² * 100（v2.9.52 新增）
                     const r2Score = metrics.r2 ? Math.max(0, Math.min(100, metrics.r2 * 100)) : null;
                     
                     // 綜合評分：如果有 R² 則使用加權平均 (MAE 30%, MAPE 30%, R² 40%)

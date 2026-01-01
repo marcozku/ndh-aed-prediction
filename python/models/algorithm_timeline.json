@@ -92,7 +92,28 @@
       "research": "特徵選擇研究: 維度災難 (Curse of Dimensionality)",
       "key_features": ["EWMA7 (45%)", "EWMA14 (45%)", "Daily_Change (2%)"],
       "improvement": "MAE↓25%, R²↑3%, 訓練時間↓85%"
+    },
+    {
+      "version": "2.9.52",
+      "date": "2026-01-02",
+      "description": "自動特徵優化系統",
+      "changes": [
+        "創建 auto_feature_optimizer.py 智能優化器",
+        "多種特徵選擇算法（RFE、重要性、相關性、混合）",
+        "API 端點：POST /api/optimize-features",
+        "動態加載最佳特徵配置",
+        "訓練整合：--optimize 參數"
+      ],
+      "metrics": {
+        "mae": 3.35,
+        "mape": 1.35,
+        "r2": 0.964,
+        "feature_count": 25
+      },
+      "research": "維度災難研究、特徵選擇最佳實踐",
+      "key_features": ["EWMA7 (87%)", "自動優化", "持續學習"],
+      "improvement": "自動尋找最佳特徵組合，持續優化"
     }
   ],
-  "last_updated": "2026-01-02T05:09:20+08:00"
+  "last_updated": "2026-01-02T05:20:00+08:00"
 }
