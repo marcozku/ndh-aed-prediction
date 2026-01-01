@@ -1,12 +1,12 @@
 /**
  * NDH AED 預測系統 - Service Worker
  * 提供離線支援和快取管理
- * v2.6.5
+ * v2.6.6
  */
 
-const CACHE_NAME = 'ndh-aed-v2.9.19';
-const STATIC_CACHE = 'ndh-static-v2.6.5';
-const DYNAMIC_CACHE = 'ndh-dynamic-v2.6.5';
+const CACHE_NAME = 'ndh-aed-v2.9.39';
+const STATIC_CACHE = 'ndh-static-v2.6.6';
+const DYNAMIC_CACHE = 'ndh-dynamic-v2.6.6';
 
 // 靜態資源（始終快取）
 const STATIC_ASSETS = [

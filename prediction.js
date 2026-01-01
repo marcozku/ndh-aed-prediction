@@ -86,6 +86,58 @@ window.checkXGBoostAvailability = checkXGBoostAvailability;
 window.getXGBoostPrediction = getXGBoostPrediction;
 
 // ============================================
+// 圖表載入錯誤處理函數
+// ============================================
+function handleChartLoadingError(chartId, error) {
+    console.error(`❌ ${chartId} 圖表載入失敗:`, error);
+    const loadingEl = document.getElementById(`${chartId}-chart-loading`);
+    const canvasEl = document.getElementById(`${chartId}-chart`);
+    
+    if (loadingEl) {
+        loadingEl.innerHTML = `
+            <div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">
+                <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">⚠️ 圖表載入失敗</div>
+                <div style="font-size: 0.875rem; color: var(--text-secondary);">
+                    ${error.message || '請刷新頁面重試'}
+                </div>
+            </div>
+        `;
+    }
+    if (canvasEl) {
+        canvasEl.style.display = 'none';
+    }
+    updateLoadingProgress(chartId, 0);
+}
+
+// 安全銷毀圖表（支持變量和 canvas 實例）
+function safeDestroyChart(chartVar, canvasId) {
+    // 先嘗試銷毀變量引用的圖表
+    if (chartVar && typeof chartVar.destroy === 'function') {
+        try {
+            chartVar.destroy();
+        } catch (e) {
+            console.warn(`⚠️ 銷毀圖表變量失敗:`, e);
+        }
+    }
+    
+    // 再嘗試從 canvas 獲取並銷毀圖表實例（防止變量引用失效）
+    if (canvasId) {
+        const canvas = document.getElementById(canvasId);
+        if (canvas) {
+            const existingChart = Chart.getChart(canvas);
+            if (existingChart) {
+                try {
+                    existingChart.destroy();
+                    console.log(`🗑️ 已銷毀 canvas ${canvasId} 上的圖表實例`);
+                } catch (e) {
+                    console.warn(`⚠️ 銷毀 canvas 圖表實例失敗:`, e);
+                }
+            }
+        }
+    }
+}
+
+// ============================================
 // 香港公眾假期 2024-2026
 // ============================================
 const HK_PUBLIC_HOLIDAYS = {
@@ -1811,11 +1863,9 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         if (!startDate || !endDate) {
             console.warn(`⚠️ 日期範圍無效或過早 (範圍=${range}, pageOffset=${pageOffset})`);
             
-            // 銷毀現有圖表（如果存在）
-            if (historyChart) {
-                historyChart.destroy();
-                historyChart = null;
-            }
+            // 安全銷毀任何現有圖表
+            safeDestroyChart(historyChart, 'history-chart');
+            historyChart = null;
             
             // 顯示友好的提示消息，而不是完全隱藏區塊
             // 但保留 canvas 元素，以便下次可以正常顯示圖表
@@ -1880,11 +1930,9 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         if (historicalData.length === 0) {
             console.warn(`⚠️ 沒有歷史數據 (範圍=${range}, pageOffset=${pageOffset}, ${startDate} 至 ${endDate})`);
             
-            // 銷毀現有圖表（如果存在）
-            if (historyChart) {
-                historyChart.destroy();
-                historyChart = null;
-            }
+            // 安全銷毀任何現有圖表
+            safeDestroyChart(historyChart, 'history-chart');
+            historyChart = null;
             
             // 顯示友好的提示消息，但保留 canvas 元素以便下次使用
             const historyContainer = document.getElementById('history-chart-container');
@@ -2000,11 +2048,9 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         if (historicalData.length === 0) {
             console.warn(`⚠️ 數據處理後為空 (範圍=${range}, pageOffset=${pageOffset})`);
             
-            // 銷毀現有圖表（如果存在）
-            if (historyChart) {
-                historyChart.destroy();
-                historyChart = null;
-            }
+            // 安全銷毀任何現有圖表
+            safeDestroyChart(historyChart, 'history-chart');
+            historyChart = null;
             
             // 顯示友好的提示消息，但保留 canvas 元素以便下次使用
             const historyContainer = document.getElementById('history-chart-container');
@@ -2179,10 +2225,9 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         
         updateLoadingProgress('history', 70);
         
-        // 如果已有圖表，先銷毀
-        if (historyChart) {
-            historyChart.destroy();
-        }
+        // 安全銷毀任何現有圖表（包括變量和 canvas 實例）
+        safeDestroyChart(historyChart, 'history-chart');
+        historyChart = null;
         
         // 設置容器（使用responsive模式，不再需要滾動）
         const historyContainer = document.getElementById('history-chart-container');
@@ -2683,10 +2728,8 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         // 確保有數據才顯示圖表
         if (historicalData.length === 0) {
             console.error('❌ 圖表創建後數據為空，這不應該發生');
-            if (historyChart) {
-                historyChart.destroy();
-                historyChart = null;
-            }
+            safeDestroyChart(historyChart, 'history-chart');
+            historyChart = null;
             if (historyCanvas) {
                 historyCanvas.style.display = 'none';
             }
@@ -3080,10 +3123,9 @@ async function initComparisonChart() {
         
         updateLoadingProgress('comparison', 60);
         
-        // 如果已有圖表，先銷毀
-        if (comparisonChart) {
-            comparisonChart.destroy();
-        }
+        // 安全銷毀任何現有圖表（包括變量和 canvas 實例）
+        safeDestroyChart(comparisonChart, 'comparison-chart');
+        comparisonChart = null;
         
         // 計算整體準確度統計
         const accuracyStats = calculateAccuracyStats(validComparisonData);
@@ -6926,12 +6968,18 @@ async function refreshPredictions(predictor) {
     // 重新更新 UI（天氣/AI 更新後強制重新計算）
     await updateUI(predictor, true);
     
-    // 重新初始化圖表
-    if (forecastChart) forecastChart.destroy();
-    if (dowChart) dowChart.destroy();
-    if (monthChart) monthChart.destroy();
-    if (historyChart) historyChart.destroy();
-    if (comparisonChart) comparisonChart.destroy();
+    // 安全銷毀所有圖表
+    safeDestroyChart(forecastChart, 'forecast-chart');
+    safeDestroyChart(dowChart, 'dow-chart');
+    safeDestroyChart(monthChart, 'month-chart');
+    safeDestroyChart(historyChart, 'history-chart');
+    safeDestroyChart(comparisonChart, 'comparison-chart');
+    forecastChart = null;
+    dowChart = null;
+    monthChart = null;
+    historyChart = null;
+    comparisonChart = null;
+    
     await initCharts(predictor);
     // 確保圖表正確適應
     setTimeout(() => forceChartsResize(), 200);
@@ -7071,12 +7119,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 updateRealtimeFactors(freshAIAnalysisData);
                 // AI 因素已更新，強制重新計算預測
                 await updateUI(predictor, true);
-                // 重新初始化圖表以反映新的 AI 因素
-                if (forecastChart) forecastChart.destroy();
-                if (dowChart) dowChart.destroy();
-                if (monthChart) monthChart.destroy();
-                if (historyChart) historyChart.destroy();
-                if (comparisonChart) comparisonChart.destroy();
+                // 安全銷毀所有圖表以反映新的 AI 因素
+                safeDestroyChart(forecastChart, 'forecast-chart');
+                safeDestroyChart(dowChart, 'dow-chart');
+                safeDestroyChart(monthChart, 'month-chart');
+                safeDestroyChart(historyChart, 'history-chart');
+                safeDestroyChart(comparisonChart, 'comparison-chart');
+                forecastChart = null;
+                dowChart = null;
+                monthChart = null;
+                historyChart = null;
+                comparisonChart = null;
                 await initCharts(predictor);
                 // 確保圖表正確適應
                 setTimeout(() => forceChartsResize(), 200);
@@ -7094,11 +7147,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 updateRealtimeFactors(freshAIAnalysisData);
                 // AI 因素已更新，強制重新計算預測
                 await updateUI(predictor, true);
-                if (forecastChart) forecastChart.destroy();
-                if (dowChart) dowChart.destroy();
-                if (monthChart) monthChart.destroy();
-                if (historyChart) historyChart.destroy();
-                if (comparisonChart) comparisonChart.destroy();
+                // 安全銷毀所有圖表
+                safeDestroyChart(forecastChart, 'forecast-chart');
+                safeDestroyChart(dowChart, 'dow-chart');
+                safeDestroyChart(monthChart, 'month-chart');
+                safeDestroyChart(historyChart, 'history-chart');
+                safeDestroyChart(comparisonChart, 'comparison-chart');
+                forecastChart = null;
+                dowChart = null;
+                monthChart = null;
+                historyChart = null;
+                comparisonChart = null;
                 await initCharts(predictor);
                 // 確保圖表正確適應
                 setTimeout(() => forceChartsResize(), 200);

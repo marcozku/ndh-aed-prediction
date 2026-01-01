@@ -1,5 +1,34 @@
 # 版本更新日誌
 
+## v2.9.39 - 2026-01-02 04:12 HKT
+
+### 🐛 修復：圖表重用錯誤和缺失函數
+
+**問題描述**：
+1. `Canvas is already in use` - 圖表刷新時未正確銷毀舊圖表實例
+2. `handleChartLoadingError is not defined` - 錯誤處理函數被引用但未定義
+
+**技術修復**：
+
+1. **prediction.js**：
+   - 新增 `handleChartLoadingError(chartId, error)` 函數處理圖表載入錯誤
+   - 新增 `safeDestroyChart(chartVar, canvasId)` 函數安全銷毀圖表
+   - 該函數同時檢查變量引用和 `Chart.getChart(canvas)` 確保完全銷毀
+   - 更新所有圖表銷毀邏輯使用新的安全函數
+
+**修改位置**：
+- `initHistoryChart`: 4 處銷毀邏輯
+- `initComparisonChart`: 1 處銷毀邏輯
+- `refreshPredictionData`: 1 處批量銷毀
+- AI 因素更新回調: 2 處批量銷毀
+
+**改進效果**：
+- ✅ 圖表刷新時不再報錯
+- ✅ AI 強制刷新後圖表正確更新
+- ✅ 錯誤處理更完善
+
+---
+
 ## v2.9.38 - 2026-01-02 04:06 HKT
 
 ### ⚡ 改進：AI 因素更新時自動刷新 7 天預測
