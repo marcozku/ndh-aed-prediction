@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.41';
+const MODEL_VERSION = '2.9.42';
 
 // ============================================
 // HKT 時間工具函數

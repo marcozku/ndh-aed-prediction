@@ -145,6 +145,44 @@ def load_data_from_csv(csv_path):
         print(f"無法從 CSV 加載數據: {e}")
         return None
 
+def load_old_metrics_from_db():
+    """從數據庫加載上次訓練的模型指標（用於比較）"""
+    try:
+        import psycopg2
+        from dotenv import load_dotenv
+        load_dotenv()
+        
+        conn = psycopg2.connect(
+            host=os.getenv('PGHOST') or os.getenv('DATABASE_URL', '').split('@')[1].split('/')[0] if '@' in os.getenv('DATABASE_URL', '') else None,
+            database=os.getenv('PGDATABASE') or os.getenv('DATABASE_URL', '').split('/')[-1] if '/' in os.getenv('DATABASE_URL', '') else None,
+            user=os.getenv('PGUSER') or os.getenv('DATABASE_URL', '').split('://')[1].split(':')[0] if '://' in os.getenv('DATABASE_URL', '') else None,
+            password=os.getenv('PGPASSWORD') or os.getenv('DATABASE_URL', '').split('@')[0].split(':')[-1] if '@' in os.getenv('DATABASE_URL', '') else None,
+        )
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT mae, rmse, mape, training_date, data_count
+            FROM model_metrics 
+            WHERE model_name = 'xgboost'
+            LIMIT 1
+        """)
+        
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row and row[0] is not None:
+            return {
+                'mae': float(row[0]) if row[0] else None,
+                'rmse': float(row[1]) if row[1] else None,
+                'mape': float(row[2]) if row[2] else None,
+                'training_date': str(row[3]) if row[3] else None,
+                'data_count': int(row[4]) if row[4] else None
+            }
+        return None
+    except Exception as e:
+        print(f"⚠️ 無法從數據庫加載舊模型指標: {e}")
+        return None
+
 def time_series_cross_validate(df, feature_cols, n_splits=3):
     """
     時間序列交叉驗證 (Walk-Forward Validation) - 優化版 v2.9.21
@@ -653,15 +691,20 @@ def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     models_dir = os.path.join(script_dir, 'models')
     
-    # 加載舊模型指標（用於比較）
-    metrics_path = os.path.join(models_dir, 'xgboost_metrics.json')
-    old_metrics = None
-    if os.path.exists(metrics_path):
-        try:
-            with open(metrics_path, 'r') as f:
-                old_metrics = json.load(f)
-        except:
-            old_metrics = None
+    # 加載舊模型指標（用於比較）- 優先從數據庫讀取
+    old_metrics = load_old_metrics_from_db()
+    if old_metrics:
+        print(f"📊 從數據庫加載舊模型指標: MAE={old_metrics.get('mae', 'N/A'):.2f}, MAPE={old_metrics.get('mape', 'N/A'):.2f}%")
+    else:
+        # 數據庫不可用，嘗試從本地文件讀取
+        metrics_path = os.path.join(models_dir, 'xgboost_metrics.json')
+        if os.path.exists(metrics_path):
+            try:
+                with open(metrics_path, 'r') as f:
+                    old_metrics = json.load(f)
+                print(f"📊 從本地文件加載舊模型指標: MAE={old_metrics.get('mae', 'N/A'):.2f}")
+            except:
+                old_metrics = None
     
     model_path = os.path.join(models_dir, 'xgboost_model.json')
     model.save_model(model_path)
