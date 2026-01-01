@@ -904,6 +904,38 @@ body::before {
     animation: pulse 2s ease-in-out infinite;
 }
 
+.stop-btn {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    border: none;
+    border-radius: var(--radius-md);
+    padding: var(--space-sm) var(--space-md);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: white;
+    box-shadow: var(--shadow-md), 0 4px 20px rgba(239, 68, 68, 0.3);
+}
+
+.stop-btn:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: var(--shadow-lg), 0 8px 30px rgba(239, 68, 68, 0.4);
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+}
+
+.stop-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.stop-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .training-status-container {
     display: flex;
     flex-direction: column;

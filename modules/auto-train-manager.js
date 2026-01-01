@@ -18,6 +18,9 @@ class AutoTrainManager {
         this.lastTrainingOutput = '';  // 上次訓練的輸出
         this.lastTrainingError = '';  // 上次訓練的錯誤
         this._dbInitialized = false;  // 標記是否已從 DB 載入狀態
+        this.currentProcess = null;  // 當前訓練進程引用
+        this.currentTimeout = null;  // 當前超時計時器
+        this.wasStopped = false;  // 標記是否被用戶停止
         
         // 配置
         this.config = {
@@ -231,6 +234,9 @@ class AutoTrainManager {
 
         this.isTraining = true;
         this.trainingStartTime = new Date().toISOString();
+        this.wasStopped = false;  // 重置停止標記
+        this.currentProcess = null;  // 重置進程引用
+        this.currentTimeout = null;  // 重置超時計時器
         const startTime = Date.now();
         
         // 重置輸出，準備接收新的訓練日誌
@@ -313,6 +319,9 @@ class AutoTrainManager {
                     env: { ...process.env, PYTHONUNBUFFERED: '1' }  // 確保輸出不被緩衝
                 });
                 
+                // 保存進程引用以便停止
+                this.currentProcess = python;
+                
                 this._attachPythonHandlers(python, resolve, startTime, dataCount, modelsDir);
             });
         });
@@ -363,16 +372,32 @@ class AutoTrainManager {
         const timeout = setTimeout(async () => {
             python.kill();
             this.isTraining = false;
+            this.currentProcess = null;
+            this.currentTimeout = null;
             await this._saveTrainingStatusToDB(dataCount, false);
             console.error('❌ 訓練超時（1小時）');
             resolve({ success: false, reason: '訓練超時', output: output, error: error });
         }, this.config.trainingTimeout);
+        
+        // 保存超時計時器引用
+        this.currentTimeout = timeout;
 
         python.on('close', async (code) => {
             clearTimeout(timeout);
             this.isTraining = false;
             this.trainingStartTime = null;
+            this.currentProcess = null;
+            this.currentTimeout = null;
             const duration = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
+            
+            // 檢查是否被用戶停止
+            if (this.wasStopped) {
+                console.log('🛑 訓練已被用戶停止');
+                this.wasStopped = false;
+                await this._saveTrainingStatusToDB(dataCount, false);
+                resolve({ success: false, reason: '訓練已被用戶停止', stopped: true, output: output, error: error });
+                return;
+            }
 
             // 檢查模型文件是否存在
             const { EnsemblePredictor } = require('./ensemble-predictor');
@@ -425,10 +450,60 @@ class AutoTrainManager {
             clearTimeout(timeout);
             this.isTraining = false;
             this.trainingStartTime = null;
+            this.currentProcess = null;
+            this.currentTimeout = null;
             await this._saveTrainingStatusToDB(dataCount, false);
             console.error('❌ 無法執行訓練腳本:', err.message);
             resolve({ success: false, reason: `無法執行訓練腳本: ${err.message}` });
         });
+    }
+
+    /**
+     * 停止訓練
+     */
+    async stopTraining() {
+        if (!this.isTraining) {
+            return { success: false, reason: '沒有正在進行的訓練' };
+        }
+        
+        console.log('🛑 用戶請求停止訓練...');
+        this.wasStopped = true;
+        
+        // 清除超時計時器
+        if (this.currentTimeout) {
+            clearTimeout(this.currentTimeout);
+            this.currentTimeout = null;
+        }
+        
+        // 終止 Python 進程
+        if (this.currentProcess) {
+            try {
+                this.currentProcess.kill('SIGTERM');
+                console.log('🛑 已發送 SIGTERM 信號到訓練進程');
+                
+                // 等待 2 秒後如果還沒結束，強制終止
+                setTimeout(() => {
+                    if (this.currentProcess && !this.currentProcess.killed) {
+                        this.currentProcess.kill('SIGKILL');
+                        console.log('🛑 已發送 SIGKILL 信號強制終止訓練進程');
+                    }
+                }, 2000);
+            } catch (e) {
+                console.error('❌ 終止進程失敗:', e.message);
+            }
+        }
+        
+        // 更新狀態
+        this.isTraining = false;
+        this.trainingStartTime = null;
+        this.currentProcess = null;
+        this.lastTrainingOutput += '\n\n🛑 訓練已被用戶停止';
+        
+        // 保存狀態到數據庫
+        await this._saveTrainingStatusToDB(this.lastDataCount, false);
+        
+        console.log('✅ 訓練已停止');
+        return { success: true, message: '訓練已停止' };
     }
 
     /**

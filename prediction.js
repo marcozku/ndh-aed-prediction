@@ -6969,10 +6969,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // 訓練按鈕事件
     const startTrainingBtn = document.getElementById('start-training-btn');
+    const stopTrainingBtn = document.getElementById('stop-training-btn');
+    
     if (startTrainingBtn) {
         startTrainingBtn.addEventListener('click', async () => {
             startTrainingBtn.disabled = true;
             startTrainingBtn.innerHTML = '<span>⏳</span><span>訓練中...</span>';
+            // 顯示停止按鈕
+            if (stopTrainingBtn) {
+                stopTrainingBtn.style.display = 'inline-flex';
+            }
             try {
                 const response = await fetch('/api/train-models', { method: 'POST' });
                 const result = await response.json();
@@ -6987,14 +6993,61 @@ document.addEventListener('DOMContentLoaded', async () => {
                     alert('❌ 訓練失敗：' + (result.error || '未知錯誤'));
                     startTrainingBtn.disabled = false;
                     startTrainingBtn.innerHTML = '<span>🚀</span><span>開始訓練</span>';
+                    if (stopTrainingBtn) stopTrainingBtn.style.display = 'none';
                 }
             } catch (error) {
                 console.error('訓練失敗:', error);
                 alert('❌ 訓練時發生錯誤');
                 startTrainingBtn.disabled = false;
                 startTrainingBtn.innerHTML = '<span>🚀</span><span>開始訓練</span>';
+                if (stopTrainingBtn) stopTrainingBtn.style.display = 'none';
             }
             // 不再在 finally 中重置按鈕，由輪詢完成時處理
+        });
+    }
+    
+    // 停止訓練按鈕事件
+    if (stopTrainingBtn) {
+        stopTrainingBtn.addEventListener('click', async () => {
+            if (!confirm('確定要停止訓練嗎？已完成的進度將會丟失。')) {
+                return;
+            }
+            
+            stopTrainingBtn.disabled = true;
+            stopTrainingBtn.innerHTML = '<span>⏳</span><span>停止中...</span>';
+            
+            try {
+                const response = await fetch('/api/stop-training', { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('🛑 訓練已停止');
+                    // 重置按鈕狀態
+                    if (startTrainingBtn) {
+                        startTrainingBtn.disabled = false;
+                        startTrainingBtn.innerHTML = '<span>🚀</span><span>開始訓練</span>';
+                    }
+                    stopTrainingBtn.style.display = 'none';
+                    stopTrainingBtn.disabled = false;
+                    stopTrainingBtn.innerHTML = '<span>🛑</span><span>停止</span>';
+                    
+                    // 停止輪詢
+                    stopTrainingPolling();
+                    trainingWasInProgress = false;
+                    
+                    // 刷新狀態
+                    await loadTrainingStatus();
+                } else {
+                    alert('❌ 停止失敗：' + (result.reason || result.error || '未知錯誤'));
+                    stopTrainingBtn.disabled = false;
+                    stopTrainingBtn.innerHTML = '<span>🛑</span><span>停止</span>';
+                }
+            } catch (error) {
+                console.error('停止訓練失敗:', error);
+                alert('❌ 停止訓練時發生錯誤');
+                stopTrainingBtn.disabled = false;
+                stopTrainingBtn.innerHTML = '<span>🛑</span><span>停止</span>';
+            }
         });
     }
     
@@ -7027,9 +7080,16 @@ function startTrainingPolling() {
             if (trainingWasInProgress) {
                 trainingWasInProgress = false;
                 const btn = document.getElementById('start-training-btn');
+                const stopBtn = document.getElementById('stop-training-btn');
                 if (btn) {
                     btn.disabled = false;
                     btn.innerHTML = '<span>🚀</span><span>開始訓練</span>';
+                }
+                // 隱藏停止按鈕
+                if (stopBtn) {
+                    stopBtn.style.display = 'none';
+                    stopBtn.disabled = false;
+                    stopBtn.innerHTML = '<span>🛑</span><span>停止</span>';
                 }
                 // 檢查是否訓練成功
                 if (status.data.models?.xgboost) {
@@ -7065,17 +7125,28 @@ async function loadTrainingStatus() {
             
             // 如果正在訓練，確保輪詢已啟動
             const isTraining = data.data.training?.isTraining;
+            const btn = document.getElementById('start-training-btn');
+            const stopBtn = document.getElementById('stop-training-btn');
+            
             if (isTraining) {
                 trainingWasInProgress = true;
                 // 更新按鈕狀態
-                const btn = document.getElementById('start-training-btn');
                 if (btn) {
                     btn.disabled = true;
                     btn.innerHTML = '<span>⏳</span><span>訓練中...</span>';
                 }
+                // 顯示停止按鈕
+                if (stopBtn) {
+                    stopBtn.style.display = 'inline-flex';
+                }
                 // 確保輪詢在運行
                 if (!trainingPollingInterval) {
                     startTrainingPolling();
+                }
+            } else {
+                // 不在訓練，隱藏停止按鈕
+                if (stopBtn) {
+                    stopBtn.style.display = 'none';
                 }
             }
         } else {

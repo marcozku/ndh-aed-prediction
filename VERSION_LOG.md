@@ -1,5 +1,29 @@
 # 版本更新日誌
 
+## v2.9.15 - 2026-01-02 01:26 HKT
+
+### 🛑 XGBoost 訓練停止功能
+
+**新增功能**：
+- 用戶可以在訓練進行中點擊「停止」按鈕終止訓練
+- 停止前會彈出確認對話框
+- 訓練停止後自動重置按鈕狀態
+
+**技術實現**：
+- `AutoTrainManager` 新增 `stopTraining()` 方法
+- 保存 Python 進程引用 (`currentProcess`)，可發送 SIGTERM/SIGKILL
+- 新增 `POST /api/stop-training` API 端點
+- 前端新增紅色停止按鈕（訓練時顯示）
+
+**修改的文件**：
+- `modules/auto-train-manager.js` - 新增停止功能
+- `server.js` - 新增 `/api/stop-training` API
+- `prediction.js` - 前端停止按鈕邏輯
+- `index.html` - 停止按鈕 HTML
+- `styles.css` - 停止按鈕樣式
+
+---
+
 ## v2.9.14 - 2026-01-02 01:21 HKT
 
 ### 🔄 定期 AI 更新時也刷新所有圖表

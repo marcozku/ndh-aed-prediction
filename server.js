@@ -1664,6 +1664,40 @@ const apiHandlers = {
         }
     },
     
+    // 停止訓練
+    'POST /api/stop-training': async (req, res) => {
+        try {
+            const { getAutoTrainManager } = require('./modules/auto-train-manager');
+            let trainManager;
+            try {
+                trainManager = getAutoTrainManager();
+            } catch (requireErr) {
+                console.error('加載訓練管理器模組失敗:', requireErr);
+                return sendJson(res, {
+                    success: false,
+                    error: `無法加載訓練管理器: ${requireErr.message}`
+                }, 500);
+            }
+            
+            if (!trainManager) {
+                return sendJson(res, {
+                    success: false,
+                    error: '訓練管理器初始化失敗'
+                }, 500);
+            }
+            
+            // 停止訓練
+            const result = await trainManager.stopTraining();
+            sendJson(res, result);
+        } catch (err) {
+            console.error('停止訓練失敗:', err);
+            sendJson(res, {
+                success: false,
+                error: err.message || '停止訓練失敗'
+            }, 500);
+        }
+    },
+    
     // 獲取訓練狀態
     'GET /api/training-status': async (req, res) => {
         try {
