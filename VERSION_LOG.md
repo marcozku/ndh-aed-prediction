@@ -1,5 +1,31 @@
 # 版本更新日誌
 
+## v2.9.35 - 2026-01-02 03:46 HKT
+
+### 🐛 修復實時影響因素日期顯示 + 新增自動刷新倒計時
+
+**問題修復**：
+- 修復「實時影響因素」更新時間顯示為 `Invalid Date HKT` 的問題
+- 原因：時間戳驗證不足導致無效日期傳入格式化函數
+
+**新功能**：
+- 新增自動刷新倒計時顯示（⏱️ MM:SS 格式）
+- 用戶可以看到距離下次系統自動刷新 AI 分析的剩餘時間
+- 倒計時每秒更新一次
+
+**技術更改**：
+
+1. **prediction.js**：
+   - 重構日期解析邏輯，加入 `tryParseDate()` 驗證函數
+   - 多重來源時間戳備用機制（timestamp → lastAIUpdateTime → lastAIAnalysisTime → 當前時間）
+   - 新增 `updateAIFactorsCountdown()` 函數處理倒計時更新
+   - 加入每秒執行的倒計時更新 interval
+
+2. **styles.css**：
+   - 新增 `.next-refresh-countdown` 樣式
+
+---
+
 ## v2.9.34 - 2026-01-02 03:39 HKT
 
 ### 🕐 訓練日期顯示修復

@@ -6506,24 +6506,78 @@ function updateRealtimeFactors(aiAnalysisData = null) {
     // 添加最後更新時間（從緩存數據的時間戳或分析時間）
     let lastUpdate = '未知';
     let updateTimeFormatted = '';
+    let lastUpdateTimestamp = null;
+    
+    // 嘗試解析時間戳
+    const tryParseDate = (timestamp) => {
+        if (!timestamp) return null;
+        const date = new Date(timestamp);
+        // 檢查日期是否有效
+        if (isNaN(date.getTime())) return null;
+        return date;
+    };
+    
+    // 格式化日期為 HKT
+    const formatDateHKT = (date) => {
+        if (!date || isNaN(date.getTime())) return null;
+        return date.toLocaleString('zh-HK', { 
+            timeZone: 'Asia/Hong_Kong',
+            month: 'numeric',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+    
+    // 嘗試從多個來源獲取有效時間
     if (aiAnalysisData && aiAnalysisData.timestamp) {
-        try {
-            const updateDate = new Date(aiAnalysisData.timestamp);
-            updateTimeFormatted = updateDate.toLocaleString('zh-HK', { 
-                timeZone: 'Asia/Hong_Kong',
-                month: 'numeric',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            lastUpdate = updateTimeFormatted;
-        } catch (e) {
-            lastUpdate = lastAIAnalysisTime 
-                ? new Date(lastAIAnalysisTime).toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' })
-                : '未知';
+        const updateDate = tryParseDate(aiAnalysisData.timestamp);
+        if (updateDate) {
+            updateTimeFormatted = formatDateHKT(updateDate);
+            lastUpdate = updateTimeFormatted || '未知';
+            lastUpdateTimestamp = updateDate.getTime();
         }
-    } else if (lastAIAnalysisTime) {
-        lastUpdate = new Date(lastAIAnalysisTime).toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' });
+    }
+    
+    // 如果上面失敗，嘗試使用 lastAIUpdateTime（全局變數）
+    if (lastUpdate === '未知' && lastAIUpdateTime) {
+        const updateDate = tryParseDate(lastAIUpdateTime);
+        if (updateDate) {
+            lastUpdate = formatDateHKT(updateDate) || '未知';
+            lastUpdateTimestamp = updateDate.getTime();
+        }
+    }
+    
+    // 如果還是失敗，嘗試使用 lastAIAnalysisTime
+    if (lastUpdate === '未知' && lastAIAnalysisTime) {
+        const updateDate = tryParseDate(lastAIAnalysisTime);
+        if (updateDate) {
+            lastUpdate = formatDateHKT(updateDate) || '未知';
+            lastUpdateTimestamp = updateDate.getTime();
+        }
+    }
+    
+    // 如果所有來源都失敗，使用當前時間作為備用
+    if (lastUpdate === '未知') {
+        const now = new Date();
+        lastUpdate = formatDateHKT(now);
+        lastUpdateTimestamp = now.getTime();
+    }
+    
+    // 計算下次更新倒計時
+    let countdownHtml = '';
+    if (lastUpdateTimestamp) {
+        const nextUpdateTime = lastUpdateTimestamp + AI_UPDATE_INTERVAL;
+        const now = Date.now();
+        const remainingMs = nextUpdateTime - now;
+        
+        if (remainingMs > 0) {
+            const remainingMinutes = Math.floor(remainingMs / 60000);
+            const remainingSeconds = Math.floor((remainingMs % 60000) / 1000);
+            countdownHtml = `<span class="next-refresh-countdown" id="ai-factors-countdown" data-next-update="${nextUpdateTime}" title="系統自動刷新倒計時">⏱️ ${remainingMinutes}:${remainingSeconds.toString().padStart(2, '0')}</span>`;
+        } else {
+            countdownHtml = '<span class="next-refresh-countdown" id="ai-factors-countdown">⏱️ 即將更新</span>';
+        }
     }
     
     // 緩存狀態指示
@@ -6538,6 +6592,7 @@ function updateRealtimeFactors(aiAnalysisData = null) {
             <span class="factors-update-time">
                 ${cacheStatusHtml}
                 <span class="update-time">更新：${lastUpdate} HKT</span>
+                ${countdownHtml}
             </span>
         </div>
         <div class="factors-grid">
@@ -6560,6 +6615,33 @@ function updateRealtimeFactors(aiAnalysisData = null) {
     
     // 更新動態關鍵影響因子和預測考量因素
     updateDynamicFactorsAndConsiderations(aiAnalysisData, sortedFactors);
+}
+
+/**
+ * 更新 AI 因素倒計時顯示
+ */
+function updateAIFactorsCountdown() {
+    const countdownEl = document.getElementById('ai-factors-countdown');
+    if (!countdownEl) return;
+    
+    const nextUpdate = countdownEl.getAttribute('data-next-update');
+    if (!nextUpdate) return;
+    
+    const nextUpdateTime = parseInt(nextUpdate);
+    if (isNaN(nextUpdateTime)) return;
+    
+    const now = Date.now();
+    const remainingMs = nextUpdateTime - now;
+    
+    if (remainingMs <= 0) {
+        countdownEl.textContent = '⏱️ 即將更新';
+        countdownEl.title = '系統即將自動刷新 AI 分析';
+    } else {
+        const remainingMinutes = Math.floor(remainingMs / 60000);
+        const remainingSeconds = Math.floor((remainingMs % 60000) / 1000);
+        countdownEl.textContent = `⏱️ ${remainingMinutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        countdownEl.title = `系統將在 ${remainingMinutes} 分 ${remainingSeconds} 秒後自動刷新`;
+    }
 }
 
 /**
@@ -6980,6 +7062,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         await checkAIStatus(); // 更新 AI 狀態
         console.log('🤖 AI 因素已更新，所有圖表已刷新');
     }, 1800000); // 30 分鐘
+    
+    // 每秒更新 AI 因素倒計時顯示
+    setInterval(() => {
+        updateAIFactorsCountdown();
+    }, 1000); // 1 秒
     
     // 每5分鐘檢查數據庫狀態
     setInterval(async () => {

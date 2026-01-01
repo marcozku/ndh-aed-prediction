@@ -2075,6 +2075,19 @@ section h2 {
     font-size: 0.8rem;
 }
 
+.next-refresh-countdown {
+    font-size: 0.75rem;
+    color: var(--accent-primary);
+    background: rgba(var(--accent-primary-rgb), 0.1);
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.25rem;
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
 .factors-grid {
     width: 100%;
     max-width: 100%;
