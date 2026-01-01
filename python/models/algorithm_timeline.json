@@ -37,14 +37,15 @@
         "Fourier 季節特徵 (10個)"
       ],
       "metrics": {
-        "mae": null,
-        "mape": null,
-        "rmse": null,
-        "r2": null,
+        "mae": 3.84,
+        "mape": 1.56,
+        "rmse": 5.71,
+        "r2": 0.59,
         "feature_count": 99
       },
-      "research": "BMC EM (2025), JMIR (2025), Prophet"
+      "research": "BMC EM (2025), JMIR (2025), Prophet",
+      "note": "待重新訓練以獲取新指標"
     }
   ],
-  "last_updated": "2026-01-02T03:00:00+08:00"
+  "last_updated": "2026-01-02T03:30:00+08:00"
 }

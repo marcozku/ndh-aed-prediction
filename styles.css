@@ -5476,11 +5476,14 @@ section h2 {
     background: var(--bg-primary);
     border-radius: var(--radius-md);
     padding: var(--space-md);
-    margin-top: var(--space-sm);
+    margin-top: var(--space-md);
+    min-height: 200px;
+    position: relative;
 }
 
 .timeline-chart-container canvas {
-    max-height: 150px;
+    width: 100% !important;
+    height: 100% !important;
 }
 
 /* ============================================

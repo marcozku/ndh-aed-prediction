@@ -914,11 +914,24 @@ const MethodologyModal = {
     
     renderAccuracyChart(timeline) {
         const canvas = document.getElementById('accuracy-trend-chart');
-        if (!canvas || typeof Chart === 'undefined') return;
+        if (!canvas) {
+            console.warn('❌ 找不到 accuracy-trend-chart canvas');
+            return;
+        }
         
-        // 過濾有效數據
-        const validData = timeline.filter(t => t.metrics.mae !== null);
-        if (validData.length < 2) return;
+        // 等待 Chart.js 載入
+        if (typeof Chart === 'undefined') {
+            console.warn('⏳ Chart.js 尚未載入，延遲渲染圖表');
+            setTimeout(() => this.renderAccuracyChart(timeline), 500);
+            return;
+        }
+        
+        // 過濾有效數據（至少需要 1 個數據點）
+        const validData = timeline.filter(t => t.metrics && t.metrics.mae !== null);
+        if (validData.length === 0) {
+            console.warn('❌ 沒有有效的時間線數據');
+            return;
+        }
         
         const labels = validData.map(t => t.version);
         const maeData = validData.map(t => t.metrics.mae);
@@ -928,73 +941,131 @@ const MethodologyModal = {
         // 銷毀舊圖表
         if (this.timelineChart) {
             this.timelineChart.destroy();
+            this.timelineChart = null;
         }
         
-        const ctx = canvas.getContext('2d');
-        this.timelineChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'MAE (人)',
-                        data: maeData,
-                        borderColor: '#4f46e5',
-                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
-                        tension: 0.3,
-                        fill: true,
-                        yAxisID: 'y'
-                    },
-                    {
-                        label: 'MAPE (%)',
-                        data: mapeData,
-                        borderColor: '#059669',
-                        backgroundColor: 'transparent',
-                        tension: 0.3,
-                        borderDash: [5, 5],
-                        yAxisID: 'y'
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {
-                    intersect: false,
-                    mode: 'index'
+        try {
+            const ctx = canvas.getContext('2d');
+            this.timelineChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'MAE (人)',
+                            data: maeData,
+                            borderColor: '#4f46e5',
+                            backgroundColor: 'rgba(79, 70, 229, 0.15)',
+                            borderWidth: 3,
+                            pointRadius: 6,
+                            pointBackgroundColor: '#4f46e5',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            tension: 0.3,
+                            fill: true
+                        },
+                        {
+                            label: 'MAPE (%)',
+                            data: mapeData,
+                            borderColor: '#059669',
+                            backgroundColor: 'rgba(5, 150, 105, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 5,
+                            pointBackgroundColor: '#059669',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            tension: 0.3,
+                            borderDash: [5, 5],
+                            fill: false
+                        },
+                        {
+                            label: '特徵數',
+                            data: featureData,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#f59e0b',
+                            tension: 0.3,
+                            borderDash: [2, 2],
+                            yAxisID: 'y1'
+                        }
+                    ]
                 },
-                plugins: {
-                    legend: {
-                        position: 'top',
-                        labels: { boxWidth: 12, padding: 8, font: { size: 11 } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
                     },
-                    title: {
-                        display: true,
-                        text: '算法更新對準確度的影響',
-                        font: { size: 12, weight: 'bold' }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            afterBody: function(tooltipItems) {
-                                const idx = tooltipItems[0].dataIndex;
-                                return `特徵數: ${featureData[idx]}`;
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { 
+                                boxWidth: 12, 
+                                padding: 10, 
+                                font: { size: 11, weight: 'bold' },
+                                usePointStyle: true
                             }
+                        },
+                        title: {
+                            display: true,
+                            text: '📊 算法更新對準確度的影響',
+                            font: { size: 13, weight: 'bold' },
+                            padding: { bottom: 15 }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            titleFont: { size: 12, weight: 'bold' },
+                            bodyFont: { size: 11 },
+                            padding: 12,
+                            cornerRadius: 8
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            beginAtZero: false,
+                            title: { 
+                                display: true, 
+                                text: 'MAE / MAPE', 
+                                font: { size: 11, weight: 'bold' } 
+                            },
+                            grid: { color: 'rgba(0,0,0,0.08)' },
+                            ticks: { font: { size: 10 } }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            beginAtZero: false,
+                            title: { 
+                                display: true, 
+                                text: '特徵數', 
+                                font: { size: 11, weight: 'bold' } 
+                            },
+                            grid: { drawOnChartArea: false },
+                            ticks: { font: { size: 10 } }
+                        },
+                        x: {
+                            title: { 
+                                display: true, 
+                                text: '版本', 
+                                font: { size: 11, weight: 'bold' } 
+                            },
+                            grid: { display: false },
+                            ticks: { font: { size: 10, weight: 'bold' } }
                         }
                     }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: false,
-                        title: { display: true, text: 'MAE / MAPE', font: { size: 10 } },
-                        grid: { color: 'rgba(0,0,0,0.05)' }
-                    },
-                    x: {
-                        title: { display: true, text: '版本', font: { size: 10 } },
-                        grid: { display: false }
-                    }
                 }
-            }
-        });
+            });
+            console.log('✅ 時間線圖表已渲染，數據點:', validData.length);
+        } catch (error) {
+            console.error('❌ 渲染時間線圖表失敗:', error);
+        }
     },
     
     async loadModelMetrics() {
