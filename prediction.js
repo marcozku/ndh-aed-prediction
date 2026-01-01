@@ -7453,7 +7453,24 @@ function startTrainingPolling() {
                 }
                 // 檢查是否訓練成功
                 if (status.data.models?.xgboost) {
-                    console.log('✅ 訓練完成！');
+                    console.log('✅ 訓練完成！正在重新計算預測...');
+                    
+                    // 重置 XGBoost 可用性緩存，強制重新檢查
+                    xgboostAvailable = null;
+                    
+                    // 重新計算所有預測和刷新圖表
+                    try {
+                        // 刷新所有數據和圖表
+                        await refreshAllChartsAfterDataUpdate();
+                        console.log('✅ 訓練完成後預測已更新');
+                        
+                        // 顯示通知
+                        if (window.UIEnhancements && window.UIEnhancements.Toast) {
+                            window.UIEnhancements.Toast.show('✅ 模型訓練完成，預測已更新', 'success');
+                        }
+                    } catch (err) {
+                        console.error('❌ 訓練完成後更新預測失敗:', err);
+                    }
                 }
             }
         }

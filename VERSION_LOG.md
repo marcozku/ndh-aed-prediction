@@ -1,5 +1,21 @@
 # 版本更新日誌
 
+## v2.9.41 - 2026-01-02 04:20 HKT
+
+### ✨ 新功能：XGBoost 訓練完成後自動重新計算預測
+
+**功能描述**：
+- XGBoost 模型訓練完成後，系統自動重新計算所有預測
+- 確保新訓練的模型立即反映在預測結果中
+
+**技術實現**：
+- 在 `startTrainingPolling` 訓練完成處理中添加預測更新邏輯
+- 重置 `xgboostAvailable` 緩存，強制重新檢查模型
+- 調用 `refreshAllChartsAfterDataUpdate()` 刷新所有圖表
+- 顯示 Toast 通知用戶預測已更新
+
+---
+
 ## v2.9.40 - 2026-01-02 04:16 HKT
 
 ### 🐛 修復：forecast/dow/month 圖表重用錯誤
