@@ -499,14 +499,16 @@ async function insertPrediction(predictionDate, targetDate, predictedCount, ci80
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
     `;
+    // 確保所有數值都是整數（四捨五入）
+    const toInt = (val) => val != null ? Math.round(val) : null;
     const result = await queryWithRetry(query, [
         predictionDate,
         targetDate,
-        predictedCount,
-        ci80?.low,
-        ci80?.high,
-        ci95?.low,
-        ci95?.high,
+        toInt(predictedCount),
+        toInt(ci80?.low),
+        toInt(ci80?.high),
+        toInt(ci95?.low),
+        toInt(ci95?.high),
         modelVersion
     ]);
     return result.rows[0];
@@ -827,13 +829,15 @@ async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, mod
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *
     `;
+    // 確保所有數值都是整數（四捨五入）
+    const toInt = (val) => val != null ? Math.round(val) : null;
     const result = await queryWithRetry(query, [
         targetDate,
-        predictedCount,
-        ci80?.low,
-        ci80?.high,
-        ci95?.low,
-        ci95?.high,
+        toInt(predictedCount),
+        toInt(ci80?.low),
+        toInt(ci80?.high),
+        toInt(ci95?.low),
+        toInt(ci95?.high),
         modelVersion,
         weatherData ? JSON.stringify(weatherData) : null,
         aiFactors ? JSON.stringify(aiFactors) : null
@@ -1009,13 +1013,15 @@ async function calculateFinalDailyPrediction(targetDate, options = {}) {
                 calculated_at = CURRENT_TIMESTAMP
             RETURNING *
         `;
+        // 確保所有數值都是整數（四捨五入）
+        const toInt = (val) => val != null ? Math.round(val) : null;
         const result = await client.query(query, [
             targetDate,
-            finalPrediction,
-            smoothedCI.ci80.low,
-            smoothedCI.ci80.high,
-            smoothedCI.ci95.low,
-            smoothedCI.ci95.high,
+            toInt(finalPrediction),
+            toInt(smoothedCI.ci80.low),
+            toInt(smoothedCI.ci80.high),
+            toInt(smoothedCI.ci95.low),
+            toInt(smoothedCI.ci95.high),
             count,
             latestModelVersion,
             smoothingMethod,
