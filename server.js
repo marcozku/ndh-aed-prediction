@@ -2115,10 +2115,7 @@ const apiHandlers = {
 
                 const converted = chineseConv.tify(text);
                 
-                if (!converted || converted === text) {
-                    // 如果轉換結果為空或與原文相同，可能是已經是繁體或轉換失敗
-                    console.warn('⚠️ 轉換結果與原文相同，可能已經是繁體中文');
-                }
+                // 如果轉換結果與原文相同，不輸出警告（避免日誌過多）
                 
                 return sendJson(res, {
                     success: true,
@@ -2317,10 +2314,10 @@ const apiHandlers = {
                     const accuracyResult = await db.pool.query(`
                         SELECT AVG(accuracy) as avg_accuracy, COUNT(*) as count
                         FROM (
-                            SELECT 100 - ABS(predicted - actual) * 100.0 / NULLIF(actual, 0) as accuracy
+                            SELECT 100 - ABS(dp.predicted_count - ad.patient_count) * 100.0 / NULLIF(ad.patient_count, 0) as accuracy
                             FROM daily_predictions dp
-                            JOIN actual_data ad ON dp.date = ad.date
-                            WHERE dp.date >= CURRENT_DATE - INTERVAL '14 days'
+                            JOIN actual_data ad ON dp.target_date = ad.date
+                            WHERE dp.target_date >= CURRENT_DATE - INTERVAL '14 days'
                             AND ad.patient_count IS NOT NULL
                         ) sub
                         WHERE accuracy IS NOT NULL

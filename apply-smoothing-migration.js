@@ -17,14 +17,34 @@ async function applySmoothing() {
     }
     
     try {
-        // 獲取所有有預測數據但尚未平滑的日期
-        const datesResult = await db.pool.query(`
-            SELECT DISTINCT dp.target_date 
-            FROM daily_predictions dp
-            LEFT JOIN final_daily_predictions fdp ON dp.target_date = fdp.target_date
-            WHERE fdp.smoothing_method IS NULL OR fdp.smoothing_method = ''
-            ORDER BY dp.target_date DESC
+        // 先檢查 final_daily_predictions 表是否存在 smoothing_method 欄位
+        const columnCheck = await db.pool.query(`
+            SELECT column_name FROM information_schema.columns 
+            WHERE table_name = 'final_daily_predictions' AND column_name = 'smoothing_method'
         `);
+        
+        let datesResult;
+        if (columnCheck.rows.length === 0) {
+            // 欄位不存在，獲取所有沒有 final 預測的日期
+            console.log('ℹ️ smoothing_method 欄位尚未創建，使用簡化查詢');
+            datesResult = await db.pool.query(`
+                SELECT DISTINCT dp.target_date 
+                FROM daily_predictions dp
+                LEFT JOIN final_daily_predictions fdp ON dp.target_date = fdp.target_date
+                WHERE fdp.id IS NULL
+                ORDER BY dp.target_date DESC
+                LIMIT 30
+            `);
+        } else {
+            // 欄位存在，使用原查詢
+            datesResult = await db.pool.query(`
+                SELECT DISTINCT dp.target_date 
+                FROM daily_predictions dp
+                LEFT JOIN final_daily_predictions fdp ON dp.target_date = fdp.target_date
+                WHERE fdp.smoothing_method IS NULL OR fdp.smoothing_method = ''
+                ORDER BY dp.target_date DESC
+            `);
+        }
         
         const dates = datesResult.rows.map(r => r.target_date.toISOString().split('T')[0]);
         

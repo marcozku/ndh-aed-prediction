@@ -1,5 +1,27 @@
 # 版本更新日誌
 
+## v2.9.16 - 2026-01-02 01:29 HKT
+
+### 🔧 修復數據庫查詢錯誤 + 減少警告日誌
+
+**修復的問題**：
+
+1. **`dp.date` 欄位不存在** → 改為 `dp.target_date`
+   - 修復 `/api/confidence` 準確度計算查詢
+   
+2. **`fdp.smoothing_method` 欄位不存在** → 添加欄位檢查
+   - `apply-smoothing-migration.js` 先檢查欄位是否存在
+
+3. **「轉換結果與原文相同」警告過多** → 移除輸出
+   - `server.js` 和 `ai-service.js` 不再輸出重複警告
+
+**修改的文件**：
+- `server.js` - 修復 SQL 查詢、移除警告輸出
+- `ai-service.js` - 移除簡繁轉換警告輸出
+- `apply-smoothing-migration.js` - 添加欄位存在檢查
+
+---
+
 ## v2.9.15 - 2026-01-02 01:26 HKT
 
 ### 🛑 XGBoost 訓練停止功能

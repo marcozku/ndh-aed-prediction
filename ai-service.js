@@ -86,11 +86,7 @@ function convertToTraditional(text) {
         // sify() 是簡體化（Simplified），tify() 是繁體化（Traditional）
         const converted = chineseConv.tify(text);
         
-        // 如果檢測到簡體中文，記錄警告
-        if (hadSimplified) {
-            console.warn('⚠️ 檢測到簡體中文並已自動轉換為繁體中文:', text.substring(0, 100));
-        }
-        
+        // 簡體中文轉換成功，不再輸出警告（避免日誌過多）
         return converted;
     } catch (e) {
         console.warn('⚠️ 轉換簡體中文失敗:', e.message);
@@ -106,10 +102,7 @@ function convertObjectToTraditional(obj) {
     if (!obj) return obj;
     
     if (typeof obj === 'string') {
-        // 檢測並轉換簡體中文
-        if (hasSimplifiedChinese(obj)) {
-            console.warn('⚠️ 檢測到簡體中文字符串並已自動轉換:', obj.substring(0, 100));
-        }
+        // 轉換簡體中文（不輸出警告，避免日誌過多）
         return convertToTraditional(obj);
     } else if (Array.isArray(obj)) {
         return obj.map(item => convertObjectToTraditional(item));
