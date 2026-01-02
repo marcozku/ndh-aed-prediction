@@ -1439,7 +1439,7 @@ async function initCharts(predictor) {
                     borderDash: [4, 4],
                     fill: false,
                     pointRadius: 0,
-                    tension: 0.35
+                    tension: 0 // 直線確保 fill 不會斷裂
                 },
                 {
                     label: '',
@@ -1450,7 +1450,7 @@ async function initCharts(predictor) {
                     fill: '-1',
                     backgroundColor: 'rgba(5, 150, 105, 0.05)',
                     pointRadius: 0,
-                    tension: 0.35
+                    tension: 0 // 直線確保 fill 不會斷裂
                 },
                 {
                     label: `平均線 (${Math.round(predictor.globalMean)})`,
