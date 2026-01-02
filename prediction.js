@@ -5714,10 +5714,16 @@ async function updateUI(predictor, forceRecalculate = false) {
     console.log(`📊 今日預測使用 ${todayPred.xgboostUsed ? 'XGBoost' : '統計方法'}: ${todayPred.predicted} 人`);
     updateSectionProgress('today-prediction', 60);
     
-    // 保存每日預測到數據庫（每次更新都保存）
-    saveDailyPrediction(todayPred, currentWeatherData, aiFactors[today]).catch(err => {
-        console.error('❌ 保存每日預測失敗:', err);
-    });
+    // v3.0.20: 只在真正觸發預測時才保存（forceRecalculate=true）
+    // 頁面刷新不應該產生新的預測記錄
+    if (forceRecalculate) {
+        saveDailyPrediction(todayPred, currentWeatherData, aiFactors[today]).catch(err => {
+            console.error('❌ 保存每日預測失敗:', err);
+        });
+        console.log('💾 預測已保存到數據庫（forceRecalculate=true）');
+    } else {
+        console.log('📖 只讀模式，不保存預測記錄（頁面載入/刷新）');
+    }
     
     const todayDateFormatted = formatDateDDMM(todayPred.date, true); // 今日預測顯示完整日期
     document.getElementById('today-date').textContent = `${todayDateFormatted} ${todayPred.dayName}`;
