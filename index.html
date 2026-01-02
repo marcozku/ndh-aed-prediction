@@ -578,9 +578,9 @@
             </div>
         </section>
 
-        <!-- 算法說明 -->
+        <!-- 算法說明 - v3.0.30 簡化版 -->
         <section class="algorithm-section" id="algorithm-section">
-            <h2 class="section-title">預測算法說明（基於真實研究）</h2>
+            <h2 class="section-title">預測算法</h2>
             <div class="algorithm-content" id="algorithm-content">
                 <!-- 動態生成內容 -->
             </div>
@@ -590,7 +590,7 @@
         <footer class="app-footer" role="contentinfo">
             <p id="data-source-info" style="cursor: pointer; text-decoration: underline;" data-lang-key="footer-source">數據來源：載入中...</p>
             <p id="last-update-info" class="last-update-info"></p>
-            <p>預測模型版本 3.0.29 · 香港時間 HKT</p>
+            <p>預測模型版本 3.0.30 · 香港時間 HKT</p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2025 Marco Ma. All Rights Reserved.</p>
             <div class="footer-links">
                 <a href="/api/docs" class="footer-link" data-lang-key="footer-api">API 文檔</a>
@@ -652,7 +652,7 @@
     </div>
 
 
-    <!-- Methodology Modal -->
+    <!-- Methodology Modal - v3.0.30 簡化版 -->
     <div id="methodology-modal" class="modal-overlay" style="display: none;" role="dialog" aria-labelledby="methodology-title" aria-modal="true">
         <div class="modal-content methodology-modal-content">
             <div class="modal-header">
@@ -661,71 +661,39 @@
             </div>
             <div class="methodology-content">
                 <div class="methodology-section">
-                    <h4>🎯 核心算法（v2.9.52 - 特徵優化版）</h4>
-                    <p>本系統採用 <strong>XGBoost 梯度提升樹</strong>作為主要預測模型，使用 <strong>Optuna TPE</strong> + <strong>特徵選擇優化</strong>。</p>
+                    <h4>🎯 核心算法</h4>
                     <div class="formula-box">
-                        <code>預測 = XGBoost(25特徵) × 實時天氣調整 × AI因素調整</code>
+                        <code>預測 = XGBoost × AI因子 × 天氣因子</code>
                     </div>
-                    <p style="margin-top: 8px; font-size: 0.85em; color: var(--text-secondary);">
-                        研究表明：25 精選特徵比 161 特徵更準確！<strong>MAE 5.33</strong>、<strong>R² 92.0%</strong>
-                    </p>
                 </div>
                 <div class="methodology-section">
-                    <h4>📊 優化特徵集（25 個精選特徵）</h4>
-                    <ul class="feature-list">
-                        <li><strong style="color: var(--accent-color);">🔥 EWMA7</strong>：指數加權移動平均 7 天（佔 <strong>45%</strong> 重要性！）</li>
-                        <li><strong style="color: var(--accent-color);">🔥 EWMA14</strong>：指數加權移動平均 14 天（佔 <strong>45%</strong> 重要性！）</li>
-                        <li><strong>Daily_Change</strong>：每日變化量</li>
-                        <li><strong>Monthly_Change</strong>：月度變化量</li>
-                        <li><strong>Attendance_Lag1</strong>：昨日人數</li>
-                        <li><strong>Day_of_Week</strong>：星期幾</li>
-                        <li><strong>滾動統計</strong>：Rolling7/14、Position7/14/30</li>
-                        <li><strong>目標編碼</strong>：DayOfWeek_Target_Mean</li>
-                        <li><strong>假期因子</strong>：Holiday_Factor</li>
-                        <li><strong>流感季節</strong>：Is_Winter_Flu_Season</li>
-                    </ul>
-                    <p style="margin-top: 8px; font-size: 0.85em; color: var(--text-secondary);">
-                        💡 研究發現：EWMA7+EWMA14 兩個特徵佔 90% 重要性，其餘 23 個特徵佔 10%
-                    </p>
-                </div>
-                <div class="methodology-section">
-                    <h4>⚖️ 樣本權重（研究基礎）</h4>
-                    <ul class="feature-list">
-                        <li><strong>時間衰減</strong>：半衰期 365 天，近期數據權重更高 <em>(JMIR 2025)</em></li>
-                        <li><strong>COVID 調整</strong>：2020-02 至 2022-06 權重 30%</li>
-                        <li><strong>異常值處理</strong>：Z-score > 3 權重減半</li>
-                    </ul>
-                </div>
-                <div class="methodology-section">
-                    <h4>📈 模型性能（v2.9.52）</h4>
+                    <h4>📊 模型性能</h4>
                     <ul>
-                        <li><strong style="color: var(--accent-color);">R²</strong>：<span id="methodology-r2">92.0</span>%（模型擬合度）</li>
-                        <li><strong>MAE</strong>：<span id="methodology-mae">5.33</span> 人</li>
-                        <li><strong>MAPE</strong>：<span id="methodology-mape">2.10</span>%</li>
-                        <li><strong>80% CI</strong>：±1.5σ · <strong>95% CI</strong>：±2.5σ</li>
+                        <li><strong>R²</strong>：<span id="methodology-r2">--</span>%</li>
+                        <li><strong>MAE</strong>：<span id="methodology-mae">--</span> 人</li>
+                        <li><strong>MAPE</strong>：<span id="methodology-mape">--</span>%</li>
                     </ul>
                     <p style="margin-top: 8px; font-size: 0.85em; color: var(--text-secondary);">
-                        訓練日期：<span id="methodology-train-date">--</span> · 數據量：<span id="methodology-data-count">--</span> 筆
+                        訓練：<span id="methodology-train-date">--</span> · <span id="methodology-data-count">--</span> 筆數據
                     </p>
                 </div>
                 <div class="methodology-section">
-                    <h4>📈 算法演進時間線</h4>
-                    <p style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 12px;">追蹤算法更新對預測準確度的影響</p>
+                    <h4>🔥 關鍵特徵</h4>
+                    <ul class="feature-list">
+                        <li><strong>EWMA7/14</strong>：指數加權移動平均（佔 90% 重要性）</li>
+                        <li><strong>星期效應</strong>：週一最高、週末最低</li>
+                        <li><strong>AI 因子</strong>：實時事件分析調整</li>
+                        <li><strong>天氣因子</strong>：溫度、濕度、降雨</li>
+                    </ul>
+                </div>
+                <div class="methodology-section">
+                    <h4>📈 算法演進</h4>
                     <div id="algorithm-timeline" class="algorithm-timeline">
                         <div class="timeline-loading">載入中...</div>
                     </div>
-                    <div class="timeline-chart-container" style="height: 220px; margin-top: 16px;">
+                    <div class="timeline-chart-container" style="height: 180px; margin-top: 12px;">
                         <canvas id="accuracy-trend-chart"></canvas>
                     </div>
-                </div>
-                <div class="methodology-section">
-                    <h4>🔬 研究參考</h4>
-                    <ul class="feature-list" style="font-size: 0.85em;">
-                        <li><strong>BMC EM (2025)</strong>：法國醫院 XGBoost，MAE 2.63</li>
-                        <li><strong>BMC MIDM (2024)</strong>：特徵工程增強預測</li>
-                        <li><strong>JMIR (2025)</strong>：時間衰減權重、多數據源</li>
-                        <li><strong>Prophet</strong>：Fourier 季節特徵</li>
-                    </ul>
                 </div>
             </div>
         </div>
@@ -791,3 +759,4 @@
     <script type="module" src="app.js?v=5"></script>
 </body>
 </html>
+

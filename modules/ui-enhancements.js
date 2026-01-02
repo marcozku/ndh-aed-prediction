@@ -1798,7 +1798,7 @@ export function initUIEnhancements() {
         ChartControls
     };
     
-    console.log('✅ UI 增強模組 v2.9.52 已初始化');
+    console.log('✅ UI 增強模組 v3.0.30 已初始化');
 }
 
 // 導出供外部使用
