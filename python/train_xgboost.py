@@ -1065,6 +1065,15 @@ def main():
     print(f"{'='*60}")
     print(f"✅ XGBoost 模型訓練完成！模型已保存。")
     print(f"{'='*60}")
+    
+    # v3.0.10: 訓練後自動更新特徵文檔
+    try:
+        from update_feature_docs import update_docs
+        print(f"\n📝 更新特徵文檔...")
+        update_docs()
+        print(f"✅ 特徵文檔已更新")
+    except Exception as e:
+        print(f"⚠️ 更新特徵文檔失敗: {e}")
 
 if __name__ == '__main__':
     main()
