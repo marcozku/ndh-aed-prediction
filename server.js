@@ -3142,14 +3142,31 @@ async function generateServerSidePredictions() {
         // 獲取天氣預報（7天）
         let weatherForecast = {};
         try {
-            const axios = require('axios');
-            // 使用香港天文台 API 獲取 9 天天氣預報
-            const weatherResponse = await axios.get('https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=tc', {
-                timeout: 10000
+            // 使用內建 https 模組獲取香港天文台 9 天天氣預報
+            const weatherData = await new Promise((resolve, reject) => {
+                const https = require('https');
+                const req = https.get('https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=tc', {
+                    timeout: 10000
+                }, (res) => {
+                    let data = '';
+                    res.on('data', chunk => data += chunk);
+                    res.on('end', () => {
+                        try {
+                            resolve(JSON.parse(data));
+                        } catch (e) {
+                            reject(new Error('Invalid JSON from HKO API'));
+                        }
+                    });
+                });
+                req.on('error', reject);
+                req.on('timeout', () => {
+                    req.destroy();
+                    reject(new Error('Request timeout'));
+                });
             });
             
-            if (weatherResponse.data && weatherResponse.data.weatherForecast) {
-                for (const forecast of weatherResponse.data.weatherForecast) {
+            if (weatherData && weatherData.weatherForecast) {
+                for (const forecast of weatherData.weatherForecast) {
                     // 解析日期
                     const forecastDateStr = forecast.forecastDate; // 格式: "20260102"
                     if (forecastDateStr) {
@@ -3188,9 +3205,17 @@ async function generateServerSidePredictions() {
                     }
                 }
                 console.log(`🌤️ 已載入 ${Object.keys(weatherForecast).length} 天天氣預報`);
+                if (Object.keys(weatherForecast).length > 0) {
+                    console.log(`   天氣日期: ${Object.keys(weatherForecast).slice(0, 5).join(', ')}`);
+                }
             }
         } catch (e) {
             console.log('⚠️ 無法載入天氣預報:', e.message);
+        }
+        
+        // 調試：輸出 AI 因素的日期
+        if (Object.keys(aiFactorsMap).length > 0) {
+            console.log(`🤖 AI 因素日期: ${Object.keys(aiFactorsMap).slice(0, 5).join(', ')}`);
         }
         
         // 首先獲取 XGBoost 基準預測（使用今天的日期）
@@ -3218,6 +3243,7 @@ async function generateServerSidePredictions() {
         }
         
         console.log(`📊 XGBoost 基準預測: ${Math.round(basePrediction)} 人`);
+        console.log(`📅 預測起始日期: ${hk.dateStr}`);
         
         for (let i = 0; i <= 30; i++) {
             const targetDate = new Date(today);
