@@ -4204,13 +4204,21 @@ async function initVolatilityChart(targetDate = null) {
             }
         }
         
-        // v3.0.30: 平均線和實際線延伸到整個日期範圍 (00:00 - 23:59)
-        const dayStart = new Date(targetData.date + 'T00:00:00+08:00');
-        const dayEnd = new Date(targetData.date + 'T23:59:59+08:00');
-        const fullDayPoints = [
-            { x: dayStart, y: null },  // 起點
-            { x: dayEnd, y: null }     // 終點
-        ];
+        // v3.0.26: 平均線和實際線延伸到整個日期範圍 (00:00 - 23:59)
+        // 使用 UTC 時間戳確保正確解析
+        const [year, month, day] = targetData.date.split('-').map(Number);
+        // 創建 HKT 00:00 和 23:59 的時間戳（HKT = UTC+8）
+        const dayStartTimestamp = Date.UTC(year, month - 1, day, 0, 0, 0) - (8 * 60 * 60 * 1000);
+        const dayEndTimestamp = Date.UTC(year, month - 1, day, 23, 59, 59) - (8 * 60 * 60 * 1000);
+        
+        // 創建多個點確保線條完整顯示
+        const fullDayPoints = [];
+        for (let h = 0; h <= 23; h++) {
+            const timestamp = Date.UTC(year, month - 1, day, h, 0, 0) - (8 * 60 * 60 * 1000);
+            fullDayPoints.push({ x: timestamp, y: null });
+        }
+        // 添加最後一個點 (23:59)
+        fullDayPoints.push({ x: dayEndTimestamp, y: null });
         
         // 顯示當前平滑值（使用與主預測相同的方法）
         if (calculatedSmoothed != null) {
@@ -4291,8 +4299,8 @@ async function initVolatilityChart(targetDate = null) {
                             displayFormats: { hour: 'HH:mm' }
                         },
                         // v3.0.26: 限制 X 軸範圍為選定日期的 00:00-23:59
-                        min: new Date(targetData.date + 'T00:00:00+08:00').getTime(),
-                        max: new Date(targetData.date + 'T23:59:59+08:00').getTime(),
+                        min: dayStartTimestamp,
+                        max: dayEndTimestamp,
                         title: { display: true, text: '時間', color: '#94a3b8' },
                         ticks: { color: '#94a3b8' },
                         grid: { color: 'rgba(148, 163, 184, 0.1)' }
