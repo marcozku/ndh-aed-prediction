@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.91';
+const MODEL_VERSION = '2.9.92';
 
 // ============================================
 // HKT 時間工具函數
@@ -1580,6 +1580,145 @@ const apiHandlers = {
             totalFailCount: autoPredictStats.totalFailCount,
             intervalMinutes: 30
         });
+    },
+
+    // v2.9.91: 獲取日內預測波動數據
+    'GET /api/intraday-predictions': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { success: false, error: '數據庫未配置' }, 503);
+        }
+        
+        try {
+            const days = parseInt(req.query?.days) || 7;
+            const targetDate = req.query?.date || null;
+            
+            // 獲取最近幾天的日內預測數據
+            let query, params;
+            if (targetDate) {
+                query = `
+                    SELECT 
+                        ip.target_date,
+                        ip.prediction_time,
+                        ip.predicted_count,
+                        ip.ci80_low,
+                        ip.ci80_high,
+                        ip.weather_data,
+                        ip.ai_factors,
+                        a.patient_count as actual_value
+                    FROM intraday_predictions ip
+                    LEFT JOIN actual_data a ON ip.target_date = a.date
+                    WHERE ip.target_date = $1::date
+                    ORDER BY ip.prediction_time ASC
+                `;
+                params = [targetDate];
+            } else {
+                query = `
+                    SELECT 
+                        ip.target_date,
+                        ip.prediction_time,
+                        ip.predicted_count,
+                        ip.ci80_low,
+                        ip.ci80_high,
+                        ip.weather_data,
+                        ip.ai_factors,
+                        a.patient_count as actual_value
+                    FROM intraday_predictions ip
+                    LEFT JOIN actual_data a ON ip.target_date = a.date
+                    WHERE ip.target_date >= CURRENT_DATE - $1::integer
+                    ORDER BY ip.target_date DESC, ip.prediction_time ASC
+                `;
+                params = [days];
+            }
+            
+            const result = await db.pool.query(query, params);
+            
+            // 按日期分組
+            const grouped = {};
+            for (const row of result.rows) {
+                const dateStr = new Date(row.target_date).toISOString().split('T')[0];
+                if (!grouped[dateStr]) {
+                    grouped[dateStr] = {
+                        date: dateStr,
+                        actualValue: row.actual_value,
+                        predictions: []
+                    };
+                }
+                grouped[dateStr].predictions.push({
+                    time: row.prediction_time,
+                    value: row.predicted_count,
+                    ci80Low: row.ci80_low,
+                    ci80High: row.ci80_high
+                });
+            }
+            
+            sendJson(res, {
+                success: true,
+                data: Object.values(grouped),
+                count: result.rows.length
+            });
+        } catch (err) {
+            console.error('獲取日內預測數據失敗:', err);
+            sendJson(res, { success: false, error: err.message }, 500);
+        }
+    },
+
+    // v2.9.91: 獲取天氣-出席相關性數據
+    'GET /api/weather-correlation': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { success: false, error: '數據庫未配置' }, 503);
+        }
+        
+        try {
+            // 獲取有天氣數據和實際出席數據的日期
+            const result = await db.pool.query(`
+                SELECT 
+                    dp.target_date,
+                    dp.weather_data,
+                    a.patient_count as actual
+                FROM daily_predictions dp
+                INNER JOIN actual_data a ON dp.target_date = a.date
+                WHERE dp.weather_data IS NOT NULL
+                  AND dp.weather_data != '{}'::jsonb
+                  AND a.patient_count IS NOT NULL
+                ORDER BY dp.target_date DESC
+                LIMIT 365
+            `);
+            
+            if (result.rows.length === 0) {
+                return sendJson(res, {
+                    success: true,
+                    data: [],
+                    count: 0,
+                    correlation: { temperature: null, humidity: null, rainfall: null },
+                    message: '暫無匹配的天氣+實際數據'
+                });
+            }
+            
+            // 提取數據點
+            const dataPoints = result.rows.map(row => {
+                const weather = row.weather_data || {};
+                return {
+                    date: new Date(row.target_date).toISOString().split('T')[0],
+                    actual: row.actual,
+                    temperature: weather.temperature ?? weather.temp ?? null,
+                    humidity: weather.humidity ?? null,
+                    rainfall: weather.rainfall ?? 0
+                };
+            }).filter(d => d.actual != null);
+            
+            // 計算相關係數
+            const correlation = calculateCorrelation(dataPoints);
+            
+            sendJson(res, {
+                success: true,
+                data: dataPoints,
+                count: dataPoints.length,
+                correlation: correlation
+            });
+        } catch (err) {
+            console.error('獲取天氣相關性數據失敗:', err);
+            sendJson(res, { success: false, error: err.message }, 500);
+        }
     },
 
     // 獲取 AI 因素緩存（從數據庫）

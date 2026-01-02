@@ -3887,10 +3887,10 @@ async function initVolatilityChart(targetDate = null) {
             return;
         }
         
-        // 準備圖表數據
+        // 準備圖表數據 (v2.9.91: 使用 value 字段)
         const predictions = targetData.predictions.map(p => ({
             x: new Date(p.time),
-            y: p.predicted
+            y: p.value || p.predicted
         }));
         
         const datasets = [
