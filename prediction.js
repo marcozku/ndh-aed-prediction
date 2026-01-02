@@ -3693,6 +3693,7 @@ async function initComparisonTable() {
 // ============================================
 let weatherCorrChart = null;
 
+// v3.0.13: 全面重構天氣影響分析 - 使用「影響力偏差圖」
 async function initWeatherCorrChart() {
     const canvas = document.getElementById('weather-corr-chart');
     const loading = document.getElementById('weather-corr-chart-loading');
@@ -3724,58 +3725,183 @@ async function initWeatherCorrChart() {
         }
         
         const data = result.data;
-        const correlation = result.correlation;
+        const correlation = result.correlation || {};
+        const analysis = result.analysis || {};
         
-        // v2.9.96: 安全銷毀舊圖表（防止 Canvas already in use 錯誤）
+        // 安全銷毀舊圖表
         if (weatherCorrChart) {
             weatherCorrChart.destroy();
             weatherCorrChart = null;
         }
-        // 也檢查 canvas 上是否有殘留的 Chart 實例
         const existingChart = Chart.getChart(canvas);
         if (existingChart) {
             existingChart.destroy();
         }
         
-        // v3.0.7: 更有意義的天氣分析 - 溫度變化效應
-        const analysis = result.analysis || {};
+        // 計算整體平均
         const overallAvg = analysis.overallAvg || Math.round(data.reduce((s, d) => s + d.actual, 0) / data.length);
         const tempChangeEffect = analysis.tempChangeEffect || {};
-        const dowWeatherStats = analysis.dowWeatherStats || {};
+        const seasonWeather = analysis.seasonWeather || {};
+        const extremeWeather = analysis.extremeWeather || {};
+        const typhoonEffect = analysis.typhoonEffect || {};
+        const rainstormEffect = analysis.rainstormEffect || {};
+        const warningEffect = analysis.warningEffect || {};
         
-        // 準備圖表數據：溫度變化 vs 出席
+        // 構建所有天氣因素的影響數據
+        const weatherFactors = [];
+        
+        // 1. 溫度變化
+        if (tempChangeEffect.bigDrop?.count >= 3) {
+            weatherFactors.push({
+                label: '❄️ 溫度驟降 ≥5°C',
+                avg: tempChangeEffect.bigDrop.avg,
+                diff: tempChangeEffect.bigDrop.avg - overallAvg,
+                count: tempChangeEffect.bigDrop.count,
+                category: 'temp'
+            });
+        }
+        if (tempChangeEffect.bigRise?.count >= 3) {
+            weatherFactors.push({
+                label: '🔥 溫度驟升 ≥5°C',
+                avg: tempChangeEffect.bigRise.avg,
+                diff: tempChangeEffect.bigRise.avg - overallAvg,
+                count: tempChangeEffect.bigRise.count,
+                category: 'temp'
+            });
+        }
+        
+        // 2. 季節×天氣交互
+        if (seasonWeather.winterCold?.count >= 3) {
+            weatherFactors.push({
+                label: '🥶 冬季寒冷日',
+                avg: seasonWeather.winterCold.avg,
+                diff: seasonWeather.winterCold.avg - overallAvg,
+                count: seasonWeather.winterCold.count,
+                category: 'season'
+            });
+        }
+        if (seasonWeather.summerHot?.count >= 3) {
+            weatherFactors.push({
+                label: '☀️ 夏季酷熱日',
+                avg: seasonWeather.summerHot.avg,
+                diff: seasonWeather.summerHot.avg - overallAvg,
+                count: seasonWeather.summerHot.count,
+                category: 'season'
+            });
+        }
+        
+        // 3. 極端天氣
+        if (extremeWeather.veryHot?.count >= 3) {
+            weatherFactors.push({
+                label: '🌡️ 極端酷熱 >33°C',
+                avg: extremeWeather.veryHot.avg,
+                diff: extremeWeather.veryHot.avg - overallAvg,
+                count: extremeWeather.veryHot.count,
+                category: 'extreme'
+            });
+        }
+        if (extremeWeather.veryCold?.count >= 3) {
+            weatherFactors.push({
+                label: '🧊 極端嚴寒 <10°C',
+                avg: extremeWeather.veryCold.avg,
+                diff: extremeWeather.veryCold.avg - overallAvg,
+                count: extremeWeather.veryCold.count,
+                category: 'extreme'
+            });
+        }
+        
+        // 4. 颱風/暴雨
+        if (typhoonEffect.typhoon?.count >= 1) {
+            weatherFactors.push({
+                label: '🌀 颱風信號 (T3+)',
+                avg: typhoonEffect.typhoon.avg,
+                diff: typhoonEffect.typhoon.avg - overallAvg,
+                count: typhoonEffect.typhoon.count,
+                category: 'storm'
+            });
+        }
+        if (typhoonEffect.t8Plus?.count >= 1) {
+            weatherFactors.push({
+                label: '⚠️ 8號風球+',
+                avg: typhoonEffect.t8Plus.avg,
+                diff: typhoonEffect.t8Plus.avg - overallAvg,
+                count: typhoonEffect.t8Plus.count,
+                category: 'storm'
+            });
+        }
+        if (rainstormEffect.blackRain?.count >= 1) {
+            weatherFactors.push({
+                label: '⬛ 黑色暴雨',
+                avg: rainstormEffect.blackRain.avg,
+                diff: rainstormEffect.blackRain.avg - overallAvg,
+                count: rainstormEffect.blackRain.count,
+                category: 'storm'
+            });
+        }
+        if (rainstormEffect.redRain?.count >= 1) {
+            weatherFactors.push({
+                label: '🟥 紅色暴雨',
+                avg: rainstormEffect.redRain.avg,
+                diff: rainstormEffect.redRain.avg - overallAvg,
+                count: rainstormEffect.redRain.count,
+                category: 'storm'
+            });
+        }
+        
+        // 5. 天氣警告
+        if (warningEffect.hotWarning?.count >= 2) {
+            weatherFactors.push({
+                label: '🔥 酷熱天氣警告',
+                avg: warningEffect.hotWarning.avg,
+                diff: warningEffect.hotWarning.avg - overallAvg,
+                count: warningEffect.hotWarning.count,
+                category: 'warning'
+            });
+        }
+        if (warningEffect.coldWarning?.count >= 2) {
+            weatherFactors.push({
+                label: '❄️ 寒冷天氣警告',
+                avg: warningEffect.coldWarning.avg,
+                diff: warningEffect.coldWarning.avg - overallAvg,
+                count: warningEffect.coldWarning.count,
+                category: 'warning'
+            });
+        }
+        
+        // 按影響力排序（絕對值大的排前面）
+        weatherFactors.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+        
+        // 如果沒有足夠數據
+        if (weatherFactors.length === 0) {
+            if (loading) {
+                loading.innerHTML = `
+                    <div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">
+                        暫無足夠天氣影響數據<br>
+                        <small>需要更多歷史數據樣本</small>
+                    </div>
+                `;
+            }
+            return;
+        }
+        
+        // 準備圖表數據 - 顯示偏差值（與基準的差異）
         const chartData = {
-            labels: ['驟降 ≥5°C', '穩定 <3°C', '驟升 ≥5°C'],
+            labels: weatherFactors.map(f => f.label),
             datasets: [{
-                label: '平均出席人數',
-                data: [
-                    tempChangeEffect.bigDrop?.avg || null,
-                    tempChangeEffect.stable?.avg || null,
-                    tempChangeEffect.bigRise?.avg || null
-                ],
-                backgroundColor: [
-                    'rgba(59, 130, 246, 0.8)',  // 藍色 - 降溫
-                    'rgba(16, 185, 129, 0.8)',  // 綠色 - 穩定
-                    'rgba(239, 68, 68, 0.8)'    // 紅色 - 升溫
-                ],
-                borderRadius: 8
+                label: '與平均出席偏差',
+                data: weatherFactors.map(f => f.diff),
+                backgroundColor: weatherFactors.map(f => 
+                    f.diff >= 0 ? 'rgba(239, 68, 68, 0.8)' : 'rgba(59, 130, 246, 0.8)'
+                ),
+                borderColor: weatherFactors.map(f => 
+                    f.diff >= 0 ? 'rgba(239, 68, 68, 1)' : 'rgba(59, 130, 246, 1)'
+                ),
+                borderWidth: 1,
+                borderRadius: 6
             }]
         };
         
-        // 過濾掉沒有數據的項目
-        const validIndices = chartData.datasets[0].data.map((v, i) => v !== null ? i : -1).filter(i => i >= 0);
-        chartData.labels = validIndices.map(i => chartData.labels[i]);
-        chartData.datasets[0].data = validIndices.map(i => chartData.datasets[0].data[i]);
-        chartData.datasets[0].backgroundColor = validIndices.map(i => chartData.datasets[0].backgroundColor[i]);
-        
-        const counts = [
-            tempChangeEffect.bigDrop?.count || 0,
-            tempChangeEffect.stable?.count || 0,
-            tempChangeEffect.bigRise?.count || 0
-        ];
-        const validCounts = validIndices.map(i => counts[i]);
-        
-        // 創建圖表
+        // 創建圖表 - 水平條形圖顯示偏差
         const ctx = canvas.getContext('2d');
         weatherCorrChart = new Chart(ctx, {
             type: 'bar',
@@ -3788,224 +3914,142 @@ async function initWeatherCorrChart() {
                     legend: { display: false },
                     title: {
                         display: true,
-                        text: `溫度變化對出席的影響 (r=${correlation.tempChange?.toFixed(3) || 'N/A'})`,
-                        color: '#94a3b8',
-                        font: { size: 12 }
+                        text: `天氣因素對出席的影響（基準: ${overallAvg} 人/日）`,
+                        color: '#f1f5f9',
+                        font: { size: 13, weight: 'bold' },
+                        padding: { bottom: 15 }
                     },
                     tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1',
+                        borderColor: 'rgba(148, 163, 184, 0.3)',
+                        borderWidth: 1,
                         callbacks: {
+                            title: (items) => {
+                                const idx = items[0].dataIndex;
+                                return weatherFactors[idx].label;
+                            },
                             label: (ctx) => {
-                                const count = validCounts[ctx.dataIndex];
-                                const diff = ctx.parsed.x - overallAvg;
-                                const diffStr = diff >= 0 ? `+${diff}` : `${diff}`;
+                                const factor = weatherFactors[ctx.dataIndex];
+                                const diffStr = factor.diff >= 0 ? `+${factor.diff}` : `${factor.diff}`;
                                 return [
-                                    `平均出席: ${ctx.parsed.x} 人`,
-                                    `樣本數: ${count} 天`,
-                                    `與整體平均 (${overallAvg}) 相比: ${diffStr} 人`
+                                    `平均出席: ${factor.avg} 人`,
+                                    `偏差: ${diffStr} 人`,
+                                    `樣本數: ${factor.count} 天`
                                 ];
+                            },
+                            afterLabel: (ctx) => {
+                                const factor = weatherFactors[ctx.dataIndex];
+                                const pct = ((factor.diff / overallAvg) * 100).toFixed(1);
+                                return `影響幅度: ${pct}%`;
                             }
                         }
                     }
                 },
                 scales: {
                     x: {
-                        title: { display: true, text: '平均出席人數', color: '#94a3b8' },
-                        ticks: { color: '#94a3b8' },
-                        grid: { color: 'rgba(148, 163, 184, 0.1)' },
-                        suggestedMin: Math.min(...chartData.datasets[0].data) - 15,
-                        suggestedMax: Math.max(...chartData.datasets[0].data) + 15
+                        title: { 
+                            display: true, 
+                            text: '← 減少出席 | 增加出席 →', 
+                            color: '#64748b',
+                            font: { size: 10 }
+                        },
+                        ticks: { 
+                            color: '#94a3b8',
+                            callback: (v) => v >= 0 ? `+${v}` : v
+                        },
+                        grid: { 
+                            color: 'rgba(148, 163, 184, 0.15)',
+                            drawTicks: false
+                        },
+                        // 確保 0 在中間
+                        suggestedMin: Math.min(-20, Math.min(...weatherFactors.map(f => f.diff)) - 5),
+                        suggestedMax: Math.max(20, Math.max(...weatherFactors.map(f => f.diff)) + 5)
                     },
                     y: {
-                        ticks: { color: '#94a3b8', font: { size: 11 } },
+                        ticks: { 
+                            color: '#e2e8f0', 
+                            font: { size: 11 }
+                        },
                         grid: { display: false }
                     }
                 }
-            }
+            },
+            plugins: [{
+                id: 'centerLine',
+                afterDraw: (chart) => {
+                    const ctx = chart.ctx;
+                    const xAxis = chart.scales.x;
+                    const yAxis = chart.scales.y;
+                    const zero = xAxis.getPixelForValue(0);
+                    
+                    ctx.save();
+                    ctx.strokeStyle = 'rgba(148, 163, 184, 0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(zero, yAxis.top);
+                    ctx.lineTo(zero, yAxis.bottom);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }]
         });
-        
-        // 計算極端天氣統計
-        const hotDays = data.filter(d => d.isHot === 1);
-        const coldDays = data.filter(d => d.isCold === 1);
-        const normalDays = data.filter(d => d.isHot === 0 && d.isCold === 0);
-        const avgHot = hotDays.length > 0 ? Math.round(hotDays.reduce((s, d) => s + d.actual, 0) / hotDays.length) : 0;
-        const avgCold = coldDays.length > 0 ? Math.round(coldDays.reduce((s, d) => s + d.actual, 0) / coldDays.length) : 0;
-        const avgNormal = normalDays.length > 0 ? Math.round(normalDays.reduce((s, d) => s + d.actual, 0) / normalDays.length) : 0;
         
         if (loading) loading.style.display = 'none';
         if (canvas) canvas.style.display = 'block';
         
-        // v3.0.1: 移除舊版圖表添加的不相關說明文字
+        // 移除舊版圖表的不相關說明文字
         const chartCard = canvas.closest('.chart-card');
         if (chartCard) {
             const oldNote = chartCard.querySelector('.chart-note');
             if (oldNote) oldNote.remove();
         }
         
-        // v3.0.8: 顯示完整的天氣影響分析
+        // v3.0.13: 簡化統計區域 - 圖表已經足夠清晰
         const statsEl = document.getElementById('weather-corr-stats');
         if (statsEl) {
-            const seasonWeather = analysis.seasonWeather || {};
-            const tempRangeEffect = analysis.tempRangeEffect || {};
-            const extremeWeather = analysis.extremeWeather || {};
-            
-            const dropDiff = (tempChangeEffect.bigDrop?.avg || overallAvg) - overallAvg;
-            const riseDiff = (tempChangeEffect.bigRise?.avg || overallAvg) - overallAvg;
-            
-            // 計算季節效應
-            const winterColdDiff = (seasonWeather.winterCold?.avg || overallAvg) - overallAvg;
-            const summerHotDiff = (seasonWeather.summerHot?.avg || overallAvg) - overallAvg;
-            
-            // 計算極端天氣效應
-            const veryHotDiff = (extremeWeather.veryHot?.avg || overallAvg) - overallAvg;
-            const veryColdDiff = (extremeWeather.veryCold?.avg || overallAvg) - overallAvg;
-            
-            // 找出最有影響力的因素
-            const effects = [
-                { name: '溫度驟降', diff: dropDiff },
-                { name: '溫度驟升', diff: riseDiff },
-                { name: '冬季寒冷', diff: winterColdDiff },
-                { name: '夏季酷熱', diff: summerHotDiff },
-                { name: '極端酷熱', diff: veryHotDiff },
-                { name: '極端嚴寒', diff: veryColdDiff }
-            ].filter(e => !isNaN(e.diff) && e.diff !== 0);
-            
-            const maxEffect = effects.length > 0 
-                ? effects.reduce((max, e) => Math.abs(e.diff) > Math.abs(max.diff) ? e : max)
-                : null;
-            
-            const formatDiff = (diff) => {
-                if (isNaN(diff)) return '';
-                const color = diff >= 0 ? '#ef4444' : '#10b981';
-                return `<span style="color: ${color}">(${diff >= 0 ? '+' : ''}${diff})</span>`;
-            };
+            // 找出最有影響力的因素（按絕對偏差排序）
+            const topFactors = weatherFactors.slice(0, 3);
+            const maxFactor = weatherFactors[0];
             
             statsEl.innerHTML = `
-                <!-- 溫度變化效應 -->
-                <div style="margin-bottom: 12px;">
-                    <div style="font-size: 11px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">📊 溫度變化效應</div>
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: 10px;">
-                        <div style="text-align: center; padding: 6px; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
-                            <div style="color: #3b82f6;">❄️ 驟降≥5°C</div>
-                            <div><strong>${tempChangeEffect.bigDrop?.avg || 'N/A'}</strong> ${formatDiff(dropDiff)}</div>
-                            <div style="opacity: 0.6;">${tempChangeEffect.bigDrop?.count || 0}天</div>
-                        </div>
-                        <div style="text-align: center; padding: 6px; background: rgba(16, 185, 129, 0.1); border-radius: 6px;">
-                            <div style="color: #10b981;">🌤️ 穩定</div>
-                            <div><strong>${tempChangeEffect.stable?.avg || 'N/A'}</strong> <span style="opacity: 0.6;">(基準)</span></div>
-                            <div style="opacity: 0.6;">${tempChangeEffect.stable?.count || 0}天</div>
-                        </div>
-                        <div style="text-align: center; padding: 6px; background: rgba(239, 68, 68, 0.1); border-radius: 6px;">
-                            <div style="color: #ef4444;">🔥 驟升≥5°C</div>
-                            <div><strong>${tempChangeEffect.bigRise?.avg || 'N/A'}</strong> ${formatDiff(riseDiff)}</div>
-                            <div style="opacity: 0.6;">${tempChangeEffect.bigRise?.count || 0}天</div>
-                        </div>
+                <!-- 主要發現 -->
+                <div style="padding: 10px 12px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(59, 130, 246, 0.1)); border-radius: 8px; border-left: 3px solid #8b5cf6; margin-bottom: 10px;">
+                    <div style="font-size: 12px; font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">💡 主要發現</div>
+                    ${maxFactor ? `
+                    <div style="font-size: 11px; color: #cbd5e1;">
+                        「<strong>${maxFactor.label.replace(/^[^\s]+\s/, '')}</strong>」對出席影響最大
+                        <span style="color: ${maxFactor.diff >= 0 ? '#ef4444' : '#3b82f6'}; font-weight: 600;">
+                            (${maxFactor.diff >= 0 ? '+' : ''}${maxFactor.diff} 人)
+                        </span>
+                    </div>
+                    ` : '<div style="font-size: 11px; color: #94a3b8;">暫無顯著天氣影響</div>'}
+                </div>
+                
+                <!-- 數據來源 -->
+                <div style="display: flex; justify-content: space-between; font-size: 10px; color: #64748b; padding: 0 4px;">
+                    <span>📊 ${result.count || data.length} 天 HKO 數據</span>
+                    <span>🎯 ${weatherFactors.length} 個影響因素</span>
+                </div>
+                
+                <!-- 圖表說明 -->
+                <div style="margin-top: 8px; padding: 8px; background: rgba(30, 41, 59, 0.5); border-radius: 6px; font-size: 10px; color: #94a3b8;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span><span style="color: #ef4444;">■</span> 紅色 = 增加出席</span>
+                        <span><span style="color: #3b82f6;">■</span> 藍色 = 減少出席</span>
+                        <span style="opacity: 0.6;">| 虛線 = 基準 (0)</span>
                     </div>
                 </div>
                 
-                <!-- 季節×天氣交互 -->
-                <div style="margin-bottom: 12px;">
-                    <div style="font-size: 11px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">🗓️ 季節×天氣交互</div>
-                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; font-size: 10px;">
-                        <div style="text-align: center; padding: 6px; background: rgba(59, 130, 246, 0.15); border-radius: 6px;">
-                            <div style="color: #3b82f6;">❄️ 冬季寒冷日</div>
-                            <div><strong>${seasonWeather.winterCold?.avg || 'N/A'}</strong> ${formatDiff(winterColdDiff)}</div>
-                            <div style="opacity: 0.6;">${seasonWeather.winterCold?.count || 0}天</div>
-                        </div>
-                        <div style="text-align: center; padding: 6px; background: rgba(239, 68, 68, 0.15); border-radius: 6px;">
-                            <div style="color: #ef4444;">🔥 夏季酷熱日</div>
-                            <div><strong>${seasonWeather.summerHot?.avg || 'N/A'}</strong> ${formatDiff(summerHotDiff)}</div>
-                            <div style="opacity: 0.6;">${seasonWeather.summerHot?.count || 0}天</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- 極端天氣 -->
-                <div style="margin-bottom: 8px;">
-                    <div style="font-size: 11px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">⚠️ 極端天氣</div>
-                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; font-size: 10px;">
-                        <div style="text-align: center; padding: 6px; background: rgba(239, 68, 68, 0.2); border-radius: 6px;">
-                            <div style="color: #dc2626;">🌡️ 酷熱 (max>33°C)</div>
-                            <div><strong>${extremeWeather.veryHot?.avg || 'N/A'}</strong> ${formatDiff(veryHotDiff)}</div>
-                            <div style="opacity: 0.6;">${extremeWeather.veryHot?.count || 0}天</div>
-                        </div>
-                        <div style="text-align: center; padding: 6px; background: rgba(59, 130, 246, 0.2); border-radius: 6px;">
-                            <div style="color: #1d4ed8;">🥶 嚴寒 (min<10°C)</div>
-                            <div><strong>${extremeWeather.veryCold?.avg || 'N/A'}</strong> ${formatDiff(veryColdDiff)}</div>
-                            <div style="opacity: 0.6;">${extremeWeather.veryCold?.count || 0}天</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- 颱風/暴雨效應 -->
-                ${(analysis.typhoonEffect || analysis.rainstormEffect) ? `
-                <div style="margin-bottom: 12px;">
-                    <div style="font-size: 11px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">🌀 極端天氣事件</div>
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: 10px;">
-                        ${analysis.typhoonEffect?.typhoon?.count > 0 ? `
-                        <div style="text-align: center; padding: 6px; background: rgba(168, 85, 247, 0.15); border-radius: 6px;">
-                            <div style="color: #a855f7;">🌀 颱風日 (T3+)</div>
-                            <div><strong>${analysis.typhoonEffect.typhoon.avg || 'N/A'}</strong> ${formatDiff((analysis.typhoonEffect.typhoon.avg || overallAvg) - overallAvg)}</div>
-                            <div style="opacity: 0.6;">${analysis.typhoonEffect.typhoon.count}天</div>
-                        </div>
-                        ` : ''}
-                        ${analysis.typhoonEffect?.t8Plus?.count > 0 ? `
-                        <div style="text-align: center; padding: 6px; background: rgba(220, 38, 38, 0.15); border-radius: 6px;">
-                            <div style="color: #dc2626;">⚠️ 8號風球+</div>
-                            <div><strong>${analysis.typhoonEffect.t8Plus.avg || 'N/A'}</strong> ${formatDiff((analysis.typhoonEffect.t8Plus.avg || overallAvg) - overallAvg)}</div>
-                            <div style="opacity: 0.6;">${analysis.typhoonEffect.t8Plus.count}天</div>
-                        </div>
-                        ` : ''}
-                        ${analysis.rainstormEffect?.blackRain?.count > 0 ? `
-                        <div style="text-align: center; padding: 6px; background: rgba(0, 0, 0, 0.15); border-radius: 6px;">
-                            <div style="color: #374151;">⬛ 黑色暴雨</div>
-                            <div><strong>${analysis.rainstormEffect.blackRain.avg || 'N/A'}</strong> ${formatDiff((analysis.rainstormEffect.blackRain.avg || overallAvg) - overallAvg)}</div>
-                            <div style="opacity: 0.6;">${analysis.rainstormEffect.blackRain.count}天</div>
-                        </div>
-                        ` : ''}
-                    </div>
-                </div>
-                ` : ''}
-                
-                <!-- 天氣警告效應 -->
-                ${(analysis.warningEffect?.hotWarning?.count > 0 || analysis.warningEffect?.coldWarning?.count > 0) ? `
-                <div style="margin-bottom: 12px;">
-                    <div style="font-size: 11px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">⚡ 天氣警告日</div>
-                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; font-size: 10px;">
-                        ${analysis.warningEffect?.hotWarning?.count > 0 ? `
-                        <div style="text-align: center; padding: 6px; background: rgba(251, 146, 60, 0.2); border-radius: 6px;">
-                            <div style="color: #ea580c;">🔥 酷熱警告</div>
-                            <div><strong>${analysis.warningEffect.hotWarning.avg || 'N/A'}</strong> ${formatDiff((analysis.warningEffect.hotWarning.avg || overallAvg) - overallAvg)}</div>
-                            <div style="opacity: 0.6;">${analysis.warningEffect.hotWarning.count}天</div>
-                        </div>
-                        ` : ''}
-                        ${analysis.warningEffect?.coldWarning?.count > 0 ? `
-                        <div style="text-align: center; padding: 6px; background: rgba(56, 189, 248, 0.2); border-radius: 6px;">
-                            <div style="color: #0284c7;">❄️ 寒冷警告</div>
-                            <div><strong>${analysis.warningEffect.coldWarning.avg || 'N/A'}</strong> ${formatDiff((analysis.warningEffect.coldWarning.avg || overallAvg) - overallAvg)}</div>
-                            <div style="opacity: 0.6;">${analysis.warningEffect.coldWarning.count}天</div>
-                        </div>
-                        ` : ''}
-                    </div>
-                </div>
-                ` : ''}
-                
-                <!-- 發現 -->
-                ${maxEffect && Math.abs(maxEffect.diff) > 5 ? `
-                <div style="padding: 8px; background: rgba(139, 92, 246, 0.1); border-radius: 6px; font-size: 11px; border-left: 3px solid #8b5cf6;">
-                    💡 <strong>主要發現</strong>：「${maxEffect.name}」對出席影響最大（${maxEffect.diff >= 0 ? '+' : ''}${maxEffect.diff} 人）
-                </div>
-                ` : ''}
-                
-                <!-- 研究參考 -->
+                <!-- 研究參考（可展開） -->
                 ${result.researchReferences ? `
-                <details style="margin-top: 8px; font-size: 10px;">
-                    <summary style="cursor: pointer; color: var(--text-secondary); padding: 4px;">📚 研究參考文獻</summary>
-                    <div style="padding: 8px; background: rgba(0,0,0,0.05); border-radius: 6px; margin-top: 4px;">
-                        ${result.researchReferences.map(r => `
-                            <div style="margin-bottom: 6px; line-height: 1.4;">
-                                <div style="color: var(--text-primary);">• ${r.finding}</div>
-                                <div style="opacity: 0.6; font-size: 9px;">${r.source}</div>
-                            </div>
+                <details style="margin-top: 10px;">
+                    <summary style="cursor: pointer; font-size: 10px; color: #64748b; padding: 4px;">📚 研究參考</summary>
+                    <div style="padding: 8px; background: rgba(15, 23, 42, 0.5); border-radius: 6px; margin-top: 4px; font-size: 9px;">
+                        ${result.researchReferences.slice(0, 3).map(r => `
+                            <div style="margin-bottom: 4px; color: #94a3b8;">• ${r.finding}</div>
                         `).join('')}
                     </div>
                 </details>
