@@ -1543,10 +1543,12 @@ async function initCharts(predictor) {
         handleChartLoadingError('forecast', error);
     }
     
-    // 2. 星期效應圖 - 專業條形圖
+    // 2. 星期效應圖 - 專業條形圖（基於真實歷史數據計算）
     try {
         updateLoadingProgress('dow', 10);
         const dowMeans = predictor.getDOWMeans();
+        console.log(`📊 星期效應計算完成 (基於 ${predictor.data?.length || 0} 筆歷史數據):`, 
+            ['日', '一', '二', '三', '四', '五', '六'].map((d, i) => `${d}:${Math.round(dowMeans[i])}`).join(', '));
         updateLoadingProgress('dow', 30);
         const reorderedDOW = [dowMeans[1], dowMeans[2], dowMeans[3], dowMeans[4], dowMeans[5], dowMeans[6], dowMeans[0]];
         const avgDOW = reorderedDOW.reduce((a, b) => a + b, 0) / reorderedDOW.length;
@@ -1652,10 +1654,12 @@ async function initCharts(predictor) {
         handleChartLoadingError('dow', error);
     }
     
-    // 3. 月份分佈圖 - 專業條形圖
+    // 3. 月份分佈圖 - 專業條形圖（基於真實歷史數據計算）
     try {
         updateLoadingProgress('month', 10);
         const monthMeans = predictor.getMonthMeans();
+        console.log(`📊 月份分佈計算完成 (基於 ${predictor.data?.length || 0} 筆歷史數據):`, 
+            ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'].map((m, i) => `${m}:${Math.round(monthMeans[i])}`).join(', '));
         updateLoadingProgress('month', 30);
         
         const monthCanvas = document.getElementById('month-chart');
