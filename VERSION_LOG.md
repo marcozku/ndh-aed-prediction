@@ -1,5 +1,66 @@
 # 版本更新日誌
 
+## v3.0.50 - 2026-01-03 03:15 HKT
+
+### 🧠 重大優化：世界級預測算法改進
+
+**問題診斷**：
+用戶觀察到預測值（374、358、325）明顯超出 Post-COVID 歷史範圍（Max: 310-320）。
+
+**根本原因**：
+1. `dowMeans` 硬編碼值過高（週一 280 vs 實際 270）
+2. 乘法效應疊加導致預測值飆升
+3. 缺乏上限控制
+
+**優化方案（基於世界級最佳實踐）**：
+
+#### 1. 更新星期均值（Post-COVID 2023-2025 實際數據）
+```javascript
+// 舊值
+const dowMeans = { 0: 198, 1: 280, 2: 268, 3: 258, 4: 255, 5: 248, 6: 212 };
+
+// 新值（來源: AI-AED-Algorithm-Specification.txt）
+const dowMeans = { 0: 225, 1: 270, 2: 260, 3: 255, 4: 252, 5: 245, 6: 235 };
+```
+
+#### 2. 改用加法效應模型（避免乘法疊加）
+```javascript
+// 舊公式（乘法疊加，容易過高）
+value = basePrediction * dowAdjustment * monthFactor * aiFactor * weatherFactor;
+
+// 新公式（加法效應，更穩定）
+value = targetMean + decayedDeviation;
+value += (monthFactor - 1.0) * targetMean * 0.5;  // 月份效應
+value += (aiFactor - 1.0) * targetMean * 0.5;     // AI 效應
+value += (weatherFactor - 1.0) * targetMean * 0.3; // 天氣效應
+```
+
+#### 3. 添加趨勢衰減（遠期預測回歸均值）
+```javascript
+// XGBoost 預測偏差隨時間衰減
+const decayFactor = Math.exp(-0.1 * daysAhead);
+const decayedDeviation = xgboostDeviation * decayFactor;
+```
+
+#### 4. 硬上限控制（基於 Post-COVID 歷史範圍）
+```javascript
+const PREDICTION_MIN = 180;  // 歷史最低（非 COVID）
+const PREDICTION_MAX = 320;  // Post-COVID 95% CI 上限
+const TODAY_MAX = 340;       // 今天稍高（有實時數據支撐）
+```
+
+**研究基礎**：
+- BMC Emergency Medicine (2025): XGBoost + 特徵工程
+- Facebook Prophet: 趨勢衰減和季節分解
+- Bayesian Model Averaging: 加權融合
+
+**預期效果**：
+- 預測值不會超過歷史合理範圍
+- 遠期預測自動回歸到歷史均值
+- 避免因子疊加導致的過高預測
+
+---
+
 ## v3.0.40 - 2026-01-04 05:00 HKT
 
 ### 📖 優化：算法說明 UI 重構 + 文檔更新

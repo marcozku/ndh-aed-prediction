@@ -4012,9 +4012,14 @@ async function generateServerSidePredictions() {
             
             const daysAhead = i;
             
-            // 歷史星期均值（用於調整和驗證）
-            const dowMeans = { 0: 198, 1: 280, 2: 268, 3: 258, 4: 255, 5: 248, 6: 212 };
-            const dowStds = { 0: 28, 1: 32, 2: 30, 3: 29, 4: 31, 5: 30, 6: 27 };
+            // 歷史星期均值（Post-COVID 2023-2025 實際數據）
+            // 來源: AI-AED-Algorithm-Specification.txt - Post-COVID Baseline (2023-2025)
+            // Mean: 253.8 ± 28, Monday: 270 ± 35, Saturday: 235 ± 32
+            const dowMeans = { 0: 225, 1: 270, 2: 260, 3: 255, 4: 252, 5: 245, 6: 235 };
+            const dowStds = { 0: 28, 1: 35, 2: 30, 3: 28, 4: 28, 5: 28, 6: 32 };
+            // 預測值上下限（基於 Post-COVID 95% CI: 198-310，極端高: 380）
+            const PREDICTION_MIN = 180;
+            const PREDICTION_MAX = 320;
             
             // 計算預測值
             let adjusted;
@@ -4022,7 +4027,7 @@ async function generateServerSidePredictions() {
             let bayesianResult = null;
             
             if (daysAhead === 0) {
-                // 今天：使用 Pragmatic Bayesian 融合（v3.0.38）
+                // 今天：使用 Pragmatic Bayesian 融合（v3.0.38）+ 加法效應改進（v3.0.50）
                 try {
                     const { getPragmaticBayesian } = require('./modules/pragmatic-bayesian');
                     const bayesian = getPragmaticBayesian({
@@ -4034,46 +4039,69 @@ async function generateServerSidePredictions() {
                     
                     console.log(`🎯 Bayesian 融合: base=${basePrediction}, AI=${aiFactor.toFixed(2)} (w=${bayesianResult.weights.ai.toFixed(2)}), Weather=${weatherFactor.toFixed(2)} (w=${bayesianResult.weights.weather.toFixed(2)}) → ${adjusted}`);
                 } catch (e) {
-                    // Fallback to multiplicative if Bayesian fails
-                    console.log(`⚠️ Bayesian 融合失敗，使用乘法: ${e.message}`);
-                    adjusted = Math.round(basePrediction * aiFactor * weatherFactor);
+                    // Fallback 使用加法效應模型（避免乘法疊加）
+                    console.log(`⚠️ Bayesian 融合失敗，使用加法模型: ${e.message}`);
+                    const targetMean = dowMeans[dow];
+                    const xgboostDeviation = basePrediction - targetMean;
+                    let value = targetMean + xgboostDeviation;
+                    
+                    // AI 和天氣使用加法調整
+                    if (aiFactor !== 1.0) {
+                        value += (aiFactor - 1.0) * targetMean * 0.5;
+                    }
+                    if (weatherFactor !== 1.0) {
+                        value += (weatherFactor - 1.0) * targetMean * 0.3;
+                    }
+                    adjusted = Math.round(value);
+                }
+                
+                // 應用硬上限（基於 Post-COVID 歷史範圍，今天允許稍高範圍）
+                const TODAY_MAX = 340; // 今天的上限稍高，因為有實時數據支撐
+                const originalAdjusted = adjusted;
+                adjusted = Math.max(PREDICTION_MIN, Math.min(TODAY_MAX, adjusted));
+                if (adjusted !== originalAdjusted) {
+                    console.log(`📏 預測值限制: ${originalAdjusted} → ${adjusted} (範圍: ${PREDICTION_MIN}-${TODAY_MAX})`);
                 }
             } else {
-                // 未來日期：模擬 XGBoost 的特徵效應
-                // 
-                // XGBoost 學到的主要效應：
-                // 1. 星期效應（週一最高，週日最低）
-                // 2. 季節效應（冬季流感高峰）
-                // 3. 假期效應（假期較低）
-                // 4. 趨勢效應（EWMA 捕捉的近期趨勢）
+                // 未來日期：使用加法效應模型（避免乘法疊加導致過高預測）
+                // v3.0.50: 改用加法效應，基於 Post-COVID 歷史數據校準
                 
-                // 使用 XGBoost 基準預測 + 星期效應差異
+                // 基準值：目標日期的星期均值
+                const targetMean = dowMeans[dow];
+                
                 // 使用 HKT 時區計算今天的星期
                 const todayHK = new Date(today.getTime() + 8 * 60 * 60 * 1000);
                 const todayDOW = todayHK.getUTCDay();
                 const todayMean = dowMeans[todayDOW];
-                const targetMean = dowMeans[dow];
                 
-                // 計算星期效應調整
-                const dowAdjustment = targetMean / todayMean;
+                // 計算 XGBoost 預測相對於今日均值的偏差（捕捉近期趨勢）
+                const xgboostDeviation = basePrediction - todayMean;
                 
-                // 應用調整
-                let value = basePrediction * dowAdjustment;
+                // 偏差隨時間衰減（遠期預測回歸到歷史均值）
+                const decayFactor = Math.exp(-0.1 * daysAhead);
+                const decayedDeviation = xgboostDeviation * decayFactor;
                 
-                // 月份效應
-                value *= monthFactor;
+                // 基礎預測 = 目標日期星期均值 + 衰減後的趨勢偏差
+                let value = targetMean + decayedDeviation;
                 
-                // AI 和天氣因素（如果有）
-                if (aiFactor !== 1.0) value *= aiFactor;
-                if (weatherFactor !== 1.0) value *= weatherFactor;
+                // 月份效應：使用加法調整（±5%）
+                const monthAdjustment = (monthFactor - 1.0) * targetMean * 0.5;
+                value += monthAdjustment;
                 
-                // 遠期趨勢衰減（模擬 EWMA 的影響減弱）
-                // XGBoost 的 EWMA 特徵捕捉近期趨勢，但這種趨勢會隨時間衰減
-                if (daysAhead > 7) {
-                    const trendDecay = Math.exp(-0.05 * (daysAhead - 7));
-                    const historicalValue = targetMean * monthFactor;
-                    value = value * trendDecay + historicalValue * (1 - trendDecay);
+                // AI 因素：使用加法調整（限制影響）
+                if (aiFactor !== 1.0) {
+                    const aiAdjustment = (aiFactor - 1.0) * targetMean * 0.5;
+                    value += aiAdjustment;
                 }
+                
+                // 天氣因素：使用加法調整（限制影響）
+                if (weatherFactor !== 1.0) {
+                    const weatherAdjustment = (weatherFactor - 1.0) * targetMean * 0.3;
+                    value += weatherAdjustment;
+                }
+                
+                // 應用上下限（基於 Post-COVID 歷史範圍）
+                value = Math.max(PREDICTION_MIN, Math.min(PREDICTION_MAX, value));
                 
                 adjusted = Math.round(value);
             }
