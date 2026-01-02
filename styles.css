@@ -2668,6 +2668,21 @@ section h2 {
     -webkit-backdrop-filter: var(--blur-sm);
 }
 
+/* v3.0.21: 天氣影響分析圖表 - 增加高度以顯示所有 12 個因素 */
+.weather-impact-card {
+    height: auto !important;
+    min-height: auto !important;
+}
+
+.weather-impact-container {
+    height: min(55vh, 480px) !important;
+    min-height: min(45vh, 400px) !important;
+}
+
+#weather-corr-chart {
+    height: 100% !important;
+}
+
 /* 對比圖容器特殊處理 - 固定高度防止無限增長 */
 #comparison-chart-container.chart-container {
     height: min(40vh, 380px) !important; /* 減少高度 */
