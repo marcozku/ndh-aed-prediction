@@ -1,5 +1,32 @@
 # 版本更新日誌
 
+## v2.9.62 - 2026-01-03 00:05 HKT
+
+### 🚀 全面改用 XGBoost 預測模型
+
+**問題**：
+- 今日預測、7天預測、30天圖表都使用統計方法
+- XGBoost 模型（1.59% MAPE）未被實際使用
+
+**修復**：
+1. **新增 `getXGBoostPredictionWithMetadata()`**：
+   - 結合 XGBoost 預測值和統計方法的元數據（因子分解等）
+   - 確保 UI 顯示完整的因子分解信息
+
+2. **新增 `getXGBoostPredictionsWithMetadata()`**：
+   - 批量獲取 XGBoost 預測並結合元數據
+
+3. **今日預測**：改用 `getXGBoostPredictionWithMetadata()`
+4. **7天預測**：改用 `getXGBoostPredictionsWithMetadata()`
+5. **30天圖表**：缺失日期用 XGBoost API 補充
+
+**效果**：
+- 所有預測都使用 XGBoost 模型
+- 準確度從 ~16% 誤差提升到 1.59% MAPE
+- 保留完整的因子分解顯示
+
+---
+
 ## v2.9.61 - 2026-01-02 23:50 HKT
 
 ### 🔧 重要修復：30天預測改用 XGBoost 模型
