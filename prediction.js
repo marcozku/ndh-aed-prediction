@@ -4208,10 +4208,15 @@ async function initVolatilityChart(targetDate = null) {
             }
         ];
         
-        // v3.0.32: 今日視圖加入「實時預測」點（與主預測區一致）
+        // v3.0.37: 區分今日 vs 歷史日期的顯示邏輯
         const hk = getHKTime();
         const isToday = targetData.date === hk.dateStr;
+        
+        let calculatedSmoothed = null;
+        let methodLabel = '集成方法';
+        
         if (isToday) {
+            // 今日：顯示實時預測點 + 使用主預測區的平滑值
             const realtimeEl = document.getElementById('realtime-predicted');
             const realtimeValue = realtimeEl ? parseInt(realtimeEl.textContent) : null;
             if (realtimeValue && !isNaN(realtimeValue)) {
@@ -4227,19 +4232,30 @@ async function initVolatilityChart(targetDate = null) {
                     showLine: false
                 });
             }
+            
+            // 從主預測區獲取已計算的平滑值
+            const mainPredictedEl = document.getElementById('today-predicted');
+            calculatedSmoothed = mainPredictedEl ? parseInt(mainPredictedEl.textContent) : null;
+            const currentMethodEl = document.getElementById('smoothing-method');
+            methodLabel = currentMethodEl?.textContent || '集成方法';
+        } else {
+            // 歷史日期：根據該日的預測數據計算平滑值
+            const predictionValues = predictions.map(p => p.y).filter(v => v != null && !isNaN(v));
+            if (predictionValues.length > 0) {
+                // 使用集成方法計算：EWMA 30% + 簡單平均 40% + 修剪平均 30%
+                const simpleAvg = predictionValues.reduce((a, b) => a + b, 0) / predictionValues.length;
+                const alpha = 0.65;
+                let ewma = predictionValues[0];
+                for (let i = 1; i < predictionValues.length; i++) {
+                    ewma = alpha * predictionValues[i] + (1 - alpha) * ewma;
+                }
+                const sorted = [...predictionValues].sort((a, b) => a - b);
+                const trimCount = Math.floor(sorted.length * 0.1);
+                const trimmed = sorted.slice(trimCount, sorted.length - trimCount || 1);
+                const trimmedAvg = trimmed.length > 0 ? trimmed.reduce((a, b) => a + b, 0) / trimmed.length : simpleAvg;
+                calculatedSmoothed = Math.round(ewma * 0.3 + simpleAvg * 0.4 + trimmedAvg * 0.3);
+            }
         }
-        
-        // v3.0.36: 直接使用主預測區的數值，確保一致性
-        // 不再本地計算，避免算法差異導致數值不同
-        const currentMethodEl = document.getElementById('smoothing-method');
-        const currentMethod = currentMethodEl?.textContent || '簡單平均';
-        
-        // 從主預測區獲取已計算的平滑值
-        const mainPredictedEl = document.getElementById('today-predicted');
-        const mainPredictedValue = mainPredictedEl ? parseInt(mainPredictedEl.textContent) : null;
-        
-        let calculatedSmoothed = mainPredictedValue;
-        let methodLabel = currentMethod;
         
         // v3.0.26: 平均線和實際線延伸到整個日期範圍 (00:00 - 23:59)
         // 使用 UTC 時間戳確保正確解析
