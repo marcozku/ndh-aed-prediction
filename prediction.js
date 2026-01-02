@@ -5634,6 +5634,117 @@ async function checkDatabaseStatus() {
     }
 }
 
+// ============================================
+// 自動預測狀態檢查 (v2.9.53)
+// ============================================
+let autoPredictStats = null;
+let autoPredictCountdownInterval = null;
+
+async function checkAutoPredictStatus() {
+    const statusEl = document.getElementById('auto-predict-status');
+    if (!statusEl) return;
+    
+    try {
+        const response = await fetch('/api/auto-predict-stats');
+        if (!response.ok) throw new Error('API 錯誤');
+        const data = await response.json();
+        autoPredictStats = data;
+        
+        updateAutoPredictDisplay(data);
+        
+        // 啟動倒計時更新
+        if (!autoPredictCountdownInterval) {
+            autoPredictCountdownInterval = setInterval(() => {
+                updateAutoPredictCountdown();
+            }, 1000);
+        }
+        
+        console.log('🔮 自動預測狀態:', JSON.stringify(data, null, 2));
+        return data;
+    } catch (error) {
+        statusEl.className = 'status-badge auto-predict-status error';
+        statusEl.innerHTML = `
+            <span class="auto-predict-status-icon">❌</span>
+            <span class="auto-predict-status-text">自動預測不可用</span>
+            <span class="auto-predict-status-details">${error.message}</span>
+        `;
+        console.error('❌ 自動預測狀態檢查失敗:', error);
+        return null;
+    }
+}
+
+function updateAutoPredictDisplay(data) {
+    const statusEl = document.getElementById('auto-predict-status');
+    if (!statusEl || !data) return;
+    
+    const lastSuccess = data.lastRunSuccess;
+    const todayCount = data.todayCount || 0;
+    const lastRunTime = data.lastRunTime ? new Date(data.lastRunTime) : null;
+    
+    // 計算上次執行時間的友好顯示
+    let lastRunDisplay = '尚未執行';
+    if (lastRunTime) {
+        const hkTime = lastRunTime.toLocaleString('zh-HK', { 
+            timeZone: 'Asia/Hong_Kong',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        lastRunDisplay = hkTime;
+    }
+    
+    // 根據狀態選擇樣式
+    let statusClass = 'active';
+    let statusIcon = '🔮';
+    let statusText = '自動預測運行中';
+    
+    if (todayCount === 0) {
+        statusClass = 'warning';
+        statusIcon = '⏳';
+        statusText = '等待首次執行';
+    } else if (lastSuccess === false) {
+        statusClass = 'error';
+        statusIcon = '⚠️';
+        statusText = '上次執行失敗';
+    }
+    
+    statusEl.className = `status-badge auto-predict-status ${statusClass}`;
+    statusEl.innerHTML = `
+        <span class="auto-predict-status-icon">${statusIcon}</span>
+        <span class="auto-predict-status-text">${statusText}</span>
+        <span class="auto-predict-status-details">
+            今日: ${todayCount}次 | 上次: ${lastRunDisplay}
+        </span>
+        <span class="auto-predict-countdown" id="auto-predict-countdown">
+            下次: 計算中...
+        </span>
+    `;
+}
+
+function updateAutoPredictCountdown() {
+    const countdownEl = document.getElementById('auto-predict-countdown');
+    if (!countdownEl || !autoPredictStats) return;
+    
+    const nextRunTime = autoPredictStats.nextRunTime ? new Date(autoPredictStats.nextRunTime) : null;
+    if (!nextRunTime) {
+        countdownEl.textContent = '下次: 等待中';
+        return;
+    }
+    
+    const now = new Date();
+    const diff = nextRunTime.getTime() - now.getTime();
+    
+    if (diff <= 0) {
+        countdownEl.textContent = '下次: 執行中...';
+        // 5秒後刷新狀態
+        setTimeout(() => checkAutoPredictStatus(), 5000);
+        return;
+    }
+    
+    const mins = Math.floor(diff / 60000);
+    const secs = Math.floor((diff % 60000) / 1000);
+    countdownEl.textContent = `下次: ${mins}分${secs}秒`;
+}
+
 // 更新頁腳的數據來源信息
 function updateDataSourceFooter(dateRange) {
     if (!dateRange) return;
@@ -7171,6 +7282,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateSectionProgress('today-prediction', 8);
     await checkAIStatus();
     
+    // 檢查自動預測狀態 (v2.9.53)
+    await checkAutoPredictStatus();
+    
     // 獲取並顯示天氣（使用真實 HKO API 數據）
     updateSectionProgress('today-prediction', 10);
     await fetchWeatherMonthlyAverages(); // 載入 HKO 歷史月度平均
@@ -7366,6 +7480,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         await checkAIStatus();
         console.log('🤖 AI 狀態已更新');
     }, 600000); // 10 分鐘
+    
+    // 每5分鐘刷新自動預測狀態 (v2.9.53)
+    setInterval(async () => {
+        await checkAutoPredictStatus();
+        console.log('🔮 自動預測狀態已更新');
+    }, 300000); // 5 分鐘
     
     console.log('✅ NDH AED 預測系統就緒');
     

@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.81';
+const MODEL_VERSION = '2.9.83';
 
 // ============================================
 // HKT 時間工具函數
@@ -1427,6 +1427,38 @@ const apiHandlers = {
                 error: err.message 
             }, 500);
         }
+    },
+
+    // 獲取自動預測統計 (v2.9.53)
+    'GET /api/auto-predict-stats': async (req, res) => {
+        const hk = getHKTime();
+        
+        // 計算下次執行時間（每30分鐘）
+        const now = new Date();
+        const lastRun = autoPredictStats.lastRunTime ? new Date(autoPredictStats.lastRunTime) : null;
+        let nextRunTime = null;
+        let secondsUntilNext = null;
+        
+        if (lastRun) {
+            nextRunTime = new Date(lastRun.getTime() + 30 * 60 * 1000);
+            secondsUntilNext = Math.max(0, Math.floor((nextRunTime.getTime() - now.getTime()) / 1000));
+        }
+        
+        sendJson(res, {
+            success: true,
+            currentDate: hk.dateStr,
+            currentTime: `${String(hk.hour).padStart(2, '0')}:${String(hk.minute).padStart(2, '0')} HKT`,
+            todayCount: autoPredictStats.todayCount,
+            lastRunTime: autoPredictStats.lastRunTime,
+            lastRunSuccess: autoPredictStats.lastRunSuccess,
+            lastRunDuration: autoPredictStats.lastRunDuration,
+            nextRunTime: nextRunTime ? nextRunTime.toISOString() : null,
+            secondsUntilNext: secondsUntilNext,
+            serverStartTime: autoPredictStats.serverStartTime,
+            totalSuccessCount: autoPredictStats.totalSuccessCount,
+            totalFailCount: autoPredictStats.totalFailCount,
+            intervalMinutes: 30
+        });
     },
 
     // 獲取 AI 因素緩存（從數據庫）
@@ -3057,9 +3089,46 @@ function scheduleDailyFinalPrediction() {
 }
 
 // ============================================================
+// 自動預測統計追蹤器 (v2.9.53)
+// ============================================================
+const autoPredictStats = {
+    todayCount: 0,          // 今日執行次數
+    lastRunTime: null,      // 上次執行時間
+    lastRunSuccess: null,   // 上次執行是否成功
+    lastRunDuration: null,  // 上次執行耗時（毫秒）
+    currentDate: null,      // 當前日期（用於判斷是否需要重置）
+    serverStartTime: new Date().toISOString(),  // 伺服器啟動時間
+    totalSuccessCount: 0,   // 總成功次數
+    totalFailCount: 0       // 總失敗次數
+};
+
+// 每天 00:00 重置統計
+function scheduleDailyStatsReset() {
+    const checkAndReset = () => {
+        const hk = getHKTime();
+        const today = hk.dateStr;
+        
+        if (autoPredictStats.currentDate !== today) {
+            console.log(`📊 [${hk.dateStr} ${String(hk.hour).padStart(2, '0')}:${String(hk.minute).padStart(2, '0')} HKT] 重置自動預測統計（新的一天）`);
+            autoPredictStats.todayCount = 0;
+            autoPredictStats.currentDate = today;
+        }
+    };
+    
+    // 初始化當前日期
+    checkAndReset();
+    
+    // 每分鐘檢查是否需要重置（精確捕捉 00:00）
+    setInterval(checkAndReset, 60000);
+    
+    console.log('⏰ 已設置每日自動預測統計重置（每天 00:00 HKT）');
+}
+
+// ============================================================
 // 伺服器端自動預測（每 30 分鐘執行一次，僅使用 XGBoost）
 // ============================================================
 async function generateServerSidePredictions() {
+    const startTime = Date.now();
     if (!db || !db.pool) {
         console.log('⚠️ 數據庫未配置，跳過伺服器端自動預測');
         return;
@@ -3429,14 +3498,28 @@ async function generateServerSidePredictions() {
             }
         }
         
-        console.log(`✅ 伺服器端自動預測完成：已保存 ${savedCount}/${predictions.length} 筆預測（v${MODEL_VERSION}）`);
+        const duration = Date.now() - startTime;
+        console.log(`✅ 伺服器端自動預測完成：已保存 ${savedCount}/${predictions.length} 筆預測（v${MODEL_VERSION}，耗時 ${(duration/1000).toFixed(1)}s）`);
         if (predictions.length > 0) {
             console.log(`   今日預測: ${predictions[0].predicted} 人 (${predictions[0].date})`);
             console.log(`   明日預測: ${predictions[1]?.predicted || 'N/A'} 人 (${predictions[1]?.date || 'N/A'})`);
         }
         
+        // 更新統計
+        autoPredictStats.todayCount++;
+        autoPredictStats.lastRunTime = new Date().toISOString();
+        autoPredictStats.lastRunSuccess = true;
+        autoPredictStats.lastRunDuration = duration;
+        autoPredictStats.totalSuccessCount++;
+        
     } catch (error) {
         console.error('❌ 伺服器端自動預測失敗:', error);
+        
+        // 更新失敗統計
+        autoPredictStats.lastRunTime = new Date().toISOString();
+        autoPredictStats.lastRunSuccess = false;
+        autoPredictStats.lastRunDuration = Date.now() - startTime;
+        autoPredictStats.totalFailCount++;
     }
 }
 
@@ -3462,6 +3545,7 @@ server.listen(PORT, () => {
         console.log(`🗄️ PostgreSQL 數據庫已連接`);
         // 啟動定時任務
         scheduleDailyFinalPrediction();
+        scheduleDailyStatsReset(); // 每日 00:00 重置自動預測統計 (v2.9.53)
         scheduleAutoPredict(); // 每 30 分鐘自動預測（使用 XGBoost）
     } else {
         console.log(`⚠️ 數據庫未配置 (設置 DATABASE_URL 或 PGHOST/PGUSER/PGPASSWORD/PGDATABASE 環境變數以啟用)`);

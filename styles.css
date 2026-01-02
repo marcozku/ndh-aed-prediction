@@ -805,6 +805,66 @@ body::before {
 }
 
 /* ============================================
+   Auto Predict Status (v2.9.53)
+   ============================================ */
+.auto-predict-status {
+    margin-top: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-full);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: var(--transition-base);
+}
+
+.auto-predict-status.active {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    color: #10b981;
+}
+
+.auto-predict-status.warning {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+}
+
+.auto-predict-status.error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.auto-predict-status.loading {
+    background: rgba(217, 119, 6, 0.1);
+    border: 1px solid rgba(217, 119, 6, 0.2);
+    color: #d97706;
+}
+
+.auto-predict-status-icon {
+    font-size: 1rem;
+}
+
+.auto-predict-status-text {
+    font-weight: 600;
+}
+
+.auto-predict-status-details {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+.auto-predict-countdown {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    background: rgba(0, 0, 0, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* ============================================
    模型訓練狀態區塊
    ============================================ */
 .model-training-section {
