@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.52';
+const MODEL_VERSION = '2.9.67';
 
 // ============================================
 // HKT 時間工具函數
@@ -3303,7 +3303,7 @@ async function generateServerSidePredictions() {
                     factors: pred.aiInfo.factors?.map(f => f.name || f.factor) || []
                 } : null;
                 
-                await db.insertDailyPrediction(
+                const result = await db.insertDailyPrediction(
                     pred.date,
                     pred.predicted,
                     pred.ci80,
@@ -3312,14 +3312,20 @@ async function generateServerSidePredictions() {
                     weatherData,
                     aiFactorsData
                 );
+                if (savedCount === 0) {
+                    console.log(`📝 首筆預測已保存: ${pred.date} = ${pred.predicted}人, id=${result?.id || 'unknown'}`);
+                }
                 savedCount++;
             } catch (err) {
-                console.error(`❌ 保存 ${pred.date} 預測失敗:`, err.message);
+                console.error(`❌ 保存 ${pred.date} 預測失敗:`, err.message, err.stack);
             }
         }
         
-        console.log(`✅ 伺服器端自動預測完成：已保存 ${savedCount}/${predictions.length} 筆預測（XGBoost）`);
-        console.log(`   今日預測: ${predictions[0].predicted} 人 (${predictions[0].date})`);
+        console.log(`✅ 伺服器端自動預測完成：已保存 ${savedCount}/${predictions.length} 筆預測（v${MODEL_VERSION}）`);
+        if (predictions.length > 0) {
+            console.log(`   今日預測: ${predictions[0].predicted} 人 (${predictions[0].date})`);
+            console.log(`   明日預測: ${predictions[1]?.predicted || 'N/A'} 人 (${predictions[1]?.date || 'N/A'})`);
+        }
         
     } catch (error) {
         console.error('❌ 伺服器端自動預測失敗:', error);
