@@ -5156,12 +5156,16 @@ async function updateUI(predictor, forceRecalculate = false) {
         // 未來7天卡片使用簡短日期格式
         const dateFormat = formatDateDDMM(p.date);
         
+        // 處理兩種 CI 格式：{lower, upper} 或 {low, high}
+        const ci80Low = p.ci80?.lower ?? p.ci80?.low ?? (p.predicted ? Math.round(p.predicted * 0.88) : '--');
+        const ci80High = p.ci80?.upper ?? p.ci80?.high ?? (p.predicted ? Math.round(p.predicted * 1.12) : '--');
+        
         return `
             <div class="${cardClass}">
                 <div class="forecast-date">${dateFormat}</div>
                 <div class="forecast-day">${p.dayName}</div>
                 <div class="forecast-value">${p.predicted}</div>
-                <div class="forecast-ci">${p.ci80.lower}-${p.ci80.upper}</div>
+                <div class="forecast-ci">${ci80Low}-${ci80High}</div>
                 ${badges}
             </div>
         `;
