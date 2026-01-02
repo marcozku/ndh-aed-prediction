@@ -1,5 +1,23 @@
 # 版本更新日誌
 
+## v3.0.23 - 2026-01-03 HKT
+
+### 🐛 修復：Intraday API "Invalid time value" 錯誤
+
+**問題**：
+- `/api/intraday-predictions?days=7` 返回空數據
+- 錯誤訊息：`Invalid time value`
+- 導致預測波動分析圖表無法顯示
+
+**根因**：
+- `new Date(hk.full)` 在某些環境下無法正確解析時區字符串
+
+**修復**：
+- 改用 UTC 日期計算，避免時區解析問題
+- 直接從 `todayStr` 解析年月日
+
+---
+
 ## v3.0.22 - 2026-01-03 HKT
 
 ### 📊 天氣影響分析圖表高度增加

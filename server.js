@@ -548,9 +548,15 @@ const apiHandlers = {
             } else {
                 // 默認獲取最近 N 天（預設 7 天）
                 const numDays = parseInt(days) || 7;
-                const startDate = new Date(hk.full);
-                startDate.setDate(startDate.getDate() - numDays + 1);
-                const startStr = startDate.toISOString().split('T')[0];
+                
+                // v3.0.23: 更穩健的日期計算
+                // 使用 UTC 時間計算，避免時區問題
+                const [year, month, day] = todayStr.split('-').map(Number);
+                const todayDate = new Date(Date.UTC(year, month - 1, day));
+                todayDate.setUTCDate(todayDate.getUTCDate() - numDays + 1);
+                const startStr = todayDate.toISOString().split('T')[0];
+                
+                console.log(`📅 Intraday 查詢範圍: ${startStr} 到 ${todayStr}`);
                 data = await db.getIntradayPredictionsRange(startStr, todayStr) || [];
             }
             
