@@ -3949,13 +3949,13 @@ async function initWeatherCorrChart() {
             }]
         };
         
-        // v3.0.15: 動態獲取主題顏色（支持淺色/深色模式）
+        // v3.0.31: 強制使用深色文字（確保在 iPhone 淺色背景可見）
         const isDarkMode = document.documentElement.classList.contains('dark-mode') || 
-                          document.body.classList.contains('dark-mode') ||
-                          window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const textPrimary = isDarkMode ? '#f1f5f9' : '#1e293b';
-        const textSecondary = isDarkMode ? '#94a3b8' : '#475569';
-        const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.2)' : 'rgba(100, 116, 139, 0.2)';
+                          document.body.classList.contains('dark-mode');
+        // 不使用 prefers-color-scheme - iPhone 有時會誤判
+        const textPrimary = isDarkMode ? '#f1f5f9' : '#0f172a';  // 更深的黑色
+        const textSecondary = isDarkMode ? '#94a3b8' : '#334155';  // 更深的灰色
+        const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.2)' : 'rgba(71, 85, 105, 0.3)';
         
         // 創建圖表 - 水平條形圖顯示偏差
         const ctx = canvas.getContext('2d');

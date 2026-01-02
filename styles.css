@@ -2669,19 +2669,29 @@ section h2 {
     -webkit-backdrop-filter: var(--blur-sm);
 }
 
-/* v3.0.21: 天氣影響分析圖表 - 增加高度以顯示所有 12 個因素 */
+/* v3.0.31: 天氣影響分析圖表 - 修復溢出和文字顏色問題 */
 .weather-impact-card {
     height: auto !important;
     min-height: auto !important;
+    overflow: hidden !important;
+    max-width: 100% !important;
 }
 
 .weather-impact-container {
     height: min(55vh, 480px) !important;
     min-height: min(45vh, 400px) !important;
+    overflow: hidden !important;
+    max-width: 100% !important;
 }
 
 #weather-corr-chart {
     height: 100% !important;
+    max-width: 100% !important;
+}
+
+/* v3.0.31: 強制圖表文字深色（避免在淺色背景看不清） */
+.weather-impact-card canvas {
+    color: #1e293b !important;
 }
 
 /* 對比圖容器特殊處理 - 固定高度防止無限增長 */
@@ -6432,10 +6442,12 @@ section > * {
         padding: 2px 6px;
     }
     
-    /* Weather impact card - ensure content fits */
+    /* Weather impact card - v3.0.31 修復溢出 */
     .weather-impact-card {
         padding: var(--space-sm) !important;
-        overflow: hidden;
+        overflow: hidden !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
     }
     
     .weather-impact-card .chart-header {
@@ -6448,17 +6460,27 @@ section > * {
         font-size: 0.9rem;
     }
     
+    .weather-impact-container {
+        height: min(45vh, 380px) !important;
+        min-height: 300px !important;
+        overflow: hidden !important;
+        max-width: 100% !important;
+    }
+    
     /* Weather stats text - smaller and wrap */
     #weather-corr-stats {
         font-size: 0.7rem !important;
         line-height: 1.4;
         padding: var(--space-xs) !important;
         word-break: break-word;
+        max-width: 100% !important;
+        overflow: hidden !important;
     }
     
     #weather-corr-stats > div {
         flex-wrap: wrap !important;
         gap: var(--space-xs) !important;
+        max-width: 100% !important;
     }
     
     /* Algorithm content - single column on mobile */
@@ -6733,17 +6755,24 @@ section > * {
         font-size: 0.7rem !important;
     }
     
-    /* Weather impact card - very compact */
+    /* Weather impact card - very compact v3.0.31 */
     .weather-impact-card {
         padding: var(--space-xs) !important;
+        overflow: hidden !important;
     }
     
     .weather-impact-card .chart-title {
         font-size: 0.8rem !important;
     }
     
+    .weather-impact-container {
+        height: min(40vh, 320px) !important;
+        min-height: 250px !important;
+    }
+    
     #weather-corr-stats {
         font-size: 0.6rem !important;
+        overflow: hidden !important;
     }
     
     #weather-corr-stats > div {
@@ -6899,18 +6928,25 @@ section > * {
         font-size: 0.6rem !important;
     }
     
-    /* Weather impact card */
+    /* Weather impact card - v3.0.31 極窄屏幕 */
     .weather-impact-card {
         padding: 4px !important;
+        overflow: hidden !important;
     }
     
     .weather-impact-card .chart-title {
         font-size: 0.7rem !important;
     }
     
+    .weather-impact-container {
+        height: min(35vh, 280px) !important;
+        min-height: 220px !important;
+    }
+    
     #weather-corr-stats {
         font-size: 0.5rem !important;
         padding: 2px !important;
+        overflow: hidden !important;
     }
     
     /* Modal - full width */
