@@ -7455,16 +7455,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // 每30分鐘更新 AI 因素（基於時間，避免過度消耗）
     setInterval(async () => {
+        console.log('🔄 [自動] 開始 AI 因素 + XGBoost 預測流程...');
+        
+        // 1. 更新 AI 因素
         const aiAnalysisData = await updateAIFactors(true); // 強制更新
         updateRealtimeFactors(aiAnalysisData);
         
-        // 使用統一的圖表刷新函數（包括所有圖表、置信度、統計等）
+        // 2. 觸發後端 XGBoost 預測（使用新的 AI + 天氣數據）
+        try {
+            console.log('🔮 [自動] 觸發 XGBoost 預測...');
+            await fetch('/api/trigger-prediction', { method: 'POST' });
+            console.log('✅ [自動] XGBoost 預測完成');
+        } catch (predErr) {
+            console.warn('⚠️ [自動] 預測觸發失敗:', predErr.message);
+        }
+        
+        // 3. 刷新所有圖表和數據
         if (typeof refreshAllChartsAfterDataUpdate === 'function') {
             await refreshAllChartsAfterDataUpdate();
         }
         
-        await checkAIStatus(); // 更新 AI 狀態
-        console.log('🤖 AI 因素已更新，所有圖表已刷新');
+        // 4. 更新狀態顯示
+        await checkAIStatus();
+        await checkAutoPredictStatus(); // 同步自動預測統計
+        
+        console.log('✅ [自動] AI 因素 + XGBoost 預測流程完成');
     }, 1800000); // 30 分鐘
     
     // 每秒更新 AI 因素倒計時顯示
@@ -8894,6 +8909,17 @@ async function forceRefreshAI() {
                 // AI 強制刷新後重新計算預測
                 await updateUI(predictor, true);
             } catch (e) {}
+        }
+        
+        // 🔄 觸發後端預測更新並刷新自動預測狀態 (v2.9.84)
+        try {
+            console.log('🔮 觸發後端預測更新...');
+            await fetch('/api/trigger-prediction', { method: 'POST' });
+            // 刷新自動預測狀態顯示
+            await checkAutoPredictStatus();
+            console.log('✅ 自動預測狀態已同步');
+        } catch (predErr) {
+            console.warn('⚠️ 預測更新失敗:', predErr.message);
         }
         
         console.log('✅ AI 強制刷新完成');
