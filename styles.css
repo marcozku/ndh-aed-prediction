@@ -3665,6 +3665,13 @@ section h2 {
     font-weight: 600;
 }
 
+.volatility-stat-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    flex-wrap: wrap;
+}
+
 .add-data-btn {
     padding: clamp(8px, 1.5vw, 10px) clamp(16px, 3vw, 20px);
     background: var(--gradient-primary);
@@ -6321,6 +6328,366 @@ section h2 {
     [data-theme="dark"] .accuracy-stat-card {
         background: rgba(255,255,255,0.05);
     }
+}
+
+/* ============================================
+   Comprehensive Mobile Responsiveness Fix v3.0.0
+   Ensures all elements stay inside containers
+   ============================================ */
+
+/* Mobile: 768px and below */
+@media (max-width: 768px) {
+    /* Algorithm content - single column on mobile */
+    .algorithm-content {
+        grid-template-columns: 1fr !important;
+        gap: var(--space-md) !important;
+    }
+    
+    /* Chart toolbar - stack vertically on mobile */
+    .chart-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--space-sm);
+        padding: var(--space-sm);
+    }
+    
+    .toolbar-group {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    /* Training status grid - single column on small screens */
+    .training-status-grid {
+        grid-template-columns: 1fr !important;
+        gap: var(--space-md);
+    }
+    
+    /* Status badges - wrap properly */
+    .status-badges {
+        width: 100%;
+        gap: var(--space-xs);
+    }
+    
+    .status-badge {
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: 100%;
+        justify-content: center;
+        padding: var(--space-xs) var(--space-sm);
+    }
+    
+    .status-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 100%;
+    }
+    
+    /* Volatility stats - stack on mobile */
+    .volatility-stat-row {
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+    }
+    
+    .volatility-stat-row .stat-label {
+        margin-left: 0 !important;
+    }
+    
+    .volatility-stats {
+        flex-direction: column;
+        gap: var(--space-sm);
+    }
+    
+    /* Confidence tooltip - ensure it fits screen */
+    .confidence-tooltip {
+        width: calc(100vw - 40px);
+        max-width: 300px;
+        left: 50%;
+        right: auto;
+    }
+    
+    /* Section headers - wrap properly */
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-sm);
+    }
+    
+    .section-header .section-title {
+        width: 100%;
+    }
+    
+    .header-actions {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+    
+    /* Comparison header - stack on mobile */
+    .comparison-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    /* Volatility header - stack on mobile */
+    .volatility-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .volatility-controls {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    /* Chart header - stack on mobile */
+    .chart-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .chart-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+    
+    /* Time range selector - horizontal scroll with proper touch */
+    .time-range-selector {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        padding-bottom: var(--space-xs);
+    }
+    
+    .time-range-selector::-webkit-scrollbar {
+        display: none;
+    }
+    
+    .time-range-btn {
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+    
+    /* Factors table - allow horizontal scroll */
+    .factors-table {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .factors-table table {
+        min-width: 500px;
+    }
+    
+    /* History navigation - stack on mobile */
+    .history-navigation {
+        flex-direction: column;
+        gap: var(--space-sm);
+        align-items: stretch;
+    }
+    
+    .history-navigation .nav-btn {
+        width: 100%;
+        text-align: center;
+    }
+    
+    /* Modal content - ensure it fits */
+    .modal-content {
+        width: calc(100vw - 20px) !important;
+        max-width: calc(100vw - 20px) !important;
+        margin: 10px !important;
+        max-height: calc(100vh - 80px);
+    }
+    
+    .methodology-modal-content {
+        width: calc(100vw - 20px) !important;
+    }
+    
+    /* Export options - 2 columns on mobile */
+    .export-options {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    
+    /* Timeline main container - single column */
+    .timeline-main-container {
+        grid-template-columns: 1fr !important;
+        gap: var(--space-md);
+    }
+    
+    /* Weather display - ensure proper wrapping */
+    .weather-display {
+        width: 100%;
+        text-align: center;
+    }
+    
+    /* Ensure all sections have proper containment */
+    section {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+        box-sizing: border-box;
+    }
+    
+    /* Ensure all cards don't overflow */
+    .prediction-card,
+    .chart-card,
+    .model-status-card,
+    .forecast-day-card {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+}
+
+/* Extra small devices: 480px and below */
+@media (max-width: 480px) {
+    /* Status badges - stack vertically on very small screens */
+    .status-badges {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .status-badge {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    /* Confidence grid - single column on very small screens */
+    .confidence-grid {
+        grid-template-columns: 1fr !important;
+        gap: var(--space-sm);
+    }
+    
+    /* Nav container - tighter spacing */
+    .nav-container {
+        padding: 0 var(--space-xs);
+    }
+    
+    /* Toolbar - even smaller */
+    .chart-toolbar {
+        padding: var(--space-xs);
+    }
+    
+    .toolbar-label {
+        font-size: 0.75rem;
+    }
+    
+    /* Training buttons - full width */
+    .train-btn,
+    .stop-btn,
+    .refresh-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    /* Export options - single column on very small */
+    .export-options {
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* Volatility controls - stack */
+    .volatility-controls {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--space-xs);
+    }
+    
+    .volatility-date-select {
+        width: 100%;
+    }
+    
+    /* Comparison table - smaller font */
+    .comparison-table th,
+    .comparison-table td {
+        font-size: 0.7rem;
+        padding: var(--space-xs);
+    }
+    
+    /* Forecast cards - 2 columns max */
+    .forecast-cards {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    
+    /* Header info - ensure no overflow */
+    .header-info {
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .current-datetime {
+        font-size: 0.8rem;
+    }
+}
+
+/* Extra extra small: 380px and below */
+@media (max-width: 380px) {
+    /* App container - minimal padding */
+    .app-container {
+        padding-left: var(--space-xs);
+        padding-right: var(--space-xs);
+    }
+    
+    /* Header - compact */
+    .app-header {
+        padding: var(--space-sm);
+    }
+    
+    /* Reduce all gaps */
+    .prediction-grid,
+    .stats-grid,
+    .forecast-cards,
+    .confidence-grid {
+        gap: var(--space-xs) !important;
+    }
+    
+    /* Ensure text doesn't overflow */
+    .section-title,
+    section h2 {
+        font-size: 1rem !important;
+        word-break: break-word;
+    }
+    
+    /* Very compact status badges */
+    .status-badge {
+        padding: var(--space-xs);
+        font-size: 0.65rem;
+    }
+    
+    .status-icon {
+        font-size: 0.8rem;
+    }
+    
+    /* Modal - full width */
+    .modal-content {
+        width: calc(100vw - 10px) !important;
+        margin: 5px !important;
+        border-radius: var(--radius-md);
+    }
+}
+
+/* Ensure no horizontal scroll on any screen size */
+html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+}
+
+/* Global containment for all flex/grid containers */
+.prediction-grid,
+.stats-grid,
+.forecast-cards,
+.confidence-grid,
+.charts-section,
+.algorithm-content,
+.training-status-grid,
+.factors-container,
+.timeline-main-container {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* ============================================

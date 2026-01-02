@@ -531,12 +531,18 @@
                 </div>
                 <div class="volatility-stats" id="volatility-stats" style="margin-top: var(--space-md); display: none;">
                     <div class="volatility-stat-row">
-                        <span class="stat-label">預測次數：</span>
-                        <span class="stat-value" id="volatility-count">-</span>
-                        <span class="stat-label" style="margin-left: var(--space-lg);">預測範圍：</span>
-                        <span class="stat-value" id="volatility-range">-</span>
-                        <span class="stat-label" style="margin-left: var(--space-lg);">標準差：</span>
-                        <span class="stat-value" id="volatility-std">-</span>
+                        <div class="volatility-stat-item">
+                            <span class="stat-label">預測次數：</span>
+                            <span class="stat-value" id="volatility-count">-</span>
+                        </div>
+                        <div class="volatility-stat-item">
+                            <span class="stat-label">預測範圍：</span>
+                            <span class="stat-value" id="volatility-range">-</span>
+                        </div>
+                        <div class="volatility-stat-item">
+                            <span class="stat-label">標準差：</span>
+                            <span class="stat-value" id="volatility-std">-</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -592,7 +598,7 @@
         <footer class="app-footer" role="contentinfo">
             <p id="data-source-info" style="cursor: pointer; text-decoration: underline;" data-lang-key="footer-source">數據來源：載入中...</p>
             <p id="last-update-info" class="last-update-info"></p>
-            <p>預測模型版本 2.9.52 · 香港時間 HKT</p>
+            <p>預測模型版本 3.0.24 · 香港時間 HKT</p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2025 Marco Ma. All Rights Reserved.</p>
             <div class="footer-links">
                 <a href="/api/docs" class="footer-link" data-lang-key="footer-api">API 文檔</a>
