@@ -549,14 +549,14 @@ const apiHandlers = {
                 // 默認獲取最近 N 天（預設 7 天）
                 const numDays = parseInt(days) || 7;
                 
-                // v3.0.23: 更穩健的日期計算
-                // 使用 UTC 時間計算，避免時區問題
+                // v3.0.24: HKT 日期計算
                 const [year, month, day] = todayStr.split('-').map(Number);
-                const todayDate = new Date(Date.UTC(year, month - 1, day));
-                todayDate.setUTCDate(todayDate.getUTCDate() - numDays + 1);
-                const startStr = todayDate.toISOString().split('T')[0];
+                // 創建 HKT 日期並減去天數
+                const startDate = new Date(year, month - 1, day);
+                startDate.setDate(startDate.getDate() - numDays + 1);
+                const startStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
                 
-                console.log(`📅 Intraday 查詢範圍: ${startStr} 到 ${todayStr}`);
+                console.log(`📅 Intraday 查詢範圍 (HKT): ${startStr} 到 ${todayStr}`);
                 data = await db.getIntradayPredictionsRange(startStr, todayStr) || [];
             }
             
