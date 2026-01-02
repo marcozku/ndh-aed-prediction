@@ -7657,6 +7657,21 @@ function startTrainingSSE() {
         const data = JSON.parse(e.data);
         console.log('📊 訓練狀態更新:', data);
         
+        // v2.9.85: 訓練開始時，並行觸發 AI 刷新（節省時間）
+        if (data.isTraining === true) {
+            console.log('🔄 [並行] 訓練開始，同時觸發 AI 因素刷新...');
+            // 並行執行 AI 刷新（不等待）
+            (async () => {
+                try {
+                    const aiResult = await updateAIFactors(true);
+                    console.log('✅ [並行] AI 因素刷新完成');
+                    updateRealtimeFactors(aiResult);
+                } catch (err) {
+                    console.warn('⚠️ [並行] AI 因素刷新失敗:', err);
+                }
+            })();
+        }
+        
         if (data.isTraining === false) {
             // 訓練完成
             if (data.message) {
@@ -7665,6 +7680,21 @@ function startTrainingSSE() {
             }
             // 重新載入完整狀態
             loadTrainingStatus();
+            
+            // v2.9.85: 訓練完成後觸發 XGBoost 預測
+            if (data.success) {
+                console.log('🔮 [訓練完成] 觸發 XGBoost + AI + 天氣預測...');
+                (async () => {
+                    try {
+                        await fetch('/api/trigger-prediction', { method: 'POST' });
+                        console.log('✅ XGBoost 預測已觸發');
+                        await checkAutoPredictStatus(); // 刷新統計
+                        await refreshAllChartsAfterDataUpdate(); // 刷新圖表
+                    } catch (err) {
+                        console.warn('⚠️ 觸發預測失敗:', err);
+                    }
+                })();
+            }
         }
     });
     
@@ -8767,6 +8797,21 @@ function initCSVUpload() {
                     // 檢查是否有實際導入的數據
                     if (result.count > 0) {
                         showStatus(`✅ ${result.message}`, 'success');
+                        
+                        // v2.9.85: 新數據上傳後，並行觸發 AI 刷新（與後端訓練同時進行）
+                        console.log('🔄 [並行] 新數據上傳，觸發 AI 因素刷新...');
+                        (async () => {
+                            try {
+                                const aiResult = await updateAIFactors(true);
+                                console.log('✅ [並行] AI 因素刷新完成（與訓練同步）');
+                                updateRealtimeFactors(aiResult);
+                            } catch (err) {
+                                console.warn('⚠️ [並行] AI 因素刷新失敗:', err);
+                            }
+                        })();
+                        
+                        // 啟動 SSE 監聽訓練完成事件
+                        startTrainingSSE();
                         
                         // 重置按鈕狀態
                         submitBtn.disabled = false;
