@@ -9169,7 +9169,7 @@ function initAlgorithmContent() {
                     <div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid var(--border-subtle);"><span>假期效應</span><span style="color: var(--accent-primary);">×0.60-1.40</span></div>
                     <div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid var(--border-subtle);"><span>流感季節</span><span style="color: var(--accent-danger);">×1.10-1.30</span></div>
                     <div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid var(--border-subtle);"><span>天氣 (HKO)</span><span style="color: var(--accent-primary);">×0.85-1.15</span></div>
-                    <div style="display: flex; justify-content: space-between; padding: 3px 0;"><span>AI (GPT/DeepSeek)</span><span style="color: var(--accent-primary);">×0.70-1.30</span></div>
+                    <div style="display: flex; justify-content: space-between; padding: 3px 0;"><span>AI (GPT→DeepSeek)</span><span style="color: var(--accent-primary);">×0.70-1.30</span></div>
                 </div>
             </div>
         </div>
@@ -9271,7 +9271,7 @@ function initAlgorithmContent() {
                 <div style="color: var(--text-secondary); line-height: 1.6;">
                     <div>• NDH AED 2014-至今 (4000+ 筆)</div>
                     <div>• HKO 打鼓嶺站 1988-至今 (13000+ 天)</div>
-                    <div>• GPT-4o / DeepSeek 新聞分析</div>
+                    <div>• AI 新聞分析 (GPT-4o→DeepSeek→GPT-4o-mini)</div>
                 </div>
             </div>
             <div class="algo-card" style="background: var(--bg-secondary); padding: var(--space-md); border-radius: var(--radius-lg);">
