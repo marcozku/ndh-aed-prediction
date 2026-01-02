@@ -6434,6 +6434,73 @@ section > * {
 
 /* Mobile: 768px and below */
 @media (max-width: 768px) {
+    /* Header info - ensure proper containment */
+    .header-info {
+        width: 100%;
+        max-width: 100%;
+        padding: 0 var(--space-xs);
+        box-sizing: border-box;
+    }
+    
+    /* Weather display - full width, wrap content */
+    .weather-display {
+        width: 100%;
+        max-width: 100%;
+        padding: var(--space-sm);
+        gap: var(--space-xs);
+        font-size: 0.75rem;
+        box-sizing: border-box;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .weather-item {
+        font-size: 0.7rem;
+        white-space: nowrap;
+    }
+    
+    .weather-temp {
+        font-size: 1rem;
+    }
+    
+    .weather-icon {
+        font-size: 1.25rem;
+    }
+    
+    .weather-impact {
+        font-size: 0.65rem;
+        padding: 2px 6px;
+    }
+    
+    /* Weather impact card - ensure content fits */
+    .weather-impact-card {
+        padding: var(--space-sm) !important;
+        overflow: hidden;
+    }
+    
+    .weather-impact-card .chart-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-xs);
+    }
+    
+    .weather-impact-card .chart-title {
+        font-size: 0.9rem;
+    }
+    
+    /* Weather stats text - smaller and wrap */
+    #weather-corr-stats {
+        font-size: 0.7rem !important;
+        line-height: 1.4;
+        padding: var(--space-xs) !important;
+        word-break: break-word;
+    }
+    
+    #weather-corr-stats > div {
+        flex-wrap: wrap !important;
+        gap: var(--space-xs) !important;
+    }
+    
     /* Algorithm content - single column on mobile */
     .algorithm-content {
         grid-template-columns: 1fr !important;
@@ -6471,6 +6538,7 @@ section > * {
         max-width: 100%;
         justify-content: center;
         padding: var(--space-xs) var(--space-sm);
+        font-size: 0.7rem;
     }
     
     .status-text {
@@ -6478,6 +6546,11 @@ section > * {
         text-overflow: ellipsis;
         white-space: nowrap;
         max-width: 100%;
+        font-size: 0.65rem;
+    }
+    
+    .status-icon {
+        font-size: 0.8rem;
     }
     
     /* Volatility stats - stack on mobile */
@@ -6642,6 +6715,43 @@ section > * {
 
 /* Extra small devices: 480px and below */
 @media (max-width: 480px) {
+    /* Header - very compact */
+    .app-header {
+        padding: var(--space-sm) !important;
+    }
+    
+    .header-title {
+        font-size: 1.1rem !important;
+    }
+    
+    .header-subtitle {
+        font-size: 0.7rem !important;
+    }
+    
+    /* Weather display - very compact */
+    .weather-display {
+        padding: var(--space-xs) !important;
+        gap: 4px !important;
+        font-size: 0.65rem !important;
+    }
+    
+    .weather-temp {
+        font-size: 0.9rem !important;
+    }
+    
+    .weather-icon {
+        font-size: 1rem !important;
+    }
+    
+    .weather-item {
+        font-size: 0.6rem !important;
+    }
+    
+    .weather-impact {
+        font-size: 0.55rem !important;
+        padding: 1px 4px !important;
+    }
+    
     /* Status badges - stack vertically on very small screens */
     .status-badges {
         flex-direction: column;
@@ -6651,6 +6761,34 @@ section > * {
     .status-badge {
         width: 100%;
         justify-content: center;
+        font-size: 0.6rem !important;
+        padding: 4px 8px !important;
+    }
+    
+    .status-text {
+        font-size: 0.55rem !important;
+    }
+    
+    .status-icon {
+        font-size: 0.7rem !important;
+    }
+    
+    /* Weather impact card - very compact */
+    .weather-impact-card {
+        padding: var(--space-xs) !important;
+    }
+    
+    .weather-impact-card .chart-title {
+        font-size: 0.8rem !important;
+    }
+    
+    #weather-corr-stats {
+        font-size: 0.6rem !important;
+    }
+    
+    #weather-corr-stats > div {
+        flex-direction: column !important;
+        align-items: flex-start !important;
     }
     
     /* Confidence grid - single column on very small screens */
@@ -6716,7 +6854,12 @@ section > * {
     }
     
     .current-datetime {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
+    }
+    
+    /* Current datetime - compact */
+    .datetime-text {
+        font-size: 0.7rem;
     }
 }
 
@@ -6724,13 +6867,52 @@ section > * {
 @media (max-width: 380px) {
     /* App container - minimal padding */
     .app-container {
-        padding-left: var(--space-xs);
-        padding-right: var(--space-xs);
+        padding-left: 4px;
+        padding-right: 4px;
     }
     
-    /* Header - compact */
+    /* Header - very compact */
     .app-header {
-        padding: var(--space-sm);
+        padding: var(--space-xs) !important;
+    }
+    
+    .header-title {
+        font-size: 1rem !important;
+    }
+    
+    .header-subtitle {
+        font-size: 0.6rem !important;
+    }
+    
+    /* Weather display - ultra compact */
+    .weather-display {
+        padding: 4px !important;
+        gap: 2px !important;
+        font-size: 0.55rem !important;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .weather-temp {
+        font-size: 0.8rem !important;
+    }
+    
+    .weather-item {
+        font-size: 0.5rem !important;
+    }
+    
+    /* Status badges - minimal */
+    .status-badge {
+        padding: 2px 4px !important;
+        font-size: 0.5rem !important;
+    }
+    
+    .status-text {
+        font-size: 0.45rem !important;
+    }
+    
+    .status-icon {
+        font-size: 0.6rem !important;
     }
     
     /* Reduce all gaps */
@@ -6744,18 +6926,31 @@ section > * {
     /* Ensure text doesn't overflow */
     .section-title,
     section h2 {
-        font-size: 1rem !important;
+        font-size: 0.9rem !important;
         word-break: break-word;
     }
     
-    /* Very compact status badges */
-    .status-badge {
-        padding: var(--space-xs);
-        font-size: 0.65rem;
+    /* Current datetime - ultra compact */
+    .current-datetime {
+        font-size: 0.65rem !important;
     }
     
-    .status-icon {
-        font-size: 0.8rem;
+    .datetime-text {
+        font-size: 0.6rem !important;
+    }
+    
+    /* Weather impact card */
+    .weather-impact-card {
+        padding: 4px !important;
+    }
+    
+    .weather-impact-card .chart-title {
+        font-size: 0.7rem !important;
+    }
+    
+    #weather-corr-stats {
+        font-size: 0.5rem !important;
+        padding: 2px !important;
     }
     
     /* Modal - full width */
