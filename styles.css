@@ -1986,10 +1986,11 @@ section h2 {
     padding: var(--space-lg);
     box-shadow: var(--glow-primary);
     border: 1px solid var(--border-subtle);
-    min-height: 300px; /* 增加最小高度以更好顯示 AI 分析內容 */
-    max-width: 800px; /* 設置最大寬度 */
+    min-height: 300px;
+    /* v3.0.28: 移除 max-width 限制，讓寬度自動填滿 */
     width: 100%;
-    margin: 0 auto; /* 居中顯示 */
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .factors-loading {
