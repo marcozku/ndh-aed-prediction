@@ -5213,28 +5213,30 @@ section h2 {
     transform: scale(1.05);
 }
 
-/* Custom tooltip for confidence items */
+/* Custom tooltip for confidence items - v3.0.19 improved visibility */
 .confidence-tooltip {
     position: absolute;
-    bottom: calc(100% + 10px);
+    bottom: calc(100% + 15px);
     left: 50%;
     transform: translateX(-50%);
-    background: var(--bg-primary, #0f172a);
-    color: var(--text-primary, #f1f5f9);
-    padding: 14px 18px;
-    border-radius: 10px;
-    font-size: 12px;
-    white-space: pre-line;
-    line-height: 1.6;
-    min-width: 300px;
-    max-width: 380px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    border: 1px solid var(--border-color, rgba(148, 163, 184, 0.2));
-    z-index: 1000;
+    /* 使用深色背景確保在任何主題下都可見 */
+    background: #1e293b;
+    color: #f1f5f9;
+    padding: 16px 20px;
+    border-radius: 12px;
+    font-size: 13px;
+    white-space: normal;
+    line-height: 1.7;
+    width: 320px;
+    max-width: 90vw;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    z-index: 9999;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.25s ease, visibility 0.25s ease, transform 0.25s ease;
+    transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
     pointer-events: none;
+    text-align: left;
 }
 
 .confidence-tooltip::after {
@@ -5243,30 +5245,34 @@ section h2 {
     top: 100%;
     left: 50%;
     transform: translateX(-50%);
-    border: 8px solid transparent;
-    border-top-color: var(--bg-primary, #0f172a);
+    border: 10px solid transparent;
+    border-top-color: #1e293b;
 }
 
 .confidence-item:hover .confidence-tooltip {
     opacity: 1;
     visibility: visible;
-    transform: translateX(-50%) translateY(-5px);
+    transform: translateX(-50%) translateY(-8px);
 }
 
 .confidence-tooltip-title {
-    font-weight: 600;
-    font-size: 13px;
-    margin-bottom: 8px;
-    color: var(--accent-primary, #a78bfa);
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 10px;
+    color: #a78bfa;
+    display: block;
 }
 
 .confidence-tooltip-formula {
-    font-family: 'SF Mono', 'Consolas', monospace;
-    background: rgba(0, 0, 0, 0.2);
-    padding: 8px 10px;
-    border-radius: 6px;
-    margin: 8px 0;
-    font-size: 11px;
+    font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+    background: rgba(0, 0, 0, 0.3);
+    color: #10b981;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin: 10px 0;
+    font-size: 12px;
+    font-weight: 600;
+    display: block;
 }
 
 .confidence-gauge {
