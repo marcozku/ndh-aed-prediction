@@ -236,6 +236,15 @@
             </div>
             <div class="confidence-grid">
                 <div class="confidence-item">
+                    <div class="confidence-tooltip">
+                        <div class="confidence-tooltip-title">📊 數據品質計算公式</div>
+                        <div class="confidence-tooltip-formula">
+                            總分 = 基礎 + 近期 + 覆蓋率
+                        </div>
+                        • 基礎分數 = min(數據天數/1000, 1) × 50<br>
+                        • 近期分數 = (30天內數據/30) × 30<br>
+                        • 覆蓋率 = 日期連續性 × 20
+                    </div>
                     <div class="confidence-gauge" id="gauge-data-quality">
                         <svg viewBox="0 0 100 50">
                             <path class="gauge-bg" d="M10,45 A35,35 0 0,1 90,45"></path>
@@ -246,6 +255,15 @@
                     <span class="confidence-label" data-lang-key="conf-data">數據品質</span>
                 </div>
                 <div class="confidence-item">
+                    <div class="confidence-tooltip">
+                        <div class="confidence-tooltip-title">🤖 模型擬合計算公式</div>
+                        <div class="confidence-tooltip-formula">
+                            擬合度 = R² × 100%
+                        </div>
+                        • R² = 模型解釋變異的比例<br>
+                        • 訓練 R² = 0.958（95.8%）<br>
+                        • 100% = 完美擬合歷史數據
+                    </div>
                     <div class="confidence-gauge" id="gauge-model-fit">
                         <svg viewBox="0 0 100 50">
                             <path class="gauge-bg" d="M10,45 A35,35 0 0,1 90,45"></path>
@@ -256,6 +274,15 @@
                     <span class="confidence-label" data-lang-key="conf-model">模型擬合</span>
                 </div>
                 <div class="confidence-item">
+                    <div class="confidence-tooltip">
+                        <div class="confidence-tooltip-title">🎯 近期準確度計算公式</div>
+                        <div class="confidence-tooltip-formula">
+                            準確度 = 100% - MAPE
+                        </div>
+                        • MAPE = Σ|實際-預測|/實際 / N<br>
+                        • 基於最近 30 天比較<br>
+                        • 目標：準確度 > 95%
+                    </div>
                     <div class="confidence-gauge" id="gauge-recent-accuracy">
                         <svg viewBox="0 0 100 50">
                             <path class="gauge-bg" d="M10,45 A35,35 0 0,1 90,45"></path>
@@ -266,6 +293,16 @@
                     <span class="confidence-label" data-lang-key="conf-accuracy">近期準確度</span>
                 </div>
                 <div class="confidence-item">
+                    <div class="confidence-tooltip">
+                        <div class="confidence-tooltip-title">📈 綜合置信度計算公式</div>
+                        <div class="confidence-tooltip-formula">
+                            綜合 = 數據×30% + 擬合×40% + 準確×30%
+                        </div>
+                        • 模型擬合權重最高（40%）<br>
+                        • >90% = 高置信度 ✅<br>
+                        • 70-90% = 中等 ⚡<br>
+                        • <70% = 需審查 ⚠️
+                    </div>
                     <div class="confidence-gauge" id="gauge-overall">
                         <svg viewBox="0 0 100 50">
                             <path class="gauge-bg" d="M10,45 A35,35 0 0,1 90,45"></path>
