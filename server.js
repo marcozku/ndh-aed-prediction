@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.0.32';
+const MODEL_VERSION = '3.0.33';
 
 // ============================================
 // HKT 時間工具函數
@@ -1569,7 +1569,7 @@ const apiHandlers = {
         }
     },
 
-    // 獲取自動預測統計 (v2.9.53)
+    // 獲取自動預測統計 (v2.9.53, v3.0.32: 加入實際記錄數)
     'GET /api/auto-predict-stats': async (req, res) => {
         const hk = getHKTime();
         
@@ -1584,11 +1584,26 @@ const apiHandlers = {
             secondsUntilNext = Math.max(0, Math.floor((nextRunTime.getTime() - now.getTime()) / 1000));
         }
         
+        // v3.0.32: 從 intraday_predictions 獲取實際記錄數（更準確）
+        let actualIntradayCount = autoPredictStats.todayCount;
+        if (db && db.pool) {
+            try {
+                const countResult = await db.pool.query(
+                    `SELECT COUNT(*) as cnt FROM intraday_predictions WHERE target_date = $1`,
+                    [hk.dateStr]
+                );
+                actualIntradayCount = parseInt(countResult.rows[0]?.cnt) || 0;
+            } catch (e) {
+                console.warn('⚠️ 無法獲取 intraday 記錄數:', e.message);
+            }
+        }
+        
         sendJson(res, {
             success: true,
             currentDate: hk.dateStr,
             currentTime: `${String(hk.hour).padStart(2, '0')}:${String(hk.minute).padStart(2, '0')} HKT`,
-            todayCount: autoPredictStats.todayCount,
+            todayCount: actualIntradayCount,  // v3.0.32: 使用實際記錄數
+            statsCount: autoPredictStats.todayCount,  // 舊的統計計數（僅供參考）
             lastRunTime: autoPredictStats.lastRunTime,
             lastRunSuccess: autoPredictStats.lastRunSuccess,
             lastRunDuration: autoPredictStats.lastRunDuration,

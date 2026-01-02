@@ -1,5 +1,25 @@
 # 版本更新日誌
 
+## v3.0.33 - 2026-01-04 02:45 HKT
+
+### 🐛 修復：自動預測次數與波動圖預測次數不一致
+
+**問題**：
+- 自動預測狀態顯示「今日: 17次」
+- 波動圖表顯示「預測次數: 60 次」
+- 兩者應該相同
+
+**原因**：
+- `auto_predict_stats` 表的 `today_count` 在 Railway 重啟時可能不準確
+- `intraday_predictions` 表才是真實的預測記錄來源
+
+**修復**：
+- `/api/auto-predict-stats` 現在直接查詢 `intraday_predictions` 表
+- `SELECT COUNT(*) FROM intraday_predictions WHERE target_date = 今天`
+- 返回實際記錄數，確保與波動圖一致
+
+---
+
 ## v3.0.32 - 2026-01-04 02:30 HKT
 
 ### 📊 修復：波動圖表加入「實時預測」標記
