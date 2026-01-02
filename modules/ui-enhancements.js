@@ -503,8 +503,8 @@ const ConfidenceDashboard = {
         const valueEl = document.getElementById(`gauge-value-${type}`);
         
         if (fill) {
-            // 110 是滿弧長度，計算 offset
-            const offset = 110 - (110 * value / 100);
+            // 126 是滿弧長度（π × 40 ≈ 125.66，SVG 會將 radius 35 調整為 40 以適應 80px 寬度）
+            const offset = 126 - (126 * value / 100);
             fill.style.strokeDashoffset = offset;
             
             // 根據數值設置顏色

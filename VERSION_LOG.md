@@ -1,5 +1,26 @@
 # 版本更新日誌
 
+## v2.9.60 - 2026-01-02 23:35 HKT
+
+### 🎨 UI 優化：圖表空白問題修復
+
+**問題**：
+1. 100% 圓形進度條（模型擬合）不完整顯示綠色
+2. 圖表容器有過多白空間，圖表太小
+
+**修復**：
+1. **圓形進度條**：修正 SVG 弧線長度計算（從 110 改為 126，因為 π × 40 ≈ 126）
+2. **圖表 padding**：大幅減少 Chart.js layout padding（底部從 55-85px 減至 20-35px）
+3. **容器高度**：減少所有圖表容器的 min-height 和 height 設定
+4. **響應式**：統一所有螢幕尺寸的圖表高度設定，確保圖表填滿空間
+
+**修改檔案**：
+- `styles.css` - 修正 gauge-fill stroke-dasharray/offset，減少圖表容器高度
+- `modules/ui-enhancements.js` - 修正 setGauge 函數使用 126 弧長
+- `prediction.js` - 減少 getResponsivePadding() 和 getComparisonChartPadding() 的 padding 值
+
+---
+
 ## v2.9.59 - 2026-01-02 08:17 HKT
 
 ### 🐛 修復：浮點數精度導致錯誤顯示「下降」

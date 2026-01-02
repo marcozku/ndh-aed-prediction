@@ -2594,8 +2594,8 @@ section h2 {
     position: relative;
     width: 100%;
     max-width: 100%;
-    height: min(40vh, 350px); /* 減少高度：視窗高度的40%，最大350px */
-    min-height: min(35vh, 300px); /* 減少最小高度：視窗高度的35%，最小300px */
+    height: min(32vh, 280px); /* 減少高度，讓圖表更緊湊 */
+    min-height: min(25vh, 220px); /* 減少最小高度 */
     box-sizing: border-box;
     overflow: visible;
     overflow-x: hidden;
@@ -2610,58 +2610,57 @@ section h2 {
 
 /* 對比圖容器特殊處理 - 固定高度防止無限增長 */
 #comparison-chart-container.chart-container {
-    height: min(55vh, 600px) !important; /* 固定高度 */
-    min-height: min(55vh, 600px) !important; /* 世界級標準最小高度 */
-    max-height: min(55vh, 600px) !important; /* 限制最大高度 */
-    overflow: hidden !important; /* 隱藏溢出內容 */
-    margin-top: 0px !important; /* 確保頂部沒有間距，與 accuracy-stats 分離 */
+    height: min(40vh, 380px) !important; /* 減少高度 */
+    min-height: min(35vh, 320px) !important; /* 減少最小高度 */
+    max-height: min(45vh, 420px) !important; /* 限制最大高度 */
+    overflow: hidden !important;
+    margin-top: 0px !important;
     position: relative !important;
-    z-index: 1 !important; /* 確保在 accuracy-stats 下方 */
+    z-index: 1 !important;
 }
 
-/* 實際 vs 預測對比圖容器 - 增加高度，確保圖表有足夠空間 */
+/* 實際 vs 預測對比圖容器 */
 #comparison-chart-container {
     width: 100% !important;
     max-width: 100% !important;
-    height: min(60vh, 600px) !important; /* 增加高度：視窗高度的60%，最大600px */
-    min-height: min(55vh, 550px) !important; /* 增加最小高度：視窗高度的55%，最小550px */
-    max-height: min(60vh, 600px) !important; /* 限制最大高度，防止無限增長 */
-    padding-bottom: min(4vh, 30px) !important; /* 減少底部 padding：視窗高度的4%，最大30px */
-    padding-top: 0px !important; /* 頂部 padding 由 Chart.js layout.padding 控制 */
-    overflow: hidden !important; /* 隱藏溢出內容，防止容器增長 */
+    height: min(40vh, 380px) !important; /* 減少高度 */
+    min-height: min(35vh, 320px) !important; /* 減少最小高度 */
+    max-height: min(45vh, 420px) !important; /* 限制最大高度 */
+    padding-bottom: 0 !important; /* 移除底部 padding */
+    padding-top: 0px !important;
+    overflow: hidden !important;
     position: relative;
     box-sizing: border-box;
-    display: flex !important; /* 使用 flex 讓圖表居中 */
-    align-items: center !important; /* 垂直居中 */
-    justify-content: center !important; /* 水平居中 */
-    margin-top: 40px !important; /* 大幅增加頂部間距，避免與 accuracy-stats 重疊 */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin-top: 20px !important; /* 減少頂部間距 */
 }
 
 /* 確保圖表 canvas 填滿容器高度 */
 #comparison-chart-container canvas {
-    height: 100% !important; /* 填滿容器高度 */
-    min-height: 100% !important; /* 確保至少填滿容器 */
-    max-height: 100% !important; /* 不超過容器高度 */
-    width: 100% !important; /* 填滿容器寬度 */
-    margin-top: 0px !important; /* 確保沒有額外的頂部 margin */
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
     position: relative !important;
-    z-index: 1 !important; /* 確保在 accuracy-stats 下方 */
+    z-index: 1 !important;
 }
 
-/* 歷史趨勢圖容器：增加高度以完整顯示圖表 */
+/* 歷史趨勢圖容器 */
 #history-chart-container {
     position: relative;
-    overflow: hidden !important; /* 隱藏溢出內容，確保 canvas 在容器內 */
-    overflow-x: hidden !important; /* 明確防止水平溢出 */
-    overflow-y: hidden !important; /* 明確防止垂直溢出 */
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
     width: 100% !important;
     max-width: 100% !important;
-    height: min(65vh, 700px) !important; /* 增加高度：視窗高度的65%，最大700px */
-    min-height: min(55vh, 600px) !important; /* 增加最小高度：視窗高度的55%，最小600px */
-    max-height: min(65vh, 700px) !important; /* 限制最大高度，防止無限增長 */
-    padding-bottom: min(6vh, 50px) !important; /* 減少底部 padding：視窗高度的6%，最大50px */
+    height: min(45vh, 400px) !important; /* 減少高度 */
+    min-height: min(35vh, 320px) !important; /* 減少最小高度 */
+    max-height: min(50vh, 450px) !important; /* 限制最大高度 */
+    padding-bottom: 0 !important; /* 移除底部 padding */
     box-sizing: border-box !important;
-    /* 使用 clip-path 強制裁剪超出容器的內容 */
     clip-path: inset(0 0 0 0) !important;
 }
 
@@ -2725,9 +2724,9 @@ section h2 {
 }
 
 .chart-container.large {
-    height: min(38vh, 380px); /* 統一高度：視窗高度的38%，最大380px */
-    min-height: min(32vh, 320px); /* 統一最小高度：視窗高度的32%，最小320px */
-    padding-bottom: min(8vh, 60px) !important; /* 統一底部 padding：視窗高度的8%，最大60px */
+    height: min(35vh, 320px); /* 減少高度 */
+    min-height: min(28vh, 260px); /* 減少最小高度 */
+    padding-bottom: 0 !important; /* 移除底部 padding，Chart.js 會自己處理 */
 }
 
 .chart-container canvas {
@@ -2764,12 +2763,12 @@ section h2 {
     position: relative !important; /* 確保 z-index 生效 */
 }
 
-/* 確保對比圖的 canvas 不會超出容器，使用固定高度 */
+/* 確保對比圖的 canvas 不會超出容器 */
 #comparison-chart-container canvas {
     width: 100% !important;
     max-width: 100% !important;
-    height: min(45vh, 500px) !important; /* 固定高度，防止無限增長 */
-    max-height: min(45vh, 500px) !important; /* 限制最大高度 */
+    height: 100% !important; /* 填滿容器 */
+    max-height: 100% !important;
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
@@ -2777,8 +2776,8 @@ section h2 {
     margin: 0 !important;
     padding: 0 !important;
     position: relative !important;
-    z-index: 0 !important; /* 降低 z-index，確保在 accuracy-stats 下方 */
-    overflow: hidden !important; /* 隱藏溢出內容 */
+    z-index: 0 !important;
+    overflow: hidden !important;
 }
 
 /* 準確度統計響應式布局 - 移到容器外部，避免與圖表重疊 */
@@ -2876,48 +2875,47 @@ section h2 {
     }
 }
 
-/* 圖表響應式高度 - 世界級標準，統一使用 vh 單位確保一致性 */
+/* 圖表響應式高度 - 減少白空間 */
 @media (max-width: 900px) {
     .chart-container {
-        height: min(48vh, 500px); /* 增加高度：視窗高度的48%，最大500px */
-        min-height: min(42vh, 450px); /* 增加最小高度：視窗高度的42%，最小450px */
-        padding-bottom: min(6vh, 50px); /* 減少底部 padding */
+        height: min(30vh, 260px);
+        min-height: min(22vh, 200px);
+        padding-bottom: 0;
     }
     
     .chart-container.large {
-        height: min(55vh, 580px); /* 增加高度：視窗高度的55%，最大580px */
-        min-height: min(48vh, 520px); /* 增加最小高度：視窗高度的48%，最小520px */
-        padding-bottom: min(6vh, 50px); /* 減少底部 padding */
+        height: min(32vh, 280px);
+        min-height: min(25vh, 220px);
+        padding-bottom: 0;
     }
     
     #history-chart-container {
-        height: min(60vh, 650px) !important; /* 增加高度：視窗高度的60%，最大650px */
-        min-height: min(55vh, 600px) !important; /* 增加最小高度：視窗高度的55%，最小600px */
-        max-height: min(60vh, 650px) !important; /* 限制最大高度，防止無限增長 */
-        padding-bottom: min(6vh, 50px) !important; /* 減少底部 padding */
-        overflow: hidden !important; /* 隱藏溢出內容，確保 canvas 在容器內 */
+        height: min(38vh, 350px) !important;
+        min-height: min(30vh, 280px) !important;
+        max-height: min(42vh, 380px) !important;
+        padding-bottom: 0 !important;
+        overflow: hidden !important;
     }
     
     #comparison-chart-container {
-        height: min(70vh, 750px) !important; /* 增加高度：視窗高度的70%，最大750px */
-        min-height: min(65vh, 700px) !important; /* 增加最小高度：視窗高度的65%，最小700px */
-        max-height: min(70vh, 750px) !important; /* 限制最大高度，防止無限增長 */
-        padding-bottom: min(6vh, 50px) !important; /* 減少底部 padding */
-        overflow: hidden !important; /* 隱藏溢出內容 */
+        height: min(38vh, 350px) !important;
+        min-height: min(30vh, 280px) !important;
+        max-height: min(42vh, 380px) !important;
+        padding-bottom: 0 !important;
+        overflow: hidden !important;
     }
     
     #comparison-chart-container canvas {
-        height: 100% !important; /* 填滿容器高度 */
-        min-height: 100% !important; /* 確保至少填滿容器 */
-        max-height: 100% !important; /* 不超過容器高度 */
+        height: 100% !important;
+        min-height: 100% !important;
+        max-height: 100% !important;
     }
     
     .chart-card.full-width {
-        height: min(75vh, 800px); /* 增加高度以容納歷史趨勢圖 */
-        min-height: min(70vh, 750px); /* 增加最小高度 */
+        height: auto;
+        min-height: min(35vh, 320px);
     }
     
-    /* 只對「實際 vs 預測對比」相關的卡片使用 auto 高度 */
     .chart-card.full-width.comparison-section {
         height: auto !important;
         overflow: visible !important;
@@ -2926,26 +2924,25 @@ section h2 {
 
 @media (max-width: 600px) {
     .chart-container {
-        height: min(45vh, 480px); /* 增加高度：視窗高度的45%，最大480px */
-        min-height: min(40vh, 420px); /* 增加最小高度：視窗高度的40%，最小420px */
-        padding-bottom: min(6vh, 50px); /* 減少底部 padding */
+        height: min(28vh, 240px);
+        min-height: min(20vh, 180px);
+        padding-bottom: 0;
     }
     
     .chart-container.large {
-        height: min(52vh, 550px); /* 增加高度：視窗高度的52%，最大550px */
-        min-height: min(45vh, 500px); /* 增加最小高度：視窗高度的45%，最小500px */
-        padding-bottom: min(6vh, 50px); /* 減少底部 padding */
+        height: min(30vh, 260px);
+        min-height: min(22vh, 200px);
+        padding-bottom: 0;
     }
     
     #history-chart-container {
-        height: min(50vh, 500px) !important; /* 減少高度以確保在容器內：視窗高度的50%，最大500px */
-        min-height: min(45vh, 450px) !important; /* 減少最小高度：視窗高度的45%，最小450px */
-        max-height: min(50vh, 500px) !important; /* 限制最大高度，防止無限增長 */
-        padding-bottom: min(4vh, 30px) !important; /* 減少底部 padding */
-        overflow: hidden !important; /* 隱藏溢出內容，確保 canvas 在容器內 */
+        height: min(35vh, 300px) !important;
+        min-height: min(28vh, 250px) !important;
+        max-height: min(38vh, 320px) !important;
+        padding-bottom: 0 !important;
+        overflow: hidden !important;
     }
     
-    /* 確保歷史趨勢圖的 canvas 在 600px 以下時不超出容器 */
     #history-chart {
         max-height: 100% !important;
         height: 100% !important;
@@ -2955,25 +2952,24 @@ section h2 {
     }
     
     #comparison-chart-container {
-        height: min(65vh, 700px) !important; /* 增加高度：視窗高度的65%，最大700px */
-        min-height: min(60vh, 650px) !important; /* 增加最小高度：視窗高度的60%，最小650px */
-        max-height: min(65vh, 700px) !important; /* 限制最大高度，防止無限增長 */
-        padding-bottom: min(6vh, 50px) !important; /* 減少底部 padding */
-        overflow: hidden !important; /* 隱藏溢出內容 */
+        height: min(35vh, 300px) !important;
+        min-height: min(28vh, 250px) !important;
+        max-height: min(38vh, 320px) !important;
+        padding-bottom: 0 !important;
+        overflow: hidden !important;
     }
     
     #comparison-chart-container canvas {
-        height: 100% !important; /* 填滿容器高度 */
-        min-height: 100% !important; /* 確保至少填滿容器 */
-        max-height: 100% !important; /* 不超過容器高度 */
+        height: 100% !important;
+        min-height: 100% !important;
+        max-height: 100% !important;
     }
     
     .chart-card.full-width {
-        height: min(75vh, 750px); /* 進一步增加高度以容納歷史趨勢圖 */
-        min-height: min(70vh, 700px); /* 進一步增加最小高度 */
+        height: auto;
+        min-height: min(32vh, 280px);
     }
     
-    /* 只對「實際 vs 預測對比」相關的卡片使用 auto 高度 */
     .chart-card.full-width.comparison-section {
         height: auto !important;
         overflow: visible !important;
@@ -2982,26 +2978,25 @@ section h2 {
 
 @media (max-width: 380px) {
     .chart-container {
-        height: min(32vh, 320px); /* 世界級標準：視窗高度的32%，最大320px */
-        min-height: min(28vh, 280px); /* 世界級標準最小高度：視窗高度的28%，最小280px */
-        padding-bottom: min(8vh, 70px); /* 世界級標準底部 padding */
+        height: min(25vh, 200px);
+        min-height: min(18vh, 160px);
+        padding-bottom: 0;
     }
     
     .chart-container.large {
-        height: min(38vh, 400px); /* 世界級標準：視窗高度的38%，最大400px */
-        min-height: min(32vh, 340px); /* 世界級標準最小高度：視窗高度的32%，最小340px */
-        padding-bottom: min(10vh, 80px); /* 世界級標準底部 padding */
+        height: min(28vh, 220px);
+        min-height: min(20vh, 180px);
+        padding-bottom: 0;
     }
     
     #history-chart-container {
-        height: min(35vh, 100%) !important; /* 使用百分比確保適應任何尺寸 */
-        min-height: min(30vh, 250px) !important; /* 減少最小高度以適應小屏幕 */
-        max-height: 100% !important; /* 使用百分比而不是固定像素 */
-        padding-bottom: min(5vh, 30px) !important; /* 減少 padding */
-        overflow: hidden !important; /* 隱藏溢出內容，確保 canvas 在容器內 */
+        height: min(30vh, 250px) !important;
+        min-height: min(22vh, 200px) !important;
+        max-height: min(32vh, 270px) !important;
+        padding-bottom: 0 !important;
+        overflow: hidden !important;
     }
     
-    /* 確保歷史趨勢圖的 canvas 在 380px 以下時不超出容器 */
     #history-chart {
         max-height: 100% !important;
         height: 100% !important;
@@ -3011,31 +3006,30 @@ section h2 {
     }
     
     .accuracy-stats {
-        margin-bottom: 56px !important; /* 大幅增加底部間距，確保與圖表有足夠間距 */
-        max-height: none !important; /* 移除最大高度限制，確保所有卡片都在容器內 */
-        background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%) !important; /* 確保背景色顯示 */
+        margin-bottom: 20px !important;
+        max-height: none !important;
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%) !important;
     }
     
     #comparison-chart-container {
-        height: min(55vh, 550px) !important; /* 增加高度：視窗高度的55%，最大550px */
-        min-height: min(50vh, 500px) !important; /* 增加最小高度：視窗高度的50%，最小500px，確保窄屏不會變成線 */
-        max-height: min(55vh, 550px) !important; /* 限制最大高度 */
-        padding-bottom: min(6vh, 40px) !important; /* 減少底部 padding */
-        margin-top: 56px !important; /* 大幅增加頂部間距，避免與 accuracy-stats 重疊 */
+        height: min(30vh, 250px) !important;
+        min-height: min(22vh, 200px) !important;
+        max-height: min(32vh, 270px) !important;
+        padding-bottom: 0 !important;
+        margin-top: 20px !important;
     }
     
     #comparison-chart-container canvas {
-        height: 100% !important; /* 填滿容器高度 */
-        min-height: 100% !important; /* 確保至少填滿容器 */
-        max-height: 100% !important; /* 不超過容器高度 */
+        height: 100% !important;
+        min-height: 100% !important;
+        max-height: 100% !important;
     }
     
     .chart-card.full-width {
-        height: auto; /* 使用 auto 讓內容決定高度 */
-        min-height: min(45vh, 400px); /* 減少最小高度以適應小屏幕 */
+        height: auto;
+        min-height: min(28vh, 240px);
     }
     
-    /* 只對「實際 vs 預測對比」相關的卡片使用 auto 高度 */
     .chart-card.full-width.comparison-section {
         height: auto !important;
         overflow: visible !important;
@@ -3045,13 +3039,12 @@ section h2 {
 /* 300px 以下：進一步優化 */
 @media (max-width: 300px) {
     #history-chart-container {
-        height: min(30vh, 100%) !important;
-        min-height: min(25vh, 200px) !important;
+        height: min(25vh, 180px) !important;
+        min-height: min(18vh, 150px) !important;
         max-height: 100% !important;
-        padding-bottom: min(3vh, 20px) !important;
+        padding-bottom: 0 !important;
     }
     
-    /* 確保歷史趨勢圖的 canvas 在 300px 以下時不超出容器 */
     #history-chart {
         max-height: 100% !important;
         height: 100% !important;
@@ -3061,24 +3054,23 @@ section h2 {
     }
     
     .chart-card.full-width {
-        min-height: min(40vh, 350px);
+        min-height: min(22vh, 200px);
     }
     
     .chart-card {
-        padding: var(--space-md) !important; /* 減少 padding */
+        padding: var(--space-sm) !important;
     }
 }
 
 /* 200px 以下：極小屏幕優化 */
 @media (max-width: 200px) {
     #history-chart-container {
-        height: min(25vh, 100%) !important;
-        min-height: min(20vh, 150px) !important;
+        height: min(20vh, 150px) !important;
+        min-height: min(15vh, 120px) !important;
         max-height: 100% !important;
-        padding-bottom: min(2vh, 15px) !important;
+        padding-bottom: 0 !important;
     }
     
-    /* 確保歷史趨勢圖的 canvas 在 200px 以下時不超出容器 */
     #history-chart {
         max-height: 100% !important;
         height: 100% !important;
@@ -3088,11 +3080,11 @@ section h2 {
     }
     
     .chart-card.full-width {
-        min-height: min(35vh, 300px);
+        min-height: min(18vh, 160px);
     }
     
     .chart-card {
-        padding: var(--space-sm) !important; /* 進一步減少 padding */
+        padding: var(--space-xs) !important;
     }
     
     .time-range-selector {
@@ -3109,13 +3101,12 @@ section h2 {
 /* 100px 以下：超小屏幕優化 */
 @media (max-width: 100px) {
     #history-chart-container {
-        height: min(20vh, 100%) !important;
-        min-height: min(15vh, 100px) !important;
+        height: min(15vh, 100px) !important;
+        min-height: min(12vh, 80px) !important;
         max-height: 100% !important;
-        padding-bottom: min(1vh, 10px) !important;
+        padding-bottom: 0 !important;
     }
     
-    /* 確保歷史趨勢圖的 canvas 在 100px 以下時不超出容器 */
     #history-chart {
         max-height: 100% !important;
         height: 100% !important;
@@ -3125,7 +3116,7 @@ section h2 {
     }
     
     .chart-card.full-width {
-        min-height: min(30vh, 250px);
+        min-height: min(15vh, 120px);
     }
     
     .chart-card {
@@ -5111,8 +5102,8 @@ section h2 {
     stroke: var(--accent-success);
     stroke-width: 8;
     stroke-linecap: round;
-    stroke-dasharray: 110;
-    stroke-dashoffset: 110;
+    stroke-dasharray: 126;
+    stroke-dashoffset: 126;
     transition: stroke-dashoffset 1s ease;
 }
 

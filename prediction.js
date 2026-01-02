@@ -997,21 +997,17 @@ const chartColors = {
 };
 
 // 獲取響應式 layout padding（根據屏幕寬度）
-// 確保所有圖表元素（圖例、標籤、工具提示）都有足夠空間顯示
+// 減少 padding 讓圖表填滿更多空間
 function getResponsivePadding() {
     const width = window.innerWidth;
     if (width <= 380) {
-        // 小屏幕：更多頂部和底部空間，為圖例和 X 軸標籤留出空間
-        return { top: 15, bottom: 55, left: 15, right: 15 };
+        return { top: 8, bottom: 20, left: 8, right: 8 };
     } else if (width <= 600) {
-        // 中等屏幕：平衡的 padding
-        return { top: 15, bottom: 65, left: 20, right: 20 };
+        return { top: 10, bottom: 25, left: 10, right: 10 };
     } else if (width <= 900) {
-        // 平板：更多空間
-        return { top: 15, bottom: 75, left: 25, right: 25 };
+        return { top: 10, bottom: 30, left: 12, right: 12 };
     } else {
-        // 桌面端：最大空間，確保所有細節清晰可見
-        return { top: 15, bottom: 85, left: 30, right: 30 };
+        return { top: 12, bottom: 35, left: 15, right: 15 };
     }
 }
 
@@ -1019,15 +1015,13 @@ function getResponsivePadding() {
 function getComparisonChartPadding() {
     const width = window.innerWidth;
     if (width <= 380) {
-        // 小屏幕：更多底部空間，為統計信息和 X 軸標籤留出空間
-        return { top: 12, bottom: 65, left: 5, right: 5 };
+        return { top: 8, bottom: 25, left: 5, right: 5 };
     } else if (width <= 600) {
-        return { top: 12, bottom: 75, left: 8, right: 8 };
+        return { top: 10, bottom: 30, left: 8, right: 8 };
     } else if (width <= 900) {
-        return { top: 15, bottom: 85, left: 10, right: 10 };
+        return { top: 10, bottom: 35, left: 10, right: 10 };
     } else {
-        // 桌面端：最大空間，確保統計信息和圖表都清晰可見
-        return { top: 15, bottom: 95, left: 10, right: 20 };
+        return { top: 12, bottom: 40, left: 10, right: 15 };
     }
 }
 
