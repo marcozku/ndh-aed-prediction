@@ -3924,13 +3924,18 @@ async function initVolatilityChart(targetDate = null) {
             }
         ];
         
-        // v2.9.98: 只使用真實數據，不使用模擬或替代值
+        // v3.0.0: 即時計算平滑值（每次預測後更新的真實平均值）
+        const predictionValues = predictions.map(p => p.y).filter(v => v != null && !isNaN(v));
+        const calculatedSmoothed = predictionValues.length > 0 
+            ? Math.round(predictionValues.reduce((a, b) => a + b, 0) / predictionValues.length)
+            : null;
         
-        // 只有當數據庫中有最終平滑值時才顯示
-        if (targetData.finalPredicted != null) {
+        // 顯示當前平滑值（基於真實預測數據的平均值）
+        // 這是即時計算的，每次預測後會更新
+        if (calculatedSmoothed != null) {
             datasets.push({
-                label: `最終平滑值 (${targetData.finalPredicted})`,
-                data: predictions.map(p => ({ x: p.x, y: targetData.finalPredicted })),
+                label: `當前平滑值 (${calculatedSmoothed})`,
+                data: predictions.map(p => ({ x: p.x, y: calculatedSmoothed })),
                 borderColor: 'rgba(16, 185, 129, 1)',
                 borderWidth: 2,
                 borderDash: [5, 5],
@@ -3939,7 +3944,7 @@ async function initVolatilityChart(targetDate = null) {
             });
         }
         
-        // 只有當數據庫中有真實出席數據時才顯示
+        // 只有當數據庫中有真實出席數據時才顯示（用於歷史比較）
         const actualValue = targetData.actual ?? targetData.actualValue;
         if (actualValue != null) {
             datasets.push({
