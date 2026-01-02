@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.94';
+const MODEL_VERSION = '2.9.95';
 
 // ============================================
 // HKT 時間工具函數
@@ -1662,26 +1662,50 @@ const apiHandlers = {
         }
     },
 
-    // v2.9.91: 獲取天氣-出席相關性數據
+    // v2.9.95: 獲取天氣-出席相關性數據（使用真實 HKO 歷史天氣 + 實際出席）
     'GET /api/weather-correlation': async (req, res) => {
         if (!db || !db.pool) {
             return sendJson(res, { success: false, error: '數據庫未配置' }, 503);
         }
         
         try {
-            // 獲取有天氣數據和實際出席數據的日期
+            const fs = require('fs');
+            const path = require('path');
+            const weatherPath = path.join(__dirname, 'python/weather_history.csv');
+            
+            // 讀取天氣歷史 CSV
+            let weatherMap = {};
+            if (fs.existsSync(weatherPath)) {
+                const csvContent = fs.readFileSync(weatherPath, 'utf-8');
+                const lines = csvContent.trim().split('\n');
+                // 跳過標題行: Date,mean_temp,max_temp,min_temp,temp_range,is_very_hot,is_hot,is_cold,is_very_cold
+                for (let i = 1; i < lines.length; i++) {
+                    const parts = lines[i].split(',');
+                    if (parts.length >= 4) {
+                        const date = parts[0].trim();
+                        weatherMap[date] = {
+                            mean_temp: parseFloat(parts[1]),
+                            max_temp: parseFloat(parts[2]),
+                            min_temp: parseFloat(parts[3]),
+                            temp_range: parseFloat(parts[4]) || 0,
+                            is_very_hot: parts[5] === '1',
+                            is_hot: parts[6] === '1',
+                            is_cold: parts[7] === '1',
+                            is_very_cold: parts[8] === '1'
+                        };
+                    }
+                }
+                console.log(`✅ 天氣歷史數據已載入: ${Object.keys(weatherMap).length} 天`);
+            } else {
+                console.warn('⚠️ 找不到天氣歷史數據: ' + weatherPath);
+            }
+            
+            // 獲取所有實際出席數據
             const result = await db.pool.query(`
-                SELECT 
-                    dp.target_date,
-                    dp.weather_data,
-                    a.patient_count as actual
-                FROM daily_predictions dp
-                INNER JOIN actual_data a ON dp.target_date = a.date
-                WHERE dp.weather_data IS NOT NULL
-                  AND dp.weather_data != '{}'::jsonb
-                  AND a.patient_count IS NOT NULL
-                ORDER BY dp.target_date DESC
-                LIMIT 365
+                SELECT date, patient_count
+                FROM actual_data
+                WHERE patient_count IS NOT NULL
+                ORDER BY date DESC
             `);
             
             if (result.rows.length === 0) {
@@ -1689,31 +1713,62 @@ const apiHandlers = {
                     success: true,
                     data: [],
                     count: 0,
-                    correlation: { temperature: null, humidity: null, rainfall: null },
-                    message: '暫無匹配的天氣+實際數據'
+                    correlation: { temperature: null, tempRange: null, isHot: null, isCold: null },
+                    message: '暫無實際出席數據'
                 });
             }
             
-            // 提取數據點
-            const dataPoints = result.rows.map(row => {
-                const weather = row.weather_data || {};
-                return {
-                    date: new Date(row.target_date).toISOString().split('T')[0],
-                    actual: row.actual,
-                    temperature: weather.temperature ?? weather.temp ?? null,
-                    humidity: weather.humidity ?? null,
-                    rainfall: weather.rainfall ?? 0
-                };
-            }).filter(d => d.actual != null);
+            // 合併天氣和出席數據
+            const dataPoints = [];
+            for (const row of result.rows) {
+                const dateStr = new Date(row.date).toISOString().split('T')[0];
+                const weather = weatherMap[dateStr];
+                if (weather && row.patient_count != null) {
+                    dataPoints.push({
+                        date: dateStr,
+                        actual: row.patient_count,
+                        temperature: weather.mean_temp,
+                        tempRange: weather.temp_range,
+                        maxTemp: weather.max_temp,
+                        minTemp: weather.min_temp,
+                        isHot: weather.is_hot ? 1 : 0,
+                        isCold: weather.is_cold ? 1 : 0,
+                        isVeryHot: weather.is_very_hot ? 1 : 0,
+                        isVeryCold: weather.is_very_cold ? 1 : 0
+                    });
+                }
+            }
             
             // 計算相關係數
             const correlation = calculateCorrelation(dataPoints);
             
+            // 計算額外的相關性（溫差、極端天氣）
+            const pearson = (x, y) => {
+                const validPairs = x.map((xi, i) => [xi, y[i]]).filter(([a, b]) => a != null && b != null);
+                if (validPairs.length < 3) return null;
+                const n = validPairs.length;
+                const sumX = validPairs.reduce((s, [a]) => s + a, 0);
+                const sumY = validPairs.reduce((s, [, b]) => s + b, 0);
+                const sumXY = validPairs.reduce((s, [a, b]) => s + a * b, 0);
+                const sumX2 = validPairs.reduce((s, [a]) => s + a * a, 0);
+                const sumY2 = validPairs.reduce((s, [, b]) => s + b * b, 0);
+                const numerator = n * sumXY - sumX * sumY;
+                const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+                if (denominator === 0) return 0;
+                return numerator / denominator;
+            };
+            
+            const actual = dataPoints.map(d => d.actual);
+            correlation.tempRange = pearson(dataPoints.map(d => d.tempRange), actual);
+            correlation.isHot = pearson(dataPoints.map(d => d.isHot), actual);
+            correlation.isCold = pearson(dataPoints.map(d => d.isCold), actual);
+            
             sendJson(res, {
                 success: true,
-                data: dataPoints,
+                data: dataPoints.slice(0, 500), // 限制返回數量
                 count: dataPoints.length,
-                correlation: correlation
+                correlation: correlation,
+                source: 'HKO weather_history.csv + actual_data'
             });
         } catch (err) {
             console.error('獲取天氣相關性數據失敗:', err);

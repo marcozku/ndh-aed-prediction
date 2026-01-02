@@ -3706,7 +3706,7 @@ async function initWeatherCorrChart() {
     if (canvas) canvas.style.display = 'none';
     
     try {
-        // 獲取天氣-出席相關性數據
+        // 獲取天氣-出席相關性數據（使用真實 HKO 歷史天氣）
         const response = await fetch('/api/weather-correlation');
         if (!response.ok) throw new Error('API 錯誤');
         const result = await response.json();
@@ -3716,7 +3716,7 @@ async function initWeatherCorrChart() {
                 loading.innerHTML = `
                     <div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">
                         暫無天氣相關性數據<br>
-                        <small>需要有天氣數據的預測記錄 + 對應的實際出席數據</small>
+                        <small>需要 weather_history.csv + 實際出席數據</small>
                     </div>
                 `;
             }
@@ -3732,21 +3732,25 @@ async function initWeatherCorrChart() {
             weatherCorrChart = null;
         }
         
-        // 準備散點圖數據
+        // v2.9.95: 準備散點圖數據（溫度、溫差、極端天氣）
         const tempData = data.filter(d => d.temperature != null).map(d => ({
             x: d.temperature,
             y: d.actual
         }));
         
-        const humidityData = data.filter(d => d.humidity != null).map(d => ({
-            x: d.humidity,
+        const tempRangeData = data.filter(d => d.tempRange != null).map(d => ({
+            x: d.tempRange,
             y: d.actual
         }));
         
-        const rainfallData = data.filter(d => d.rainfall != null && d.rainfall > 0).map(d => ({
-            x: d.rainfall,
-            y: d.actual
-        }));
+        // 計算極端天氣的平均出席
+        const hotDays = data.filter(d => d.isHot === 1);
+        const coldDays = data.filter(d => d.isCold === 1);
+        const normalDays = data.filter(d => d.isHot === 0 && d.isCold === 0);
+        
+        const avgHot = hotDays.length > 0 ? Math.round(hotDays.reduce((s, d) => s + d.actual, 0) / hotDays.length) : 0;
+        const avgCold = coldDays.length > 0 ? Math.round(coldDays.reduce((s, d) => s + d.actual, 0) / coldDays.length) : 0;
+        const avgNormal = normalDays.length > 0 ? Math.round(normalDays.reduce((s, d) => s + d.actual, 0) / normalDays.length) : 0;
         
         // 創建圖表
         const ctx = canvas.getContext('2d');
@@ -3755,28 +3759,20 @@ async function initWeatherCorrChart() {
             data: {
                 datasets: [
                     {
-                        label: `溫度 (r=${correlation.temperature?.toFixed(2) || 'N/A'})`,
-                        data: tempData,
-                        backgroundColor: 'rgba(239, 68, 68, 0.6)',
+                        label: `平均溫度 (r=${correlation.temperature?.toFixed(3) || 'N/A'})`,
+                        data: tempData.slice(0, 200), // 限制點數以提高性能
+                        backgroundColor: 'rgba(239, 68, 68, 0.5)',
                         borderColor: 'rgba(239, 68, 68, 1)',
-                        pointRadius: 5,
-                        pointHoverRadius: 7
+                        pointRadius: 3,
+                        pointHoverRadius: 5
                     },
                     {
-                        label: `濕度 (r=${correlation.humidity?.toFixed(2) || 'N/A'})`,
-                        data: humidityData,
-                        backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                        label: `日溫差 (r=${correlation.tempRange?.toFixed(3) || 'N/A'})`,
+                        data: tempRangeData.slice(0, 200),
+                        backgroundColor: 'rgba(59, 130, 246, 0.5)',
                         borderColor: 'rgba(59, 130, 246, 1)',
-                        pointRadius: 5,
-                        pointHoverRadius: 7
-                    },
-                    {
-                        label: `降雨量 (r=${correlation.rainfall?.toFixed(2) || 'N/A'})`,
-                        data: rainfallData,
-                        backgroundColor: 'rgba(16, 185, 129, 0.6)',
-                        borderColor: 'rgba(16, 185, 129, 1)',
-                        pointRadius: 5,
-                        pointHoverRadius: 7
+                        pointRadius: 3,
+                        pointHoverRadius: 5
                     }
                 ]
             },
@@ -3794,7 +3790,7 @@ async function initWeatherCorrChart() {
                     },
                     title: {
                         display: true,
-                        text: `基於 ${result.count} 天真實 HKO 天氣 + 實際出席數據`,
+                        text: `基於 ${result.count} 天 HKO 打鼓嶺站歷史天氣 + 實際出席`,
                         color: '#94a3b8',
                         font: { size: 11 }
                     },
@@ -3802,14 +3798,14 @@ async function initWeatherCorrChart() {
                         callbacks: {
                             label: (ctx) => {
                                 const label = ctx.dataset.label.split(' ')[0];
-                                return `${label}: ${ctx.parsed.x}, 出席: ${ctx.parsed.y} 人`;
+                                return `${label}: ${ctx.parsed.x.toFixed(1)}°C, 出席: ${ctx.parsed.y} 人`;
                             }
                         }
                     }
                 },
                 scales: {
                     x: {
-                        title: { display: true, text: '天氣數值', color: '#94a3b8' },
+                        title: { display: true, text: '溫度 (°C) / 溫差 (°C)', color: '#94a3b8' },
                         ticks: { color: '#94a3b8' },
                         grid: { color: 'rgba(148, 163, 184, 0.1)' }
                     },
@@ -3825,7 +3821,19 @@ async function initWeatherCorrChart() {
         if (loading) loading.style.display = 'none';
         if (canvas) canvas.style.display = 'block';
         
-        console.log(`✅ 天氣影響分析圖表已載入 (${result.count} 天數據, 溫度相關 r=${correlation.temperature?.toFixed(2)})`);
+        // 顯示極端天氣統計
+        const statsEl = document.getElementById('weather-corr-stats');
+        if (statsEl) {
+            statsEl.innerHTML = `
+                <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-top: 8px; font-size: 12px;">
+                    <span style="color: #ef4444;">🔥 高溫日: ${avgHot} 人 (${hotDays.length}天)</span>
+                    <span style="color: #3b82f6;">❄️ 寒冷日: ${avgCold} 人 (${coldDays.length}天)</span>
+                    <span style="color: #10b981;">🌤️ 普通日: ${avgNormal} 人 (${normalDays.length}天)</span>
+                </div>
+            `;
+        }
+        
+        console.log(`✅ 天氣影響分析圖表已載入 (${result.count} 天 HKO 數據, 溫度 r=${correlation.temperature?.toFixed(3)}, 溫差 r=${correlation.tempRange?.toFixed(3)})`);
         
     } catch (error) {
         console.error('❌ 天氣影響分析圖表載入失敗:', error);
