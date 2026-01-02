@@ -582,11 +582,12 @@ const ChartControls = {
         // 圖表預設會顯示所有數據集，只有當用戶取消勾選時才隱藏
         // 不需要在初始化時調用 togglePredictionLines(true)，因為圖表預設就是顯示的
         
-        // 全屏按鈕
+        // 全屏按鈕 - v3.0.27: 使用箭頭函數保持 this 綁定
         const fullscreenBtn = document.getElementById('forecast-fullscreen');
         if (fullscreenBtn) {
+            const self = this;
             fullscreenBtn.addEventListener('click', () => {
-                this.toggleFullscreen('forecast-chart-container');
+                self.toggleFullscreen('forecast-chart-container');
             });
         }
         
@@ -660,29 +661,42 @@ const ChartControls = {
         console.log('  ✓ ChartControls bindingscomplete');
     },
     
-    // 全屏切換
+    // 全屏切換 - v3.0.27: 增加錯誤處理和日誌
     toggleFullscreen(containerId) {
+        console.log('🖥️ 嘗試切換全屏:', containerId);
         const container = document.getElementById(containerId);
-        if (!container) return;
+        if (!container) {
+            console.error('❌ 找不到容器:', containerId);
+            Toast.show('找不到圖表容器', 'error');
+            return;
+        }
         
         if (!document.fullscreenElement) {
             // 進入全屏
-            if (container.requestFullscreen) {
-                container.requestFullscreen();
-            } else if (container.webkitRequestFullscreen) {
-                container.webkitRequestFullscreen();
-            } else if (container.msRequestFullscreen) {
-                container.msRequestFullscreen();
+            const requestFS = container.requestFullscreen || 
+                              container.webkitRequestFullscreen || 
+                              container.msRequestFullscreen;
+            
+            if (requestFS) {
+                requestFS.call(container)
+                    .then(() => {
+                        console.log('✅ 已進入全屏模式');
+                        Toast.show('已進入全屏模式，按 ESC 退出', 'info');
+                    })
+                    .catch(err => {
+                        console.error('❌ 全屏失敗:', err);
+                        Toast.show('無法進入全屏: ' + err.message, 'error');
+                    });
+            } else {
+                Toast.show('瀏覽器不支持全屏模式', 'warning');
             }
-            Toast.show('已進入全屏模式，按 ESC 退出', 'info');
         } else {
             // 退出全屏
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            } else if (document.webkitExitFullscreen) {
-                document.webkitExitFullscreen();
-            } else if (document.msExitFullscreen) {
-                document.msExitFullscreen();
+            const exitFS = document.exitFullscreen || 
+                           document.webkitExitFullscreen || 
+                           document.msExitFullscreen;
+            if (exitFS) {
+                exitFS.call(document);
             }
         }
     },
