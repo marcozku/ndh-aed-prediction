@@ -317,6 +317,31 @@ async function initDatabase() {
             END $$;
         `);
 
+        // v2.9.88: Intraday predictions history (tracks all predictions throughout the day)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS intraday_predictions (
+                id SERIAL PRIMARY KEY,
+                target_date DATE NOT NULL,
+                predicted_count INTEGER NOT NULL,
+                ci80_low INTEGER,
+                ci80_high INTEGER,
+                ci95_low INTEGER,
+                ci95_high INTEGER,
+                model_version VARCHAR(50) DEFAULT '1.0.0',
+                weather_data JSONB,
+                ai_factors JSONB,
+                prediction_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        // Create indexes for intraday_predictions
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_intraday_predictions_target_date ON intraday_predictions(target_date)
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_intraday_predictions_time ON intraday_predictions(prediction_time)
+        `);
+
         // Table for time-slot accuracy history (for Time-Window Weighted smoothing)
         await client.query(`
             CREATE TABLE IF NOT EXISTS timeslot_accuracy (
@@ -840,6 +865,7 @@ async function updateAIFactorsCache(updateTime, factorsCache, analysisData = nul
 }
 
 // Insert or update daily prediction (UPSERT - each update throughout the day replaces old prediction)
+// v2.9.88: Also inserts into intraday_predictions for history tracking
 async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, modelVersion = '1.0.0', weatherData = null, aiFactors = null) {
     if (!pool) {
         throw new Error('Database pool not initialized');
@@ -872,7 +898,89 @@ async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, mod
         weatherData ? JSON.stringify(weatherData) : null,
         aiFactors ? JSON.stringify(aiFactors) : null
     ]);
+    
+    // v2.9.88: Also insert into intraday_predictions for history tracking
+    try {
+        await insertIntradayPrediction(targetDate, predictedCount, ci80, ci95, modelVersion, weatherData, aiFactors);
+    } catch (err) {
+        console.warn('⚠️ 無法保存 intraday 預測記錄:', err.message);
+    }
+    
     return result.rows[0];
+}
+
+// v2.9.88: Insert intraday prediction (NO UNIQUE - keeps all predictions throughout the day)
+async function insertIntradayPrediction(targetDate, predictedCount, ci80, ci95, modelVersion = '1.0.0', weatherData = null, aiFactors = null) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+    const query = `
+        INSERT INTO intraday_predictions (target_date, predicted_count, ci80_low, ci80_high, ci95_low, ci95_high, model_version, weather_data, ai_factors, prediction_time)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+        RETURNING *
+    `;
+    const toInt = (val) => val != null ? Math.round(val) : null;
+    const result = await queryWithRetry(query, [
+        targetDate,
+        toInt(predictedCount),
+        toInt(ci80?.low),
+        toInt(ci80?.high),
+        toInt(ci95?.low),
+        toInt(ci95?.high),
+        modelVersion,
+        weatherData ? JSON.stringify(weatherData) : null,
+        aiFactors ? JSON.stringify(aiFactors) : null
+    ]);
+    return result.rows[0];
+}
+
+// v2.9.88: Get all intraday predictions for a date
+async function getIntradayPredictions(targetDate) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+    const query = `
+        SELECT 
+            id,
+            target_date,
+            predicted_count,
+            ci80_low,
+            ci80_high,
+            ci95_low,
+            ci95_high,
+            model_version,
+            prediction_time
+        FROM intraday_predictions
+        WHERE target_date = $1
+        ORDER BY prediction_time ASC
+    `;
+    const result = await queryWithRetry(query, [targetDate]);
+    return result.rows;
+}
+
+// v2.9.88: Get intraday predictions for multiple dates (for chart)
+async function getIntradayPredictionsRange(startDate, endDate) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+    const query = `
+        SELECT 
+            ip.id,
+            ip.target_date,
+            ip.predicted_count,
+            ip.ci80_low,
+            ip.ci80_high,
+            ip.prediction_time,
+            fdp.predicted_count as final_predicted,
+            a.patient_count as actual
+        FROM intraday_predictions ip
+        LEFT JOIN final_daily_predictions fdp ON ip.target_date = fdp.target_date
+        LEFT JOIN actual_data a ON ip.target_date = a.date
+        WHERE ip.target_date >= $1 AND ip.target_date <= $2
+        ORDER BY ip.target_date, ip.prediction_time ASC
+    `;
+    const result = await queryWithRetry(query, [startDate, endDate]);
+    return result.rows;
 }
 
 // Calculate and save final daily prediction using smoothing methods
@@ -1408,6 +1516,10 @@ module.exports = {
     saveTrainingStatus,
     // 新增：模型指標函數
     getModelMetrics,
-    saveModelMetrics
+    saveModelMetrics,
+    // v2.9.88: Intraday predictions
+    insertIntradayPrediction,
+    getIntradayPredictions,
+    getIntradayPredictionsRange
 };
 

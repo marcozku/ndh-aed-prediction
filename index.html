@@ -469,6 +469,39 @@
                     </table>
                 </div>
             </div>
+
+            <!-- v2.9.88: 預測波動圖表 - 顯示當天所有預測點 vs 最終平滑值 -->
+            <div class="chart-card full-width prediction-volatility-section">
+                <div class="volatility-header">
+                    <h3 class="chart-title">📊 預測波動分析</h3>
+                    <div class="volatility-controls">
+                        <select id="volatility-date-select" class="volatility-date-select">
+                            <option value="today">今日</option>
+                        </select>
+                        <button class="refresh-btn" id="refresh-volatility-chart" title="刷新圖表">
+                            <span>🔄</span>
+                        </button>
+                    </div>
+                </div>
+                <p class="chart-description">顯示選定日期內所有預測點的變化，與最終平滑預測值和實際值的對比</p>
+                <div class="chart-container" id="volatility-chart-container" style="height: 300px;">
+                    <div class="chart-loading" id="volatility-chart-loading">
+                        <div class="loading-spinner"></div>
+                        <div class="loading-text">載入中...</div>
+                    </div>
+                    <canvas id="volatility-chart" style="display: none;"></canvas>
+                </div>
+                <div class="volatility-stats" id="volatility-stats" style="margin-top: var(--space-md); display: none;">
+                    <div class="volatility-stat-row">
+                        <span class="stat-label">預測次數：</span>
+                        <span class="stat-value" id="volatility-count">-</span>
+                        <span class="stat-label" style="margin-left: var(--space-lg);">預測範圍：</span>
+                        <span class="stat-value" id="volatility-range">-</span>
+                        <span class="stat-label" style="margin-left: var(--space-lg);">標準差：</span>
+                        <span class="stat-value" id="volatility-std">-</span>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- 模型訓練狀態 -->

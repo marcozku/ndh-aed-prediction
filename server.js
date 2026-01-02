@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.87';
+const MODEL_VERSION = '2.9.88';
 
 // ============================================
 // HKT 時間工具函數
@@ -465,6 +465,71 @@ const apiHandlers = {
             });
         } catch (error) {
             console.error('❌ 獲取未來預測失敗:', error);
+            sendJson(res, { error: error.message }, 500);
+        }
+    },
+
+    // v2.9.88: Get intraday predictions for visualization
+    'GET /api/intraday-predictions': async (req, res) => {
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
+        
+        try {
+            const parsedUrl = url.parse(req.url, true);
+            const { date, start, end, days } = parsedUrl.query;
+            
+            // 獲取香港時間的今天日期
+            const hk = getHKTime();
+            const todayStr = hk.dateStr;
+            
+            let data;
+            
+            if (date) {
+                // 獲取單日的所有預測
+                data = await db.getIntradayPredictions(date);
+            } else if (start && end) {
+                // 獲取日期範圍
+                data = await db.getIntradayPredictionsRange(start, end);
+            } else {
+                // 默認獲取最近 N 天（預設 7 天）
+                const numDays = parseInt(days) || 7;
+                const startDate = new Date(hk.full);
+                startDate.setDate(startDate.getDate() - numDays + 1);
+                const startStr = startDate.toISOString().split('T')[0];
+                data = await db.getIntradayPredictionsRange(startStr, todayStr);
+            }
+            
+            // 按日期分組數據
+            const groupedData = {};
+            for (const row of data) {
+                const dateKey = row.target_date instanceof Date 
+                    ? row.target_date.toISOString().split('T')[0]
+                    : row.target_date;
+                    
+                if (!groupedData[dateKey]) {
+                    groupedData[dateKey] = {
+                        date: dateKey,
+                        predictions: [],
+                        finalPredicted: row.final_predicted || null,
+                        actual: row.actual || null
+                    };
+                }
+                
+                groupedData[dateKey].predictions.push({
+                    time: row.prediction_time,
+                    predicted: row.predicted_count,
+                    ci80_low: row.ci80_low,
+                    ci80_high: row.ci80_high
+                });
+            }
+            
+            sendJson(res, {
+                success: true,
+                data: Object.values(groupedData),
+                count: data.length,
+                dateRange: { start: start || todayStr, end: end || todayStr }
+            });
+        } catch (error) {
+            console.error('❌ 獲取 intraday 預測失敗:', error);
             sendJson(res, { error: error.message }, 500);
         }
     },

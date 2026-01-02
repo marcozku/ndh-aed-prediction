@@ -1765,6 +1765,10 @@ async function initCharts(predictor) {
     // 6. 詳細比較表格
     await initComparisonTable();
     
+    // 7. v2.9.88: 預測波動圖表
+    await initVolatilityChart();
+    setupVolatilityChartEvents();
+    
     // 強制所有圖表重新計算尺寸以確保響應式
     setTimeout(() => {
         forceChartsResize();
@@ -1836,6 +1840,12 @@ async function refreshAllChartsAfterDataUpdate() {
         if (typeof initComparisonTable === 'function') {
             console.log('📋 刷新對比表格...');
             await initComparisonTable();
+        }
+        
+        // 5.1 v2.9.88: 刷新預測波動圖表
+        if (typeof initVolatilityChart === 'function') {
+            console.log('📊 刷新預測波動圖表...');
+            await initVolatilityChart();
         }
         
         // 6. 更新預測 UI（包括今日預測、7日預測等）
@@ -3661,6 +3671,240 @@ async function initComparisonTable() {
         const table = document.getElementById('comparison-table');
         if (loading) loading.style.display = 'none';
         if (table) table.style.display = 'table';
+    }
+}
+
+// ============================================
+// v2.9.88: 預測波動圖表
+// 顯示當天所有預測點 vs 最終平滑值 vs 實際值
+// ============================================
+let volatilityChart = null;
+let volatilityChartData = null;
+
+async function initVolatilityChart(targetDate = null) {
+    const canvas = document.getElementById('volatility-chart');
+    const loading = document.getElementById('volatility-chart-loading');
+    const container = document.getElementById('volatility-chart-container');
+    const statsEl = document.getElementById('volatility-stats');
+    
+    if (!canvas) {
+        console.warn('⚠️ 找不到 volatility-chart canvas');
+        return;
+    }
+    
+    if (loading) loading.style.display = 'flex';
+    if (canvas) canvas.style.display = 'none';
+    if (statsEl) statsEl.style.display = 'none';
+    
+    try {
+        // 獲取今天日期 (HKT)
+        const now = new Date();
+        const hkOffset = 8 * 60 * 60 * 1000;
+        const hkNow = new Date(now.getTime() + hkOffset);
+        const todayStr = targetDate || hkNow.toISOString().split('T')[0];
+        
+        // 獲取 intraday 預測數據
+        const response = await fetch(`/api/intraday-predictions?days=7`);
+        if (!response.ok) throw new Error('API 錯誤');
+        const result = await response.json();
+        
+        if (!result.success || !result.data || result.data.length === 0) {
+            if (loading) {
+                loading.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">暫無預測波動數據<br><small>系統會在每 30 分鐘預測時記錄數據</small></div>';
+            }
+            return;
+        }
+        
+        volatilityChartData = result.data;
+        
+        // 更新日期選擇器
+        updateVolatilityDateSelect(result.data, todayStr);
+        
+        // 找到目標日期的數據
+        const targetData = result.data.find(d => d.date === todayStr) || result.data[result.data.length - 1];
+        
+        if (!targetData || !targetData.predictions || targetData.predictions.length === 0) {
+            if (loading) {
+                loading.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">選定日期暫無預測數據</div>';
+            }
+            return;
+        }
+        
+        // 準備圖表數據
+        const predictions = targetData.predictions.map(p => ({
+            x: new Date(p.time),
+            y: p.predicted
+        }));
+        
+        const datasets = [
+            {
+                label: '預測值',
+                data: predictions,
+                borderColor: 'rgba(139, 92, 246, 1)',
+                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                borderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                fill: false,
+                tension: 0.3
+            }
+        ];
+        
+        // 如果有最終平滑值，添加水平線
+        if (targetData.finalPredicted) {
+            datasets.push({
+                label: '最終平滑值',
+                data: predictions.map(p => ({ x: p.x, y: targetData.finalPredicted })),
+                borderColor: 'rgba(16, 185, 129, 1)',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                pointRadius: 0,
+                fill: false
+            });
+        }
+        
+        // 如果有實際值，添加水平線
+        if (targetData.actual) {
+            datasets.push({
+                label: '實際值',
+                data: predictions.map(p => ({ x: p.x, y: targetData.actual })),
+                borderColor: 'rgba(239, 68, 68, 1)',
+                borderWidth: 2,
+                borderDash: [10, 5],
+                pointRadius: 0,
+                fill: false
+            });
+        }
+        
+        // 銷毀舊圖表
+        if (volatilityChart) {
+            volatilityChart.destroy();
+            volatilityChart = null;
+        }
+        
+        // 創建圖表
+        const ctx = canvas.getContext('2d');
+        volatilityChart = new Chart(ctx, {
+            type: 'line',
+            data: { datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#94a3b8',
+                            font: { size: 11 }
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            title: (ctx) => {
+                                const date = new Date(ctx[0].parsed.x);
+                                return date.toLocaleString('zh-HK', { 
+                                    timeZone: 'Asia/Hong_Kong',
+                                    month: 'numeric', day: 'numeric',
+                                    hour: '2-digit', minute: '2-digit'
+                                });
+                            },
+                            label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y} 人`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'hour',
+                            displayFormats: { hour: 'HH:mm' }
+                        },
+                        title: { display: true, text: '時間', color: '#94a3b8' },
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                    },
+                    y: {
+                        title: { display: true, text: '預測人數', color: '#94a3b8' },
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                    }
+                }
+            }
+        });
+        
+        // 更新統計
+        updateVolatilityStats(targetData);
+        
+        if (loading) loading.style.display = 'none';
+        if (canvas) canvas.style.display = 'block';
+        if (statsEl) statsEl.style.display = 'block';
+        
+        console.log(`✅ 預測波動圖表已載入 (${targetData.date}: ${targetData.predictions.length} 個預測點)`);
+        
+    } catch (error) {
+        console.error('❌ 預測波動圖表載入失敗:', error);
+        if (loading) {
+            loading.innerHTML = `<div style="text-align: center; color: var(--text-tertiary);">載入失敗: ${error.message}</div>`;
+        }
+    }
+}
+
+function updateVolatilityDateSelect(data, selectedDate) {
+    const select = document.getElementById('volatility-date-select');
+    if (!select) return;
+    
+    select.innerHTML = data.map(d => {
+        const date = new Date(d.date);
+        const label = date.toLocaleDateString('zh-HK', { month: 'numeric', day: 'numeric' });
+        const countLabel = d.predictions ? ` (${d.predictions.length}次)` : '';
+        return `<option value="${d.date}" ${d.date === selectedDate ? 'selected' : ''}>${label}${countLabel}</option>`;
+    }).join('');
+}
+
+function updateVolatilityStats(data) {
+    const countEl = document.getElementById('volatility-count');
+    const rangeEl = document.getElementById('volatility-range');
+    const stdEl = document.getElementById('volatility-std');
+    
+    if (!data || !data.predictions || data.predictions.length === 0) {
+        if (countEl) countEl.textContent = '-';
+        if (rangeEl) rangeEl.textContent = '-';
+        if (stdEl) stdEl.textContent = '-';
+        return;
+    }
+    
+    const values = data.predictions.map(p => p.predicted);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+    const std = Math.sqrt(variance);
+    
+    if (countEl) countEl.textContent = `${data.predictions.length} 次`;
+    if (rangeEl) rangeEl.textContent = `${min} - ${max} (差 ${max - min})`;
+    if (stdEl) stdEl.textContent = std.toFixed(1);
+}
+
+// 設置 volatility 圖表事件監聽
+function setupVolatilityChartEvents() {
+    const select = document.getElementById('volatility-date-select');
+    const refreshBtn = document.getElementById('refresh-volatility-chart');
+    
+    if (select) {
+        select.addEventListener('change', (e) => {
+            initVolatilityChart(e.target.value);
+        });
+    }
+    
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            const select = document.getElementById('volatility-date-select');
+            const selectedDate = select ? select.value : null;
+            initVolatilityChart(selectedDate);
+        });
     }
 }
 

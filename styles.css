@@ -3582,6 +3582,73 @@ section h2 {
     gap: var(--space-sm);
 }
 
+/* ============================================
+   Volatility Chart Styles (v2.9.88)
+   ============================================ */
+.volatility-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-sm);
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.volatility-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.volatility-date-select {
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-medium);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    min-width: 120px;
+}
+
+.volatility-date-select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+}
+
+.prediction-volatility-section .chart-description {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    margin-bottom: var(--space-md);
+}
+
+.volatility-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    padding: var(--space-md);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    font-size: 0.85rem;
+}
+
+.volatility-stat-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.volatility-stats .stat-label {
+    color: var(--text-secondary);
+}
+
+.volatility-stats .stat-value {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
 .add-data-btn {
     padding: clamp(8px, 1.5vw, 10px) clamp(16px, 3vw, 20px);
     background: var(--gradient-primary);
