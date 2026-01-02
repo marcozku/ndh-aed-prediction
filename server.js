@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.0.15';
+const MODEL_VERSION = '3.0.16';
 
 // ============================================
 // HKT 時間工具函數
@@ -3576,6 +3576,9 @@ function getHKTime() {
     const parts = hkFormatter.formatToParts(now);
     const getPart = (type) => parts.find(p => p.type === type)?.value || '00';
     
+    const dateStr = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
+    const timeStr = `${getPart('hour')}:${getPart('minute')}:${getPart('second')}`;
+    
     return {
         year: parseInt(getPart('year')),
         month: parseInt(getPart('month')),
@@ -3583,7 +3586,9 @@ function getHKTime() {
         hour: parseInt(getPart('hour')),
         minute: parseInt(getPart('minute')),
         second: parseInt(getPart('second')),
-        dateStr: `${getPart('year')}-${getPart('month')}-${getPart('day')}`
+        dateStr: dateStr,
+        timeStr: timeStr,
+        full: `${dateStr}T${timeStr}+08:00`  // v3.0.16: 添加完整的 ISO 時間字符串
     };
 }
 
