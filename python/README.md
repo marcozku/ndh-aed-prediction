@@ -1,8 +1,8 @@
-# XGBoost 預測系統 v2.9.62
+# XGBoost 預測系統 v3.0.10
 
 基於 AI-AED-Algorithm-Specification.txt 實現的 XGBoost 預測系統，使用單一 XGBoost 模型進行預測。
 
-**最後更新**: 2026-01-03
+**最後更新**: 2026-01-02 23:30 HKT
 
 ## 🎯 當前性能
 
@@ -10,7 +10,7 @@
 - **MAE**: 4.01 病人（1.59% MAPE）
 - **方向準確度**: > 91%
 - **95% CI 覆蓋率**: > 95%
-- **特徵數**: 25 個精選特徵
+- **特徵數**: 36+ 個特徵（含 21 個天氣特徵）
 
 ## 🚀 v2.9.62 新特性
 
@@ -101,16 +101,18 @@ try {
 
 ```
 python/
-├── requirements.txt          # Python 依賴
-├── feature_engineering.py   # 特徵工程模組（50+ 特徵）
-├── train_xgboost.py         # XGBoost 訓練
-├── train_all_models.py      # 訓練 XGBoost 模型
-├── ensemble_predict.py      # XGBoost 預測核心邏輯
-├── predict.py               # 預測接口
-└── models/                  # 訓練好的模型（自動創建）
+├── requirements.txt              # Python 依賴
+├── feature_engineering.py        # 特徵工程模組（50+ 特徵）
+├── train_xgboost.py              # XGBoost 訓練
+├── train_all_models.py           # 訓練 XGBoost 模型
+├── ensemble_predict.py           # XGBoost 預測核心邏輯
+├── predict.py                    # 預測接口
+├── weather_history.csv           # HKO 歷史天氣數據（1988-至今）
+├── weather_warnings_history.csv  # 颱風/暴雨/警告歷史
+└── models/                       # 訓練好的模型（自動創建）
     ├── xgboost_model.json
     ├── xgboost_features.json
-    └── xgboost_metrics.json  # 評估指標
+    └── xgboost_metrics.json      # 評估指標
 ```
 
 ## 🎓 特徵工程
@@ -142,6 +144,35 @@ python/
 ### 交互特徵
 - Is_COVID_AND_Winter
 - Is_Monday_AND_Winter
+
+### 天氣特徵（21個）- v3.0.10 新增
+
+**基礎天氣（HKO 歷史數據）**：
+- Weather_Mean_Temp, Max_Temp, Min_Temp - 日平均/最高/最低氣溫
+- Weather_Temp_Range - 日溫差
+- Weather_Is_Very_Hot, Is_Hot - 酷熱/炎熱日
+- Weather_Is_Cold, Is_Very_Cold - 寒冷/嚴寒日
+- Weather_Temp_Deviation - 溫度偏離月平均
+- Weather_Has_Data - 是否有天氣數據
+
+**溫度變化效應**：
+- Weather_Temp_Change - 今天 vs 昨天溫度變化
+- Weather_Temp_Drop_5 - 驟降 ≥5°C（研究顯示增加呼吸道疾病）
+- Weather_Temp_Rise_5 - 驟升 ≥5°C（研究顯示增加中暑風險）
+
+**極端天氣事件**：
+- Typhoon_Signal - 颱風信號（0/1/3/8/10）
+- Typhoon_T3_Plus - T3 或以上
+- Typhoon_T8_Plus - 8號風球或以上
+- Rainstorm_Warning - 暴雨警告（0/1/2/3）
+- Rainstorm_Red_Plus - 紅雨或以上
+- Rainstorm_Black - 黑色暴雨
+- Hot_Warning - 酷熱天氣警告
+- Cold_Warning - 寒冷天氣警告
+
+**數據來源**：
+- `weather_history.csv` - HKO 打鼓嶺站（1988年至今）
+- `weather_warnings_history.csv` - 颱風/暴雨/警告歷史
 
 ## ⚠️ 注意事項
 

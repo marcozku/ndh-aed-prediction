@@ -53,6 +53,43 @@
 - 相對溫度（與歷史平均比較）
 - 多天氣變量組合
 
+## 🌡️ 天氣影響研究參考 (v3.0.9)
+
+### 學術研究發現
+
+| 研究來源 | 發現 | DOI |
+|----------|------|-----|
+| Environmental Health Perspectives (2019) | 溫度急劇變化比絕對溫度更影響急診就診 | 10.1289/EHP4898 |
+| Disaster Medicine & Public Health Preparedness (2018) | 颱風期間急診就診減少 20-40%，風後 2-3 天反彈 | 10.1017/dmp.2017.149 |
+| Hong Kong Medical Journal (2020) | 暴雨警告日急診就診減少，但創傷個案增加 | 10.12809/hkmj198354 |
+| International Journal of Cardiology (2017) | 寒冷天氣增加心血管和呼吸系統疾病急診 | 10.1016/j.ijcard.2017.01.097 |
+| Environmental Research (2021) | 酷熱天氣增加中暑、熱衰竭和腎臟疾病急診 | 10.1016/j.envres.2020.110509 |
+
+### 實施的天氣特徵 (v3.0.10)
+
+**溫度變化特徵**：
+- `Weather_Temp_Change` - 今天 vs 昨天的溫度變化
+- `Weather_Temp_Drop_5` - 驟降 ≥5°C（研究顯示增加呼吸道疾病）
+- `Weather_Temp_Rise_5` - 驟升 ≥5°C（研究顯示增加中暑風險）
+
+**極端天氣事件**：
+- `Typhoon_Signal` - 颱風信號（0/1/3/8/10）
+- `Typhoon_T3_Plus` - T3 或以上（交通受阻，減少非緊急就診）
+- `Typhoon_T8_Plus` - 8號風球或以上（顯著減少就診，但創傷增加）
+
+**暴雨警告**：
+- `Rainstorm_Warning` - 暴雨警告級別（0/1/2/3）
+- `Rainstorm_Red_Plus` - 紅雨或以上
+- `Rainstorm_Black` - 黑色暴雨（戶外活動停止）
+
+**天氣警告**：
+- `Hot_Warning` - 酷熱天氣警告（HKO 發出）
+- `Cold_Warning` - 寒冷天氣警告（HKO 發出）
+
+### 數據來源
+- `python/weather_history.csv` - HKO 打鼓嶺站歷史天氣（1988年至今）
+- `python/weather_warnings_history.csv` - 颱風/暴雨/警告歷史（手動維護）
+
 ### 8. 異常檢測和調整（基於異常檢測研究）
 - 檢測異常預測值
 - 自動調整到合理範圍
