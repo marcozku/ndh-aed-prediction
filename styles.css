@@ -5493,46 +5493,6 @@ section h2 {
 }
 
 /* ============================================
-   Chart Onboarding
-   ============================================ */
-.chart-onboarding {
-    margin-top: var(--space-md);
-}
-
-.onboarding-content {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    padding: var(--space-sm) var(--space-md);
-    background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, rgba(124, 58, 237, 0.05) 100%);
-    border: 1px solid rgba(79, 70, 229, 0.2);
-    border-radius: var(--radius-md);
-}
-
-.onboarding-icon {
-    font-size: 1.25rem;
-}
-
-.onboarding-text {
-    flex: 1;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-}
-
-.onboarding-dismiss {
-    background: none;
-    border: none;
-    color: var(--text-tertiary);
-    cursor: pointer;
-    padding: 4px;
-    font-size: 1rem;
-}
-
-.onboarding-dismiss:hover {
-    color: var(--text-primary);
-}
-
-/* ============================================
    Methodology Modal
    ============================================ */
 .methodology-modal-content {
@@ -6991,8 +6951,7 @@ html, body {
     .toast-container,
     .nav-action-btn,
     .modal-overlay,
-    .chart-toolbar,
-    .chart-onboarding {
+    .chart-toolbar {
         display: none !important;
     }
     

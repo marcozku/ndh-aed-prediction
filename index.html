@@ -455,14 +455,6 @@
                     </div>
                     <canvas id="history-chart" style="display: none;"></canvas>
                 </div>
-                <!-- 圖表 Onboarding 提示 -->
-                <div class="chart-onboarding" id="chart-onboarding" style="display: none;">
-                    <div class="onboarding-content">
-                        <span class="onboarding-icon">💡</span>
-                        <span class="onboarding-text" data-lang-key="chart-hint">提示：拖曳可平移，滾輪可縮放，點擊數據點查看詳情</span>
-                        <button class="onboarding-dismiss" id="dismiss-onboarding">✕</button>
-                    </div>
-                </div>
             </div>
 
             <!-- 實際 vs 預測對比圖 -->
@@ -598,7 +590,7 @@
         <footer class="app-footer" role="contentinfo">
             <p id="data-source-info" style="cursor: pointer; text-decoration: underline;" data-lang-key="footer-source">數據來源：載入中...</p>
             <p id="last-update-info" class="last-update-info"></p>
-            <p>預測模型版本 3.0.27 · 香港時間 HKT</p>
+            <p>預測模型版本 3.0.28 · 香港時間 HKT</p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2025 Marco Ma. All Rights Reserved.</p>
             <div class="footer-links">
                 <a href="/api/docs" class="footer-link" data-lang-key="footer-api">API 文檔</a>

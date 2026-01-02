@@ -846,26 +846,6 @@ const ChartControls = {
 };
 
 // ============================================
-// 圖表 Onboarding
-// ============================================
-const ChartOnboarding = {
-    init() {
-        const shown = localStorage.getItem('ndh-chart-onboarding-shown');
-        if (!shown) {
-            const onboarding = document.getElementById('chart-onboarding');
-            if (onboarding) {
-                onboarding.style.display = 'block';
-            }
-        }
-        
-        document.getElementById('dismiss-onboarding')?.addEventListener('click', () => {
-            document.getElementById('chart-onboarding').style.display = 'none';
-            localStorage.setItem('ndh-chart-onboarding-shown', 'true');
-        });
-    }
-};
-
-// ============================================
 // 方法論彈窗
 // ============================================
 const MethodologyModal = {
@@ -1755,9 +1735,6 @@ export function initUIEnhancements() {
         console.log('  ✓ ChartControls');
     } catch (e) { console.error('ChartControls error:', e); }
     
-    try {
-        ChartOnboarding.init();
-    } catch (e) { console.error('ChartOnboarding error:', e); }
     
     try {
         MethodologyModal.init();
