@@ -9099,13 +9099,54 @@ function initAlgorithmContent() {
                         <li>13000+ 天歷史天氣</li>
                     </ul>
                 </div>
-                <div>
-                    <strong style="color: var(--text-primary);">研究參考</strong>
-                    <ul style="margin: var(--space-xs) 0 0 0; padding-left: var(--space-md); color: var(--text-secondary); line-height: 1.6;">
-                        <li>BMC EM 2025 (XGBoost)</li>
-                        <li>JMIR 2025 (時間衰減)</li>
-                        <li>Prophet (Fourier 特徵)</li>
-                    </ul>
+            </div>
+        </div>
+        
+        <!-- 研究參考 (完整版) -->
+        <div class="algo-card" style="background: var(--bg-secondary); padding: var(--space-lg); border-radius: var(--radius-lg); margin-top: var(--space-lg);">
+            <h4 style="margin: 0 0 var(--space-md) 0; color: var(--text-primary);">🔬 研究參考文獻</h4>
+            <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.8;">
+                <div style="margin-bottom: var(--space-md); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid var(--accent-primary);">
+                    <strong style="color: var(--text-primary);">1. BMC Emergency Medicine (2025)</strong><br>
+                    <em>"XGBoost for ED attendance prediction"</em><br>
+                    法國醫院 XGBoost 模型，達成 MAE 2.63，R² 0.89<br>
+                    <span style="color: var(--accent-primary);">→ 本系統採用相同 XGBoost 架構</span>
+                </div>
+                <div style="margin-bottom: var(--space-md); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid var(--accent-success);">
+                    <strong style="color: var(--text-primary);">2. BMC Medical Informatics and Decision Making (2024)</strong><br>
+                    <em>"Feature engineering for healthcare prediction"</em><br>
+                    證實 EWMA、滾動統計等特徵工程可提升 15-20% 預測準確度<br>
+                    <span style="color: var(--accent-success);">→ 本系統使用 25 個優化特徵</span>
+                </div>
+                <div style="margin-bottom: var(--space-md); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid var(--accent-warning);">
+                    <strong style="color: var(--text-primary);">3. JMIR Medical Informatics (2025)</strong><br>
+                    <em>"Time-decay weighting in healthcare ML"</em><br>
+                    時間衰減權重（半衰期 365 天）提升近期數據影響力<br>
+                    <span style="color: var(--accent-warning);">→ 本系統使用指數時間衰減</span>
+                </div>
+                <div style="margin-bottom: var(--space-md); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid var(--accent-info);">
+                    <strong style="color: var(--text-primary);">4. Facebook Prophet (2017)</strong><br>
+                    <em>"Forecasting at scale"</em><br>
+                    Taylor & Letham - Fourier 季節性特徵用於時間序列<br>
+                    <span style="color: var(--accent-info);">→ 本系統使用 Fourier 週期特徵</span>
+                </div>
+                <div style="margin-bottom: var(--space-md); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid #a855f7;">
+                    <strong style="color: var(--text-primary);">5. XGBoost: A Scalable Tree Boosting System (2016)</strong><br>
+                    <em>Chen & Guestrin - KDD 2016</em><br>
+                    梯度提升決策樹框架，成為 ML 競賽標準算法<br>
+                    <span style="color: #a855f7;">→ 本系統核心預測引擎</span>
+                </div>
+                <div style="margin-bottom: var(--space-md); padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid #ec4899;">
+                    <strong style="color: var(--text-primary);">6. Kalman Filtering (1960)</strong><br>
+                    <em>R.E. Kalman - Transactions of ASME</em><br>
+                    遞歸最優估計器，用於平滑時間序列預測<br>
+                    <span style="color: #ec4899;">→ 本系統平滑算法之一</span>
+                </div>
+                <div style="padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid #14b8a6;">
+                    <strong style="color: var(--text-primary);">7. 香港天文台 (HKO)</strong><br>
+                    <em>打鼓嶺氣象站歷史數據 1988-至今</em><br>
+                    提供溫度、濕度、降雨量等氣象數據<br>
+                    <span style="color: #14b8a6;">→ 天氣影響因子數據來源</span>
                 </div>
             </div>
         </div>

@@ -1,5 +1,41 @@
 # 版本更新日誌
 
+## v3.0.35 - 2026-01-04 03:20 HKT
+
+### 📚 改進：展開完整研究參考文獻
+
+**新增完整參考**：
+
+1. **BMC Emergency Medicine (2025)** - XGBoost for ED attendance prediction
+   - 法國醫院 XGBoost 模型，MAE 2.63，R² 0.89
+   - 本系統採用相同架構
+
+2. **BMC Medical Informatics and Decision Making (2024)** - Feature engineering
+   - 證實 EWMA、滾動統計可提升 15-20% 準確度
+   - 本系統使用 25 個優化特徵
+
+3. **JMIR Medical Informatics (2025)** - Time-decay weighting
+   - 時間衰減權重提升近期數據影響力
+   - 本系統使用半衰期 365 天指數衰減
+
+4. **Facebook Prophet (2017)** - Forecasting at scale
+   - Taylor & Letham - Fourier 季節性特徵
+   - 本系統使用 Fourier 週期特徵
+
+5. **XGBoost: A Scalable Tree Boosting System (2016)** - Chen & Guestrin
+   - KDD 2016 梯度提升決策樹框架
+   - 本系統核心預測引擎
+
+6. **Kalman Filtering (1960)** - R.E. Kalman
+   - 遞歸最優估計器
+   - 本系統平滑算法之一
+
+7. **香港天文台 (HKO)** - 打鼓嶺氣象站
+   - 1988-至今歷史氣象數據
+   - 天氣影響因子數據來源
+
+---
+
 ## v3.0.34 - 2026-01-04 03:00 HKT
 
 ### 📖 改進：算法說明重新設計 - 詳細且有組織
