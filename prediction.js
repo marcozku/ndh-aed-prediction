@@ -57,9 +57,10 @@ async function getXGBoostPrediction(targetDate) {
 }
 
 // 獲取 XGBoost 預測並結合統計方法的元數據（完整格式）
-async function getXGBoostPredictionWithMetadata(dateStr, weatherData = null, aiFactor = null) {
+// predictorInstance: 預測器實例，用於獲取元數據
+async function getXGBoostPredictionWithMetadata(dateStr, predictorInstance, weatherData = null, aiFactor = null) {
     // 獲取統計方法的元數據（因子分解等）
-    const statPred = predictor.predict(dateStr, weatherData, aiFactor);
+    const statPred = predictorInstance.predict(dateStr, weatherData, aiFactor);
     
     // 嘗試獲取 XGBoost 預測
     const xgbResult = await getXGBoostPrediction(dateStr);
@@ -82,7 +83,7 @@ async function getXGBoostPredictionWithMetadata(dateStr, weatherData = null, aiF
 }
 
 // 批量獲取 XGBoost 預測並結合元數據
-async function getXGBoostPredictionsWithMetadata(startDate, days, weatherForecast = null, aiFactorsMap = null) {
+async function getXGBoostPredictionsWithMetadata(startDate, days, predictorInstance, weatherForecast = null, aiFactorsMap = null) {
     const predictions = [];
     const start = new Date(startDate);
     
@@ -94,7 +95,7 @@ async function getXGBoostPredictionsWithMetadata(startDate, days, weatherForecas
         const dayWeather = weatherForecast?.[dateStr] || null;
         const dayAIFactor = aiFactorsMap?.[dateStr] || null;
         
-        const pred = await getXGBoostPredictionWithMetadata(dateStr, dayWeather, dayAIFactor);
+        const pred = await getXGBoostPredictionWithMetadata(dateStr, predictorInstance, dayWeather, dayAIFactor);
         predictions.push(pred);
     }
     
@@ -1377,7 +1378,7 @@ async function initCharts(predictor) {
             for (const dateStr of missingDates) {
                 const dayWeather = weatherForecastData?.[dateStr] || null;
                 const dayAIFactor = aiFactors?.[dateStr] || null;
-                const pred = await getXGBoostPredictionWithMetadata(dateStr, dayWeather, dayAIFactor);
+                const pred = await getXGBoostPredictionWithMetadata(dateStr, predictor, dayWeather, dayAIFactor);
                 predictions.push(pred);
             }
         }
@@ -4994,7 +4995,7 @@ async function updateUI(predictor, forceRecalculate = false) {
     updateSectionProgress('today-prediction', 30);
     
     // 今日預測（使用 XGBoost 模型，包含天氣和 AI 因素）
-    const todayPred = await getXGBoostPredictionWithMetadata(today, currentWeatherData, aiFactors[today]);
+    const todayPred = await getXGBoostPredictionWithMetadata(today, predictor, currentWeatherData, aiFactors[today]);
     console.log(`📊 今日預測使用 ${todayPred.xgboostUsed ? 'XGBoost' : '統計方法'}: ${todayPred.predicted} 人`);
     updateSectionProgress('today-prediction', 60);
     
@@ -5118,7 +5119,7 @@ async function updateUI(predictor, forceRecalculate = false) {
     // 如果數據庫沒有足夠的預測數據，或強制重新計算
     if (!usedSavedPredictions) {
         // 使用 XGBoost 模型計算 7 天預測
-        forecasts = await getXGBoostPredictionsWithMetadata(tomorrow, 7, weatherForecastData, aiFactors);
+        forecasts = await getXGBoostPredictionsWithMetadata(tomorrow, 7, predictor, weatherForecastData, aiFactors);
         const xgboostCount = forecasts.filter(f => f.xgboostUsed).length;
         console.log(`📊 重新計算 7 天預測（XGBoost: ${xgboostCount}/7）` + (forceRecalculate ? '（AI/天氣因素已更新）' : '（數據庫無足夠數據）'));
         
