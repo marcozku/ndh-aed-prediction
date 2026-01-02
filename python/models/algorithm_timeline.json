@@ -114,7 +114,49 @@
       "research": "維度災難研究、特徵選擇最佳實踐",
       "key_features": ["EWMA7 (87%)", "自動優化", "持續學習"],
       "improvement": "自動尋找最佳特徵組合，持續優化"
+    },
+    {
+      "version": "3.0.10",
+      "date": "2026-01-02",
+      "description": "天氣警告特徵 + 文檔自動化",
+      "changes": [
+        "新增 11 個天氣特徵（颱風/暴雨/警告）",
+        "Weather_Temp_Change, Typhoon_Signal 等",
+        "訓練後自動更新特徵文檔",
+        "CURRENT_FEATURES.md 自動生成"
+      ],
+      "metrics": {
+        "mae": 4.01,
+        "mape": 1.59,
+        "rmse": 5.45,
+        "r2": 0.958,
+        "adj_r2": 0.957,
+        "feature_count": 25
+      },
+      "research": "極端天氣對急診影響研究 (HKMJ 2020, Disaster Medicine 2018)",
+      "key_features": ["颱風信號", "暴雨警告", "酷熱/寒冷警告"],
+      "improvement": "整合香港極端天氣事件特徵"
+    },
+    {
+      "version": "3.0.13",
+      "date": "2026-01-02",
+      "description": "天氣影響分析圖表重構",
+      "changes": [
+        "「影響力偏差圖」取代舊圖表",
+        "所有天氣因素一覽，按影響力排序",
+        "紅色=增加出席，藍色=減少出席",
+        "倒計時修復：永不顯示「計算中」"
+      ],
+      "metrics": {
+        "mae": 4.01,
+        "mape": 1.59,
+        "rmse": 5.45,
+        "r2": 0.958,
+        "adj_r2": 0.957,
+        "feature_count": 25
+      },
+      "improvement": "更清晰的天氣影響可視化"
     }
   ],
-  "last_updated": "2026-01-02T05:20:00+08:00"
+  "last_updated": "2026-01-02T23:30:00+08:00"
 }
