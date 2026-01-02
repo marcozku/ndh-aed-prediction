@@ -1843,6 +1843,223 @@ section h2 {
 }
 
 /* ============================================
+   v3.0.39: Bayesian Breakdown Section
+   ============================================ */
+.bayesian-breakdown {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(59, 130, 246, 0.08) 100%);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.bayesian-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    margin-bottom: var(--space-sm);
+}
+
+.bayesian-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.bayesian-toggle {
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+    transition: transform 0.3s ease;
+}
+
+.bayesian-breakdown.collapsed .bayesian-toggle {
+    transform: rotate(-90deg);
+}
+
+.bayesian-breakdown.collapsed .bayesian-content {
+    display: none;
+}
+
+.bayesian-sources {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.source-item {
+    background: var(--bg-primary);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm) var(--space-md);
+    border-left: 3px solid var(--text-tertiary);
+}
+
+.source-item.xgboost {
+    border-left-color: #8b5cf6;
+}
+
+.source-item.ai {
+    border-left-color: #f59e0b;
+}
+
+.source-item.weather {
+    border-left-color: #3b82f6;
+}
+
+.source-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-xs);
+}
+
+.source-icon {
+    font-size: 0.9rem;
+}
+
+.source-name {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    flex: 1;
+}
+
+.source-weight {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    background: rgba(139, 92, 246, 0.15);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+}
+
+.source-bar-container {
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: var(--space-xs);
+}
+
+.source-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+
+.source-item.xgboost .source-bar {
+    background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+}
+
+.source-item.ai .source-bar {
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.source-item.weather .source-bar {
+    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+.source-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.source-value {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.source-factor {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    background: var(--bg-secondary);
+    padding: 2px 6px;
+    border-radius: var(--radius-xs);
+}
+
+.source-factor.positive {
+    color: var(--accent-success);
+    background: rgba(34, 197, 94, 0.1);
+}
+
+.source-factor.negative {
+    color: var(--accent-danger);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+/* Reliability bars */
+.bayesian-reliability {
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--border-subtle);
+}
+
+.reliability-label {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    display: block;
+    margin-bottom: var(--space-sm);
+}
+
+.reliability-bars {
+    display: flex;
+    gap: var(--space-md);
+}
+
+.reliability-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.rel-name {
+    font-size: 0.65rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.rel-bar-bg {
+    width: 100%;
+    height: 4px;
+    background: var(--bg-tertiary);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.rel-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #22c55e, #4ade80);
+    border-radius: 2px;
+    transition: width 0.5s ease;
+}
+
+.rel-value {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+/* Mobile adjustments */
+@media (max-width: 480px) {
+    .bayesian-breakdown {
+        padding: var(--space-sm);
+    }
+    
+    .reliability-bars {
+        gap: var(--space-sm);
+    }
+    
+    .source-header {
+        flex-wrap: wrap;
+    }
+}
+
+/* ============================================
    Factors Breakdown - Mini Cards
    ============================================ */
 .factors-breakdown {

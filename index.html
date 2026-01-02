@@ -163,6 +163,78 @@
                             <span class="ci-value" id="today-ci95">-- - -- 人</span>
                         </div>
                     </div>
+                    
+                    <!-- v3.0.39: Bayesian 預測分解 -->
+                    <div class="bayesian-breakdown" id="bayesian-breakdown">
+                        <div class="bayesian-header">
+                            <span class="bayesian-title">🎯 Pragmatic Bayesian 融合</span>
+                            <span class="bayesian-toggle" id="bayesian-toggle" title="展開/收起">▼</span>
+                        </div>
+                        <div class="bayesian-content" id="bayesian-content">
+                            <div class="bayesian-sources">
+                                <div class="source-item xgboost">
+                                    <div class="source-header">
+                                        <span class="source-icon">🤖</span>
+                                        <span class="source-name">XGBoost</span>
+                                        <span class="source-weight" id="weight-xgboost">--%</span>
+                                    </div>
+                                    <div class="source-bar-container">
+                                        <div class="source-bar" id="bar-xgboost" style="width: 0%"></div>
+                                    </div>
+                                    <div class="source-value" id="value-xgboost">-- 人</div>
+                                </div>
+                                <div class="source-item ai">
+                                    <div class="source-header">
+                                        <span class="source-icon">🧠</span>
+                                        <span class="source-name">AI 因子</span>
+                                        <span class="source-weight" id="weight-ai">--%</span>
+                                    </div>
+                                    <div class="source-bar-container">
+                                        <div class="source-bar" id="bar-ai" style="width: 0%"></div>
+                                    </div>
+                                    <div class="source-details">
+                                        <span class="source-value" id="value-ai">-- 人</span>
+                                        <span class="source-factor" id="factor-ai">×1.00</span>
+                                    </div>
+                                </div>
+                                <div class="source-item weather">
+                                    <div class="source-header">
+                                        <span class="source-icon">🌤️</span>
+                                        <span class="source-name">天氣因子</span>
+                                        <span class="source-weight" id="weight-weather">--%</span>
+                                    </div>
+                                    <div class="source-bar-container">
+                                        <div class="source-bar" id="bar-weather" style="width: 0%"></div>
+                                    </div>
+                                    <div class="source-details">
+                                        <span class="source-value" id="value-weather">-- 人</span>
+                                        <span class="source-factor" id="factor-weather">×1.00</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bayesian-reliability">
+                                <span class="reliability-label">📊 可靠度學習</span>
+                                <div class="reliability-bars">
+                                    <div class="reliability-item">
+                                        <span class="rel-name">XGB</span>
+                                        <div class="rel-bar-bg"><div class="rel-bar" id="rel-xgboost" style="width: 90%"></div></div>
+                                        <span class="rel-value" id="rel-value-xgboost">90%</span>
+                                    </div>
+                                    <div class="reliability-item">
+                                        <span class="rel-name">AI</span>
+                                        <div class="rel-bar-bg"><div class="rel-bar" id="rel-ai" style="width: 60%"></div></div>
+                                        <span class="rel-value" id="rel-value-ai">60%</span>
+                                    </div>
+                                    <div class="reliability-item">
+                                        <span class="rel-name">天氣</span>
+                                        <div class="rel-bar-bg"><div class="rel-bar" id="rel-weather" style="width: 75%"></div></div>
+                                        <span class="rel-value" id="rel-value-weather">75%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="factors-breakdown" id="factors-breakdown"></div>
                 </div>
 
@@ -590,7 +662,7 @@
         <footer class="app-footer" role="contentinfo">
             <p id="data-source-info" style="cursor: pointer; text-decoration: underline;" data-lang-key="footer-source">數據來源：載入中...</p>
             <p id="last-update-info" class="last-update-info"></p>
-            <p>預測模型版本 3.0.38 · 香港時間 HKT</p>
+            <p>預測模型版本 3.0.39 · 香港時間 HKT</p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2025 Marco Ma. All Rights Reserved.</p>
             <div class="footer-links">
                 <a href="/api/docs" class="footer-link" data-lang-key="footer-api">API 文檔</a>

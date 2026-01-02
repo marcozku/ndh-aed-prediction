@@ -5834,6 +5834,9 @@ async function updateUI(predictor, forceRecalculate = false) {
     document.getElementById('today-ci80').textContent = `${todayPred.ci80.lower} - ${todayPred.ci80.upper} 人`;
     document.getElementById('today-ci95').textContent = `${todayPred.ci95.lower} - ${todayPred.ci95.upper} 人`;
     
+    // v3.0.39: 更新 Bayesian 分解顯示
+    updateBayesianBreakdown(todayPred);
+    
     // 因子分解
     const factorsEl = document.getElementById('factors-breakdown');
     factorsEl.innerHTML = `
@@ -8406,6 +8409,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 載入算法說明
     loadAlgorithmDescription();
     
+    // v3.0.39: 初始化 Bayesian 分解 UI
+    initBayesianToggle();
+    
+    // v3.0.39: 自動學習可靠度（背景執行）
+    setTimeout(() => autoLearnReliability(), 5000);
+    
     // 初始化 CSV 上傳功能
     initCSVUpload();
     
@@ -8948,6 +8957,164 @@ function renderTrainingStatus(data) {
     const liveLog = document.getElementById('live-training-log');
     if (liveLog) {
         liveLog.scrollTop = liveLog.scrollHeight;
+    }
+}
+
+// ============================================
+// v3.0.39: Bayesian 分解顯示
+// ============================================
+function updateBayesianBreakdown(todayPred) {
+    const container = document.getElementById('bayesian-breakdown');
+    if (!container) return;
+    
+    // 檢查是否使用了 Pragmatic Bayesian
+    if (!todayPred.bayesianWeights && typeof PragmaticBayesianPredictor !== 'undefined') {
+        // 重新計算 Bayesian 以獲取權重
+        try {
+            const bayesian = new PragmaticBayesianPredictor({ baseStd: 15 });
+            const result = bayesian.predict(
+                todayPred.basePrediction || todayPred.predicted,
+                todayPred.aiFactorMultiplier || 1.0,
+                todayPred.weatherFactorMultiplier || todayPred.weatherFactor || 1.0
+            );
+            todayPred.bayesianWeights = result.weights;
+            todayPred.bayesianContributions = result.contributions;
+            todayPred.bayesianReliability = result.reliability;
+        } catch (e) {
+            console.warn('⚠️ 無法計算 Bayesian 分解:', e.message);
+        }
+    }
+    
+    if (!todayPred.bayesianWeights) {
+        // 隱藏 Bayesian 區域（沒有數據）
+        container.style.display = 'none';
+        return;
+    }
+    
+    container.style.display = 'block';
+    
+    const weights = todayPred.bayesianWeights;
+    const contributions = todayPred.bayesianContributions || {};
+    const reliability = todayPred.bayesianReliability || { xgboost: 0.9, ai: 0.6, weather: 0.75 };
+    
+    // 更新權重顯示
+    const updateWeight = (id, weight) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = `${(weight * 100).toFixed(0)}%`;
+    };
+    
+    updateWeight('weight-xgboost', weights.xgboost || 0);
+    updateWeight('weight-ai', weights.ai || 0);
+    updateWeight('weight-weather', weights.weather || 0);
+    
+    // 更新權重條
+    const updateBar = (id, weight) => {
+        const el = document.getElementById(id);
+        if (el) el.style.width = `${(weight * 100).toFixed(0)}%`;
+    };
+    
+    updateBar('bar-xgboost', weights.xgboost || 0);
+    updateBar('bar-ai', weights.ai || 0);
+    updateBar('bar-weather', weights.weather || 0);
+    
+    // 更新來源值
+    const basePred = todayPred.basePrediction || todayPred.predicted;
+    const aiFactor = todayPred.aiFactorMultiplier || 1.0;
+    const weatherFactor = todayPred.weatherFactorMultiplier || todayPred.weatherFactor || 1.0;
+    
+    const valueXgboost = document.getElementById('value-xgboost');
+    if (valueXgboost) valueXgboost.textContent = `${basePred} 人`;
+    
+    const valueAi = document.getElementById('value-ai');
+    if (valueAi) valueAi.textContent = `${Math.round(basePred * aiFactor)} 人`;
+    
+    const factorAi = document.getElementById('factor-ai');
+    if (factorAi) {
+        factorAi.textContent = `×${aiFactor.toFixed(2)}`;
+        factorAi.className = 'source-factor ' + (aiFactor > 1 ? 'positive' : aiFactor < 1 ? 'negative' : '');
+    }
+    
+    const valueWeather = document.getElementById('value-weather');
+    if (valueWeather) valueWeather.textContent = `${Math.round(basePred * weatherFactor)} 人`;
+    
+    const factorWeather = document.getElementById('factor-weather');
+    if (factorWeather) {
+        factorWeather.textContent = `×${weatherFactor.toFixed(2)}`;
+        factorWeather.className = 'source-factor ' + (weatherFactor > 1 ? 'positive' : weatherFactor < 1 ? 'negative' : '');
+    }
+    
+    // 更新可靠度條
+    const updateReliability = (id, value) => {
+        const bar = document.getElementById(id);
+        const valueEl = document.getElementById(id.replace('rel-', 'rel-value-'));
+        if (bar) bar.style.width = `${(value * 100).toFixed(0)}%`;
+        if (valueEl) valueEl.textContent = `${(value * 100).toFixed(0)}%`;
+    };
+    
+    updateReliability('rel-xgboost', reliability.xgboost || 0.9);
+    updateReliability('rel-ai', reliability.ai || 0.6);
+    updateReliability('rel-weather', reliability.weather || 0.75);
+    
+    console.log('✅ Bayesian 分解已更新:', {
+        weights,
+        basePred,
+        aiFactor,
+        weatherFactor,
+        reliability
+    });
+}
+
+// 初始化 Bayesian 區塊的折疊功能
+function initBayesianToggle() {
+    const toggle = document.getElementById('bayesian-toggle');
+    const container = document.getElementById('bayesian-breakdown');
+    
+    if (toggle && container) {
+        toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            container.classList.toggle('collapsed');
+        });
+        
+        // 標題也可以點擊
+        const header = container.querySelector('.bayesian-header');
+        if (header) {
+            header.addEventListener('click', () => {
+                container.classList.toggle('collapsed');
+            });
+        }
+    }
+}
+
+// v3.0.39: 自動學習可靠度（當有實際數據時）
+async function autoLearnReliability() {
+    if (typeof PragmaticBayesianPredictor === 'undefined') return;
+    
+    try {
+        // 獲取過去 30 天的預測和實際數據
+        const response = await fetch('/api/accuracy-history?days=30');
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        if (!data.success || !data.history || data.history.length < 10) return;
+        
+        // 轉換格式
+        const historicalData = data.history.map(day => ({
+            actual: day.actual,
+            xgboostPred: day.predicted,
+            aiPred: day.predicted,  // 暫時使用相同值
+            weatherPred: day.predicted
+        }));
+        
+        // 學習可靠度
+        const bayesian = new PragmaticBayesianPredictor();
+        bayesian.learnFromHistory(historicalData);
+        
+        // 保存到 localStorage
+        localStorage.setItem('bayesian_reliability', JSON.stringify(bayesian.reliability));
+        
+        console.log('📊 已從歷史數據學習可靠度:', bayesian.reliability);
+    } catch (e) {
+        console.warn('⚠️ 自動學習可靠度失敗:', e.message);
     }
 }
 
