@@ -1765,7 +1765,10 @@ async function initCharts(predictor) {
     // 6. 詳細比較表格
     await initComparisonTable();
     
-    // 7. v2.9.88: 預測波動圖表
+    // 7. v2.9.91: 天氣影響分析圖表
+    await initWeatherCorrChart();
+    
+    // 8. v2.9.88: 預測波動圖表
     await initVolatilityChart();
     setupVolatilityChartEvents();
     
@@ -1842,7 +1845,13 @@ async function refreshAllChartsAfterDataUpdate() {
             await initComparisonTable();
         }
         
-        // 5.1 v2.9.88: 刷新預測波動圖表
+        // 5.1 v2.9.91: 刷新天氣影響分析圖表
+        if (typeof initWeatherCorrChart === 'function') {
+            console.log('🌡️ 刷新天氣影響分析圖表...');
+            await initWeatherCorrChart();
+        }
+        
+        // 5.2 v2.9.88: 刷新預測波動圖表
         if (typeof initVolatilityChart === 'function') {
             console.log('📊 刷新預測波動圖表...');
             await initVolatilityChart();
@@ -3671,6 +3680,154 @@ async function initComparisonTable() {
         const table = document.getElementById('comparison-table');
         if (loading) loading.style.display = 'none';
         if (table) table.style.display = 'table';
+    }
+}
+
+// ============================================
+// v2.9.91: 天氣影響分析圖表
+// 使用真實 HKO 天氣數據與歷史出席數據進行相關性分析
+// ============================================
+let weatherCorrChart = null;
+
+async function initWeatherCorrChart() {
+    const canvas = document.getElementById('weather-corr-chart');
+    const loading = document.getElementById('weather-corr-chart-loading');
+    
+    if (!canvas) {
+        console.warn('⚠️ 找不到 weather-corr-chart canvas');
+        return;
+    }
+    
+    if (loading) loading.style.display = 'flex';
+    if (canvas) canvas.style.display = 'none';
+    
+    try {
+        // 獲取天氣-出席相關性數據
+        const response = await fetch('/api/weather-correlation');
+        if (!response.ok) throw new Error('API 錯誤');
+        const result = await response.json();
+        
+        if (!result.success || !result.data || result.data.length === 0) {
+            if (loading) {
+                loading.innerHTML = `
+                    <div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">
+                        暫無天氣相關性數據<br>
+                        <small>需要有天氣數據的預測記錄 + 對應的實際出席數據</small>
+                    </div>
+                `;
+            }
+            return;
+        }
+        
+        const data = result.data;
+        const correlation = result.correlation;
+        
+        // 銷毀舊圖表
+        if (weatherCorrChart) {
+            weatherCorrChart.destroy();
+            weatherCorrChart = null;
+        }
+        
+        // 準備散點圖數據
+        const tempData = data.filter(d => d.temperature != null).map(d => ({
+            x: d.temperature,
+            y: d.actual
+        }));
+        
+        const humidityData = data.filter(d => d.humidity != null).map(d => ({
+            x: d.humidity,
+            y: d.actual
+        }));
+        
+        const rainfallData = data.filter(d => d.rainfall != null && d.rainfall > 0).map(d => ({
+            x: d.rainfall,
+            y: d.actual
+        }));
+        
+        // 創建圖表
+        const ctx = canvas.getContext('2d');
+        weatherCorrChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: `溫度 (r=${correlation.temperature?.toFixed(2) || 'N/A'})`,
+                        data: tempData,
+                        backgroundColor: 'rgba(239, 68, 68, 0.6)',
+                        borderColor: 'rgba(239, 68, 68, 1)',
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    },
+                    {
+                        label: `濕度 (r=${correlation.humidity?.toFixed(2) || 'N/A'})`,
+                        data: humidityData,
+                        backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    },
+                    {
+                        label: `降雨量 (r=${correlation.rainfall?.toFixed(2) || 'N/A'})`,
+                        data: rainfallData,
+                        backgroundColor: 'rgba(16, 185, 129, 0.6)',
+                        borderColor: 'rgba(16, 185, 129, 1)',
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#94a3b8',
+                            font: { size: 11 }
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: `基於 ${result.count} 天真實 HKO 天氣 + 實際出席數據`,
+                        color: '#94a3b8',
+                        font: { size: 11 }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const label = ctx.dataset.label.split(' ')[0];
+                                return `${label}: ${ctx.parsed.x}, 出席: ${ctx.parsed.y} 人`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: '天氣數值', color: '#94a3b8' },
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                    },
+                    y: {
+                        title: { display: true, text: '實際出席人數', color: '#94a3b8' },
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                    }
+                }
+            }
+        });
+        
+        if (loading) loading.style.display = 'none';
+        if (canvas) canvas.style.display = 'block';
+        
+        console.log(`✅ 天氣影響分析圖表已載入 (${result.count} 天數據, 溫度相關 r=${correlation.temperature?.toFixed(2)})`);
+        
+    } catch (error) {
+        console.error('❌ 天氣影響分析圖表載入失敗:', error);
+        if (loading) {
+            loading.innerHTML = `<div style="text-align: center; color: var(--text-tertiary);">載入失敗: ${error.message}</div>`;
+        }
     }
 }
 

@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.90';
+const MODEL_VERSION = '2.9.91';
 
 // ============================================
 // HKT 時間工具函數
@@ -465,6 +465,62 @@ const apiHandlers = {
             });
         } catch (error) {
             console.error('❌ 獲取未來預測失敗:', error);
+            sendJson(res, { error: error.message }, 500);
+        }
+    },
+
+    // v2.9.91: Get weather-attendance correlation data
+    'GET /api/weather-correlation': async (req, res) => {
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
+        
+        try {
+            // 獲取有天氣數據的預測記錄 + 對應的實際數據
+            const query = `
+                SELECT 
+                    dp.target_date,
+                    dp.weather_data,
+                    dp.predicted_count,
+                    a.patient_count as actual_count
+                FROM daily_predictions dp
+                JOIN actual_data a ON dp.target_date = a.date
+                WHERE dp.weather_data IS NOT NULL
+                  AND a.patient_count IS NOT NULL
+                ORDER BY dp.target_date DESC
+                LIMIT 100
+            `;
+            
+            const result = await db.pool.query(query);
+            
+            // 解析天氣數據並計算相關性
+            const dataPoints = [];
+            for (const row of result.rows) {
+                const weather = typeof row.weather_data === 'string' 
+                    ? JSON.parse(row.weather_data) 
+                    : row.weather_data;
+                
+                if (weather && row.actual_count) {
+                    dataPoints.push({
+                        date: row.target_date,
+                        temperature: weather.temperature || weather.temp,
+                        humidity: weather.humidity,
+                        rainfall: weather.rainfall || 0,
+                        actual: row.actual_count,
+                        predicted: row.predicted_count
+                    });
+                }
+            }
+            
+            // 計算相關性係數
+            const correlation = calculateCorrelation(dataPoints);
+            
+            sendJson(res, {
+                success: true,
+                data: dataPoints,
+                count: dataPoints.length,
+                correlation: correlation
+            });
+        } catch (error) {
+            console.error('❌ 獲取天氣相關性數據失敗:', error);
             sendJson(res, { error: error.message }, 500);
         }
     },
@@ -3067,6 +3123,43 @@ const server = http.createServer(async (req, res) => {
         }
     }
 });
+
+// v2.9.91: 計算皮爾森相關係數
+function calculateCorrelation(dataPoints) {
+    if (!dataPoints || dataPoints.length < 3) {
+        return { temperature: null, humidity: null, rainfall: null };
+    }
+    
+    const pearson = (x, y) => {
+        const validPairs = x.map((xi, i) => [xi, y[i]]).filter(([a, b]) => a != null && b != null);
+        if (validPairs.length < 3) return null;
+        
+        const n = validPairs.length;
+        const sumX = validPairs.reduce((s, [a]) => s + a, 0);
+        const sumY = validPairs.reduce((s, [, b]) => s + b, 0);
+        const sumXY = validPairs.reduce((s, [a, b]) => s + a * b, 0);
+        const sumX2 = validPairs.reduce((s, [a]) => s + a * a, 0);
+        const sumY2 = validPairs.reduce((s, [, b]) => s + b * b, 0);
+        
+        const numerator = n * sumXY - sumX * sumY;
+        const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+        
+        if (denominator === 0) return 0;
+        return numerator / denominator;
+    };
+    
+    const actual = dataPoints.map(d => d.actual);
+    const temp = dataPoints.map(d => d.temperature);
+    const humidity = dataPoints.map(d => d.humidity);
+    const rainfall = dataPoints.map(d => d.rainfall);
+    
+    return {
+        temperature: pearson(temp, actual),
+        humidity: pearson(humidity, actual),
+        rainfall: pearson(rainfall, actual),
+        sampleSize: dataPoints.length
+    };
+}
 
 // 獲取香港時間
 function getHKTime() {
