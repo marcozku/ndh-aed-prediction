@@ -4016,49 +4016,57 @@ async function initWeatherCorrChart() {
             if (oldNote) oldNote.remove();
         }
         
-        // v3.0.13: 簡化統計區域 - 圖表已經足夠清晰
+        // v3.0.16: 簡化統計區域 - 使用動態主題顏色
         const statsEl = document.getElementById('weather-corr-stats');
         if (statsEl) {
             // 找出最有影響力的因素（按絕對偏差排序）
             const topFactors = weatherFactors.slice(0, 3);
             const maxFactor = weatherFactors[0];
             
+            // 動態顏色（與圖表一致）
+            const statsBgColor = isDarkMode ? 'rgba(30, 41, 59, 0.5)' : 'rgba(241, 245, 249, 0.8)';
+            const statsTextPrimary = isDarkMode ? '#e2e8f0' : '#1e293b';
+            const statsTextSecondary = isDarkMode ? '#94a3b8' : '#475569';
+            const findingBg = isDarkMode 
+                ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(59, 130, 246, 0.1))'
+                : 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.08))';
+            
             statsEl.innerHTML = `
                 <!-- 主要發現 -->
-                <div style="padding: 10px 12px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(59, 130, 246, 0.1)); border-radius: 8px; border-left: 3px solid #8b5cf6; margin-bottom: 10px;">
-                    <div style="font-size: 12px; font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">💡 主要發現</div>
+                <div style="padding: 10px 12px; background: ${findingBg}; border-radius: 8px; border-left: 3px solid #8b5cf6; margin-bottom: 10px;">
+                    <div style="font-size: 12px; font-weight: 600; color: ${statsTextPrimary}; margin-bottom: 4px;">💡 主要發現</div>
                     ${maxFactor ? `
-                    <div style="font-size: 11px; color: #cbd5e1;">
-                        「<strong>${maxFactor.label.replace(/^[^\s]+\s/, '')}</strong>」對出席影響最大
+                    <div style="font-size: 11px; color: ${statsTextSecondary};">
+                        「<strong style="color: ${statsTextPrimary};">${maxFactor.label.replace(/^[^\s]+\s/, '')}</strong>」對出席影響最大
                         <span style="color: ${maxFactor.diff >= 0 ? '#ef4444' : '#3b82f6'}; font-weight: 600;">
                             (${maxFactor.diff >= 0 ? '+' : ''}${maxFactor.diff} 人)
                         </span>
                     </div>
-                    ` : '<div style="font-size: 11px; color: #94a3b8;">暫無顯著天氣影響</div>'}
+                    ` : `<div style="font-size: 11px; color: ${statsTextSecondary};">暫無顯著天氣影響</div>`}
                 </div>
                 
                 <!-- 數據來源 -->
-                <div style="display: flex; justify-content: space-between; font-size: 10px; color: #64748b; padding: 0 4px;">
+                <div style="display: flex; justify-content: space-between; font-size: 11px; color: ${statsTextSecondary}; padding: 0 4px; font-weight: 500;">
                     <span>📊 ${result.count || data.length} 天 HKO 數據</span>
                     <span>🎯 ${weatherFactors.length} 個影響因素</span>
                 </div>
                 
                 <!-- 圖表說明 -->
-                <div style="margin-top: 8px; padding: 8px; background: rgba(30, 41, 59, 0.5); border-radius: 6px; font-size: 10px; color: #94a3b8;">
-                    <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="margin-top: 8px; padding: 8px; background: ${statsBgColor}; border-radius: 6px; font-size: 11px; color: ${statsTextSecondary};">
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                         <span><span style="color: #ef4444;">■</span> 紅色 = 增加出席</span>
                         <span><span style="color: #3b82f6;">■</span> 藍色 = 減少出席</span>
-                        <span style="opacity: 0.6;">| 虛線 = 基準 (0)</span>
+                        <span style="opacity: 0.7;">| 虛線 = 基準 (0)</span>
                     </div>
                 </div>
                 
                 <!-- 研究參考（可展開） -->
                 ${result.researchReferences ? `
                 <details style="margin-top: 10px;">
-                    <summary style="cursor: pointer; font-size: 10px; color: #64748b; padding: 4px;">📚 研究參考</summary>
-                    <div style="padding: 8px; background: rgba(15, 23, 42, 0.5); border-radius: 6px; margin-top: 4px; font-size: 9px;">
+                    <summary style="cursor: pointer; font-size: 11px; color: ${statsTextSecondary}; padding: 4px; font-weight: 500;">📚 研究參考</summary>
+                    <div style="padding: 8px; background: ${statsBgColor}; border-radius: 6px; margin-top: 4px; font-size: 10px;">
                         ${result.researchReferences.slice(0, 3).map(r => `
-                            <div style="margin-bottom: 4px; color: #94a3b8;">• ${r.finding}</div>
+                            <div style="margin-bottom: 4px; color: ${statsTextSecondary};">• ${r.finding}</div>
                         `).join('')}
                     </div>
                 </details>
