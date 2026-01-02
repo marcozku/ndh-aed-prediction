@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.89';
+const MODEL_VERSION = '2.9.90';
 
 // ============================================
 // HKT 時間工具函數
@@ -3154,7 +3154,7 @@ function scheduleDailyFinalPrediction() {
 }
 
 // ============================================================
-// 自動預測統計追蹤器 (v2.9.53)
+// 自動預測統計追蹤器 (v2.9.90 - 數據庫持久化)
 // ============================================================
 const autoPredictStats = {
     todayCount: 0,          // 今日執行次數
@@ -3167,20 +3167,64 @@ const autoPredictStats = {
     totalFailCount: 0       // 總失敗次數
 };
 
+// v2.9.90: 從數據庫載入自動預測統計
+async function loadAutoPredictStatsFromDB() {
+    if (!db || !db.pool) return;
+    
+    try {
+        const hk = getHKTime();
+        const today = hk.dateStr;
+        
+        const stats = await db.getAutoPredictStats(today);
+        if (stats) {
+            autoPredictStats.todayCount = stats.today_count || 0;
+            autoPredictStats.lastRunTime = stats.last_run_time;
+            autoPredictStats.lastRunSuccess = stats.last_run_success;
+            autoPredictStats.lastRunDuration = stats.last_run_duration;
+            autoPredictStats.totalSuccessCount = stats.total_success_count || 0;
+            autoPredictStats.totalFailCount = stats.total_fail_count || 0;
+            console.log(`✅ 從數據庫載入自動預測統計：今日 ${autoPredictStats.todayCount} 次`);
+        }
+        autoPredictStats.currentDate = today;
+    } catch (error) {
+        console.error('❌ 載入自動預測統計失敗:', error.message);
+    }
+}
+
+// v2.9.90: 保存自動預測統計到數據庫
+async function saveAutoPredictStatsToDB() {
+    if (!db || !db.pool) return;
+    
+    try {
+        const hk = getHKTime();
+        await db.saveAutoPredictStats(hk.dateStr, {
+            todayCount: autoPredictStats.todayCount,
+            lastRunTime: autoPredictStats.lastRunTime,
+            lastRunSuccess: autoPredictStats.lastRunSuccess,
+            lastRunDuration: autoPredictStats.lastRunDuration,
+            totalSuccessCount: autoPredictStats.totalSuccessCount,
+            totalFailCount: autoPredictStats.totalFailCount
+        });
+    } catch (error) {
+        console.error('❌ 保存自動預測統計失敗:', error.message);
+    }
+}
+
 // 每天 00:00 重置統計
 function scheduleDailyStatsReset() {
-    const checkAndReset = () => {
+    const checkAndReset = async () => {
         const hk = getHKTime();
         const today = hk.dateStr;
         
         if (autoPredictStats.currentDate !== today) {
-            console.log(`📊 [${hk.dateStr} ${String(hk.hour).padStart(2, '0')}:${String(hk.minute).padStart(2, '0')} HKT] 重置自動預測統計（新的一天）`);
-            autoPredictStats.todayCount = 0;
+            console.log(`📊 [${hk.dateStr} ${String(hk.hour).padStart(2, '0')}:${String(hk.minute).padStart(2, '0')} HKT] 新的一天，載入統計`);
             autoPredictStats.currentDate = today;
+            // 從數據庫載入今天的統計（如果有）
+            await loadAutoPredictStatsFromDB();
         }
     };
     
-    // 初始化當前日期
+    // 初始化
     checkAndReset();
     
     // 每分鐘檢查是否需要重置（精確捕捉 00:00）
@@ -3577,6 +3621,9 @@ async function generateServerSidePredictions() {
         autoPredictStats.lastRunDuration = duration;
         autoPredictStats.totalSuccessCount++;
         
+        // v2.9.90: 保存到數據庫
+        await saveAutoPredictStatsToDB();
+        
     } catch (error) {
         console.error('❌ 伺服器端自動預測失敗:', error);
         
@@ -3585,6 +3632,9 @@ async function generateServerSidePredictions() {
         autoPredictStats.lastRunSuccess = false;
         autoPredictStats.lastRunDuration = Date.now() - startTime;
         autoPredictStats.totalFailCount++;
+        
+        // v2.9.90: 保存到數據庫
+        await saveAutoPredictStatsToDB();
     }
 }
 
@@ -3603,14 +3653,18 @@ function scheduleAutoPredict() {
     console.log('⏰ 已設置伺服器端自動預測任務（每 30 分鐘執行一次）');
 }
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
     console.log(`🏥 NDH AED 預測系統運行於 http://localhost:${PORT}`);
     console.log(`📊 預測模型版本 ${MODEL_VERSION}`);
     if (db && db.pool) {
         console.log(`🗄️ PostgreSQL 數據庫已連接`);
+        
+        // v2.9.90: 從數據庫載入自動預測統計
+        await loadAutoPredictStatsFromDB();
+        
         // 啟動定時任務
         scheduleDailyFinalPrediction();
-        scheduleDailyStatsReset(); // 每日 00:00 重置自動預測統計 (v2.9.53)
+        scheduleDailyStatsReset(); // 每日 00:00 重置自動預測統計
         scheduleAutoPredict(); // 每 30 分鐘自動預測（使用 XGBoost）
     } else {
         console.log(`⚠️ 數據庫未配置 (設置 DATABASE_URL 或 PGHOST/PGUSER/PGPASSWORD/PGDATABASE 環境變數以啟用)`);

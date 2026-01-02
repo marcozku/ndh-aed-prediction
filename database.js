@@ -404,6 +404,22 @@ async function initDatabase() {
             )
         `);
 
+        // v2.9.90: Table for auto predict stats (persists across deploys)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS auto_predict_stats (
+                id SERIAL PRIMARY KEY,
+                stat_date DATE NOT NULL,
+                today_count INTEGER DEFAULT 0,
+                last_run_time TIMESTAMP WITH TIME ZONE,
+                last_run_success BOOLEAN,
+                last_run_duration INTEGER,
+                total_success_count INTEGER DEFAULT 0,
+                total_fail_count INTEGER DEFAULT 0,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(stat_date)
+            )
+        `);
+
         // Initialize training_status if empty
         const trainingStatusCheck = await client.query('SELECT COUNT(*) FROM training_status');
         if (parseInt(trainingStatusCheck.rows[0].count) === 0) {
@@ -1488,6 +1504,73 @@ async function saveTrainingStatus(statusKey = 'xgboost', status) {
     }
 }
 
+// v2.9.90: Get auto predict stats from database
+async function getAutoPredictStats(dateStr) {
+    if (!pool) return null;
+    try {
+        const result = await pool.query(
+            'SELECT * FROM auto_predict_stats WHERE stat_date = $1',
+            [dateStr]
+        );
+        return result.rows.length > 0 ? result.rows[0] : null;
+    } catch (error) {
+        console.error('❌ 獲取自動預測統計失敗:', error.message);
+        return null;
+    }
+}
+
+// v2.9.90: Save auto predict stats to database
+async function saveAutoPredictStats(dateStr, stats) {
+    if (!pool) return null;
+    try {
+        const result = await pool.query(
+            `INSERT INTO auto_predict_stats 
+             (stat_date, today_count, last_run_time, last_run_success, last_run_duration, 
+              total_success_count, total_fail_count, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+             ON CONFLICT (stat_date) DO UPDATE SET
+                today_count = EXCLUDED.today_count,
+                last_run_time = EXCLUDED.last_run_time,
+                last_run_success = EXCLUDED.last_run_success,
+                last_run_duration = EXCLUDED.last_run_duration,
+                total_success_count = EXCLUDED.total_success_count,
+                total_fail_count = EXCLUDED.total_fail_count,
+                updated_at = NOW()
+             RETURNING *`,
+            [
+                dateStr,
+                stats.todayCount || 0,
+                stats.lastRunTime || null,
+                stats.lastRunSuccess,
+                stats.lastRunDuration || null,
+                stats.totalSuccessCount || 0,
+                stats.totalFailCount || 0
+            ]
+        );
+        return result.rows[0];
+    } catch (error) {
+        console.error('❌ 保存自動預測統計失敗:', error.message);
+        return null;
+    }
+}
+
+// v2.9.90: Get cumulative stats (for total counts across all days)
+async function getAutoPredictCumulativeStats() {
+    if (!pool) return null;
+    try {
+        const result = await pool.query(`
+            SELECT 
+                SUM(total_success_count) as total_success,
+                SUM(total_fail_count) as total_fail
+            FROM auto_predict_stats
+        `);
+        return result.rows[0];
+    } catch (error) {
+        console.error('❌ 獲取累計統計失敗:', error.message);
+        return null;
+    }
+}
+
 module.exports = {
     get pool() { return pool; },
     initDatabase,
@@ -1520,6 +1603,10 @@ module.exports = {
     // v2.9.88: Intraday predictions
     insertIntradayPrediction,
     getIntradayPredictions,
-    getIntradayPredictionsRange
+    getIntradayPredictionsRange,
+    // v2.9.90: Auto predict stats (persisted)
+    getAutoPredictStats,
+    saveAutoPredictStats,
+    getAutoPredictCumulativeStats
 };
 

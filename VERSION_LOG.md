@@ -1,5 +1,34 @@
 # 版本更新日誌
 
+## v2.9.90 - 2026-01-02 20:42 HKT
+
+### 🗄️ 自動預測統計持久化到數據庫
+
+**問題**：
+- 自動預測統計（今日次數、上次時間等）只在內存中
+- Railway 重新部署會重置所有統計
+
+**修復**：
+- 新增 `auto_predict_stats` 數據庫表
+- 每次預測完成後保存到數據庫
+- 伺服器啟動時從數據庫載入
+- 每天 00:00 自動切換到新日期的統計
+
+**數據結構**：
+```sql
+CREATE TABLE auto_predict_stats (
+    stat_date DATE NOT NULL,          -- 統計日期
+    today_count INTEGER DEFAULT 0,    -- 今日執行次數
+    last_run_time TIMESTAMP,          -- 上次執行時間
+    last_run_success BOOLEAN,         -- 上次是否成功
+    last_run_duration INTEGER,        -- 上次耗時（毫秒）
+    total_success_count INTEGER,      -- 累計成功次數
+    total_fail_count INTEGER          -- 累計失敗次數
+);
+```
+
+---
+
 ## v2.9.89 - 2026-01-02 20:35 HKT
 
 ### 🐛 修復倒計時不同步 & 跳動問題
