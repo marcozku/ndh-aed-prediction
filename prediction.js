@@ -3726,10 +3726,15 @@ async function initWeatherCorrChart() {
         const data = result.data;
         const correlation = result.correlation;
         
-        // 銷毀舊圖表
+        // v2.9.96: 安全銷毀舊圖表（防止 Canvas already in use 錯誤）
         if (weatherCorrChart) {
             weatherCorrChart.destroy();
             weatherCorrChart = null;
+        }
+        // 也檢查 canvas 上是否有殘留的 Chart 實例
+        const existingChart = Chart.getChart(canvas);
+        if (existingChart) {
+            existingChart.destroy();
         }
         
         // v2.9.95: 準備散點圖數據（溫度、溫差、極端天氣）
