@@ -3924,10 +3924,12 @@ async function initVolatilityChart(targetDate = null) {
             }
         ];
         
-        // 如果有最終平滑值，添加水平線
-        if (targetData.finalPredicted) {
+        // v2.9.98: 只使用真實數據，不使用模擬或替代值
+        
+        // 只有當數據庫中有最終平滑值時才顯示
+        if (targetData.finalPredicted != null) {
             datasets.push({
-                label: '最終平滑值',
+                label: `最終平滑值 (${targetData.finalPredicted})`,
                 data: predictions.map(p => ({ x: p.x, y: targetData.finalPredicted })),
                 borderColor: 'rgba(16, 185, 129, 1)',
                 borderWidth: 2,
@@ -3937,11 +3939,12 @@ async function initVolatilityChart(targetDate = null) {
             });
         }
         
-        // 如果有實際值，添加水平線
-        if (targetData.actual) {
+        // 只有當數據庫中有真實出席數據時才顯示
+        const actualValue = targetData.actual ?? targetData.actualValue;
+        if (actualValue != null) {
             datasets.push({
-                label: '實際值',
-                data: predictions.map(p => ({ x: p.x, y: targetData.actual })),
+                label: `實際出席 (${actualValue})`,
+                data: predictions.map(p => ({ x: p.x, y: actualValue })),
                 borderColor: 'rgba(239, 68, 68, 1)',
                 borderWidth: 2,
                 borderDash: [10, 5],
@@ -4050,7 +4053,16 @@ function updateVolatilityStats(data) {
         return;
     }
     
-    const values = data.predictions.map(p => p.predicted);
+    // v2.9.97: 支持 value 或 predicted 字段
+    const values = data.predictions.map(p => p.value || p.predicted).filter(v => v != null && !isNaN(v));
+    
+    if (values.length === 0) {
+        if (countEl) countEl.textContent = `${data.predictions.length} 次`;
+        if (rangeEl) rangeEl.textContent = '-';
+        if (stdEl) stdEl.textContent = '-';
+        return;
+    }
+    
     const min = Math.min(...values);
     const max = Math.max(...values);
     const mean = values.reduce((a, b) => a + b, 0) / values.length;

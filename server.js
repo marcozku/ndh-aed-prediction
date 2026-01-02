@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.96';
+const MODEL_VERSION = '2.9.98';
 
 // ============================================
 // HKT 時間工具函數
@@ -1582,85 +1582,8 @@ const apiHandlers = {
         });
     },
 
-    // v2.9.91: 獲取日內預測波動數據
-    'GET /api/intraday-predictions': async (req, res) => {
-        if (!db || !db.pool) {
-            return sendJson(res, { success: false, error: '數據庫未配置' }, 503);
-        }
-        
-        try {
-            const days = parseInt(req.query?.days) || 7;
-            const targetDate = req.query?.date || null;
-            
-            // 獲取最近幾天的日內預測數據
-            let query, params;
-            if (targetDate) {
-                query = `
-                    SELECT 
-                        ip.target_date,
-                        ip.prediction_time,
-                        ip.predicted_count,
-                        ip.ci80_low,
-                        ip.ci80_high,
-                        ip.weather_data,
-                        ip.ai_factors,
-                        a.patient_count as actual_value
-                    FROM intraday_predictions ip
-                    LEFT JOIN actual_data a ON ip.target_date = a.date
-                    WHERE ip.target_date = $1::date
-                    ORDER BY ip.prediction_time ASC
-                `;
-                params = [targetDate];
-            } else {
-                query = `
-                    SELECT 
-                        ip.target_date,
-                        ip.prediction_time,
-                        ip.predicted_count,
-                        ip.ci80_low,
-                        ip.ci80_high,
-                        ip.weather_data,
-                        ip.ai_factors,
-                        a.patient_count as actual_value
-                    FROM intraday_predictions ip
-                    LEFT JOIN actual_data a ON ip.target_date = a.date
-                    WHERE ip.target_date >= CURRENT_DATE - $1::integer
-                    ORDER BY ip.target_date DESC, ip.prediction_time ASC
-                `;
-                params = [days];
-            }
-            
-            const result = await db.pool.query(query, params);
-            
-            // 按日期分組
-            const grouped = {};
-            for (const row of result.rows) {
-                const dateStr = new Date(row.target_date).toISOString().split('T')[0];
-                if (!grouped[dateStr]) {
-                    grouped[dateStr] = {
-                        date: dateStr,
-                        actualValue: row.actual_value,
-                        predictions: []
-                    };
-                }
-                grouped[dateStr].predictions.push({
-                    time: row.prediction_time,
-                    value: row.predicted_count,
-                    ci80Low: row.ci80_low,
-                    ci80High: row.ci80_high
-                });
-            }
-            
-            sendJson(res, {
-                success: true,
-                data: Object.values(grouped),
-                count: result.rows.length
-            });
-        } catch (err) {
-            console.error('獲取日內預測數據失敗:', err);
-            sendJson(res, { success: false, error: err.message }, 500);
-        }
-    },
+    // v2.9.97: 獲取日內預測波動數據（已移動到路由表上方，此處移除重複）
+    // 注意：此 API 已在路由表開頭定義，包含 finalPredicted 和 actual
 
     // v2.9.95: 獲取天氣-出席相關性數據（使用真實 HKO 歷史天氣 + 實際出席）
     'GET /api/weather-correlation': async (req, res) => {
