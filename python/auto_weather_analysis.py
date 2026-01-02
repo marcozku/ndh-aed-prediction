@@ -53,20 +53,14 @@ def run_weather_analysis():
     # 確定腳本目錄
     script_dir = os.path.dirname(os.path.abspath(__file__))
     
-    # 嘗試從數據庫獲取數據
+    # 從數據庫獲取數據（唯一來源）
     att_df = get_attendance_from_db()
     
-    # 如果數據庫不可用，回退到 CSV
-    if att_df is None:
-        csv_path = os.path.join(script_dir, '..', 'NDH_AED_Clean.csv')
-        if not os.path.exists(csv_path):
-            print(f"[ERROR] Attendance data not found: {csv_path}", file=sys.stderr)
-            return {"error": "Attendance data not found"}
-        att_df = pd.read_csv(csv_path)
-        att_df['Date'] = pd.to_datetime(att_df['Date']).dt.strftime('%Y-%m-%d')
-        print(f"[INFO] Using CSV fallback: {len(att_df)} days", file=sys.stderr)
-    else:
-        print(f"[INFO] Database data loaded: {len(att_df)} days", file=sys.stderr)
+    if att_df is None or len(att_df) == 0:
+        print("[ERROR] Database connection failed or no data", file=sys.stderr)
+        return {"error": "Database connection failed"}
+    
+    print(f"[INFO] Database data loaded: {len(att_df)} days", file=sys.stderr)
     
     # 讀取天氣警告數據
     warnings_path = os.path.join(script_dir, 'weather_warnings_history.csv')
@@ -155,7 +149,7 @@ def run_weather_analysis():
         'data_range': f"{merged['Date'].min()} to {merged['Date'].max()}",
         'analysis_date': datetime.now().strftime('%Y-%m-%d %H:%M HKT'),
         'factors': results,
-        'source': 'database' if att_df is not None else 'csv'
+        'source': 'database'
     }
     
     # 保存結果
