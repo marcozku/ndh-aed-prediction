@@ -469,6 +469,26 @@ const apiHandlers = {
         }
     },
 
+    // Manually trigger server-side prediction generation
+    'POST /api/trigger-prediction': async (req, res) => {
+        try {
+            console.log('🔮 手動觸發預測更新...');
+            // 異步執行，不阻塞響應
+            generateServerSidePredictions().then(() => {
+                console.log('✅ 手動觸發的預測更新完成');
+            }).catch(err => {
+                console.error('❌ 手動觸發的預測更新失敗:', err);
+            });
+            sendJson(res, { 
+                success: true, 
+                message: '預測更新已觸發，請稍候刷新頁面查看結果' 
+            });
+        } catch (error) {
+            console.error('❌ 觸發預測失敗:', error);
+            sendJson(res, { error: error.message }, 500);
+        }
+    },
+
     // Get accuracy statistics
     'GET /api/accuracy': async (req, res) => {
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
