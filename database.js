@@ -1210,6 +1210,7 @@ async function calculateFinalDailyPrediction(targetDate, options = {}) {
 
 // Get daily predictions for a target date (all intraday predictions for smoothing)
 // v3.0.21: 修復 - 使用 intraday_predictions 而非 daily_predictions
+// v3.0.25: 移除不存在的 confidence_score 欄位
 async function getDailyPredictions(targetDate) {
     if (!pool) {
         throw new Error('Database pool not initialized');
@@ -1224,8 +1225,7 @@ async function getDailyPredictions(targetDate) {
             ci80_high,
             ci95_low,
             ci95_high,
-            prediction_time as created_at,
-            confidence_score
+            prediction_time as created_at
         FROM intraday_predictions
         WHERE target_date = $1
         ORDER BY prediction_time
