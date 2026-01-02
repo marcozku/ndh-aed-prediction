@@ -1738,9 +1738,10 @@ export function initUIEnhancements() {
             AccuracyChart.init();
         } catch (e) { console.error('AccuracyChart error:', e); }
         
-        try {
-            WeatherCorrChart.init();
-        } catch (e) { console.error('WeatherCorrChart error:', e); }
+        // v3.0.1: 禁用舊版 WeatherCorrChart（prediction.js 有使用真實 HKO 數據的版本）
+        // try {
+        //     WeatherCorrChart.init();
+        // } catch (e) { console.error('WeatherCorrChart error:', e); }
     }, 3000); // 延長到 3 秒以確保 Chart.js 已完全載入
     
     // 定期更新時間和置信度

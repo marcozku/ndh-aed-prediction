@@ -3826,6 +3826,13 @@ async function initWeatherCorrChart() {
         if (loading) loading.style.display = 'none';
         if (canvas) canvas.style.display = 'block';
         
+        // v3.0.1: 移除舊版圖表添加的不相關說明文字
+        const chartCard = canvas.closest('.chart-card');
+        if (chartCard) {
+            const oldNote = chartCard.querySelector('.chart-note');
+            if (oldNote) oldNote.remove();
+        }
+        
         // 顯示極端天氣統計
         const statsEl = document.getElementById('weather-corr-stats');
         if (statsEl) {
