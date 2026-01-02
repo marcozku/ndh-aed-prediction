@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.0.3';
+const MODEL_VERSION = '3.0.4';
 
 // ============================================
 // HKT 時間工具函數
@@ -537,21 +537,27 @@ const apiHandlers = {
             const hk = getHKTime();
             const todayStr = hk.dateStr;
             
-            let data;
+            let data = [];
             
             if (date) {
                 // 獲取單日的所有預測
-                data = await db.getIntradayPredictions(date);
+                data = await db.getIntradayPredictions(date) || [];
             } else if (start && end) {
                 // 獲取日期範圍
-                data = await db.getIntradayPredictionsRange(start, end);
+                data = await db.getIntradayPredictionsRange(start, end) || [];
             } else {
                 // 默認獲取最近 N 天（預設 7 天）
                 const numDays = parseInt(days) || 7;
                 const startDate = new Date(hk.full);
                 startDate.setDate(startDate.getDate() - numDays + 1);
                 const startStr = startDate.toISOString().split('T')[0];
-                data = await db.getIntradayPredictionsRange(startStr, todayStr);
+                data = await db.getIntradayPredictionsRange(startStr, todayStr) || [];
+            }
+            
+            // 確保 data 是數組
+            if (!Array.isArray(data)) {
+                console.warn('⚠️ intraday data 不是數組:', typeof data);
+                data = [];
             }
             
             // 按日期分組數據
@@ -586,7 +592,14 @@ const apiHandlers = {
             });
         } catch (error) {
             console.error('❌ 獲取 intraday 預測失敗:', error);
-            sendJson(res, { error: error.message }, 500);
+            // v3.0.3: 返回空數據而不是錯誤，讓前端可以優雅處理
+            sendJson(res, { 
+                success: true, 
+                data: [], 
+                count: 0, 
+                error: error.message,
+                dateRange: { start: null, end: null }
+            });
         }
     },
 
