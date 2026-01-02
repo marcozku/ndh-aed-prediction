@@ -590,7 +590,7 @@
         <footer class="app-footer" role="contentinfo">
             <p id="data-source-info" style="cursor: pointer; text-decoration: underline;" data-lang-key="footer-source">數據來源：載入中...</p>
             <p id="last-update-info" class="last-update-info"></p>
-            <p>預測模型版本 3.0.37 · 香港時間 HKT</p>
+            <p>預測模型版本 3.0.38 · 香港時間 HKT</p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2025 Marco Ma. All Rights Reserved.</p>
             <div class="footer-links">
                 <a href="/api/docs" class="footer-link" data-lang-key="footer-api">API 文檔</a>
@@ -753,8 +753,10 @@
         </div>
     </div>
 
+    <!-- Pragmatic Bayesian 預測融合模組 (v3.0.38) -->
+    <script src="modules/pragmatic-bayesian.js?v=1"></script>
     <!-- 原始預測邏輯（保留所有功能） -->
-    <script src="prediction.js?v=5"></script>
+    <script src="prediction.js?v=6"></script>
     <!-- 模組化包裝層 -->
     <script type="module" src="app.js?v=5"></script>
 </body>

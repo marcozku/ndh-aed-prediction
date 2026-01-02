@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.0.37';
+const MODEL_VERSION = '3.0.38';
 
 // ============================================
 // HKT 時間工具函數
@@ -2793,6 +2793,16 @@ const apiHandlers = {
             const results = smoother.smoothAll(predictions);
             const recommended = smoother.getRecommendedPrediction(results);
             
+            // v3.0.38: 使用 OptimalDailyPredictionSelector 選擇最佳每日預測
+            let optimalResult = null;
+            try {
+                const { getOptimalSelector } = require('./modules/pragmatic-bayesian');
+                const selector = getOptimalSelector();
+                optimalResult = selector.selectBest(predictions);
+            } catch (e) {
+                console.log('⚠️ OptimalDailyPredictionSelector 不可用:', e.message);
+            }
+            
             sendJson(res, {
                 success: true,
                 targetDate: targetDate,
@@ -2810,7 +2820,8 @@ const apiHandlers = {
                 stability: results.stability,
                 smoothedCI: results.smoothedCI,
                 rawStats: results.rawStats,
-                recommended: recommended
+                recommended: recommended,
+                optimal: optimalResult  // v3.0.38: 最佳每日預測選擇結果
             });
         } catch (err) {
             console.error('獲取平滑結果失敗:', err);
@@ -4007,10 +4018,26 @@ async function generateServerSidePredictions() {
             
             // 計算預測值
             let adjusted;
+            let predictionMethod = 'multiplicative';
+            let bayesianResult = null;
             
             if (daysAhead === 0) {
-                // 今天：直接使用 XGBoost 預測
-                adjusted = Math.round(basePrediction * aiFactor * weatherFactor);
+                // 今天：使用 Pragmatic Bayesian 融合（v3.0.38）
+                try {
+                    const { getPragmaticBayesian } = require('./modules/pragmatic-bayesian');
+                    const bayesian = getPragmaticBayesian({
+                        baseStd: dowStds[dow] || 15
+                    });
+                    bayesianResult = bayesian.predict(basePrediction, aiFactor, weatherFactor);
+                    adjusted = bayesianResult.prediction;
+                    predictionMethod = 'pragmatic_bayesian';
+                    
+                    console.log(`🎯 Bayesian 融合: base=${basePrediction}, AI=${aiFactor.toFixed(2)} (w=${bayesianResult.weights.ai.toFixed(2)}), Weather=${weatherFactor.toFixed(2)} (w=${bayesianResult.weights.weather.toFixed(2)}) → ${adjusted}`);
+                } catch (e) {
+                    // Fallback to multiplicative if Bayesian fails
+                    console.log(`⚠️ Bayesian 融合失敗，使用乘法: ${e.message}`);
+                    adjusted = Math.round(basePrediction * aiFactor * weatherFactor);
+                }
             } else {
                 // 未來日期：模擬 XGBoost 的特徵效應
                 // 

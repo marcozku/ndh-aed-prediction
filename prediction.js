@@ -58,7 +58,7 @@ async function getXGBoostPrediction(targetDate) {
 
 // 獲取 XGBoost 預測並結合統計方法的元數據（完整格式）
 // predictorInstance: 預測器實例，用於獲取元數據
-// v3.0.29: 修復 - 將 AI 因子和天氣因子應用到 XGBoost 預測上
+// v3.0.38: 使用 Pragmatic Bayesian 融合 XGBoost、AI、天氣因素
 async function getXGBoostPredictionWithMetadata(dateStr, predictorInstance, weatherData = null, aiFactor = null) {
     // 獲取統計方法的元數據（因子分解等）
     const statPred = predictorInstance.predict(dateStr, weatherData, aiFactor);
@@ -67,60 +67,81 @@ async function getXGBoostPredictionWithMetadata(dateStr, predictorInstance, weat
     const xgbResult = await getXGBoostPrediction(dateStr);
     
     if (xgbResult && xgbResult.prediction) {
-        // v3.0.29: 計算 AI 因子和天氣因子的調整
-        let aiFactorMultiplier = 1.0;
-        let weatherFactorMultiplier = 1.0;
-        
         // 計算 AI 因子（與伺服器邏輯一致）
+        let aiFactorMultiplier = 1.0;
         if (aiFactor && aiFactor.impactFactor) {
-            // 限制範圍 0.7-1.3
             aiFactorMultiplier = Math.max(0.7, Math.min(1.3, aiFactor.impactFactor));
         }
         
         // 計算天氣因子（與伺服器邏輯一致）
+        let weatherFactorMultiplier = 1.0;
         if (weatherData) {
-            // 低溫效應
             if (weatherData.temperature < 15) {
                 weatherFactorMultiplier *= 1.0 + (15 - weatherData.temperature) * 0.01;
             }
-            // 高濕度效應
             if (weatherData.humidity > 80) {
                 weatherFactorMultiplier *= 1.0 + (weatherData.humidity - 80) * 0.002;
             }
-            // 降雨效應
             if (weatherData.rainfall > 5) {
                 weatherFactorMultiplier *= 1.0 + Math.min(weatherData.rainfall, 50) * 0.003;
             }
-            // 限制天氣因子範圍
             weatherFactorMultiplier = Math.max(0.85, Math.min(1.15, weatherFactorMultiplier));
         }
         
-        // 應用因子到 XGBoost 預測
-        const adjustedPrediction = Math.round(xgbResult.prediction * aiFactorMultiplier * weatherFactorMultiplier);
+        // v3.0.38: Pragmatic Bayesian 融合
+        let adjustedPrediction;
+        let bayesianResult = null;
+        let predictionMethod = 'pragmatic_bayesian';
+        
+        if (typeof PragmaticBayesianPredictor !== 'undefined') {
+            // 瀏覽器環境：使用 Pragmatic Bayesian
+            try {
+                const bayesian = new PragmaticBayesianPredictor({ baseStd: 15 });
+                bayesianResult = bayesian.predict(xgbResult.prediction, aiFactorMultiplier, weatherFactorMultiplier);
+                adjustedPrediction = bayesianResult.prediction;
+                
+                console.log(`🎯 Bayesian 融合: base=${xgbResult.prediction}, ` + 
+                    `AI=${aiFactorMultiplier.toFixed(2)} (w=${bayesianResult.weights.ai.toFixed(2)}), ` +
+                    `Weather=${weatherFactorMultiplier.toFixed(2)} (w=${bayesianResult.weights.weather.toFixed(2)}) → ${adjustedPrediction}`);
+            } catch (e) {
+                console.warn('⚠️ Bayesian 融合失敗，使用乘法:', e.message);
+                adjustedPrediction = Math.round(xgbResult.prediction * aiFactorMultiplier * weatherFactorMultiplier);
+                predictionMethod = 'multiplicative';
+            }
+        } else {
+            // PragmaticBayesianPredictor 不可用，使用乘法
+            adjustedPrediction = Math.round(xgbResult.prediction * aiFactorMultiplier * weatherFactorMultiplier);
+            predictionMethod = 'multiplicative';
+            console.log(`📊 乘法融合: base=${xgbResult.prediction}, AI=${aiFactorMultiplier.toFixed(2)}, Weather=${weatherFactorMultiplier.toFixed(2)} → ${adjustedPrediction}`);
+        }
         
         // 調整置信區間
-        const adjustedCi80 = xgbResult.ci80 ? {
-            lower: Math.round(xgbResult.ci80.lower * aiFactorMultiplier * weatherFactorMultiplier),
-            upper: Math.round(xgbResult.ci80.upper * aiFactorMultiplier * weatherFactorMultiplier)
-        } : statPred.ci80;
+        let adjustedCi80, adjustedCi95;
+        if (bayesianResult) {
+            adjustedCi80 = { lower: bayesianResult.ci80.low, upper: bayesianResult.ci80.high };
+            adjustedCi95 = { lower: bayesianResult.ci95.low, upper: bayesianResult.ci95.high };
+        } else {
+            adjustedCi80 = xgbResult.ci80 ? {
+                lower: Math.round(xgbResult.ci80.lower * aiFactorMultiplier * weatherFactorMultiplier),
+                upper: Math.round(xgbResult.ci80.upper * aiFactorMultiplier * weatherFactorMultiplier)
+            } : statPred.ci80;
+            adjustedCi95 = xgbResult.ci95 ? {
+                lower: Math.round(xgbResult.ci95.lower * aiFactorMultiplier * weatherFactorMultiplier),
+                upper: Math.round(xgbResult.ci95.upper * aiFactorMultiplier * weatherFactorMultiplier)
+            } : statPred.ci95;
+        }
         
-        const adjustedCi95 = xgbResult.ci95 ? {
-            lower: Math.round(xgbResult.ci95.lower * aiFactorMultiplier * weatherFactorMultiplier),
-            upper: Math.round(xgbResult.ci95.upper * aiFactorMultiplier * weatherFactorMultiplier)
-        } : statPred.ci95;
-        
-        console.log(`📊 XGBoost 調整: 基礎=${xgbResult.prediction}, AI因子=${aiFactorMultiplier.toFixed(2)}, 天氣因子=${weatherFactorMultiplier.toFixed(2)}, 最終=${adjustedPrediction}`);
-        
-        // 使用調整後的 XGBoost 預測值，保留統計方法的元數據
         return {
             ...statPred,
             predicted: adjustedPrediction,
-            basePrediction: xgbResult.prediction,  // 保留原始 XGBoost 預測
+            basePrediction: xgbResult.prediction,
             aiFactorMultiplier,
             weatherFactorMultiplier,
             ci80: adjustedCi80,
             ci95: adjustedCi95,
             method: 'xgboost',
+            predictionMethod,
+            bayesianWeights: bayesianResult?.weights || null,
             xgboostUsed: true
         };
     }

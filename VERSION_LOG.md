@@ -1,5 +1,56 @@
 # 版本更新日誌
 
+## v3.0.38 - 2026-01-04 04:00 HKT
+
+### 🎯 新增：Pragmatic Bayesian 預測融合
+
+**新模組**：`modules/pragmatic-bayesian.js`
+
+包含兩個核心類別：
+
+#### 1. PragmaticBayesianPredictor
+融合 XGBoost、AI 因素、天氣因素的貝葉斯融合預測器。
+
+**優點（vs 乘法）**：
+- 使用 precision-weighted Gaussian fusion
+- 自動根據可靠度調整各來源權重
+- 因子越極端 → 不確定性越大 → 權重降低
+- 可從歷史數據學習最優可靠度
+
+**公式**：
+```
+posterior_mean = Σ(precision_i × mean_i) / Σ(precision_i)
+where precision = 1 / variance
+variance = (baseStd / reliability)² × (1 + |factor - 1| × k)
+```
+
+**預設可靠度**：
+- XGBoost: 0.90 (高可靠)
+- AI: 0.60 (中等可靠，新因素)
+- Weather: 0.75 (較高可靠)
+
+#### 2. OptimalDailyPredictionSelector
+從一天多次預測中選出最準確的代表值。
+
+**5 種方法**：
+1. **時間加權**：較晚預測權重更高
+2. **異常值過濾**：移除 Z > 2.0 的預測
+3. **穩定性加權**：低方差時段權重更高
+4. **最後 N 次**：使用最後 30% 預測
+5. **收斂值**：找到預測開始穩定的點
+
+**最終選擇**：加權組合所有方法，權重可從歷史準確度學習。
+
+**API 更新**：
+- `/api/smoothing-methods` 現在返回 `optimal` 欄位
+- 伺服器自動預測使用 Pragmatic Bayesian
+
+**效果估計**：
+- MAE 降低 5-10%（從 5.33 → ~4.9-5.0）
+- 更穩定的置信區間
+
+---
+
 ## v3.0.37 - 2026-01-04 03:40 HKT
 
 ### 🔧 修復：波動圖歷史日期顯示錯誤數據
