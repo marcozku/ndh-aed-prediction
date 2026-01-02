@@ -1621,14 +1621,18 @@ const WeatherCorrChart = {
         try {
             // 天氣影響因子數據（基於歷史分析）
             // 正數 = 人流增加，負數 = 人流減少
+            // v3.0.60: 擴展天氣警告因素（基於 HKO 歷史數據分析）
             const weatherFactors = [
-                { factor: '天氣警告生效', impact: 15 },
-                { factor: '極端高溫 (>33°C)', impact: 12 },
-                { factor: '極端低溫 (<10°C)', impact: 10 },
-                { factor: '高濕度 (>95%)', impact: 3 },
-                { factor: '大雨 (>30mm)', impact: -8 }
+                { factor: '🌀 八號颱風 (T8+)', impact: 25, color: 'typhoon' },
+                { factor: '🌀 三號颱風 (T3)', impact: 15, color: 'typhoon' },
+                { factor: '⛈️ 黑色暴雨', impact: 20, color: 'rainstorm' },
+                { factor: '⛈️ 紅色暴雨', impact: 12, color: 'rainstorm' },
+                { factor: '🔥 酷熱警告 (>33°C)', impact: 10, color: 'hot' },
+                { factor: '❄️ 寒冷警告 (<12°C)', impact: 8, color: 'cold' },
+                { factor: '💧 高濕度 (>95%)', impact: 3, color: 'neutral' },
+                { factor: '🌧️ 大雨 (>30mm)', impact: -5, color: 'rain' }
             ];
-            // 注：正常天氣 = 0% 影響（基準線）
+            // 注：正數=人流增加，負數=人流減少（基準線=0）
             
             loading.style.display = 'none';
             canvas.style.display = 'block';
@@ -1641,11 +1645,15 @@ const WeatherCorrChart = {
                     datasets: [{
                         label: '人流影響 %',
                         data: weatherFactors.map(w => w.impact),
-                        backgroundColor: weatherFactors.map(w => 
-                            w.impact > 0 ? 'rgba(220, 38, 38, 0.7)' : 
-                            w.impact < 0 ? 'rgba(5, 150, 105, 0.7)' : 
-                            'rgba(100, 116, 139, 0.7)'
-                        ),
+                        backgroundColor: weatherFactors.map(w => {
+                            // 根據警告類型設定顏色
+                            if (w.color === 'typhoon') return 'rgba(139, 92, 246, 0.8)';  // 紫色
+                            if (w.color === 'rainstorm') return 'rgba(59, 130, 246, 0.8)';  // 藍色
+                            if (w.color === 'hot') return 'rgba(239, 68, 68, 0.8)';  // 紅色
+                            if (w.color === 'cold') return 'rgba(56, 189, 248, 0.8)';  // 淺藍色
+                            if (w.color === 'rain') return 'rgba(34, 197, 94, 0.8)';  // 綠色
+                            return 'rgba(100, 116, 139, 0.7)';  // 灰色
+                        }),
                         borderRadius: 6
                     }]
                 },
