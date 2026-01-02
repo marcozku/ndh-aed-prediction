@@ -469,23 +469,26 @@ const apiHandlers = {
         }
     },
 
-    // Manually trigger server-side prediction generation
+    // Manually trigger server-side prediction generation (synchronous - waits for completion)
     'POST /api/trigger-prediction': async (req, res) => {
         try {
-            console.log('🔮 手動觸發預測更新...');
-            // 異步執行，不阻塞響應
-            generateServerSidePredictions().then(() => {
-                console.log('✅ 手動觸發的預測更新完成');
-            }).catch(err => {
-                console.error('❌ 手動觸發的預測更新失敗:', err);
-            });
+            console.log('🔮 手動觸發預測更新（同步）...');
+            const startTime = Date.now();
+            await generateServerSidePredictions();
+            const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+            console.log(`✅ 手動觸發的預測更新完成（${duration}秒）`);
             sendJson(res, { 
                 success: true, 
-                message: '預測更新已觸發，請稍候刷新頁面查看結果' 
+                message: `預測更新完成（${duration}秒）`,
+                duration: parseFloat(duration)
             });
         } catch (error) {
-            console.error('❌ 觸發預測失敗:', error);
-            sendJson(res, { error: error.message }, 500);
+            console.error('❌ 手動觸發的預測更新失敗:', error);
+            sendJson(res, { 
+                success: false, 
+                error: error.message,
+                stack: error.stack 
+            }, 500);
         }
     },
 
