@@ -155,6 +155,32 @@ class AutoTrainManager {
     }
 
     /**
+     * 運行天氣影響分析
+     * 在訓練前分析天氣警告與出席人數的關係
+     */
+    async _runWeatherAnalysis() {
+        return new Promise((resolve, reject) => {
+            const { exec } = require('child_process');
+            const analysisScript = path.join(__dirname, '../python/auto_weather_analysis.py');
+            
+            exec(`python "${analysisScript}"`, { maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+                if (error) {
+                    reject(error);
+                    return;
+                }
+                
+                try {
+                    const result = JSON.parse(stdout);
+                    console.log(`   天氣分析: ${result.total_days} 天, ${result.factors?.length || 0} 個因子`);
+                    resolve(result);
+                } catch (parseErr) {
+                    resolve({ message: 'Analysis completed', logs: stderr });
+                }
+            });
+        });
+    }
+
+    /**
      * 檢查是否需要訓練
      */
     async shouldTrain(currentDataCount) {
@@ -295,6 +321,15 @@ class AutoTrainManager {
         
         // 保存訓練開始狀態到 DB
         await this._saveTrainingStatusToDB(dataCount, true);
+
+        // 📊 訓練前先運行天氣影響分析
+        try {
+            console.log('📊 運行天氣影響分析...');
+            await this._runWeatherAnalysis();
+            console.log('✅ 天氣影響分析完成');
+        } catch (err) {
+            console.warn('⚠️ 天氣影響分析失敗（非關鍵）:', err.message);
+        }
 
         console.log('🚀 開始自動訓練模型...');
         console.log(`   時間: ${this.trainingStartTime}`);

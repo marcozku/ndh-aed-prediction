@@ -1,5 +1,31 @@
 # 版本更新日誌
 
+## v3.0.61 - 2026-01-03 19:00 HKT
+
+### 🔄 自動天氣影響分析整合
+
+**新增功能**：
+每當上傳新的出席數據時，系統會自動：
+1. 運行天氣影響分析 (`auto_weather_analysis.py`)
+2. 更新天氣因子與出席人數的關係統計
+3. 更新 XGBoost 模型訓練前的特徵數據
+
+**API 端點**：
+- `POST /api/analyze-weather-impact` - 手動觸發天氣分析
+- `GET /api/weather-impact` - 獲取天氣影響分析結果
+
+**整合點**：
+- 📤 CSV 導入後自動觸發
+- 📊 批量數據上傳後自動觸發
+- 🤖 模型訓練前自動運行
+
+**技術細節**：
+- 分析腳本：`python/auto_weather_analysis.py`
+- 輸出文件：`python/models/weather_impact_analysis.json`
+- 非阻塞異步執行，不影響主流程響應時間
+
+---
+
 ## v3.0.60 - 2026-01-03 04:00 HKT
 
 ### 📊 天氣警告數據大幅擴展

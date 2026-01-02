@@ -229,7 +229,36 @@
         "sample_size": "3429 天"
       },
       "improvement": "基於真實數據的天氣影響量化"
+    },
+    {
+      "version": "3.0.61",
+      "date": "2026-01-03",
+      "description": "自動天氣影響分析整合",
+      "changes": [
+        "數據上傳後自動運行天氣影響分析",
+        "新增 API 端點 (/api/analyze-weather-impact, /api/weather-impact)",
+        "模型訓練前自動更新天氣因子",
+        "非阻塞異步執行，不影響主流程"
+      ],
+      "metrics": {
+        "mae": 4.01,
+        "mape": 1.59,
+        "rmse": 5.45,
+        "r2": 0.958,
+        "adj_r2": 0.957,
+        "feature_count": 25,
+        "weather_features": 8,
+        "note": "架構改進，等待新數據測試"
+      },
+      "automation": {
+        "csv_import": "自動觸發",
+        "bulk_upload": "自動觸發",
+        "before_training": "自動運行",
+        "script": "python/auto_weather_analysis.py",
+        "output": "python/models/weather_impact_analysis.json"
+      },
+      "improvement": "數據驅動的自動化分析流程"
     }
   ],
-  "last_updated": "2026-01-03T04:00:00+08:00"
+  "last_updated": "2026-01-03T19:00:00+08:00"
 }

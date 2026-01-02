@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.0.43';
+const MODEL_VERSION = '3.0.61';
 
 // ============================================
 // HKT 時間工具函數
@@ -33,6 +33,36 @@ function getHKTDate() {
 
 function getHKTTimestamp() {
     return getHKTTime().replace(/\//g, '-');
+}
+
+// ============================================
+// 天氣影響分析工具函數
+// ============================================
+function triggerWeatherAnalysis() {
+    return new Promise((resolve, reject) => {
+        const { exec } = require('child_process');
+        const pythonScript = path.join(__dirname, 'python', 'auto_weather_analysis.py');
+        
+        console.log('📊 觸發天氣影響分析...');
+        
+        exec(`python "${pythonScript}"`, { maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+            if (error) {
+                console.error('天氣分析錯誤:', error.message);
+                reject(error);
+                return;
+            }
+            
+            try {
+                const result = JSON.parse(stdout);
+                console.log(`✅ 天氣影響分析完成，分析了 ${result.total_days} 天數據`);
+                resolve(result);
+            } catch (parseErr) {
+                console.log('天氣分析完成（無 JSON 輸出）');
+                console.log(stderr);
+                resolve({ message: 'Analysis completed', logs: stderr });
+            }
+        });
+    });
 }
 
 // AI 服務（僅在服務器端使用）
@@ -299,7 +329,12 @@ const apiHandlers = {
                 }
             }
             
-            sendJson(res, { success: true, inserted: results.length, data: results });
+            // 觸發天氣影響分析（異步，不阻塞響應）
+            triggerWeatherAnalysis().catch(err => {
+                console.warn('天氣影響分析失敗（非關鍵）:', err.message);
+            });
+            
+            sendJson(res, { success: true, inserted: results.length, data: results, weatherAnalysis: 'triggered' });
         } else {
             // Single record
             results = [await db.insertActualData(data.date, data.patient_count, data.source, data.notes)];
@@ -765,6 +800,72 @@ const apiHandlers = {
         }
     },
 
+    // 運行天氣影響分析
+    'POST /api/analyze-weather-impact': async (req, res) => {
+        try {
+            const { exec } = require('child_process');
+            const path = require('path');
+            const pythonScript = path.join(__dirname, 'python', 'auto_weather_analysis.py');
+            
+            console.log('📊 開始運行天氣影響分析...');
+            
+            // 運行 Python 分析腳本
+            exec(`python "${pythonScript}"`, { maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+                if (error) {
+                    console.error('天氣分析錯誤:', error);
+                    return sendJson(res, { 
+                        success: false, 
+                        error: error.message,
+                        stderr: stderr
+                    }, 500);
+                }
+                
+                try {
+                    const result = JSON.parse(stdout);
+                    console.log(`✅ 天氣影響分析完成，分析了 ${result.total_days} 天數據`);
+                    sendJson(res, { 
+                        success: true, 
+                        message: `分析完成，共 ${result.total_days} 天數據`,
+                        result 
+                    });
+                } catch (parseErr) {
+                    console.log('分析輸出:', stdout);
+                    console.log('分析日誌:', stderr);
+                    sendJson(res, { 
+                        success: true, 
+                        message: '分析完成',
+                        output: stdout,
+                        logs: stderr
+                    });
+                }
+            });
+        } catch (err) {
+            console.error('天氣分析失敗:', err);
+            sendJson(res, { success: false, error: err.message }, 500);
+        }
+    },
+
+    // 獲取天氣影響分析結果
+    'GET /api/weather-impact': async (req, res) => {
+        try {
+            const path = require('path');
+            const analysisPath = path.join(__dirname, 'python', 'models', 'weather_impact_analysis.json');
+            
+            if (!fs.existsSync(analysisPath)) {
+                return sendJson(res, { 
+                    success: false, 
+                    error: '天氣影響分析數據不存在，請先運行分析' 
+                }, 404);
+            }
+            
+            const analysisData = JSON.parse(fs.readFileSync(analysisPath, 'utf8'));
+            sendJson(res, analysisData);
+        } catch (err) {
+            console.error('獲取天氣影響分析失敗:', err);
+            sendJson(res, { success: false, error: err.message }, 500);
+        }
+    },
+
     // Seed historical data
     'POST /api/seed-historical': async (req, res) => {
         if (!db || !db.pool) {
@@ -859,12 +960,18 @@ const apiHandlers = {
                     }
                 }
                 
+                // 觸發天氣影響分析（異步，不阻塞響應）
+                triggerWeatherAnalysis().catch(err => {
+                    console.warn('天氣影響分析失敗（非關鍵）:', err.message);
+                });
+                
                 sendJson(res, {
                     success: true,
                     message: `成功導入 ${result.count} 筆數據${accuracyCount > 0 ? `，已計算 ${accuracyCount} 筆準確度` : ''}`,
                     count: result.count,
                     errors: result.errors || 0,
-                    accuracyCalculated: accuracyCount
+                    accuracyCalculated: accuracyCount,
+                    weatherAnalysis: 'triggered'
                 });
             } else {
                 sendJson(res, { error: result.error || '導入失敗' }, 500);
