@@ -1434,23 +1434,23 @@ async function initCharts(predictor) {
                 {
                     label: '95% CI',
                     data: predictions.map(p => p.ci95.upper),
-                    borderColor: 'rgba(5, 150, 105, 0.2)',
-                    borderWidth: 1.5,
-                    borderDash: [4, 4],
-                    fill: false,
+                    borderColor: 'rgba(5, 150, 105, 0.25)',
+                    borderWidth: 1,
+                    borderDash: [3, 3],
+                    fill: '+1', // 向下填充到下一個數據集
+                    backgroundColor: 'rgba(5, 150, 105, 0.08)',
                     pointRadius: 0,
-                    tension: 0 // 直線確保 fill 不會斷裂
+                    tension: 0
                 },
                 {
                     label: '',
                     data: predictions.map(p => p.ci95.lower),
-                    borderColor: 'rgba(5, 150, 105, 0.2)',
-                    borderWidth: 1.5,
-                    borderDash: [4, 4],
-                    fill: '-1',
-                    backgroundColor: 'rgba(5, 150, 105, 0.05)',
+                    borderColor: 'rgba(5, 150, 105, 0.25)',
+                    borderWidth: 1,
+                    borderDash: [3, 3],
+                    fill: false, // 不填充，由上方數據集處理
                     pointRadius: 0,
-                    tension: 0 // 直線確保 fill 不會斷裂
+                    tension: 0
                 },
                 {
                     label: `平均線 (${Math.round(predictor.globalMean)})`,
