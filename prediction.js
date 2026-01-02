@@ -3901,6 +3901,14 @@ async function initWeatherCorrChart() {
             }]
         };
         
+        // v3.0.15: 動態獲取主題顏色（支持淺色/深色模式）
+        const isDarkMode = document.documentElement.classList.contains('dark-mode') || 
+                          document.body.classList.contains('dark-mode') ||
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const textPrimary = isDarkMode ? '#f1f5f9' : '#1e293b';
+        const textSecondary = isDarkMode ? '#94a3b8' : '#475569';
+        const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.2)' : 'rgba(100, 116, 139, 0.2)';
+        
         // 創建圖表 - 水平條形圖顯示偏差
         const ctx = canvas.getContext('2d');
         weatherCorrChart = new Chart(ctx, {
@@ -3915,8 +3923,8 @@ async function initWeatherCorrChart() {
                     title: {
                         display: true,
                         text: `天氣因素對出席的影響（基準: ${overallAvg} 人/日）`,
-                        color: '#f1f5f9',
-                        font: { size: 13, weight: 'bold' },
+                        color: textPrimary,
+                        font: { size: 14, weight: 'bold' },
                         padding: { bottom: 15 }
                     },
                     tooltip: {
@@ -3952,15 +3960,16 @@ async function initWeatherCorrChart() {
                         title: { 
                             display: true, 
                             text: '← 減少出席 | 增加出席 →', 
-                            color: '#64748b',
-                            font: { size: 10 }
+                            color: textSecondary,
+                            font: { size: 11, weight: '500' }
                         },
                         ticks: { 
-                            color: '#94a3b8',
+                            color: textSecondary,
+                            font: { size: 11 },
                             callback: (v) => v >= 0 ? `+${v}` : v
                         },
                         grid: { 
-                            color: 'rgba(148, 163, 184, 0.15)',
+                            color: gridColor,
                             drawTicks: false
                         },
                         // 確保 0 在中間
@@ -3969,8 +3978,8 @@ async function initWeatherCorrChart() {
                     },
                     y: {
                         ticks: { 
-                            color: '#e2e8f0', 
-                            font: { size: 11 }
+                            color: textPrimary, 
+                            font: { size: 12, weight: '600' }
                         },
                         grid: { display: false }
                     }
@@ -3979,20 +3988,20 @@ async function initWeatherCorrChart() {
             plugins: [{
                 id: 'centerLine',
                 afterDraw: (chart) => {
-                    const ctx = chart.ctx;
+                    const chartCtx = chart.ctx;
                     const xAxis = chart.scales.x;
                     const yAxis = chart.scales.y;
                     const zero = xAxis.getPixelForValue(0);
                     
-                    ctx.save();
-                    ctx.strokeStyle = 'rgba(148, 163, 184, 0.5)';
-                    ctx.lineWidth = 2;
-                    ctx.setLineDash([5, 5]);
-                    ctx.beginPath();
-                    ctx.moveTo(zero, yAxis.top);
-                    ctx.lineTo(zero, yAxis.bottom);
-                    ctx.stroke();
-                    ctx.restore();
+                    chartCtx.save();
+                    chartCtx.strokeStyle = isDarkMode ? 'rgba(148, 163, 184, 0.6)' : 'rgba(100, 116, 139, 0.6)';
+                    chartCtx.lineWidth = 2;
+                    chartCtx.setLineDash([5, 5]);
+                    chartCtx.beginPath();
+                    chartCtx.moveTo(zero, yAxis.top);
+                    chartCtx.lineTo(zero, yAxis.bottom);
+                    chartCtx.stroke();
+                    chartCtx.restore();
                 }
             }]
         });
