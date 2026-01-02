@@ -4,7 +4,7 @@
  * v2.6.6
  */
 
-const CACHE_NAME = 'ndh-aed-v3.0.41';
+const CACHE_NAME = 'ndh-aed-v3.0.42';
 const STATIC_CACHE = 'ndh-static-v2.6.6';
 const DYNAMIC_CACHE = 'ndh-dynamic-v2.6.6';
 

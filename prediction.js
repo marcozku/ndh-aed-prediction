@@ -9174,6 +9174,46 @@ function initAlgorithmContent() {
             </div>
         </div>
         
+        <!-- 自動特徵選擇 -->
+        <div class="algo-card" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(251, 191, 36, 0.05)); padding: var(--space-md); border-radius: var(--radius-lg); margin-bottom: var(--space-md); border: 1px solid rgba(245, 158, 11, 0.2);">
+            <h4 style="margin: 0 0 var(--space-sm) 0; color: #f59e0b; font-size: 0.9rem;">🎯 自動特徵選擇 (161 → 25)</h4>
+            <div style="display: flex; align-items: center; gap: var(--space-md); margin-bottom: var(--space-sm);">
+                <div style="text-align: center; padding: var(--space-sm); background: rgba(239, 68, 68, 0.1); border-radius: var(--radius-sm); flex: 1;">
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #ef4444;">161</div>
+                    <div style="font-size: 0.65rem; color: var(--text-tertiary);">原始特徵</div>
+                </div>
+                <div style="font-size: 1.2rem; color: var(--text-tertiary);">→</div>
+                <div style="text-align: center; padding: var(--space-sm); background: rgba(34, 197, 94, 0.1); border-radius: var(--radius-sm); flex: 1;">
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #22c55e;">25</div>
+                    <div style="font-size: 0.65rem; color: var(--text-tertiary);">精選特徵</div>
+                </div>
+                <div style="text-align: center; padding: var(--space-sm); background: rgba(59, 130, 246, 0.1); border-radius: var(--radius-sm); flex: 1;">
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #3b82f6;">-85%</div>
+                    <div style="font-size: 0.65rem; color: var(--text-tertiary);">更少過擬合</div>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm); font-size: 0.7rem; margin-bottom: var(--space-sm);">
+                <div style="padding: var(--space-xs); background: var(--bg-primary); border-radius: var(--radius-sm);">
+                    <div style="font-weight: 600; color: #f59e0b;">🔥 Top 2 特徵 = 90%</div>
+                    <div style="color: var(--text-secondary);">EWMA7 (45%) + EWMA14 (45%)</div>
+                </div>
+                <div style="padding: var(--space-xs); background: var(--bg-primary); border-radius: var(--radius-sm);">
+                    <div style="font-weight: 600; color: var(--accent-primary);">🤖 選擇方法</div>
+                    <div style="color: var(--text-secondary);">重要性 + RFE + 相關性過濾</div>
+                </div>
+            </div>
+            <div style="font-size: 0.65rem; color: var(--text-tertiary); display: flex; flex-wrap: wrap; gap: 4px;">
+                <span style="padding: 2px 6px; background: var(--bg-tertiary); border-radius: 3px;">時間(3)</span>
+                <span style="padding: 2px 6px; background: var(--bg-tertiary); border-radius: 3px;">滯後(4)</span>
+                <span style="padding: 2px 6px; background: var(--bg-tertiary); border-radius: 3px;">滾動(5)</span>
+                <span style="padding: 2px 6px; background: rgba(245, 158, 11, 0.2); border-radius: 3px; color: #f59e0b; font-weight: 600;">EWMA(3)⭐</span>
+                <span style="padding: 2px 6px; background: var(--bg-tertiary); border-radius: 3px;">變化(3)</span>
+                <span style="padding: 2px 6px; background: var(--bg-tertiary); border-radius: 3px;">位置(3)</span>
+                <span style="padding: 2px 6px; background: var(--bg-tertiary); border-radius: 3px;">事件(3)</span>
+                <span style="padding: 2px 6px; background: var(--bg-tertiary); border-radius: 3px;">其他(1)</span>
+            </div>
+        </div>
+        
         <!-- 5 方法最佳每日預測 -->
         <div class="algo-card" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(34, 197, 94, 0.05)); padding: var(--space-md); border-radius: var(--radius-lg); margin-bottom: var(--space-md); border: 1px solid rgba(16, 185, 129, 0.2);">
             <h4 style="margin: 0 0 var(--space-sm) 0; color: var(--accent-success); font-size: 0.9rem;">📊 最佳每日預測選擇 (5 方法加權組合)</h4>
@@ -9247,7 +9287,7 @@ function initAlgorithmContent() {
         </div>
     `;
     
-    console.log('✅ 算法說明內容已初始化 (v3.0.40)');
+    console.log('✅ 算法說明內容已初始化 (v3.0.42)');
 }
 
 // 載入算法說明 - 調用原有的詳細版本
