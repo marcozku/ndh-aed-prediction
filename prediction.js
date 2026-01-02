@@ -5681,15 +5681,16 @@ function updateAutoPredictDisplay(data) {
     const todayCount = data.todayCount || 0;
     const lastRunTime = data.lastRunTime ? new Date(data.lastRunTime) : null;
     
-    // 計算上次執行時間的友好顯示
+    // 計算上次執行時間的友好顯示（使用 D/M HH:MM 格式）
     let lastRunDisplay = '尚未執行';
     if (lastRunTime) {
-        const hkTime = lastRunTime.toLocaleString('zh-HK', { 
-            timeZone: 'Asia/Hong_Kong',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-        lastRunDisplay = hkTime;
+        // 使用 HKT 時區獲取日期時間
+        const hkDate = new Date(lastRunTime.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' }));
+        const day = hkDate.getDate();
+        const month = hkDate.getMonth() + 1;
+        const hours = hkDate.getHours();
+        const minutes = hkDate.getMinutes();
+        lastRunDisplay = `${day}/${month} ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
     }
     
     // 根據狀態選擇樣式
@@ -6896,16 +6897,18 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         return date;
     };
     
-    // 格式化日期為 HKT
+    // 格式化日期為 HKT（使用 D/M 格式避免混淆）
     const formatDateHKT = (date) => {
         if (!date || isNaN(date.getTime())) return null;
-        return date.toLocaleString('zh-HK', { 
-            timeZone: 'Asia/Hong_Kong',
-            month: 'numeric',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        // 使用 HKT 時區獲取日期時間
+        const hkDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' }));
+        const day = hkDate.getDate();
+        const month = hkDate.getMonth() + 1;
+        const hours = hkDate.getHours();
+        const minutes = hkDate.getMinutes();
+        const period = hours >= 12 ? '下午' : '上午';
+        const h12 = hours > 12 ? hours - 12 : (hours === 0 ? 12 : hours);
+        return `${day}/${month} ${period}${String(h12).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
     };
     
     // 嘗試從多個來源獲取有效時間
