@@ -409,11 +409,14 @@ const apiHandlers = {
         sendJson(res, { success: true, data });
     },
 
-    // Get saved future predictions (7 days from tomorrow)
+    // Get saved future predictions (default 7 days, supports ?days=30 for 30 days)
     'GET /api/future-predictions': async (req, res) => {
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         try {
+            const parsedUrl = url.parse(req.url, true);
+            const days = parseInt(parsedUrl.query.days) || 7; // 預設 7 天，可傳入 ?days=30
+            
             // 獲取香港時間的今天日期
             const now = new Date();
             const hkOffset = 8 * 60 * 60 * 1000; // UTC+8
@@ -425,12 +428,12 @@ const apiHandlers = {
             tomorrow.setDate(tomorrow.getDate() + 1);
             const tomorrowStr = tomorrow.toISOString().split('T')[0];
             
-            // 計算 7 天後的日期
-            const day7 = new Date(hkNow);
-            day7.setDate(day7.getDate() + 7);
-            const day7Str = day7.toISOString().split('T')[0];
+            // 計算結束日期
+            const endDate = new Date(hkNow);
+            endDate.setDate(endDate.getDate() + days);
+            const endDateStr = endDate.toISOString().split('T')[0];
             
-            // 從 daily_predictions 表獲取未來 7 天的最新預測
+            // 從 daily_predictions 表獲取未來預測的最新記錄
             const query = `
                 SELECT DISTINCT ON (target_date)
                     target_date,
@@ -448,16 +451,16 @@ const apiHandlers = {
                 ORDER BY target_date, created_at DESC
             `;
             
-            const result = await db.pool.query(query, [tomorrowStr, day7Str]);
+            const result = await db.pool.query(query, [tomorrowStr, endDateStr]);
             
-            console.log(`📊 未來預測查詢: ${tomorrowStr} 到 ${day7Str}, 找到 ${result.rows.length} 條記錄`);
+            console.log(`📊 未來預測查詢: ${tomorrowStr} 到 ${endDateStr}, 找到 ${result.rows.length} 條記錄`);
             
             sendJson(res, { 
                 success: true, 
                 data: result.rows,
                 dateRange: {
                     start: tomorrowStr,
-                    end: day7Str
+                    end: endDateStr
                 }
             });
         } catch (error) {
@@ -3057,11 +3060,11 @@ async function generateServerSidePredictions() {
             return;
         }
         
-        // 生成今天和未來 7 天的預測
+        // 生成今天和未來 30 天的預測（用於 30 天趨勢圖）
         const predictions = [];
         const today = new Date(`${hk.dateStr}T00:00:00+08:00`);
         
-        for (let i = 0; i <= 7; i++) {
+        for (let i = 0; i <= 30; i++) {
             const targetDate = new Date(today);
             targetDate.setDate(today.getDate() + i);
             const dateStr = targetDate.toISOString().split('T')[0];

@@ -1261,28 +1261,77 @@ async function initCharts(predictor) {
     const totalCharts = 4;
     
     // 未來30天預測（從明天開始，不包含今天）
-    // 使用緩存的 7 天預測確保與 7 天預測卡片數據一致
+    // 優先使用資料庫的 XGBoost 預測（準確度更高）
     updateLoadingProgress('forecast', 10);
     
-    let predictions;
-    if (cached7DayForecasts && cached7DayForecasts.length === 7) {
-        // 使用緩存的 7 天預測 + 預測剩餘 23 天
-        const day8Date = new Date(cached7DayForecasts[6].date);
-        day8Date.setDate(day8Date.getDate() + 1);
-        const day8Str = `${day8Date.getFullYear()}-${String(day8Date.getMonth() + 1).padStart(2, '0')}-${String(day8Date.getDate()).padStart(2, '0')}`;
+    let predictions = [];
+    let usedDatabasePredictions = false;
+    
+    // 嘗試從資料庫載入 30 天 XGBoost 預測
+    try {
+        const response = await fetch('/api/future-predictions?days=30');
+        const result = await response.json();
         
-        const remaining23Days = predictor.predictRange(day8Str, 23, weatherForecastData, aiFactors);
-        predictions = [...cached7DayForecasts, ...remaining23Days];
-        console.log('✅ 30天趨勢圖使用緩存的 7 天預測 + 23 天預測，確保數據一致');
-    } else {
-        // 緩存不可用，重新計算全部 30 天（fallback）
+        if (result.success && result.data && result.data.length >= 20) {
+            // 將資料庫格式轉換為前端格式
+            predictions = result.data.map(row => {
+                const targetDate = new Date(row.target_date);
+                const dow = targetDate.getDay();
+                const dayNames = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+                const dateStr = row.target_date.split('T')[0];
+                const holidayInfo = HK_PUBLIC_HOLIDAYS[dateStr];
+                
+                return {
+                    date: dateStr,
+                    dayName: dayNames[dow],
+                    predicted: row.predicted_count,
+                    isWeekend: dow === 0 || dow === 6,
+                    isHoliday: !!holidayInfo,
+                    holidayName: holidayInfo?.name || null,
+                    ci80: {
+                        lower: row.ci80_low || row.predicted_count - 32,
+                        upper: row.ci80_high || row.predicted_count + 32
+                    },
+                    ci95: {
+                        lower: row.ci95_low || row.predicted_count - 49,
+                        upper: row.ci95_high || row.predicted_count + 49
+                    }
+                };
+            });
+            usedDatabasePredictions = true;
+            console.log(`✅ 30天趨勢圖使用資料庫 XGBoost 預測（${predictions.length} 天）`);
+        }
+    } catch (error) {
+        console.warn('⚠️ 無法從資料庫載入 30 天預測:', error);
+    }
+    
+    // 如果資料庫預測不足，使用緩存或統計方法補充
+    if (!usedDatabasePredictions || predictions.length < 30) {
+        const existingDates = new Set(predictions.map(p => p.date));
+        
+        // 計算需要補充的日期
         const todayPartsForChart = today.split('-').map(Number);
         const todayDateForChart = new Date(Date.UTC(todayPartsForChart[0], todayPartsForChart[1] - 1, todayPartsForChart[2]));
         todayDateForChart.setUTCDate(todayDateForChart.getUTCDate() + 1);
         const tomorrowForChart = `${todayDateForChart.getUTCFullYear()}-${String(todayDateForChart.getUTCMonth() + 1).padStart(2, '0')}-${String(todayDateForChart.getUTCDate()).padStart(2, '0')}`;
         
-        predictions = predictor.predictRange(tomorrowForChart, 30, weatherForecastData, aiFactors);
-        console.log('⚠️ 7天預測緩存不可用，重新計算全部 30 天');
+        // 使用統計方法補充缺失的日期
+        const allDays = predictor.predictRange(tomorrowForChart, 30, weatherForecastData, aiFactors);
+        for (const day of allDays) {
+            if (!existingDates.has(day.date)) {
+                predictions.push(day);
+            }
+        }
+        
+        // 按日期排序
+        predictions.sort((a, b) => new Date(a.date) - new Date(b.date));
+        predictions = predictions.slice(0, 30);
+        
+        if (usedDatabasePredictions) {
+            console.log(`📊 30天趨勢圖：${result?.data?.length || 0} 天 XGBoost + ${30 - (result?.data?.length || 0)} 天統計方法`);
+        } else {
+            console.log('⚠️ 30天趨勢圖使用統計方法（資料庫無足夠 XGBoost 預測）');
+        }
     }
     updateLoadingProgress('forecast', 30);
     
