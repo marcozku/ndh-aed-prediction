@@ -3936,11 +3936,79 @@ async function initWeatherCorrChart() {
                     </div>
                 </div>
                 
+                <!-- 颱風/暴雨效應 -->
+                ${(analysis.typhoonEffect || analysis.rainstormEffect) ? `
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 11px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">🌀 極端天氣事件</div>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: 10px;">
+                        ${analysis.typhoonEffect?.typhoon?.count > 0 ? `
+                        <div style="text-align: center; padding: 6px; background: rgba(168, 85, 247, 0.15); border-radius: 6px;">
+                            <div style="color: #a855f7;">🌀 颱風日 (T3+)</div>
+                            <div><strong>${analysis.typhoonEffect.typhoon.avg || 'N/A'}</strong> ${formatDiff((analysis.typhoonEffect.typhoon.avg || overallAvg) - overallAvg)}</div>
+                            <div style="opacity: 0.6;">${analysis.typhoonEffect.typhoon.count}天</div>
+                        </div>
+                        ` : ''}
+                        ${analysis.typhoonEffect?.t8Plus?.count > 0 ? `
+                        <div style="text-align: center; padding: 6px; background: rgba(220, 38, 38, 0.15); border-radius: 6px;">
+                            <div style="color: #dc2626;">⚠️ 8號風球+</div>
+                            <div><strong>${analysis.typhoonEffect.t8Plus.avg || 'N/A'}</strong> ${formatDiff((analysis.typhoonEffect.t8Plus.avg || overallAvg) - overallAvg)}</div>
+                            <div style="opacity: 0.6;">${analysis.typhoonEffect.t8Plus.count}天</div>
+                        </div>
+                        ` : ''}
+                        ${analysis.rainstormEffect?.blackRain?.count > 0 ? `
+                        <div style="text-align: center; padding: 6px; background: rgba(0, 0, 0, 0.15); border-radius: 6px;">
+                            <div style="color: #374151;">⬛ 黑色暴雨</div>
+                            <div><strong>${analysis.rainstormEffect.blackRain.avg || 'N/A'}</strong> ${formatDiff((analysis.rainstormEffect.blackRain.avg || overallAvg) - overallAvg)}</div>
+                            <div style="opacity: 0.6;">${analysis.rainstormEffect.blackRain.count}天</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+                ` : ''}
+                
+                <!-- 天氣警告效應 -->
+                ${(analysis.warningEffect?.hotWarning?.count > 0 || analysis.warningEffect?.coldWarning?.count > 0) ? `
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 11px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">⚡ 天氣警告日</div>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; font-size: 10px;">
+                        ${analysis.warningEffect?.hotWarning?.count > 0 ? `
+                        <div style="text-align: center; padding: 6px; background: rgba(251, 146, 60, 0.2); border-radius: 6px;">
+                            <div style="color: #ea580c;">🔥 酷熱警告</div>
+                            <div><strong>${analysis.warningEffect.hotWarning.avg || 'N/A'}</strong> ${formatDiff((analysis.warningEffect.hotWarning.avg || overallAvg) - overallAvg)}</div>
+                            <div style="opacity: 0.6;">${analysis.warningEffect.hotWarning.count}天</div>
+                        </div>
+                        ` : ''}
+                        ${analysis.warningEffect?.coldWarning?.count > 0 ? `
+                        <div style="text-align: center; padding: 6px; background: rgba(56, 189, 248, 0.2); border-radius: 6px;">
+                            <div style="color: #0284c7;">❄️ 寒冷警告</div>
+                            <div><strong>${analysis.warningEffect.coldWarning.avg || 'N/A'}</strong> ${formatDiff((analysis.warningEffect.coldWarning.avg || overallAvg) - overallAvg)}</div>
+                            <div style="opacity: 0.6;">${analysis.warningEffect.coldWarning.count}天</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+                ` : ''}
+                
                 <!-- 發現 -->
                 ${maxEffect && Math.abs(maxEffect.diff) > 5 ? `
                 <div style="padding: 8px; background: rgba(139, 92, 246, 0.1); border-radius: 6px; font-size: 11px; border-left: 3px solid #8b5cf6;">
                     💡 <strong>主要發現</strong>：「${maxEffect.name}」對出席影響最大（${maxEffect.diff >= 0 ? '+' : ''}${maxEffect.diff} 人）
                 </div>
+                ` : ''}
+                
+                <!-- 研究參考 -->
+                ${result.researchReferences ? `
+                <details style="margin-top: 8px; font-size: 10px;">
+                    <summary style="cursor: pointer; color: var(--text-secondary); padding: 4px;">📚 研究參考文獻</summary>
+                    <div style="padding: 8px; background: rgba(0,0,0,0.05); border-radius: 6px; margin-top: 4px;">
+                        ${result.researchReferences.map(r => `
+                            <div style="margin-bottom: 6px; line-height: 1.4;">
+                                <div style="color: var(--text-primary);">• ${r.finding}</div>
+                                <div style="opacity: 0.6; font-size: 9px;">${r.source}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </details>
                 ` : ''}
             `;
         }

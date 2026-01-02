@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.0.8';
+const MODEL_VERSION = '3.0.9';
 
 // ============================================
 // HKT 時間工具函數
@@ -1675,6 +1675,45 @@ const apiHandlers = {
                 }
             }
             
+            // v3.0.9: 讀取天氣警告歷史數據（颱風、暴雨等）
+            const warningsPath = path.join(__dirname, 'python/weather_warnings_history.csv');
+            let warningsMap = {};
+            if (fs.existsSync(warningsPath)) {
+                const warningsContent = fs.readFileSync(warningsPath, 'utf-8');
+                const warningsLines = warningsContent.trim().split('\n');
+                for (const line of warningsLines) {
+                    if (line.startsWith('#') || line.startsWith('Date')) continue;
+                    const parts = line.split(',');
+                    if (parts.length >= 5) {
+                        const date = parts[0].trim();
+                        warningsMap[date] = {
+                            typhoonSignal: parseInt(parts[1]) || 0,
+                            rainstormWarning: parseInt(parts[2]) || 0,
+                            hotWarning: parseInt(parts[3]) || 0,
+                            coldWarning: parseInt(parts[4]) || 0,
+                            notes: parts[5] || ''
+                        };
+                    }
+                }
+                console.log(`✅ 天氣警告數據已載入: ${Object.keys(warningsMap).length} 天`);
+            }
+            
+            // 合併警告數據到 dataPoints
+            for (const d of dataPoints) {
+                const warning = warningsMap[d.date];
+                if (warning) {
+                    d.typhoonSignal = warning.typhoonSignal;
+                    d.rainstormWarning = warning.rainstormWarning;
+                    d.hotWarning = warning.hotWarning;
+                    d.coldWarning = warning.coldWarning;
+                } else {
+                    d.typhoonSignal = 0;
+                    d.rainstormWarning = 0;
+                    d.hotWarning = 0;
+                    d.coldWarning = 0;
+                }
+            }
+            
             // 計算相關係數
             const correlation = calculateCorrelation(dataPoints);
             
@@ -1823,6 +1862,90 @@ const apiHandlers = {
                 }
             };
             
+            // 10. 颱風日分析
+            const typhoonDays = sortedData.filter(d => d.typhoonSignal >= 3);
+            const t8Days = sortedData.filter(d => d.typhoonSignal >= 8);
+            const nonTyphoonDays = sortedData.filter(d => d.typhoonSignal === 0);
+            
+            const typhoonEffect = {
+                typhoon: {
+                    avg: typhoonDays.length > 0 ? Math.round(typhoonDays.reduce((s, d) => s + d.actual, 0) / typhoonDays.length) : null,
+                    count: typhoonDays.length,
+                    desc: '颱風日 (T3+)'
+                },
+                t8Plus: {
+                    avg: t8Days.length > 0 ? Math.round(t8Days.reduce((s, d) => s + d.actual, 0) / t8Days.length) : null,
+                    count: t8Days.length,
+                    desc: '8號風球+'
+                },
+                normal: {
+                    avg: nonTyphoonDays.length > 0 ? Math.round(nonTyphoonDays.reduce((s, d) => s + d.actual, 0) / nonTyphoonDays.length) : null,
+                    count: nonTyphoonDays.length,
+                    desc: '非颱風日'
+                }
+            };
+            
+            // 11. 暴雨日分析
+            const blackRainDays = sortedData.filter(d => d.rainstormWarning >= 3);
+            const redRainDays = sortedData.filter(d => d.rainstormWarning >= 2);
+            const rainstormEffect = {
+                blackRain: {
+                    avg: blackRainDays.length > 0 ? Math.round(blackRainDays.reduce((s, d) => s + d.actual, 0) / blackRainDays.length) : null,
+                    count: blackRainDays.length,
+                    desc: '黑色暴雨'
+                },
+                redRain: {
+                    avg: redRainDays.length > 0 ? Math.round(redRainDays.reduce((s, d) => s + d.actual, 0) / redRainDays.length) : null,
+                    count: redRainDays.length,
+                    desc: '紅/黑雨'
+                }
+            };
+            
+            // 12. 天氣警告日分析
+            const hotWarningDays = sortedData.filter(d => d.hotWarning > 0);
+            const coldWarningDays = sortedData.filter(d => d.coldWarning > 0);
+            const warningEffect = {
+                hotWarning: {
+                    avg: hotWarningDays.length > 0 ? Math.round(hotWarningDays.reduce((s, d) => s + d.actual, 0) / hotWarningDays.length) : null,
+                    count: hotWarningDays.length,
+                    desc: '酷熱警告日'
+                },
+                coldWarning: {
+                    avg: coldWarningDays.length > 0 ? Math.round(coldWarningDays.reduce((s, d) => s + d.actual, 0) / coldWarningDays.length) : null,
+                    count: coldWarningDays.length,
+                    desc: '寒冷警告日'
+                }
+            };
+            
+            // 研究參考文獻
+            const researchReferences = [
+                {
+                    finding: '溫度急劇變化比絕對溫度更影響急診就診',
+                    source: 'Environmental Health Perspectives, 2019',
+                    doi: '10.1289/EHP4898'
+                },
+                {
+                    finding: '颱風期間急診就診減少 20-40%（交通受阻），風後 2-3 天反彈',
+                    source: 'Disaster Medicine and Public Health Preparedness, 2018',
+                    doi: '10.1017/dmp.2017.149'
+                },
+                {
+                    finding: '暴雨警告日急診就診減少，但創傷個案增加',
+                    source: 'Hong Kong Medical Journal, 2020',
+                    doi: '10.12809/hkmj198354'
+                },
+                {
+                    finding: '寒冷天氣增加心血管和呼吸系統疾病急診',
+                    source: 'International Journal of Cardiology, 2017',
+                    doi: '10.1016/j.ijcard.2017.01.097'
+                },
+                {
+                    finding: '酷熱天氣增加中暑、熱衰竭和腎臟疾病急診',
+                    source: 'Environmental Research, 2021',
+                    doi: '10.1016/j.envres.2020.110509'
+                }
+            ];
+            
             sendJson(res, {
                 success: true,
                 data: sortedData.slice(-500),
@@ -1843,9 +1966,13 @@ const apiHandlers = {
                     },
                     tempRangeEffect,
                     extremeWeather,
+                    typhoonEffect,
+                    rainstormEffect,
+                    warningEffect,
                     dowWeatherStats
                 },
-                source: 'HKO weather_history.csv + actual_data'
+                researchReferences,
+                source: 'HKO weather_history.csv + weather_warnings_history.csv + actual_data'
             });
         } catch (err) {
             console.error('獲取天氣相關性數據失敗:', err);
