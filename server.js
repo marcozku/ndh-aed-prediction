@@ -3118,9 +3118,23 @@ async function generateServerSidePredictions() {
         let aiFactorsMap = {};
         try {
             const aiCache = await db.getAIFactorsCache();
-            if (aiCache && aiCache.factors) {
-                // 將 factors 數組轉換為日期映射
-                for (const factor of aiCache.factors) {
+            
+            // 處理 factors_cache 格式（日期 -> 因素映射）
+            if (aiCache && aiCache.factors_cache) {
+                for (const [dateStr, factor] of Object.entries(aiCache.factors_cache)) {
+                    if (factor && factor.impactFactor) {
+                        aiFactorsMap[dateStr] = {
+                            impactFactor: Math.max(0.7, Math.min(1.3, factor.impactFactor)),
+                            factors: [factor]
+                        };
+                    }
+                }
+                console.log(`🤖 已載入 AI 因素（factors_cache），影響 ${Object.keys(aiFactorsMap).length} 天`);
+            }
+            
+            // 也處理 analysis_data.factors 格式（數組）
+            if (aiCache && aiCache.analysis_data && aiCache.analysis_data.factors) {
+                for (const factor of aiCache.analysis_data.factors) {
                     if (factor.affectedDays) {
                         for (const day of factor.affectedDays) {
                             if (!aiFactorsMap[day]) {
@@ -3130,10 +3144,12 @@ async function generateServerSidePredictions() {
                             // 累積影響因子（限制範圍 0.7-1.3）
                             const impact = Math.max(0.7, Math.min(1.3, factor.impactFactor || 1.0));
                             aiFactorsMap[day].impactFactor *= impact;
+                            // 限制最終因子範圍
+                            aiFactorsMap[day].impactFactor = Math.max(0.7, Math.min(1.3, aiFactorsMap[day].impactFactor));
                         }
                     }
                 }
-                console.log(`🤖 已載入 AI 因素，影響 ${Object.keys(aiFactorsMap).length} 天`);
+                console.log(`🤖 已載入 AI 因素（analysis_data），共 ${aiCache.analysis_data.factors.length} 個因素`);
             }
         } catch (e) {
             console.log('⚠️ 無法載入 AI 因素:', e.message);
