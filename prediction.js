@@ -4231,10 +4231,15 @@ async function initVolatilityChart(targetDate = null) {
             });
         }
         
-        // 銷毀舊圖表
+        // v3.0.18: 安全銷毀舊圖表（防止 Canvas already in use 錯誤）
         if (volatilityChart) {
             volatilityChart.destroy();
             volatilityChart = null;
+        }
+        // 也檢查 canvas 上是否有殘留的 Chart 實例
+        const existingChart = Chart.getChart(canvas);
+        if (existingChart) {
+            existingChart.destroy();
         }
         
         // 創建圖表
