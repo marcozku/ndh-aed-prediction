@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.78';
+const MODEL_VERSION = '2.9.80';
 
 // ============================================
 // HKT 時間工具函數
@@ -3262,11 +3262,13 @@ async function generateServerSidePredictions() {
         console.log(`📅 預測起始日期: ${hk.dateStr}`);
         
         for (let i = 0; i <= 30; i++) {
-            const targetDate = new Date(today);
-            targetDate.setDate(today.getDate() + i);
-            const dateStr = targetDate.toISOString().split('T')[0];
-            const dow = targetDate.getDay();
-            const month = targetDate.getMonth() + 1;
+            // 使用 HKT 日期計算，避免 UTC 時區偏移問題
+            const targetDate = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
+            // 轉換為 HKT 時區的日期字符串
+            const hkTarget = new Date(targetDate.getTime() + 8 * 60 * 60 * 1000);
+            const dateStr = hkTarget.toISOString().split('T')[0];
+            const dow = hkTarget.getUTCDay(); // 使用 UTC 方法因為已加了 8 小時
+            const month = hkTarget.getUTCMonth() + 1;
             
             // 應用星期效應調整
             const dowFactor = dowFactors[dow] || 1.0;
