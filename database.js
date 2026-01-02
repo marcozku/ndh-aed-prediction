@@ -1208,15 +1208,27 @@ async function calculateFinalDailyPrediction(targetDate, options = {}) {
     }
 }
 
-// Get daily predictions for a target date (all 48 predictions)
+// Get daily predictions for a target date (all intraday predictions for smoothing)
+// v3.0.21: 修復 - 使用 intraday_predictions 而非 daily_predictions
 async function getDailyPredictions(targetDate) {
     if (!pool) {
         throw new Error('Database pool not initialized');
     }
+    // 從 intraday_predictions 獲取所有當日預測記錄（用於平滑計算）
     const query = `
-        SELECT * FROM daily_predictions
+        SELECT 
+            id,
+            target_date,
+            predicted_count,
+            ci80_low,
+            ci80_high,
+            ci95_low,
+            ci95_high,
+            prediction_time as created_at,
+            confidence_score
+        FROM intraday_predictions
         WHERE target_date = $1
-        ORDER BY created_at
+        ORDER BY prediction_time
     `;
     const result = await queryWithRetry(query, [targetDate]);
     return result.rows;

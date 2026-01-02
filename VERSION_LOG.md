@@ -1,5 +1,23 @@
 # 版本更新日誌
 
+## v3.0.21 - 2026-01-03 HKT
+
+### 🐛 修復：綜合預測未使用所有 intraday 記錄計算平滑值
+
+**問題**：
+- 綜合預測顯示 207，但波動圖表顯示平滑值 223
+- 兩者應該相同（都是今日所有預測的平均）
+
+**根因**：
+- `/api/smoothing-methods` 查詢的是 `daily_predictions` 表（只有 1 條最新記錄）
+- 應該使用 `intraday_predictions` 表（有 223 條記錄）
+
+**修復**：
+- `getDailyPredictions()` 現在查詢 `intraday_predictions` 表
+- 綜合預測現在正確使用所有 intraday 記錄計算平滑值
+
+---
+
 ## v3.0.20 - 2026-01-02 HKT
 
 ### 🐛 修復：頁面刷新不應產生新的預測記錄
