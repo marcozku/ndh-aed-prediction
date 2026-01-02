@@ -9118,7 +9118,7 @@ async function autoLearnReliability() {
     }
 }
 
-// v3.0.50: 優化算法說明 - 簡潔版本 + 研究參考
+// v3.0.50: 詳細算法說明 - 完整公式分解
 function initAlgorithmContent() {
     const algorithmContentEl = document.getElementById('algorithm-content');
     if (!algorithmContentEl) {
@@ -9127,115 +9127,255 @@ function initAlgorithmContent() {
     }
     
     algorithmContentEl.innerHTML = `
-        <!-- 核心公式 (v3.0.50) -->
+        <!-- ==================== 第一部分：核心公式概覽 ==================== -->
         <div class="algo-card" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(59, 130, 246, 0.08)); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid rgba(34, 197, 94, 0.25);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h4 style="margin: 0; color: #22c55e; font-size: 0.95rem;">🧠 預測算法 v3.0.50</h4>
+                <h4 style="margin: 0; color: #22c55e; font-size: 1rem;">🧠 NDH AED 預測算法 v3.0.50</h4>
                 <span style="font-size: 0.7rem; color: var(--text-tertiary); background: var(--bg-tertiary); padding: 2px 8px; border-radius: 4px;">加法效應模型</span>
             </div>
-            <div style="background: var(--bg-primary); padding: 12px; border-radius: 8px; font-family: 'Fira Code', monospace; font-size: 0.82rem; line-height: 1.5; margin-bottom: 12px;">
-                <div style="color: #22c55e; margin-bottom: 4px;"><strong>今日：</strong> Bayesian(XGBoost, AI, 天氣) → 上限 180-340</div>
-                <div style="color: #3b82f6;"><strong>未來：</strong> 星期均值 + 趨勢×衰減 + 效應 → 上限 180-320</div>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size: 0.72rem;">
-                <div style="text-align: center; padding: 8px; background: rgba(34, 197, 94, 0.1); border-radius: 6px;">
-                    <div style="font-weight: 600; color: #22c55e;">Post-COVID</div>
-                    <div style="color: var(--text-secondary);">均值 254</div>
+            
+            <!-- 兩種預測模式 -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div style="background: var(--bg-primary); padding: 12px; border-radius: 8px; border-left: 3px solid #8b5cf6;">
+                    <div style="font-size: 0.75rem; color: #8b5cf6; font-weight: 600; margin-bottom: 6px;">📅 今日預測 (Day 0)</div>
+                    <div style="font-family: 'Fira Code', monospace; font-size: 0.78rem; color: var(--text-primary); line-height: 1.6;">
+                        Final = Bayesian(<br>
+                        &nbsp;&nbsp;XGBoost,<br>
+                        &nbsp;&nbsp;AI因子,<br>
+                        &nbsp;&nbsp;天氣因子<br>
+                        ) → clip(180, 340)
+                    </div>
                 </div>
-                <div style="text-align: center; padding: 8px; background: rgba(139, 92, 246, 0.1); border-radius: 6px;">
-                    <div style="font-weight: 600; color: #8b5cf6;">週一</div>
-                    <div style="color: var(--text-secondary);">270 ± 35</div>
-                </div>
-                <div style="text-align: center; padding: 8px; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
-                    <div style="font-weight: 600; color: #3b82f6;">週六</div>
-                    <div style="color: var(--text-secondary);">235 ± 32</div>
-                </div>
-                <div style="text-align: center; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: 6px;">
-                    <div style="font-weight: 600; color: #ef4444;">上限</div>
-                    <div style="color: var(--text-secondary);">180-320</div>
+                <div style="background: var(--bg-primary); padding: 12px; border-radius: 8px; border-left: 3px solid #3b82f6;">
+                    <div style="font-size: 0.75rem; color: #3b82f6; font-weight: 600; margin-bottom: 6px;">📆 未來預測 (Day 1-30)</div>
+                    <div style="font-family: 'Fira Code', monospace; font-size: 0.78rem; color: var(--text-primary); line-height: 1.6;">
+                        Final = μ<sub>dow</sub> + Δ·e<sup>-0.1d</sup><br>
+                        &nbsp;&nbsp;+ 月份效應<br>
+                        &nbsp;&nbsp;+ AI效應<br>
+                        &nbsp;&nbsp;+ 天氣效應<br>
+                        → clip(180, 320)
+                    </div>
                 </div>
             </div>
         </div>
         
-        <!-- XGBoost + Bayesian -->
+        <!-- ==================== 第二部分：XGBoost 基礎模型 ==================== -->
+        <div class="algo-card" style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+            <h4 style="margin: 0 0 12px 0; color: var(--text-primary); font-size: 0.95rem;">🤖 Step 1: XGBoost 基礎預測</h4>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px;">
+                <div style="background: var(--bg-primary); padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #f59e0b; font-weight: 600; margin-bottom: 6px;">⚙️ 模型配置</div>
+                    <div style="font-size: 0.73rem; color: var(--text-secondary); line-height: 1.6;">
+                        • n_estimators = 500<br>
+                        • max_depth = 8<br>
+                        • learning_rate = 0.05<br>
+                        • subsample = 0.8<br>
+                        • colsample_bytree = 0.8
+                    </div>
+                </div>
+                <div style="background: var(--bg-primary); padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #22c55e; font-weight: 600; margin-bottom: 6px;">🔥 Top 5 特徵 (重要性)</div>
+                    <div style="font-size: 0.73rem; color: var(--text-secondary); line-height: 1.6;">
+                        • EWMA7 = 45.2%<br>
+                        • EWMA14 = 44.6%<br>
+                        • Daily_Change = 2.2%<br>
+                        • Monthly_Change = 2.0%<br>
+                        • EWMA30 = 1.3%
+                    </div>
+                </div>
+                <div style="background: var(--bg-primary); padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #3b82f6; font-weight: 600; margin-bottom: 6px;">⚖️ 樣本權重</div>
+                    <div style="font-size: 0.73rem; color: var(--text-secondary); line-height: 1.6;">
+                        • 時間衰減: e<sup>-0.693·d/365</sup><br>
+                        • COVID期間: ×0.3<br>
+                        • Z-score > 3: ×0.5<br>
+                        • 近期數據權重更高
+                    </div>
+                </div>
+            </div>
+            
+            <div style="background: rgba(245, 158, 11, 0.1); padding: 10px; border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary);">
+                <strong style="color: #f59e0b;">📊 模型性能:</strong> MAE = 4.01 人 · MAPE = 1.59% · R² = 95.8% · 25 精選特徵
+            </div>
+        </div>
+        
+        <!-- ==================== 第三部分：Bayesian 融合 (今日) ==================== -->
+        <div class="algo-card" style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+            <h4 style="margin: 0 0 12px 0; color: var(--text-primary); font-size: 0.95rem;">🎯 Step 2: Pragmatic Bayesian 融合 (今日預測)</h4>
+            
+            <div style="background: var(--bg-primary); padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+                <div style="font-family: 'Fira Code', monospace; font-size: 0.8rem; color: #8b5cf6; text-align: center; margin-bottom: 8px;">
+                    Final = Σ(precision<sub>i</sub> × mean<sub>i</sub>) / Σ(precision<sub>i</sub>)
+                </div>
+                <div style="font-size: 0.72rem; color: var(--text-secondary); text-align: center;">
+                    where precision = 1 / variance, variance = (baseStd / reliability)² × (1 + |factor - 1| × k)
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px;">
+                <div style="text-align: center; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 8px;">
+                    <div style="font-size: 0.9rem; margin-bottom: 4px;">🤖</div>
+                    <div style="font-weight: 600; color: #8b5cf6; font-size: 0.8rem;">XGBoost</div>
+                    <div style="font-size: 0.72rem; color: var(--text-secondary);">可靠度 90%</div>
+                    <div style="font-size: 0.68rem; color: var(--text-tertiary);">mean = 模型輸出</div>
+                </div>
+                <div style="text-align: center; padding: 10px; background: rgba(245, 158, 11, 0.1); border-radius: 8px;">
+                    <div style="font-size: 0.9rem; margin-bottom: 4px;">🧠</div>
+                    <div style="font-weight: 600; color: #f59e0b; font-size: 0.8rem;">AI 因子</div>
+                    <div style="font-size: 0.72rem; color: var(--text-secondary);">可靠度 60%</div>
+                    <div style="font-size: 0.68rem; color: var(--text-tertiary);">mean = XGB × factor</div>
+                </div>
+                <div style="text-align: center; padding: 10px; background: rgba(59, 130, 246, 0.1); border-radius: 8px;">
+                    <div style="font-size: 0.9rem; margin-bottom: 4px;">🌤️</div>
+                    <div style="font-weight: 600; color: #3b82f6; font-size: 0.8rem;">天氣因子</div>
+                    <div style="font-size: 0.72rem; color: var(--text-secondary);">可靠度 75%</div>
+                    <div style="font-size: 0.68rem; color: var(--text-tertiary);">mean = XGB × factor</div>
+                </div>
+            </div>
+            
+            <div style="background: rgba(139, 92, 246, 0.08); padding: 10px; border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary);">
+                <strong style="color: #8b5cf6;">✨ 關鍵機制:</strong> 因子越極端 → 方差越大 → 權重自動降低 · 可靠度從歷史數據自動學習
+            </div>
+        </div>
+        
+        <!-- ==================== 第四部分：加法效應模型 (未來) ==================== -->
+        <div class="algo-card" style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+            <h4 style="margin: 0 0 12px 0; color: var(--text-primary); font-size: 0.95rem;">📈 Step 3: 加法效應模型 (未來預測)</h4>
+            
+            <div style="background: var(--bg-primary); padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+                <div style="font-family: 'Fira Code', monospace; font-size: 0.78rem; color: #22c55e; line-height: 1.8;">
+                    <div style="margin-bottom: 4px;"><strong>Final = μ<sub>dow</sub> + Δ×e<sup>-0.1d</sup> + E<sub>month</sub> + E<sub>AI</sub> + E<sub>weather</sub></strong></div>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px;">
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #22c55e; font-weight: 600; margin-bottom: 4px;">μ<sub>dow</sub> 星期均值</div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.5;">
+                        週日: 225 · 週一: 270<br>
+                        週二: 260 · 週三: 255<br>
+                        週四: 252 · 週五: 245<br>
+                        週六: 235
+                    </div>
+                </div>
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #3b82f6; font-weight: 600; margin-bottom: 4px;">Δ 趨勢偏差</div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.5;">
+                        Δ = XGBoost - μ<sub>today</sub><br>
+                        捕捉近期趨勢<br>
+                        × e<sup>-0.1d</sup> 衰減
+                    </div>
+                </div>
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #f59e0b; font-weight: 600; margin-bottom: 4px;">E<sub>month</sub> 月份效應</div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.5;">
+                        = (factor - 1) × μ × 0.5<br>
+                        1月: +5% · 7月: -2%<br>
+                        12月: +3%
+                    </div>
+                </div>
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #8b5cf6; font-weight: 600; margin-bottom: 4px;">E<sub>AI</sub> + E<sub>weather</sub></div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.5;">
+                        AI: (f-1) × μ × 0.5<br>
+                        天氣: (f-1) × μ × 0.3<br>
+                        限制影響幅度
+                    </div>
+                </div>
+            </div>
+            
+            <div style="background: rgba(34, 197, 94, 0.08); padding: 10px; border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary);">
+                <strong style="color: #22c55e;">🛡️ 硬上限控制:</strong> clip(180, 320) · 歷史 95% CI: 198-310 · 避免超出合理範圍
+            </div>
+        </div>
+        
+        <!-- ==================== 第五部分：效應因子詳解 ==================== -->
+        <div class="algo-card" style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+            <h4 style="margin: 0 0 12px 0; color: var(--text-primary); font-size: 0.95rem;">⚡ 效應因子詳解</h4>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; font-size: 0.72rem;">
+                <div style="padding: 10px; background: var(--bg-primary); border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-weight: 600;">📅 星期效應</span>
+                        <span style="color: #3b82f6; font-weight: 600;">±15%</span>
+                    </div>
+                    <div style="color: var(--text-tertiary); font-size: 0.68rem;">週一最高 (+6%)<br>週末最低 (-11%)</div>
+                </div>
+                <div style="padding: 10px; background: var(--bg-primary); border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-weight: 600;">🎉 假期效應</span>
+                        <span style="color: #ef4444; font-weight: 600;">-40%~+40%</span>
+                    </div>
+                    <div style="color: var(--text-tertiary); font-size: 0.68rem;">農曆新年 -25%<br>聖誕節 -15%</div>
+                </div>
+                <div style="padding: 10px; background: var(--bg-primary); border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-weight: 600;">🤒 流感季節</span>
+                        <span style="color: #f59e0b; font-weight: 600;">+10%~30%</span>
+                    </div>
+                    <div style="color: var(--text-tertiary); font-size: 0.68rem;">1-3月, 7-8月<br>冬季流感高峰</div>
+                </div>
+                <div style="padding: 10px; background: var(--bg-primary); border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-weight: 600;">🌡️ 溫度效應</span>
+                        <span style="color: #22c55e; font-weight: 600;">±8%</span>
+                    </div>
+                    <div style="color: var(--text-tertiary); font-size: 0.68rem;">>33°C: +8%<br><10°C: +12%</div>
+                </div>
+                <div style="padding: 10px; background: var(--bg-primary); border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-weight: 600;">🌧️ 降雨效應</span>
+                        <span style="color: #3b82f6; font-weight: 600;">-8%~0%</span>
+                    </div>
+                    <div style="color: var(--text-tertiary); font-size: 0.68rem;">大雨: -8%<br>暴雨警告: -15%</div>
+                </div>
+                <div style="padding: 10px; background: var(--bg-primary); border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-weight: 600;">🧠 AI 因子</span>
+                        <span style="color: #8b5cf6; font-weight: 600;">±30%</span>
+                    </div>
+                    <div style="color: var(--text-tertiary); font-size: 0.68rem;">實時新聞分析<br>事件影響評估</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ==================== 第六部分：數據與研究 ==================== -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px;">
             <div class="algo-card" style="background: var(--bg-secondary); padding: 14px; border-radius: 10px;">
-                <h4 style="margin: 0 0 10px 0; color: var(--text-primary); font-size: 0.88rem;">🤖 XGBoost 基礎</h4>
-                <div style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.7;">
-                    <div>• <strong>配置：</strong>500樹 · 深度8 · η=0.05</div>
-                    <div>• <strong>Top特徵：</strong>EWMA7+14 (90%)</div>
-                    <div>• <strong>權重：</strong>時間衰減 · COVID調整</div>
+                <h4 style="margin: 0 0 10px 0; color: var(--text-primary); font-size: 0.88rem;">📊 數據來源</h4>
+                <div style="font-size: 0.73rem; color: var(--text-secondary); line-height: 1.7;">
+                    <div>• <strong>NDH AED:</strong> 2014-至今 (4000+ 筆)</div>
+                    <div>• <strong>HKO 打鼓嶺:</strong> 1988-至今 (13000+ 天)</div>
+                    <div>• <strong>AI 新聞:</strong> GPT-4o/DeepSeek (實時)</div>
+                    <div>• <strong>假期:</strong> 香港公眾假期 2014-2030</div>
                 </div>
             </div>
             <div class="algo-card" style="background: var(--bg-secondary); padding: 14px; border-radius: 10px;">
-                <h4 style="margin: 0 0 10px 0; color: var(--text-primary); font-size: 0.88rem;">🎯 Bayesian 融合</h4>
-                <div style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.7;">
-                    <div>• <strong>XGBoost：</strong>90% 可靠度</div>
-                    <div>• <strong>AI 因子：</strong>60% 可靠度</div>
-                    <div>• <strong>天氣因子：</strong>75% 可靠度</div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 因子範圍 -->
-        <div class="algo-card" style="background: var(--bg-secondary); padding: 14px; border-radius: 10px; margin-bottom: 16px;">
-            <h4 style="margin: 0 0 10px 0; color: var(--text-primary); font-size: 0.88rem;">⚡ 效應因子範圍</h4>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; font-size: 0.73rem;">
-                <div style="display: flex; justify-content: space-between; padding: 6px 10px; background: var(--bg-primary); border-radius: 6px;">
-                    <span>星期</span><span style="color: #3b82f6; font-weight: 600;">±15%</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; padding: 6px 10px; background: var(--bg-primary); border-radius: 6px;">
-                    <span>假期</span><span style="color: #ef4444; font-weight: 600;">-40%~+40%</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; padding: 6px 10px; background: var(--bg-primary); border-radius: 6px;">
-                    <span>流感季</span><span style="color: #f59e0b; font-weight: 600;">+10%~30%</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; padding: 6px 10px; background: var(--bg-primary); border-radius: 6px;">
-                    <span>天氣</span><span style="color: #22c55e; font-weight: 600;">±15%</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; padding: 6px 10px; background: var(--bg-primary); border-radius: 6px;">
-                    <span>AI</span><span style="color: #8b5cf6; font-weight: 600;">±30%</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; padding: 6px 10px; background: var(--bg-primary); border-radius: 6px;">
-                    <span>趨勢衰減</span><span style="color: #6b7280; font-weight: 600;">e<sup>-0.1d</sup></span>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 數據 + 研究參考 -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 0.73rem;">
-            <div class="algo-card" style="background: var(--bg-secondary); padding: 14px; border-radius: 10px;">
-                <h4 style="margin: 0 0 8px 0; color: var(--text-primary); font-size: 0.82rem;">📊 數據來源</h4>
-                <div style="color: var(--text-secondary); line-height: 1.6;">
-                    <div>• NDH AED 2014-至今 (4000+ 筆)</div>
-                    <div>• HKO 天氣 1988-至今</div>
-                    <div>• AI 新聞分析 (實時)</div>
-                </div>
-            </div>
-            <div class="algo-card" style="background: var(--bg-secondary); padding: 14px; border-radius: 10px;">
-                <h4 style="margin: 0 0 8px 0; color: var(--text-primary); font-size: 0.82rem;">📚 研究參考</h4>
-                <div style="color: var(--text-secondary); line-height: 1.6;">
-                    <div>• BMC EM (2025) XGBoost ED</div>
-                    <div>• Chen & Guestrin (2016) XGBoost</div>
-                    <div>• Facebook Prophet 趨勢分解</div>
+                <h4 style="margin: 0 0 10px 0; color: var(--text-primary); font-size: 0.88rem;">📚 研究參考</h4>
+                <div style="font-size: 0.73rem; color: var(--text-secondary); line-height: 1.7;">
+                    <div>• BMC EM (2025) - XGBoost ED 預測</div>
+                    <div>• Chen & Guestrin (2016) - XGBoost</div>
+                    <div>• Facebook Prophet - 趨勢分解</div>
                     <div>• Bayesian Model Averaging</div>
+                    <div>• Kalman (1960) - 最優估計</div>
                 </div>
             </div>
         </div>
         
-        <!-- 版本更新說明 -->
-        <div style="margin-top: 16px; padding: 12px; background: rgba(34, 197, 94, 0.08); border-radius: 8px; border-left: 3px solid #22c55e;">
-            <div style="font-size: 0.75rem; color: #22c55e; font-weight: 600; margin-bottom: 4px;">v3.0.50 更新亮點</div>
-            <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.5;">
-                ✅ 改用加法效應模型，避免乘法疊加過高 · 
-                📊 Post-COVID 2023-2025 數據校準 · 
-                🛡️ 硬上限控制 (180-320) · 
-                📉 遠期預測自動回歸均值
+        <!-- ==================== 版本更新 ==================== -->
+        <div style="padding: 14px; background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.05)); border-radius: 10px; border-left: 4px solid #22c55e;">
+            <div style="font-size: 0.82rem; color: #22c55e; font-weight: 600; margin-bottom: 8px;">🚀 v3.0.50 更新亮點</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; font-size: 0.72rem; color: var(--text-secondary);">
+                <div>✅ 改用加法效應模型，避免乘法疊加過高</div>
+                <div>📊 Post-COVID 2023-2025 數據校準</div>
+                <div>🛡️ 硬上限控制 180-320 (今日 340)</div>
+                <div>📉 遠期預測趨勢衰減 (回歸均值)</div>
             </div>
         </div>
     `;
     
-    console.log('✅ 算法說明內容已初始化 (v3.0.50)');
+    console.log('✅ 算法說明內容已初始化 (v3.0.50 詳細版)');
 }
 
 // 載入算法說明 - 調用原有的詳細版本
