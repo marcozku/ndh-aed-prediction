@@ -940,14 +940,15 @@ const MethodologyModal = {
             const isLatest = i === latestIdx;
             const prevItem = i > 0 ? timeline[i - 1] : null;
             
-            // 計算改進幅度
+            // 計算改進幅度（只有真正減少才顯示箭頭，相同時不顯示）
             let maeImproved = false;
             let mapeImproved = false;
             if (prevItem && item.metrics.mae && prevItem.metrics.mae) {
-                maeImproved = item.metrics.mae < prevItem.metrics.mae;
+                // 使用容差比較，避免浮點數精度問題，且需要真正減少（至少 0.01）
+                maeImproved = (prevItem.metrics.mae - item.metrics.mae) >= 0.01;
             }
             if (prevItem && item.metrics.mape && prevItem.metrics.mape) {
-                mapeImproved = item.metrics.mape < prevItem.metrics.mape;
+                mapeImproved = (prevItem.metrics.mape - item.metrics.mape) >= 0.01;
             }
             
             html += `
@@ -1280,10 +1281,11 @@ const MainPageTimeline = {
             
             let maeImproved = false, mapeImproved = false;
             if (prevItem && item.metrics?.mae && prevItem.metrics?.mae) {
-                maeImproved = item.metrics.mae < prevItem.metrics.mae;
+                // 使用容差比較，避免浮點數精度問題，且需要真正減少（至少 0.01）
+                maeImproved = (prevItem.metrics.mae - item.metrics.mae) >= 0.01;
             }
             if (prevItem && item.metrics?.mape && prevItem.metrics?.mape) {
-                mapeImproved = item.metrics.mape < prevItem.metrics.mape;
+                mapeImproved = (prevItem.metrics.mape - item.metrics.mape) >= 0.01;
             }
             
             html += `
