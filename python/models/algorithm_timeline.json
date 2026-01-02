@@ -156,7 +156,50 @@
         "feature_count": 25
       },
       "improvement": "更清晰的天氣影響可視化"
+    },
+    {
+      "version": "3.0.38",
+      "date": "2026-01-04",
+      "description": "Pragmatic Bayesian 融合",
+      "changes": [
+        "Bayesian 精度加權融合（XGBoost+AI+天氣）",
+        "極端值自動降權機制",
+        "可靠度從歷史數據自動學習"
+      ],
+      "metrics": {
+        "mae": 4.01,
+        "mape": 1.59,
+        "rmse": 5.45,
+        "r2": 0.958,
+        "adj_r2": 0.957,
+        "feature_count": 25
+      },
+      "research": "Bayesian Model Averaging, Kalman Filter",
+      "improvement": "多來源智能融合，避免單一來源偏差"
+    },
+    {
+      "version": "3.0.50",
+      "date": "2026-01-03",
+      "description": "加法效應模型 + Post-COVID 校準",
+      "changes": [
+        "改用加法效應模型（避免乘法疊加過高）",
+        "Post-COVID 2023-2025 數據校準（週一270，均值254）",
+        "硬上限控制（180-320，今日340）",
+        "遠期預測趨勢衰減（回歸均值）"
+      ],
+      "metrics": {
+        "mae": 4.01,
+        "mape": 1.59,
+        "rmse": 5.45,
+        "r2": 0.958,
+        "adj_r2": 0.957,
+        "feature_count": 25,
+        "note": "模型指標不變，預測邏輯優化"
+      },
+      "research": "Facebook Prophet 趨勢分解, BMC EM (2025)",
+      "key_features": ["加法效應", "硬上限控制", "趨勢衰減"],
+      "improvement": "預測值限制在歷史合理範圍（180-320）"
     }
   ],
-  "last_updated": "2026-01-02T23:30:00+08:00"
+  "last_updated": "2026-01-03T03:20:00+08:00"
 }
