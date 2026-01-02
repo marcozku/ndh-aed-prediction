@@ -241,8 +241,28 @@ async function initDatabase() {
                 model_version VARCHAR(50) DEFAULT '1.0.0',
                 weather_data JSONB,
                 ai_factors JSONB,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(target_date)
             )
+        `);
+        
+        // Migration: Add unique constraint if table exists but constraint doesn't
+        await client.query(`
+            DO $$ 
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint 
+                    WHERE conname = 'daily_predictions_target_date_key'
+                ) THEN
+                    -- 刪除重複的舊記錄，只保留最新的
+                    DELETE FROM daily_predictions a
+                    USING daily_predictions b
+                    WHERE a.id < b.id AND a.target_date = b.target_date;
+                    
+                    -- 添加唯一約束
+                    ALTER TABLE daily_predictions ADD CONSTRAINT daily_predictions_target_date_key UNIQUE (target_date);
+                END IF;
+            END $$;
         `);
         
         // Create indexes for daily_predictions
