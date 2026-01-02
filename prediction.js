@@ -3841,49 +3841,107 @@ async function initWeatherCorrChart() {
             if (oldNote) oldNote.remove();
         }
         
-        // v3.0.7: 顯示更有意義的影響摘要
+        // v3.0.8: 顯示完整的天氣影響分析
         const statsEl = document.getElementById('weather-corr-stats');
         if (statsEl) {
+            const seasonWeather = analysis.seasonWeather || {};
+            const tempRangeEffect = analysis.tempRangeEffect || {};
+            const extremeWeather = analysis.extremeWeather || {};
+            
             const dropDiff = (tempChangeEffect.bigDrop?.avg || overallAvg) - overallAvg;
             const riseDiff = (tempChangeEffect.bigRise?.avg || overallAvg) - overallAvg;
-            const hotDiff = avgHot - overallAvg;
-            const coldDiff = avgCold - overallAvg;
+            
+            // 計算季節效應
+            const winterColdDiff = (seasonWeather.winterCold?.avg || overallAvg) - overallAvg;
+            const summerHotDiff = (seasonWeather.summerHot?.avg || overallAvg) - overallAvg;
+            
+            // 計算極端天氣效應
+            const veryHotDiff = (extremeWeather.veryHot?.avg || overallAvg) - overallAvg;
+            const veryColdDiff = (extremeWeather.veryCold?.avg || overallAvg) - overallAvg;
             
             // 找出最有影響力的因素
-            let insightHtml = '';
-            if (Math.abs(dropDiff) > 5 || Math.abs(riseDiff) > 5) {
-                insightHtml = `
-                    <div style="margin-top: 8px; padding: 8px; background: rgba(139, 92, 246, 0.1); border-radius: 6px; font-size: 11px;">
-                        💡 <strong>發現</strong>：溫度急劇變化（驟降/驟升≥5°C）比絕對溫度更影響出席
-                    </div>
-                `;
-            }
+            const effects = [
+                { name: '溫度驟降', diff: dropDiff },
+                { name: '溫度驟升', diff: riseDiff },
+                { name: '冬季寒冷', diff: winterColdDiff },
+                { name: '夏季酷熱', diff: summerHotDiff },
+                { name: '極端酷熱', diff: veryHotDiff },
+                { name: '極端嚴寒', diff: veryColdDiff }
+            ].filter(e => !isNaN(e.diff) && e.diff !== 0);
+            
+            const maxEffect = effects.length > 0 
+                ? effects.reduce((max, e) => Math.abs(e.diff) > Math.abs(max.diff) ? e : max)
+                : null;
+            
+            const formatDiff = (diff) => {
+                if (isNaN(diff)) return '';
+                const color = diff >= 0 ? '#ef4444' : '#10b981';
+                return `<span style="color: ${color}">(${diff >= 0 ? '+' : ''}${diff})</span>`;
+            };
             
             statsEl.innerHTML = `
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; font-size: 11px; color: var(--text-secondary);">
-                    <div style="text-align: center; padding: 6px; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
-                        <div style="color: #3b82f6;">❄️ 驟降 ≥5°C</div>
-                        <div><strong>${tempChangeEffect.bigDrop?.avg || 'N/A'}</strong> 人 
-                            <span style="color: ${dropDiff >= 0 ? '#ef4444' : '#10b981'}">(${dropDiff >= 0 ? '+' : ''}${dropDiff})</span>
+                <!-- 溫度變化效應 -->
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 11px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">📊 溫度變化效應</div>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: 10px;">
+                        <div style="text-align: center; padding: 6px; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
+                            <div style="color: #3b82f6;">❄️ 驟降≥5°C</div>
+                            <div><strong>${tempChangeEffect.bigDrop?.avg || 'N/A'}</strong> ${formatDiff(dropDiff)}</div>
+                            <div style="opacity: 0.6;">${tempChangeEffect.bigDrop?.count || 0}天</div>
                         </div>
-                        <div style="font-size: 10px; opacity: 0.7;">${tempChangeEffect.bigDrop?.count || 0} 天</div>
-                    </div>
-                    <div style="text-align: center; padding: 6px; background: rgba(16, 185, 129, 0.1); border-radius: 6px;">
-                        <div style="color: #10b981;">🌤️ 溫度穩定</div>
-                        <div><strong>${tempChangeEffect.stable?.avg || 'N/A'}</strong> 人 
-                            <span style="opacity: 0.7;">(基準)</span>
+                        <div style="text-align: center; padding: 6px; background: rgba(16, 185, 129, 0.1); border-radius: 6px;">
+                            <div style="color: #10b981;">🌤️ 穩定</div>
+                            <div><strong>${tempChangeEffect.stable?.avg || 'N/A'}</strong> <span style="opacity: 0.6;">(基準)</span></div>
+                            <div style="opacity: 0.6;">${tempChangeEffect.stable?.count || 0}天</div>
                         </div>
-                        <div style="font-size: 10px; opacity: 0.7;">${tempChangeEffect.stable?.count || 0} 天</div>
-                    </div>
-                    <div style="text-align: center; padding: 6px; background: rgba(239, 68, 68, 0.1); border-radius: 6px;">
-                        <div style="color: #ef4444;">🔥 驟升 ≥5°C</div>
-                        <div><strong>${tempChangeEffect.bigRise?.avg || 'N/A'}</strong> 人 
-                            <span style="color: ${riseDiff >= 0 ? '#ef4444' : '#10b981'}">(${riseDiff >= 0 ? '+' : ''}${riseDiff})</span>
+                        <div style="text-align: center; padding: 6px; background: rgba(239, 68, 68, 0.1); border-radius: 6px;">
+                            <div style="color: #ef4444;">🔥 驟升≥5°C</div>
+                            <div><strong>${tempChangeEffect.bigRise?.avg || 'N/A'}</strong> ${formatDiff(riseDiff)}</div>
+                            <div style="opacity: 0.6;">${tempChangeEffect.bigRise?.count || 0}天</div>
                         </div>
-                        <div style="font-size: 10px; opacity: 0.7;">${tempChangeEffect.bigRise?.count || 0} 天</div>
                     </div>
                 </div>
-                ${insightHtml}
+                
+                <!-- 季節×天氣交互 -->
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 11px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">🗓️ 季節×天氣交互</div>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; font-size: 10px;">
+                        <div style="text-align: center; padding: 6px; background: rgba(59, 130, 246, 0.15); border-radius: 6px;">
+                            <div style="color: #3b82f6;">❄️ 冬季寒冷日</div>
+                            <div><strong>${seasonWeather.winterCold?.avg || 'N/A'}</strong> ${formatDiff(winterColdDiff)}</div>
+                            <div style="opacity: 0.6;">${seasonWeather.winterCold?.count || 0}天</div>
+                        </div>
+                        <div style="text-align: center; padding: 6px; background: rgba(239, 68, 68, 0.15); border-radius: 6px;">
+                            <div style="color: #ef4444;">🔥 夏季酷熱日</div>
+                            <div><strong>${seasonWeather.summerHot?.avg || 'N/A'}</strong> ${formatDiff(summerHotDiff)}</div>
+                            <div style="opacity: 0.6;">${seasonWeather.summerHot?.count || 0}天</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 極端天氣 -->
+                <div style="margin-bottom: 8px;">
+                    <div style="font-size: 11px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">⚠️ 極端天氣</div>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; font-size: 10px;">
+                        <div style="text-align: center; padding: 6px; background: rgba(239, 68, 68, 0.2); border-radius: 6px;">
+                            <div style="color: #dc2626;">🌡️ 酷熱 (max>33°C)</div>
+                            <div><strong>${extremeWeather.veryHot?.avg || 'N/A'}</strong> ${formatDiff(veryHotDiff)}</div>
+                            <div style="opacity: 0.6;">${extremeWeather.veryHot?.count || 0}天</div>
+                        </div>
+                        <div style="text-align: center; padding: 6px; background: rgba(59, 130, 246, 0.2); border-radius: 6px;">
+                            <div style="color: #1d4ed8;">🥶 嚴寒 (min<10°C)</div>
+                            <div><strong>${extremeWeather.veryCold?.avg || 'N/A'}</strong> ${formatDiff(veryColdDiff)}</div>
+                            <div style="opacity: 0.6;">${extremeWeather.veryCold?.count || 0}天</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 發現 -->
+                ${maxEffect && Math.abs(maxEffect.diff) > 5 ? `
+                <div style="padding: 8px; background: rgba(139, 92, 246, 0.1); border-radius: 6px; font-size: 11px; border-left: 3px solid #8b5cf6;">
+                    💡 <strong>主要發現</strong>：「${maxEffect.name}」對出席影響最大（${maxEffect.diff >= 0 ? '+' : ''}${maxEffect.diff} 人）
+                </div>
+                ` : ''}
             `;
         }
         

@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.0.7';
+const MODEL_VERSION = '3.0.8';
 
 // ============================================
 // HKT 時間工具函數
@@ -1760,6 +1760,69 @@ const apiHandlers = {
             // 6. 計算整體平均
             const overallAvg = Math.round(sortedData.reduce((s, d) => s + d.actual, 0) / sortedData.length);
             
+            // 7. 季節 × 天氣交互分析
+            const getMonth = (d) => new Date(d.date).getMonth() + 1;
+            const isWinter = (d) => [12, 1, 2].includes(getMonth(d));
+            const isSummer = (d) => [6, 7, 8].includes(getMonth(d));
+            
+            const seasonWeatherStats = {
+                winterCold: { // 冬季寒冷日
+                    days: sortedData.filter(d => isWinter(d) && d.isCold),
+                    get avg() { return this.days.length > 0 ? Math.round(this.days.reduce((s, d) => s + d.actual, 0) / this.days.length) : null; }
+                },
+                winterNormal: { // 冬季普通日
+                    days: sortedData.filter(d => isWinter(d) && !d.isCold && !d.isHot),
+                    get avg() { return this.days.length > 0 ? Math.round(this.days.reduce((s, d) => s + d.actual, 0) / this.days.length) : null; }
+                },
+                summerHot: { // 夏季酷熱日
+                    days: sortedData.filter(d => isSummer(d) && d.isHot),
+                    get avg() { return this.days.length > 0 ? Math.round(this.days.reduce((s, d) => s + d.actual, 0) / this.days.length) : null; }
+                },
+                summerNormal: { // 夏季普通日
+                    days: sortedData.filter(d => isSummer(d) && !d.isHot && !d.isCold),
+                    get avg() { return this.days.length > 0 ? Math.round(this.days.reduce((s, d) => s + d.actual, 0) / this.days.length) : null; }
+                }
+            };
+            
+            // 8. 極端溫差日分析（日溫差 > 10°C）
+            const bigTempRange = sortedData.filter(d => d.tempRange > 10);
+            const normalTempRange = sortedData.filter(d => d.tempRange <= 10 && d.tempRange >= 5);
+            const smallTempRange = sortedData.filter(d => d.tempRange < 5);
+            
+            const tempRangeEffect = {
+                bigRange: { // 日溫差 > 10°C
+                    avg: bigTempRange.length > 0 ? Math.round(bigTempRange.reduce((s, d) => s + d.actual, 0) / bigTempRange.length) : null,
+                    count: bigTempRange.length,
+                    desc: '日溫差 >10°C'
+                },
+                normalRange: { // 日溫差 5-10°C
+                    avg: normalTempRange.length > 0 ? Math.round(normalTempRange.reduce((s, d) => s + d.actual, 0) / normalTempRange.length) : null,
+                    count: normalTempRange.length,
+                    desc: '日溫差 5-10°C'
+                },
+                smallRange: { // 日溫差 < 5°C
+                    avg: smallTempRange.length > 0 ? Math.round(smallTempRange.reduce((s, d) => s + d.actual, 0) / smallTempRange.length) : null,
+                    count: smallTempRange.length,
+                    desc: '日溫差 <5°C'
+                }
+            };
+            
+            // 9. 極端天氣日分析
+            const veryHotDays = sortedData.filter(d => d.isVeryHot);
+            const veryColdDays = sortedData.filter(d => d.isVeryCold);
+            const extremeWeather = {
+                veryHot: {
+                    avg: veryHotDays.length > 0 ? Math.round(veryHotDays.reduce((s, d) => s + d.actual, 0) / veryHotDays.length) : null,
+                    count: veryHotDays.length,
+                    desc: '酷熱日 (max>33°C)'
+                },
+                veryCold: {
+                    avg: veryColdDays.length > 0 ? Math.round(veryColdDays.reduce((s, d) => s + d.actual, 0) / veryColdDays.length) : null,
+                    count: veryColdDays.length,
+                    desc: '嚴寒日 (min<10°C)'
+                }
+            };
+            
             sendJson(res, {
                 success: true,
                 data: sortedData.slice(-500),
@@ -1772,6 +1835,14 @@ const apiHandlers = {
                         bigRise: { avg: avgBigRise, count: bigTempRise.length, desc: '驟升≥5°C' },
                         stable: { avg: avgStable, count: stableTemp.length, desc: '穩定(<3°C)' }
                     },
+                    seasonWeather: {
+                        winterCold: { avg: seasonWeatherStats.winterCold.avg, count: seasonWeatherStats.winterCold.days.length },
+                        winterNormal: { avg: seasonWeatherStats.winterNormal.avg, count: seasonWeatherStats.winterNormal.days.length },
+                        summerHot: { avg: seasonWeatherStats.summerHot.avg, count: seasonWeatherStats.summerHot.days.length },
+                        summerNormal: { avg: seasonWeatherStats.summerNormal.avg, count: seasonWeatherStats.summerNormal.days.length }
+                    },
+                    tempRangeEffect,
+                    extremeWeather,
                     dowWeatherStats
                 },
                 source: 'HKO weather_history.csv + actual_data'
