@@ -3290,31 +3290,43 @@ async function generateServerSidePredictions() {
                 weatherInfo = weatherForecast[dateStr];
             }
             
-            // 添加真實的歷史變異（基於歷史數據標準差約 35）
-            // 1. 基於日期的確定性"偽隨機"變異（每天不同但可重現）
-            const dateHash = dateStr.split('-').reduce((a, b) => a + parseInt(b) * 7, 0);
-            const seed1 = Math.sin(dateHash * 12.9898) * 43758.5453;
-            const seed2 = Math.sin(dateHash * 78.233) * 12893.2341;
-            const randomFactor1 = (seed1 - Math.floor(seed1)) * 2 - 1; // -1 to 1
-            const randomFactor2 = (seed2 - Math.floor(seed2)) * 2 - 1; // -1 to 1
-            
-            // 歷史標準差約 35，用 ±15% 的變異
-            const historicalNoise = 1 + (randomFactor1 * 0.10); // ±10% 主要噪聲
-            const secondaryNoise = 1 + (randomFactor2 * 0.05); // ±5% 次要噪聲
-            
-            // 2. 遠期預測回歸到均值（減少極端預測）
+            // 基於歷史數據的預測（歷史平均 249，標準差 35）
             const daysAhead = i;
-            const meanReversionStrength = Math.min(0.3, daysAhead * 0.015); // 最多30%回歸
             const historicalMean = 249;
-            const baseValue = basePrediction * dowFactor * monthFactor;
-            const meanRevertedValue = baseValue + (historicalMean - baseValue) * meanReversionStrength;
+            const historicalStd = 35;
             
-            // 計算最終預測（加入所有因素和真實變異）
-            const adjusted = Math.round(meanRevertedValue * aiFactor * weatherFactor * historicalNoise * secondaryNoise);
+            // 對於近期預測（0-7天），使用 XGBoost 基準 + 因素調整
+            // 對於遠期預測（8-30天），逐漸回歸到歷史均值
+            let predictedValue;
             
-            // 計算置信區間（遠期預測區間更大，反映更大不確定性）
-            const uncertaintyMultiplier = 1 + (daysAhead * 0.02); // 每天增加2%不確定性
-            const std = 35 * uncertaintyMultiplier; // 使用歷史標準差
+            if (daysAhead <= 7) {
+                // 近期：XGBoost 基準 + 因素調整
+                predictedValue = basePrediction * dowFactor * monthFactor * aiFactor * weatherFactor;
+            } else {
+                // 遠期：逐漸回歸到歷史均值（使用星期效應調整後的均值）
+                const adjustedMean = historicalMean * dowFactor * monthFactor;
+                const xgbValue = basePrediction * dowFactor * monthFactor;
+                
+                // 8天後開始回歸，到30天時完全回歸
+                const regressionProgress = Math.min(1, (daysAhead - 7) / 23);
+                predictedValue = xgbValue + (adjustedMean - xgbValue) * regressionProgress * 0.7;
+            }
+            
+            const adjusted = Math.round(predictedValue);
+            
+            // 置信區間：基於歷史標準差，遠期預測不確定性增加
+            // 近期 (0-3天): ±1 std
+            // 中期 (4-7天): ±1.5 std  
+            // 遠期 (8-30天): ±2 std
+            let stdMultiplier;
+            if (daysAhead <= 3) {
+                stdMultiplier = 1.0;
+            } else if (daysAhead <= 7) {
+                stdMultiplier = 1.5;
+            } else {
+                stdMultiplier = 2.0 + (daysAhead - 7) * 0.05; // 遠期繼續增加
+            }
+            const std = historicalStd * stdMultiplier;
             
             predictions.push({
                 date: dateStr,
