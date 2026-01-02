@@ -1622,8 +1622,8 @@ const WeatherCorrChart = {
             // 天氣影響因子數據（基於歷史分析）
             // 正數 = 人流增加，負數 = 人流減少
             // v3.0.60: 基於真實數據分析的天氣警告影響
-            // 數據來源: NDH 2015-2025 出席記錄 + HKO 警告歷史
-            // 基準: 無警告日平均 251.3 人 (2539 天)
+            // 數據來源: NDH 2014-2025 出席記錄 + HKO 警告歷史 (3436 天)
+            // 基準: 無警告日平均 251.3 人 (2546 天)
             const weatherFactors = [
                 { factor: '🌧️ 黃色暴雨', impact: -16.4, days: 4, mean: 210.0, color: 'rain' },
                 { factor: '🌀 八號颱風 (T8+)', impact: -12.1, days: 23, mean: 220.9, color: 'typhoon' },
