@@ -986,9 +986,16 @@ def main():
         rmse_change = metrics['rmse'] - old_rmse
         mape_change = metrics['mape'] - old_mape
         
-        mae_icon = "✅ 改善" if mae_change < 0 else ("⚠️ 下降" if mae_change > 0 else "➡️ 無變化")
-        rmse_icon = "✅ 改善" if rmse_change < 0 else ("⚠️ 下降" if rmse_change > 0 else "➡️ 無變化")
-        mape_icon = "✅ 改善" if mape_change < 0 else ("⚠️ 下降" if mape_change > 0 else "➡️ 無變化")
+        # 使用容差判斷，避免浮點數精度問題（顯示為 0.00 時應為無變化）
+        tolerance = 0.005
+        def get_change_icon(change, tol=tolerance):
+            if abs(change) < tol:
+                return "➡️ 無變化"
+            return "✅ 改善" if change < 0 else "⚠️ 下降"
+        
+        mae_icon = get_change_icon(mae_change)
+        rmse_icon = get_change_icon(rmse_change)
+        mape_icon = get_change_icon(mape_change)
         
         print(f"\n  📊 MAE (平均絕對誤差):")
         print(f"     舊模型: {old_mae:.2f} 病人")
@@ -1005,9 +1012,9 @@ def main():
         print(f"     新模型: {metrics['mape']:.2f}%")
         print(f"     變化: {mape_change:+.2f}% {mape_icon}")
         
-        # 計算總體改善
-        improvements = sum([1 for c in [mae_change, rmse_change, mape_change] if c < 0])
-        degradations = sum([1 for c in [mae_change, rmse_change, mape_change] if c > 0])
+        # 計算總體改善（使用相同容差）
+        improvements = sum([1 for c in [mae_change, rmse_change, mape_change] if c < -tolerance])
+        degradations = sum([1 for c in [mae_change, rmse_change, mape_change] if c > tolerance])
         
         print(f"\n  📋 總結:")
         if improvements > degradations:
