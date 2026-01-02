@@ -1,5 +1,28 @@
 # 版本更新日誌
 
+## v3.0.25 - 2026-01-04 00:30 HKT
+
+### 📐 全屏寬度卡片系統
+
+**問題**：
+- 不同區塊的卡片寬度不一致
+- `forecast-day-card` 寬度 1061px，`factors-container` 寬度 1040px
+
+**修復**：
+1. 新增 **Full-Width Card System** CSS 區塊
+2. 所有 section 強制 `width: 100%` + `padding-left/right: 0`
+3. 所有卡片類強制 `width: 100%` + `box-sizing: border-box`
+4. 所有 grid 容器移除左右 margin
+5. Section 直接子元素自動填滿寬度
+
+**受影響元素**：
+- `.prediction-card`, `.stats-card`, `.chart-card`
+- `.factors-container`, `.forecast-day-card`
+- `.confidence-grid`, `.algorithm-content`
+- `.section-header`, `.section-title`
+
+---
+
 ## v3.0.24 - 2026-01-04 00:15 HKT
 
 ### 📱 全面移動端響應式修復

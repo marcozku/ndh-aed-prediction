@@ -6331,6 +6331,103 @@ section h2 {
 }
 
 /* ============================================
+   Full-Width Card System v3.0.25
+   Ensures ALL cards fill screen width uniformly
+   ============================================ */
+
+/* Universal full-width for all major containers */
+.prediction-section,
+.factors-section,
+.forecast-section,
+.charts-section,
+.algorithm-section,
+.model-training-section,
+.confidence-dashboard,
+.algorithm-timeline-section {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* All card-like elements should fill parent width */
+.prediction-card,
+.stats-card,
+.chart-card,
+.factors-container,
+.forecast-day-card,
+.model-status-card,
+.confidence-grid,
+.algorithm-content,
+.training-status-container,
+.timeline-main-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Section headers - full width, no extra padding */
+.section-header {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Section titles - consistent with containers */
+.section-title,
+section > h2 {
+    width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Ensure grids fill full width */
+.prediction-grid,
+.forecast-cards,
+.charts-section,
+.training-status-grid {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Factors container - match forecast-cards padding/margin */
+.factors-container {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* Section content containers - ensure uniform width */
+#today-prediction-grid,
+#forecast-content,
+#factors-content,
+#training-status-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Ensure all direct children of sections fill width */
+section > * {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* Remove any margin that could cause width differences */
+.factors-container,
+.forecast-cards,
+.prediction-grid,
+.confidence-grid {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* ============================================
    Comprehensive Mobile Responsiveness Fix v3.0.0
    Ensures all elements stay inside containers
    ============================================ */
