@@ -5115,25 +5115,59 @@ async function updateUI(predictor, forceRecalculate = false) {
             console.warn('⚠️ 無法從數據庫讀取預測，將重新計算:', error);
         }
     } else {
-        console.log('🔄 AI/天氣因素已更新，強制重新計算 7 天預測');
+        // AI/天氣因素已更新，觸發服務器端重新計算
+        console.log('🔄 AI/天氣因素已更新，觸發服務器端預測更新...');
+        try {
+            const triggerResponse = await fetch('/api/trigger-prediction', { method: 'POST' });
+            const triggerResult = await triggerResponse.json();
+            if (triggerResult.success) {
+                console.log('✅ 服務器端預測已更新，重新讀取數據庫...');
+                // 重新從數據庫讀取更新後的預測
+                const response = await fetch('/api/future-predictions');
+                const result = await response.json();
+                
+                if (result.success && result.data && result.data.length >= 7) {
+                    forecasts = result.data.slice(0, 7).map(row => {
+                        const dateStr = row.target_date.split('T')[0];
+                        const d = new Date(dateStr);
+                        const dow = d.getDay();
+                        const month = d.getMonth() + 1;
+                        const dayNames = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+                        
+                        return {
+                            date: dateStr,
+                            predicted: row.predicted_count,
+                            dayName: dayNames[dow],
+                            isWeekend: dow === 0 || dow === 6,
+                            isHoliday: false,
+                            holidayName: '',
+                            isFluSeason: month >= 12 || month <= 3,
+                            ci80: {
+                                lower: Math.round(row.ci80_low || row.predicted_count - 15),
+                                upper: Math.round(row.ci80_high || row.predicted_count + 15)
+                            },
+                            ci95: {
+                                lower: Math.round(row.ci95_low || row.predicted_count - 25),
+                                upper: Math.round(row.ci95_high || row.predicted_count + 25)
+                            },
+                            savedAt: row.created_at
+                        };
+                    });
+                    usedSavedPredictions = true;
+                    console.log('✅ 使用服務器端更新後的 7 天預測');
+                }
+            }
+        } catch (error) {
+            console.error('❌ 觸發服務器端預測失敗:', error);
+        }
     }
     
-    // 如果數據庫沒有足夠的預測數據，或強制重新計算
+    // 如果仍然沒有預測數據，使用客戶端備用方案
     if (!usedSavedPredictions) {
-        // 使用 XGBoost 模型計算 7 天預測
+        console.log('⚠️ 使用客戶端備用預測（可能不夠準確）');
         forecasts = await getXGBoostPredictionsWithMetadata(tomorrow, 7, predictor, weatherForecastData, aiFactors);
         const xgboostCount = forecasts.filter(f => f.xgboostUsed).length;
-        console.log(`📊 重新計算 7 天預測（XGBoost: ${xgboostCount}/7）` + (forceRecalculate ? '（AI/天氣因素已更新）' : '（數據庫無足夠數據）'));
-        
-        // 保存新計算的預測到數據庫
-        forecasts.forEach((forecast, index) => {
-            const forecastWeather = weatherForecastData?.[forecast.date] || null;
-            const forecastAIFactor = aiFactors?.[forecast.date] || null;
-            
-            saveDailyPrediction(forecast, forecastWeather, forecastAIFactor).catch(err => {
-                console.error(`❌ 保存 ${forecast.date} 的預測失敗:`, err);
-            });
-        });
+        console.log(`📊 客戶端預測完成（XGBoost: ${xgboostCount}/7）`);
     }
     
     // 緩存 7 天預測結果，確保 30 天趨勢圖使用相同數據
