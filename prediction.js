@@ -4204,11 +4204,19 @@ async function initVolatilityChart(targetDate = null) {
             }
         }
         
+        // v3.0.30: 平均線和實際線延伸到整個日期範圍 (00:00 - 23:59)
+        const dayStart = new Date(targetData.date + 'T00:00:00+08:00');
+        const dayEnd = new Date(targetData.date + 'T23:59:59+08:00');
+        const fullDayPoints = [
+            { x: dayStart, y: null },  // 起點
+            { x: dayEnd, y: null }     // 終點
+        ];
+        
         // 顯示當前平滑值（使用與主預測相同的方法）
         if (calculatedSmoothed != null) {
             datasets.push({
                 label: `${methodLabel} (${calculatedSmoothed})`,
-                data: predictions.map(p => ({ x: p.x, y: calculatedSmoothed })),
+                data: fullDayPoints.map(p => ({ x: p.x, y: calculatedSmoothed })),
                 borderColor: 'rgba(16, 185, 129, 1)',
                 borderWidth: 2,
                 borderDash: [5, 5],
@@ -4222,7 +4230,7 @@ async function initVolatilityChart(targetDate = null) {
         if (actualValue != null) {
             datasets.push({
                 label: `實際出席 (${actualValue})`,
-                data: predictions.map(p => ({ x: p.x, y: actualValue })),
+                data: fullDayPoints.map(p => ({ x: p.x, y: actualValue })),
                 borderColor: 'rgba(239, 68, 68, 1)',
                 borderWidth: 2,
                 borderDash: [10, 5],
