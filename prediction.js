@@ -1415,13 +1415,36 @@ async function initCharts(predictor) {
                 return formatDateDDMM(p.date);
             }),
             datasets: [
+                // CI 區域 - 使用絕對索引填充
+                {
+                    label: '95% CI',
+                    data: predictions.map(p => p.ci95.upper),
+                    borderColor: 'rgba(5, 150, 105, 0.3)',
+                    borderWidth: 1,
+                    borderDash: [3, 3],
+                    fill: 1, // 填充到 dataset 索引 1（lower CI）
+                    backgroundColor: 'rgba(5, 150, 105, 0.12)',
+                    pointRadius: 0,
+                    tension: 0.1
+                },
+                {
+                    label: '',
+                    data: predictions.map(p => p.ci95.lower),
+                    borderColor: 'rgba(5, 150, 105, 0.3)',
+                    borderWidth: 1,
+                    borderDash: [3, 3],
+                    fill: false,
+                    pointRadius: 0,
+                    tension: 0.1
+                },
+                // 預測線在上層
                 {
                     label: '預測值',
                     data: predictions.map(p => p.predicted),
                     borderColor: '#059669',
                     backgroundColor: forecastGradient,
                     borderWidth: 2.5,
-                    fill: true,
+                    fill: false, // 不填充，避免覆蓋 CI 區域
                     tension: 0.35,
                     pointRadius: 5,
                     pointHoverRadius: 8,
@@ -1430,27 +1453,6 @@ async function initCharts(predictor) {
                     ),
                     pointBorderColor: '#fff',
                     pointBorderWidth: 2
-                },
-                {
-                    label: '95% CI',
-                    data: predictions.map(p => p.ci95.upper),
-                    borderColor: 'rgba(5, 150, 105, 0.25)',
-                    borderWidth: 1,
-                    borderDash: [3, 3],
-                    fill: '+1', // 向下填充到下一個數據集
-                    backgroundColor: 'rgba(5, 150, 105, 0.08)',
-                    pointRadius: 0,
-                    tension: 0
-                },
-                {
-                    label: '',
-                    data: predictions.map(p => p.ci95.lower),
-                    borderColor: 'rgba(5, 150, 105, 0.25)',
-                    borderWidth: 1,
-                    borderDash: [3, 3],
-                    fill: false, // 不填充，由上方數據集處理
-                    pointRadius: 0,
-                    tension: 0
                 },
                 {
                     label: `平均線 (${Math.round(predictor.globalMean)})`,
@@ -1484,13 +1486,13 @@ async function initCharts(predictor) {
                             return formatDateDDMM(p.date, true); // 工具提示顯示完整日期
                         },
                         label: function(item) {
-                            if (item.datasetIndex === 0) {
+                            if (item.datasetIndex === 2) {
                                 return `預測: ${item.raw} 人`;
                             }
                             return null;
                         },
                         afterLabel: function(context) {
-                            if (context.datasetIndex !== 0) return '';
+                            if (context.datasetIndex !== 2) return '';
                             const p = predictions[context.dataIndex];
                             let info = [];
                             if (p.isHoliday) info.push(`🎌 ${p.holidayName}`);
