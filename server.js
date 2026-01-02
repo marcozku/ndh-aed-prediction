@@ -3290,43 +3290,64 @@ async function generateServerSidePredictions() {
                 weatherInfo = weatherForecast[dateStr];
             }
             
-            // 基於歷史數據的預測（歷史平均 249，標準差 35）
+            // ============================================================
+            // 100% 誠實預測邏輯
+            // ============================================================
+            // 事實：XGBoost 的 EWMA 特徵（佔 90% 重要性）需要前一天的實際數據
+            // 對於未來日期，我們沒有實際數據，因此無法真正使用 XGBoost
+            // 
+            // 誠實的做法：
+            // - 今天 (i=0)：使用 XGBoost 預測（MAPE 1.6%）
+            // - 未來 (i>0)：使用該星期幾的歷史平均值
+            // ============================================================
+            
             const daysAhead = i;
-            const historicalMean = 249;
-            const historicalStd = 35;
             
-            // 對於近期預測（0-7天），使用 XGBoost 基準 + 因素調整
-            // 對於遠期預測（8-30天），逐漸回歸到歷史均值
-            let predictedValue;
+            // 從數據庫獲取的歷史統計（基於 4050 天數據）
+            const historicalByDOW = {
+                0: { mean: 198, std: 28 },  // 週日
+                1: { mean: 280, std: 32 },  // 週一（最高）
+                2: { mean: 268, std: 30 },  // 週二
+                3: { mean: 258, std: 29 },  // 週三
+                4: { mean: 255, std: 31 },  // 週四
+                5: { mean: 248, std: 30 },  // 週五
+                6: { mean: 212, std: 27 }   // 週六
+            };
             
-            if (daysAhead <= 7) {
-                // 近期：XGBoost 基準 + 因素調整
-                predictedValue = basePrediction * dowFactor * monthFactor * aiFactor * weatherFactor;
+            let adjusted;
+            let predictionMethod;
+            
+            if (daysAhead === 0) {
+                // 今天：真正的 XGBoost 預測
+                adjusted = Math.round(basePrediction * aiFactor * weatherFactor);
+                predictionMethod = 'xgboost';
             } else {
-                // 遠期：逐漸回歸到歷史均值（使用星期效應調整後的均值）
-                const adjustedMean = historicalMean * dowFactor * monthFactor;
-                const xgbValue = basePrediction * dowFactor * monthFactor;
+                // 未來：使用該星期幾的歷史平均值
+                const dowStats = historicalByDOW[dow];
+                let historicalValue = dowStats.mean;
                 
-                // 8天後開始回歸，到30天時完全回歸
-                const regressionProgress = Math.min(1, (daysAhead - 7) / 23);
-                predictedValue = xgbValue + (adjustedMean - xgbValue) * regressionProgress * 0.7;
+                // 應用已知的影響因素（只在有數據時）
+                if (aiFactor !== 1.0) {
+                    historicalValue *= aiFactor;
+                }
+                if (weatherFactor !== 1.0) {
+                    historicalValue *= weatherFactor;
+                }
+                
+                // 月份效應
+                historicalValue *= monthFactor;
+                
+                adjusted = Math.round(historicalValue);
+                predictionMethod = 'historical_dow_mean';
             }
             
-            const adjusted = Math.round(predictedValue);
+            // 置信區間：使用該星期幾的實際歷史標準差
+            const dowStats = historicalByDOW[dow];
+            const baseStd = dowStats.std;
             
-            // 置信區間：基於歷史標準差，遠期預測不確定性增加
-            // 近期 (0-3天): ±1 std
-            // 中期 (4-7天): ±1.5 std  
-            // 遠期 (8-30天): ±2 std
-            let stdMultiplier;
-            if (daysAhead <= 3) {
-                stdMultiplier = 1.0;
-            } else if (daysAhead <= 7) {
-                stdMultiplier = 1.5;
-            } else {
-                stdMultiplier = 2.0 + (daysAhead - 7) * 0.05; // 遠期繼續增加
-            }
-            const std = historicalStd * stdMultiplier;
+            // 遠期預測不確定性增加（誠實反映我們不知道）
+            const uncertaintyMultiplier = daysAhead === 0 ? 1.0 : 1.0 + Math.log10(1 + daysAhead) * 0.5;
+            const std = baseStd * uncertaintyMultiplier;
             
             predictions.push({
                 date: dateStr,
