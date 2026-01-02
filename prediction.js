@@ -5938,9 +5938,18 @@ function updateAutoPredictDisplay(data) {
         lastRunDisplay = `${day}/${month}\u00A0${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
     }
     
-    // 保存 secondsUntilNext 用於倒計時（避免前後端時間不同步）
-    if (data.secondsUntilNext !== undefined) {
-        autoPredictStats.localSecondsRemaining = data.secondsUntilNext;
+    // v2.9.89: 只在首次或倒計時結束時使用後端的 secondsUntilNext（避免跳動）
+    // 如果本地還有倒計時，繼續使用本地的值
+    if (data.secondsUntilNext !== undefined && data.secondsUntilNext !== null) {
+        const localRemaining = autoPredictStats.localSecondsRemaining;
+        // 只在以下情況更新：
+        // 1. 本地沒有倒計時
+        // 2. 本地倒計時已結束
+        // 3. 本地與後端差距超過 60 秒（可能是預測剛完成，需要重置）
+        if (localRemaining === undefined || localRemaining === null || localRemaining <= 0 ||
+            Math.abs(localRemaining - data.secondsUntilNext) > 60) {
+            autoPredictStats.localSecondsRemaining = data.secondsUntilNext;
+        }
     }
     
     // 根據狀態選擇樣式
@@ -5973,26 +5982,30 @@ function updateAutoPredictDisplay(data) {
 
 function updateAutoPredictCountdown() {
     const countdownEl = document.getElementById('auto-predict-countdown');
-    if (!countdownEl || !autoPredictStats) return;
+    if (!countdownEl) return;
     
-    // 使用後端返回的剩餘秒數，每秒減 1（避免前後端時間不同步導致跳動）
-    let remaining = autoPredictStats.localSecondsRemaining;
-    
-    if (remaining === undefined || remaining === null) {
+    // 如果沒有統計數據，顯示等待中
+    if (!autoPredictStats) {
         countdownEl.textContent = '下次: 等待中';
         return;
     }
     
+    // 使用本地剩餘秒數，每秒減 1（避免跳動）
+    let remaining = autoPredictStats.localSecondsRemaining;
+    
+    // 如果沒有本地秒數，嘗試使用後端秒數
+    if (remaining === undefined || remaining === null) {
+        if (autoPredictStats.secondsUntilNext !== undefined && autoPredictStats.secondsUntilNext !== null) {
+            remaining = autoPredictStats.secondsUntilNext;
+            autoPredictStats.localSecondsRemaining = remaining;
+        } else {
+            countdownEl.textContent = '下次: 等待中';
+            return;
+        }
+    }
+    
     if (remaining <= 0) {
         countdownEl.textContent = '下次: 執行中...';
-        // 5秒後刷新狀態
-        if (!autoPredictStats._refreshScheduled) {
-            autoPredictStats._refreshScheduled = true;
-            setTimeout(() => {
-                autoPredictStats._refreshScheduled = false;
-                checkAutoPredictStatus();
-            }, 5000);
-        }
         return;
     }
     
@@ -7725,6 +7738,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.log('🔮 [自動] 觸發 XGBoost 預測...');
             await fetch('/api/trigger-prediction', { method: 'POST' });
             console.log('✅ [自動] XGBoost 預測完成');
+            
+            // v2.9.89: 重置自動預測計時器（與 AI 計時器同步）
+            if (autoPredictStats) {
+                autoPredictStats.localSecondsRemaining = 30 * 60;
+            }
         } catch (predErr) {
             console.warn('⚠️ [自動] 預測觸發失敗:', predErr.message);
         }
@@ -7736,7 +7754,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // 4. 更新狀態顯示
         await checkAIStatus();
-        await checkAutoPredictStatus(); // 同步自動預測統計
+        await checkAutoPredictStatus(); // 同步自動預測統計（不會覆蓋計時器）
         
         console.log('✅ [自動] AI 因素 + XGBoost 預測流程完成');
     }, 1800000); // 30 分鐘
@@ -7947,6 +7965,12 @@ function startTrainingSSE() {
                     try {
                         await fetch('/api/trigger-prediction', { method: 'POST' });
                         console.log('✅ XGBoost 預測已觸發');
+                        
+                        // v2.9.89: 重置自動預測計時器
+                        if (autoPredictStats) {
+                            autoPredictStats.localSecondsRemaining = 30 * 60;
+                        }
+                        
                         await checkAutoPredictStatus(); // 刷新統計
                         await refreshAllChartsAfterDataUpdate(); // 刷新圖表
                     } catch (err) {
@@ -9219,7 +9243,14 @@ async function forceRefreshAI() {
         try {
             console.log('🔮 觸發後端預測更新...');
             await fetch('/api/trigger-prediction', { method: 'POST' });
-            // 刷新自動預測狀態顯示
+            
+            // v2.9.89: 重置自動預測計時器為 30 分鐘（與 AI 計時器同步）
+            if (autoPredictStats) {
+                autoPredictStats.localSecondsRemaining = 30 * 60; // 1800 秒
+                console.log('⏱️ 自動預測計時器已重置為 30 分鐘（與 AI 同步）');
+            }
+            
+            // 刷新自動預測狀態顯示（只更新次數和上次時間，不覆蓋計時器）
             await checkAutoPredictStatus();
             console.log('✅ 自動預測狀態已同步');
         } catch (predErr) {
