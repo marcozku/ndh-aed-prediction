@@ -3075,6 +3075,101 @@ async function generateServerSidePredictions() {
             6: 0.88   // 週六
         };
         
+        // 月份效應因子
+        const monthFactors = {
+            1: 1.05,  // 冬季流感
+            2: 1.03,
+            3: 1.02,
+            4: 0.98,
+            5: 0.97,
+            6: 0.98,
+            7: 1.02,  // 夏季流感
+            8: 1.01,
+            9: 0.99,
+            10: 1.00,
+            11: 1.01,
+            12: 1.04  // 冬季
+        };
+        
+        // 加載 AI 因素
+        let aiFactorsMap = {};
+        try {
+            const aiCache = await db.getAIFactorsCache();
+            if (aiCache && aiCache.factors) {
+                // 將 factors 數組轉換為日期映射
+                for (const factor of aiCache.factors) {
+                    if (factor.affectedDays) {
+                        for (const day of factor.affectedDays) {
+                            if (!aiFactorsMap[day]) {
+                                aiFactorsMap[day] = { impactFactor: 1.0, factors: [] };
+                            }
+                            aiFactorsMap[day].factors.push(factor);
+                            // 累積影響因子（限制範圍 0.7-1.3）
+                            const impact = Math.max(0.7, Math.min(1.3, factor.impactFactor || 1.0));
+                            aiFactorsMap[day].impactFactor *= impact;
+                        }
+                    }
+                }
+                console.log(`🤖 已載入 AI 因素，影響 ${Object.keys(aiFactorsMap).length} 天`);
+            }
+        } catch (e) {
+            console.log('⚠️ 無法載入 AI 因素:', e.message);
+        }
+        
+        // 獲取天氣預報（7天）
+        let weatherForecast = {};
+        try {
+            const axios = require('axios');
+            // 使用香港天文台 API 獲取 9 天天氣預報
+            const weatherResponse = await axios.get('https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=tc', {
+                timeout: 10000
+            });
+            
+            if (weatherResponse.data && weatherResponse.data.weatherForecast) {
+                for (const forecast of weatherResponse.data.weatherForecast) {
+                    // 解析日期
+                    const forecastDateStr = forecast.forecastDate; // 格式: "20260102"
+                    if (forecastDateStr) {
+                        const dateFormatted = `${forecastDateStr.substr(0, 4)}-${forecastDateStr.substr(4, 2)}-${forecastDateStr.substr(6, 2)}`;
+                        
+                        // 計算天氣因素
+                        const maxTemp = forecast.forecastMaxtemp?.value || 25;
+                        const minTemp = forecast.forecastMintemp?.value || 18;
+                        const avgTemp = (maxTemp + minTemp) / 2;
+                        
+                        // 天氣因素計算
+                        let weatherFactor = 1.0;
+                        
+                        // 極端溫度影響
+                        if (avgTemp < 15) {
+                            weatherFactor += 0.08; // 寒冷天氣增加求診
+                        } else if (avgTemp > 30) {
+                            weatherFactor += 0.05; // 酷熱天氣增加求診
+                        }
+                        
+                        // 下雨影響（減少非緊急求診）
+                        const forecastWeather = forecast.forecastWeather || '';
+                        if (forecastWeather.includes('雨') || forecastWeather.includes('Rain')) {
+                            weatherFactor -= 0.03;
+                        }
+                        if (forecastWeather.includes('暴雨') || forecastWeather.includes('大雨')) {
+                            weatherFactor -= 0.08; // 暴雨大幅減少求診
+                        }
+                        
+                        weatherForecast[dateFormatted] = {
+                            maxTemp,
+                            minTemp,
+                            weather: forecastWeather,
+                            factor: Math.max(0.85, Math.min(1.15, weatherFactor))
+                        };
+                    }
+                }
+                console.log(`🌤️ 已載入 ${Object.keys(weatherForecast).length} 天天氣預報`);
+            }
+        } catch (e) {
+            console.log('⚠️ 無法載入天氣預報:', e.message);
+        }
+        
         // 首先獲取 XGBoost 基準預測（使用今天的日期）
         let basePrediction = null;
         try {
@@ -3106,10 +3201,32 @@ async function generateServerSidePredictions() {
             targetDate.setDate(today.getDate() + i);
             const dateStr = targetDate.toISOString().split('T')[0];
             const dow = targetDate.getDay();
+            const month = targetDate.getMonth() + 1;
             
             // 應用星期效應調整
             const dowFactor = dowFactors[dow] || 1.0;
-            const adjusted = Math.round(basePrediction * dowFactor);
+            
+            // 應用月份效應調整
+            const monthFactor = monthFactors[month] || 1.0;
+            
+            // 應用 AI 因素調整
+            let aiFactor = 1.0;
+            let aiInfo = null;
+            if (aiFactorsMap[dateStr]) {
+                aiFactor = Math.max(0.7, Math.min(1.3, aiFactorsMap[dateStr].impactFactor));
+                aiInfo = aiFactorsMap[dateStr];
+            }
+            
+            // 應用天氣因素調整
+            let weatherFactor = 1.0;
+            let weatherInfo = null;
+            if (weatherForecast[dateStr]) {
+                weatherFactor = weatherForecast[dateStr].factor;
+                weatherInfo = weatherForecast[dateStr];
+            }
+            
+            // 計算最終預測（加入天氣因素）
+            const adjusted = Math.round(basePrediction * dowFactor * monthFactor * aiFactor * weatherFactor);
             
             // 計算置信區間
             const std = adjusted * 0.12; // 12% 標準差
@@ -3118,8 +3235,26 @@ async function generateServerSidePredictions() {
                 date: dateStr,
                 predicted: adjusted,
                 ci80: { low: Math.round(adjusted - 1.28 * std), high: Math.round(adjusted + 1.28 * std) },
-                ci95: { low: Math.round(adjusted - 1.96 * std), high: Math.round(adjusted + 1.96 * std) }
+                ci95: { low: Math.round(adjusted - 1.96 * std), high: Math.round(adjusted + 1.96 * std) },
+                factors: {
+                    dow: dowFactor,
+                    month: monthFactor,
+                    ai: aiFactor,
+                    weather: weatherFactor
+                },
+                weatherInfo,
+                aiInfo
             });
+        }
+        
+        // 顯示因素影響
+        const aiAffectedDays = predictions.filter(p => p.factors.ai !== 1.0);
+        const weatherAffectedDays = predictions.filter(p => p.factors.weather !== 1.0);
+        if (aiAffectedDays.length > 0) {
+            console.log(`🤖 AI 因素影響 ${aiAffectedDays.length} 天預測`);
+        }
+        if (weatherAffectedDays.length > 0) {
+            console.log(`🌤️ 天氣因素影響 ${weatherAffectedDays.length} 天預測`);
         }
         
         if (predictions.length === 0) {
@@ -3131,14 +3266,28 @@ async function generateServerSidePredictions() {
         let savedCount = 0;
         for (const pred of predictions) {
             try {
+                // 準備天氣數據
+                const weatherData = pred.weatherInfo ? {
+                    maxTemp: pred.weatherInfo.maxTemp,
+                    minTemp: pred.weatherInfo.minTemp,
+                    weather: pred.weatherInfo.weather,
+                    factor: pred.factors.weather
+                } : null;
+                
+                // 準備 AI 因素數據
+                const aiFactorsData = pred.aiInfo ? {
+                    factor: pred.factors.ai,
+                    factors: pred.aiInfo.factors?.map(f => f.name || f.factor) || []
+                } : null;
+                
                 await db.insertDailyPrediction(
                     pred.date,
                     pred.predicted,
                     pred.ci80,
                     pred.ci95,
                     MODEL_VERSION,
-                    null, // weather_data
-                    null  // ai_factors
+                    weatherData,
+                    aiFactorsData
                 );
                 savedCount++;
             } catch (err) {
