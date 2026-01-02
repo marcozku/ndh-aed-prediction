@@ -5690,7 +5690,13 @@ function updateAutoPredictDisplay(data) {
         const month = hkDate.getMonth() + 1;
         const hours = hkDate.getHours();
         const minutes = hkDate.getMinutes();
-        lastRunDisplay = `${day}/${month} ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+        // 使用全角空格避免 HTML 壓縮
+        lastRunDisplay = `${day}/${month}\u00A0${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    }
+    
+    // 保存 secondsUntilNext 用於倒計時（避免前後端時間不同步）
+    if (data.secondsUntilNext !== undefined) {
+        autoPredictStats.localSecondsRemaining = data.secondsUntilNext;
     }
     
     // 根據狀態選擇樣式
@@ -5725,25 +5731,33 @@ function updateAutoPredictCountdown() {
     const countdownEl = document.getElementById('auto-predict-countdown');
     if (!countdownEl || !autoPredictStats) return;
     
-    const nextRunTime = autoPredictStats.nextRunTime ? new Date(autoPredictStats.nextRunTime) : null;
-    if (!nextRunTime) {
+    // 使用後端返回的剩餘秒數，每秒減 1（避免前後端時間不同步導致跳動）
+    let remaining = autoPredictStats.localSecondsRemaining;
+    
+    if (remaining === undefined || remaining === null) {
         countdownEl.textContent = '下次: 等待中';
         return;
     }
     
-    const now = new Date();
-    const diff = nextRunTime.getTime() - now.getTime();
-    
-    if (diff <= 0) {
+    if (remaining <= 0) {
         countdownEl.textContent = '下次: 執行中...';
         // 5秒後刷新狀態
-        setTimeout(() => checkAutoPredictStatus(), 5000);
+        if (!autoPredictStats._refreshScheduled) {
+            autoPredictStats._refreshScheduled = true;
+            setTimeout(() => {
+                autoPredictStats._refreshScheduled = false;
+                checkAutoPredictStatus();
+            }, 5000);
+        }
         return;
     }
     
-    const mins = Math.floor(diff / 60000);
-    const secs = Math.floor((diff % 60000) / 1000);
+    const mins = Math.floor(remaining / 60);
+    const secs = remaining % 60;
     countdownEl.textContent = `下次: ${mins}分${secs}秒`;
+    
+    // 每秒減 1
+    autoPredictStats.localSecondsRemaining = remaining - 1;
 }
 
 // 更新頁腳的數據來源信息
@@ -6897,7 +6911,7 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         return date;
     };
     
-    // 格式化日期為 HKT（使用 D/M 格式避免混淆）
+    // 格式化日期為 HKT（使用 D/M 格式避免混淆，用不間斷空格）
     const formatDateHKT = (date) => {
         if (!date || isNaN(date.getTime())) return null;
         // 使用 HKT 時區獲取日期時間
@@ -6908,7 +6922,8 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         const minutes = hkDate.getMinutes();
         const period = hours >= 12 ? '下午' : '上午';
         const h12 = hours > 12 ? hours - 12 : (hours === 0 ? 12 : hours);
-        return `${day}/${month} ${period}${String(h12).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+        // 使用 \u00A0 不間斷空格避免 HTML 壓縮
+        return `${day}/${month}\u00A0${period}${String(h12).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
     };
     
     // 嘗試從多個來源獲取有效時間
