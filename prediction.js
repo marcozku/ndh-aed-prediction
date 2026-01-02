@@ -6036,10 +6036,12 @@ async function checkDatabaseStatus() {
 }
 
 // ============================================
-// 自動預測狀態檢查 (v2.9.53)
+// 自動預測狀態檢查 (v2.9.93 - 統一計時器)
 // ============================================
 let autoPredictStats = null;
 let autoPredictCountdownInterval = null;
+// v2.9.93: 使用絕對時間戳，與 AI 計時器保持同步
+let autoPredictNextUpdateTime = null;
 
 async function checkAutoPredictStatus() {
     const statusEl = document.getElementById('auto-predict-status');
@@ -6049,11 +6051,22 @@ async function checkAutoPredictStatus() {
         const response = await fetch('/api/auto-predict-stats');
         if (!response.ok) throw new Error('API 錯誤');
         const data = await response.json();
-        autoPredictStats = data;
         
+        // v2.9.93: 只在首次或預測剛完成時更新絕對時間戳
+        const previousLastRun = autoPredictStats?.lastRunTime;
+        const newLastRun = data.lastRunTime;
+        
+        // 如果是首次或預測剛完成（lastRunTime 改變），更新下次執行時間
+        if (!autoPredictNextUpdateTime || previousLastRun !== newLastRun) {
+            if (data.secondsUntilNext != null && data.secondsUntilNext > 0) {
+                autoPredictNextUpdateTime = Date.now() + (data.secondsUntilNext * 1000);
+            }
+        }
+        
+        autoPredictStats = data;
         updateAutoPredictDisplay(data);
         
-        // 啟動倒計時更新
+        // 啟動倒計時更新（每秒）
         if (!autoPredictCountdownInterval) {
             autoPredictCountdownInterval = setInterval(() => {
                 updateAutoPredictCountdown();
@@ -6082,31 +6095,21 @@ function updateAutoPredictDisplay(data) {
     const todayCount = data.todayCount || 0;
     const lastRunTime = data.lastRunTime ? new Date(data.lastRunTime) : null;
     
-    // 計算上次執行時間的友好顯示（使用 D/M HH:MM 格式）
+    // v2.9.93: 計算上次執行時間（日期 + 時間 用空格分隔）
     let lastRunDisplay = '尚未執行';
     if (lastRunTime) {
-        // 使用 HKT 時區獲取日期時間
-        const hkDate = new Date(lastRunTime.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' }));
-        const day = hkDate.getDate();
-        const month = hkDate.getMonth() + 1;
-        const hours = hkDate.getHours();
-        const minutes = hkDate.getMinutes();
-        // 使用全角空格避免 HTML 壓縮
-        lastRunDisplay = `${day}/${month}\u00A0${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-    }
-    
-    // v2.9.89: 只在首次或倒計時結束時使用後端的 secondsUntilNext（避免跳動）
-    // 如果本地還有倒計時，繼續使用本地的值
-    if (data.secondsUntilNext !== undefined && data.secondsUntilNext !== null) {
-        const localRemaining = autoPredictStats.localSecondsRemaining;
-        // 只在以下情況更新：
-        // 1. 本地沒有倒計時
-        // 2. 本地倒計時已結束
-        // 3. 本地與後端差距超過 60 秒（可能是預測剛完成，需要重置）
-        if (localRemaining === undefined || localRemaining === null || localRemaining <= 0 ||
-            Math.abs(localRemaining - data.secondsUntilNext) > 60) {
-            autoPredictStats.localSecondsRemaining = data.secondsUntilNext;
-        }
+        const options = { 
+            timeZone: 'Asia/Hong_Kong',
+            day: 'numeric',
+            month: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        };
+        // 格式: "2/1 20:36"
+        const formatted = lastRunTime.toLocaleString('zh-HK', options);
+        // 確保日期和時間之間有空格
+        lastRunDisplay = formatted.replace(',', '').replace(/\s+/g, ' ');
     }
     
     // 根據狀態選擇樣式
@@ -6137,41 +6140,29 @@ function updateAutoPredictDisplay(data) {
     `;
 }
 
+// v2.9.93: 使用絕對時間戳計算倒計時（與 AI 計時器同步邏輯）
 function updateAutoPredictCountdown() {
     const countdownEl = document.getElementById('auto-predict-countdown');
     if (!countdownEl) return;
     
-    // 如果沒有統計數據，顯示等待中
-    if (!autoPredictStats) {
+    // 如果沒有下次更新時間，顯示等待中
+    if (!autoPredictNextUpdateTime) {
         countdownEl.textContent = '下次: 等待中';
         return;
     }
     
-    // 使用本地剩餘秒數，每秒減 1（避免跳動）
-    let remaining = autoPredictStats.localSecondsRemaining;
+    const now = Date.now();
+    const remainingMs = autoPredictNextUpdateTime - now;
     
-    // 如果沒有本地秒數，嘗試使用後端秒數
-    if (remaining === undefined || remaining === null) {
-        if (autoPredictStats.secondsUntilNext !== undefined && autoPredictStats.secondsUntilNext !== null) {
-            remaining = autoPredictStats.secondsUntilNext;
-            autoPredictStats.localSecondsRemaining = remaining;
-        } else {
-            countdownEl.textContent = '下次: 等待中';
-            return;
-        }
-    }
-    
-    if (remaining <= 0) {
+    if (remainingMs <= 0) {
         countdownEl.textContent = '下次: 執行中...';
         return;
     }
     
-    const mins = Math.floor(remaining / 60);
-    const secs = remaining % 60;
-    countdownEl.textContent = `下次: ${mins}分${secs}秒`;
-    
-    // 每秒減 1
-    autoPredictStats.localSecondsRemaining = remaining - 1;
+    const remainingSeconds = Math.floor(remainingMs / 1000);
+    const mins = Math.floor(remainingSeconds / 60);
+    const secs = remainingSeconds % 60;
+    countdownEl.textContent = `下次: ${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
 // 更新頁腳的數據來源信息
@@ -7896,10 +7887,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             await fetch('/api/trigger-prediction', { method: 'POST' });
             console.log('✅ [自動] XGBoost 預測完成');
             
-            // v2.9.89: 重置自動預測計時器（與 AI 計時器同步）
-            if (autoPredictStats) {
-                autoPredictStats.localSecondsRemaining = 30 * 60;
-            }
+            // v2.9.93: 重置自動預測計時器（使用絕對時間戳）
+            autoPredictNextUpdateTime = Date.now() + 30 * 60 * 1000;
         } catch (predErr) {
             console.warn('⚠️ [自動] 預測觸發失敗:', predErr.message);
         }
@@ -8123,10 +8112,8 @@ function startTrainingSSE() {
                         await fetch('/api/trigger-prediction', { method: 'POST' });
                         console.log('✅ XGBoost 預測已觸發');
                         
-                        // v2.9.89: 重置自動預測計時器
-                        if (autoPredictStats) {
-                            autoPredictStats.localSecondsRemaining = 30 * 60;
-                        }
+                        // v2.9.93: 重置自動預測計時器（使用絕對時間戳）
+                        autoPredictNextUpdateTime = Date.now() + 30 * 60 * 1000;
                         
                         await checkAutoPredictStatus(); // 刷新統計
                         await refreshAllChartsAfterDataUpdate(); // 刷新圖表
@@ -9401,11 +9388,9 @@ async function forceRefreshAI() {
             console.log('🔮 觸發後端預測更新...');
             await fetch('/api/trigger-prediction', { method: 'POST' });
             
-            // v2.9.89: 重置自動預測計時器為 30 分鐘（與 AI 計時器同步）
-            if (autoPredictStats) {
-                autoPredictStats.localSecondsRemaining = 30 * 60; // 1800 秒
-                console.log('⏱️ 自動預測計時器已重置為 30 分鐘（與 AI 同步）');
-            }
+            // v2.9.93: 重置自動預測計時器為 30 分鐘（使用絕對時間戳）
+            autoPredictNextUpdateTime = Date.now() + 30 * 60 * 1000;
+            console.log('⏱️ 自動預測計時器已重置為 30 分鐘');
             
             // 刷新自動預測狀態顯示（只更新次數和上次時間，不覆蓋計時器）
             await checkAutoPredictStatus();
