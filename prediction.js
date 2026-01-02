@@ -1921,23 +1921,23 @@ function setupGlobalChartResize() {
     window.addEventListener('resize', () => {
         clearTimeout(globalResizeTimeout);
         globalResizeTimeout = setTimeout(() => {
-            // 簡單地調用所有圖表的 resize（讓 Chart.js 自動處理）
-            if (forecastChart) forecastChart.resize();
-            if (dowChart) dowChart.resize();
-            if (monthChart) monthChart.resize();
-            if (historyChart) historyChart.resize();
-            if (comparisonChart) comparisonChart.resize();
+            // 安全地調用所有圖表的 resize（檢查 canvas 是否存在）
+            if (forecastChart && forecastChart.canvas && forecastChart.canvas.parentNode) forecastChart.resize();
+            if (dowChart && dowChart.canvas && dowChart.canvas.parentNode) dowChart.resize();
+            if (monthChart && monthChart.canvas && monthChart.canvas.parentNode) monthChart.resize();
+            if (historyChart && historyChart.canvas && historyChart.canvas.parentNode) historyChart.resize();
+            if (comparisonChart && comparisonChart.canvas && comparisonChart.canvas.parentNode) comparisonChart.resize();
         }, 200);
     }, { passive: true });
 }
 
 // 強制所有圖表重新計算尺寸（使用簡單邏輯）
 function forceChartsResize() {
-    if (forecastChart) setupChartResize(forecastChart, 'forecast-chart-container');
-    if (dowChart) setupChartResize(dowChart, 'dow-chart-container');
-    if (monthChart) setupChartResize(monthChart, 'month-chart-container');
-    if (historyChart) setupChartResize(historyChart, 'history-chart-container');
-    if (comparisonChart) setupChartResize(comparisonChart, 'comparison-chart-container');
+    if (forecastChart && forecastChart.canvas && forecastChart.canvas.parentNode) setupChartResize(forecastChart, 'forecast-chart-container');
+    if (dowChart && dowChart.canvas && dowChart.canvas.parentNode) setupChartResize(dowChart, 'dow-chart-container');
+    if (monthChart && monthChart.canvas && monthChart.canvas.parentNode) setupChartResize(monthChart, 'month-chart-container');
+    if (historyChart && historyChart.canvas && historyChart.canvas.parentNode) setupChartResize(historyChart, 'history-chart-container');
+    if (comparisonChart && comparisonChart.canvas && comparisonChart.canvas.parentNode) setupChartResize(comparisonChart, 'comparison-chart-container');
 }
 
 // 初始化歷史趨勢圖
