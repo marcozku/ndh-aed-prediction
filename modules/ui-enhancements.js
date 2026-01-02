@@ -682,6 +682,8 @@ const ChartControls = {
                     .then(() => {
                         console.log('✅ 已進入全屏模式');
                         Toast.show('已進入全屏模式，按 ESC 退出', 'info');
+                        // v3.0.29: 全屏時更新圖表字體大小
+                        this.updateChartsForFullscreen(true);
                     })
                     .catch(err => {
                         console.error('❌ 全屏失敗:', err);
@@ -697,8 +699,52 @@ const ChartControls = {
                            document.msExitFullscreen;
             if (exitFS) {
                 exitFS.call(document);
+                // v3.0.29: 恢復正常字體大小
+                this.updateChartsForFullscreen(false);
             }
         }
+    },
+    
+    // v3.0.29: 更新圖表以適應全屏模式
+    updateChartsForFullscreen(isFullscreen) {
+        if (!window.Chart || !Chart.instances) return;
+        
+        const fontSize = isFullscreen ? 16 : 12;
+        const titleSize = isFullscreen ? 20 : 14;
+        const tickColor = isFullscreen ? '#e2e8f0' : '#94a3b8';
+        
+        Object.values(Chart.instances).forEach(chart => {
+            if (chart.options?.scales) {
+                // 更新 X 軸
+                if (chart.options.scales.x) {
+                    chart.options.scales.x.ticks = chart.options.scales.x.ticks || {};
+                    chart.options.scales.x.ticks.font = { size: fontSize, weight: isFullscreen ? '500' : '400' };
+                    chart.options.scales.x.ticks.color = tickColor;
+                    if (chart.options.scales.x.title) {
+                        chart.options.scales.x.title.font = { size: titleSize, weight: '600' };
+                        chart.options.scales.x.title.color = tickColor;
+                    }
+                }
+                // 更新 Y 軸
+                if (chart.options.scales.y) {
+                    chart.options.scales.y.ticks = chart.options.scales.y.ticks || {};
+                    chart.options.scales.y.ticks.font = { size: fontSize, weight: isFullscreen ? '500' : '400' };
+                    chart.options.scales.y.ticks.color = tickColor;
+                    if (chart.options.scales.y.title) {
+                        chart.options.scales.y.title.font = { size: titleSize, weight: '600' };
+                        chart.options.scales.y.title.color = tickColor;
+                    }
+                }
+            }
+            // 更新圖例
+            if (chart.options?.plugins?.legend?.labels) {
+                chart.options.plugins.legend.labels.font = { size: fontSize };
+                chart.options.plugins.legend.labels.color = tickColor;
+            }
+            chart.update('none');
+        });
+        
+        console.log(`📊 圖表已更新為${isFullscreen ? '全屏' : '正常'}模式`);
     },
     
     // 切換預測線顯示

@@ -4712,7 +4712,7 @@ section h2 {
 }
 
 /* ============================================
-   Fullscreen Chart Styles
+   Fullscreen Chart Styles - v3.0.29 增強視覺清晰度
    ============================================ */
 .chart-container:fullscreen,
 .chart-container:-webkit-full-screen,
@@ -4723,8 +4723,9 @@ section h2 {
     max-width: 100vw !important;
     max-height: 100vh !important;
     min-height: 100vh !important;
-    background: var(--bg-primary);
-    padding: var(--space-xl);
+    /* 純色深藍背景，最佳對比度 */
+    background: #0a0f1a !important;
+    padding: 48px 64px !important;
     box-sizing: border-box;
     display: flex;
     align-items: center;
@@ -4734,9 +4735,12 @@ section h2 {
 .chart-container:fullscreen canvas,
 .chart-container:-webkit-full-screen canvas {
     width: 100% !important;
-    height: 100% !important;
+    height: calc(100vh - 96px) !important;
     max-width: 100% !important;
-    max-height: calc(100vh - 80px) !important;
+    max-height: calc(100vh - 96px) !important;
+    /* 銳利渲染 */
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
 }
 
 /* ============================================
