@@ -6343,6 +6343,27 @@ function updateAutoPredictDisplay(data) {
         statusText = '上次執行失敗';
     }
     
+    // v3.0.12: 立即計算倒計時，避免顯示「計算中」
+    let countdownDisplay = '~30:00';
+    if (autoPredictNextUpdateTime) {
+        const now = Date.now();
+        const remainingMs = autoPredictNextUpdateTime - now;
+        if (remainingMs > 0) {
+            const mins = Math.floor(remainingMs / 60000);
+            const secs = Math.floor((remainingMs % 60000) / 1000);
+            countdownDisplay = `${mins}:${secs.toString().padStart(2, '0')}`;
+        } else {
+            countdownDisplay = '執行中...';
+        }
+    } else if (data.secondsUntilNext != null && data.secondsUntilNext > 0) {
+        // 使用後端返回的剩餘秒數
+        const mins = Math.floor(data.secondsUntilNext / 60);
+        const secs = data.secondsUntilNext % 60;
+        countdownDisplay = `${mins}:${secs.toString().padStart(2, '0')}`;
+        // 同時設置全局變量
+        autoPredictNextUpdateTime = Date.now() + (data.secondsUntilNext * 1000);
+    }
+    
     statusEl.className = `status-badge auto-predict-status ${statusClass}`;
     statusEl.innerHTML = `
         <span class="auto-predict-status-icon">${statusIcon}</span>
@@ -6351,19 +6372,22 @@ function updateAutoPredictDisplay(data) {
             今日: ${todayCount}次 | 上次: ${lastRunDisplay}
         </span>
         <span class="auto-predict-countdown" id="auto-predict-countdown">
-            下次: 計算中...
+            下次: ${countdownDisplay}
         </span>
     `;
 }
 
-// v2.9.93: 使用絕對時間戳計算倒計時（與 AI 計時器同步邏輯）
+// v3.0.12: 使用絕對時間戳計算倒計時，確保不顯示「計算中」
 function updateAutoPredictCountdown() {
     const countdownEl = document.getElementById('auto-predict-countdown');
     if (!countdownEl) return;
     
-    // 如果沒有下次更新時間，顯示等待中
+    // 如果沒有下次更新時間，嘗試從後端獲取
     if (!autoPredictNextUpdateTime) {
-        countdownEl.textContent = '下次: 等待中';
+        // 顯示估計時間而不是「計算中」
+        countdownEl.textContent = '下次: ~30:00';
+        // 異步獲取正確時間
+        checkAutoPredictStatus().catch(() => {});
         return;
     }
     
@@ -7582,35 +7606,35 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         lastUpdateTimestamp = now.getTime();
     }
     
-    // v3.0.5: 統一使用 autoPredictNextUpdateTime 作為唯一的倒計時來源
-    // 這確保 AI 因素和自動預測的倒計時完全同步
+    // v3.0.12: 統一使用 autoPredictNextUpdateTime，如果沒有則使用備用並異步獲取
     let countdownHtml = '';
-    if (autoPredictNextUpdateTime) {
-        const now = Date.now();
-        const remainingMs = autoPredictNextUpdateTime - now;
-        
-        if (remainingMs > 0) {
-            const remainingMinutes = Math.floor(remainingMs / 60000);
-            const remainingSeconds = Math.floor((remainingMs % 60000) / 1000);
-            countdownHtml = `<span class="next-refresh-countdown" id="ai-factors-countdown" data-next-update="${autoPredictNextUpdateTime}" title="系統自動刷新倒計時">⏱️ ${remainingMinutes}:${remainingSeconds.toString().padStart(2, '0')}</span>`;
-        } else {
-            countdownHtml = '<span class="next-refresh-countdown" id="ai-factors-countdown">⏱️ 即將更新</span>';
-        }
+    let nextUpdateTime = autoPredictNextUpdateTime;
+    
+    // 如果沒有 autoPredictNextUpdateTime，使用 lastUpdateTimestamp 計算備用值
+    if (!nextUpdateTime && lastUpdateTimestamp) {
+        nextUpdateTime = lastUpdateTimestamp + AI_UPDATE_INTERVAL;
+        // 同時設置全局變量，確保後續同步
+        autoPredictNextUpdateTime = nextUpdateTime;
+    }
+    
+    // 如果還是沒有，異步獲取並設置一個臨時倒計時
+    if (!nextUpdateTime) {
+        // 設置臨時的 30 分鐘倒計時
+        nextUpdateTime = Date.now() + 30 * 60 * 1000;
+        autoPredictNextUpdateTime = nextUpdateTime;
+        // 異步獲取正確的時間
+        checkAutoPredictStatus().catch(e => console.warn('⚠️ 無法獲取自動預測狀態:', e));
+    }
+    
+    const now = Date.now();
+    const remainingMs = nextUpdateTime - now;
+    
+    if (remainingMs > 0) {
+        const remainingMinutes = Math.floor(remainingMs / 60000);
+        const remainingSeconds = Math.floor((remainingMs % 60000) / 1000);
+        countdownHtml = `<span class="next-refresh-countdown" id="ai-factors-countdown" data-next-update="${nextUpdateTime}" title="系統自動刷新倒計時">⏱️ ${remainingMinutes}:${remainingSeconds.toString().padStart(2, '0')}</span>`;
     } else {
-        // 如果還沒有 autoPredictNextUpdateTime，使用舊邏輯作為備用
-        if (lastUpdateTimestamp) {
-            const nextUpdateTime = lastUpdateTimestamp + AI_UPDATE_INTERVAL;
-            const now = Date.now();
-            const remainingMs = nextUpdateTime - now;
-            
-            if (remainingMs > 0) {
-                const remainingMinutes = Math.floor(remainingMs / 60000);
-                const remainingSeconds = Math.floor((remainingMs % 60000) / 1000);
-                countdownHtml = `<span class="next-refresh-countdown" id="ai-factors-countdown" data-next-update="${nextUpdateTime}" title="系統自動刷新倒計時">⏱️ ${remainingMinutes}:${remainingSeconds.toString().padStart(2, '0')}</span>`;
-            } else {
-                countdownHtml = '<span class="next-refresh-countdown" id="ai-factors-countdown">⏱️ 即將更新</span>';
-            }
-        }
+        countdownHtml = '<span class="next-refresh-countdown" id="ai-factors-countdown">⏱️ 即將更新</span>';
     }
     
     // 緩存狀態指示
