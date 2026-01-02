@@ -1,14 +1,36 @@
-# XGBoost 預測系統實施指南
+# XGBoost 預測系統實施指南 v2.9.62
 
 ## 🎯 概述
 
 已成功實施**XGBoost 預測系統**，使用單一 XGBoost 模型進行預測，根據 `ai/AI-AED-Algorithm-Specification.txt` 的規格實現。
 
-## 📊 性能目標
+**v2.9.62 更新**：所有前端預測（今日、7天、30天）都使用 XGBoost 模型。
 
-- **MAE**: < 13 病人（5.2% MAPE）
+## 📊 當前性能
+
+- **R²**: 95.8%
+- **MAE**: 4.01 病人（1.59% MAPE）
 - **方向準確度**: > 91%
 - **95% CI 覆蓋率**: > 95%
+
+## 🚀 v2.9.62 全面 XGBoost 整合
+
+### 新增函數
+
+```javascript
+// 獲取 XGBoost 預測並結合統計方法的元數據
+async function getXGBoostPredictionWithMetadata(dateStr, weatherData, aiFactor)
+
+// 批量獲取 XGBoost 預測並結合元數據
+async function getXGBoostPredictionsWithMetadata(startDate, days, weatherForecast, aiFactorsMap)
+```
+
+### 使用位置
+
+1. **今日預測**：`getXGBoostPredictionWithMetadata(today, ...)`
+2. **7天預測卡片**：`getXGBoostPredictionsWithMetadata(tomorrow, 7, ...)`
+3. **30天趨勢圖**：優先從資料庫載入，缺失日期用 XGBoost API 補充
+4. **伺服器自動預測**：每 30 分鐘生成 31 天 XGBoost 預測
 
 ## 🚀 快速開始
 
