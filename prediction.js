@@ -4160,17 +4160,54 @@ async function initVolatilityChart(targetDate = null) {
             }
         ];
         
-        // v3.0.0: 即時計算平滑值（每次預測後更新的真實平均值）
-        const predictionValues = predictions.map(p => p.y).filter(v => v != null && !isNaN(v));
-        const calculatedSmoothed = predictionValues.length > 0 
-            ? Math.round(predictionValues.reduce((a, b) => a + b, 0) / predictionValues.length)
-            : null;
+        // v3.0.17: 使用與主預測相同的平滑方法計算平滑值
+        // 獲取當前使用的平滑方法（從主預測區域）
+        const currentMethodEl = document.getElementById('smoothing-method');
+        const currentMethod = currentMethodEl?.textContent || '簡單平均';
         
-        // 顯示當前平滑值（基於真實預測數據的平均值）
-        // 這是即時計算的，每次預測後會更新
+        // 根據不同的平滑方法計算平滑值
+        const predictionValues = predictions.map(p => p.y).filter(v => v != null && !isNaN(v));
+        let calculatedSmoothed = null;
+        let methodLabel = currentMethod;
+        
+        if (predictionValues.length > 0) {
+            if (currentMethod === 'EWMA' || currentMethod.includes('指數')) {
+                // EWMA 平滑（α = 0.65）
+                const alpha = 0.65;
+                let ewma = predictionValues[0];
+                for (let i = 1; i < predictionValues.length; i++) {
+                    ewma = alpha * predictionValues[i] + (1 - alpha) * ewma;
+                }
+                calculatedSmoothed = Math.round(ewma);
+            } else if (currentMethod === '修剪平均' || currentMethod.includes('修剪')) {
+                // 修剪平均（移除頂部和底部 10%）
+                const sorted = [...predictionValues].sort((a, b) => a - b);
+                const trimCount = Math.floor(sorted.length * 0.1);
+                const trimmed = sorted.slice(trimCount, sorted.length - trimCount);
+                calculatedSmoothed = Math.round(trimmed.reduce((a, b) => a + b, 0) / trimmed.length);
+            } else if (currentMethod === '集成方法' || currentMethod.includes('集成')) {
+                // 集成方法：EWMA 30% + 簡單平均 40% + 修剪平均 30%
+                const simpleAvg = predictionValues.reduce((a, b) => a + b, 0) / predictionValues.length;
+                const alpha = 0.65;
+                let ewma = predictionValues[0];
+                for (let i = 1; i < predictionValues.length; i++) {
+                    ewma = alpha * predictionValues[i] + (1 - alpha) * ewma;
+                }
+                const sorted = [...predictionValues].sort((a, b) => a - b);
+                const trimCount = Math.floor(sorted.length * 0.1);
+                const trimmed = sorted.slice(trimCount, sorted.length - trimCount || 1);
+                const trimmedAvg = trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+                calculatedSmoothed = Math.round(ewma * 0.3 + simpleAvg * 0.4 + trimmedAvg * 0.3);
+            } else {
+                // 默認：簡單平均
+                calculatedSmoothed = Math.round(predictionValues.reduce((a, b) => a + b, 0) / predictionValues.length);
+            }
+        }
+        
+        // 顯示當前平滑值（使用與主預測相同的方法）
         if (calculatedSmoothed != null) {
             datasets.push({
-                label: `當前平滑值 (${calculatedSmoothed})`,
+                label: `${methodLabel} (${calculatedSmoothed})`,
                 data: predictions.map(p => ({ x: p.x, y: calculatedSmoothed })),
                 borderColor: 'rgba(16, 185, 129, 1)',
                 borderWidth: 2,
