@@ -4063,10 +4063,10 @@ async function initWeatherCorrChart() {
                 <!-- 研究參考（可展開） -->
                 ${result.researchReferences ? `
                 <details style="margin-top: 10px;">
-                    <summary style="cursor: pointer; font-size: 11px; color: ${statsTextSecondary}; padding: 4px; font-weight: 500;">📚 研究參考</summary>
-                    <div style="padding: 8px; background: ${statsBgColor}; border-radius: 6px; margin-top: 4px; font-size: 10px;">
+                    <summary style="cursor: pointer; font-size: 11px; color: var(--text-secondary, ${statsTextSecondary}); padding: 4px; font-weight: 600;">📚 研究參考</summary>
+                    <div style="padding: 10px; background: var(--bg-tertiary, #f8fafc); border-radius: 6px; margin-top: 4px; font-size: 11px; border: 1px solid var(--border-color, #e2e8f0);">
                         ${result.researchReferences.slice(0, 3).map(r => `
-                            <div style="margin-bottom: 4px; color: ${statsTextSecondary};">• ${r.finding}</div>
+                            <div style="margin-bottom: 6px; color: var(--text-primary, #334155); line-height: 1.4;">• ${r.finding}</div>
                         `).join('')}
                     </div>
                 </details>
