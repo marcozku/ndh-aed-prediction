@@ -916,8 +916,19 @@ async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, mod
     ]);
     
     // v2.9.88: Also insert into intraday_predictions for history tracking
+    // v3.0.14: Only insert for TODAY (not future dates) to track prediction volatility
     try {
-        await insertIntradayPrediction(targetDate, predictedCount, ci80, ci95, modelVersion, weatherData, aiFactors);
+        // 獲取今天的日期（HKT）
+        const now = new Date();
+        const hkOffset = 8 * 60 * 60 * 1000;
+        const hkNow = new Date(now.getTime() + hkOffset);
+        const todayStr = hkNow.toISOString().split('T')[0];
+        
+        // 只為今天插入 intraday 記錄
+        if (targetDate === todayStr) {
+            await insertIntradayPrediction(targetDate, predictedCount, ci80, ci95, modelVersion, weatherData, aiFactors);
+            console.log(`📊 已記錄今日 intraday 預測: ${targetDate} = ${Math.round(predictedCount)} 人`);
+        }
     } catch (err) {
         console.warn('⚠️ 無法保存 intraday 預測記錄:', err.message);
     }
