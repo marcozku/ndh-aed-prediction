@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.0.6';
+const MODEL_VERSION = '3.0.7';
 
 // ============================================
 // HKT 時間工具函數
@@ -1699,11 +1699,81 @@ const apiHandlers = {
             correlation.isHot = pearson(dataPoints.map(d => d.isHot), actual);
             correlation.isCold = pearson(dataPoints.map(d => d.isCold), actual);
             
+            // v3.0.7: 更有意義的天氣分析
+            // 1. 計算溫度變化（今天 vs 昨天）
+            const sortedData = [...dataPoints].sort((a, b) => a.date.localeCompare(b.date));
+            for (let i = 1; i < sortedData.length; i++) {
+                const prevDate = new Date(sortedData[i-1].date);
+                const currDate = new Date(sortedData[i].date);
+                const daysDiff = (currDate - prevDate) / (1000 * 60 * 60 * 24);
+                if (daysDiff === 1) {
+                    sortedData[i].tempChange = sortedData[i].temperature - sortedData[i-1].temperature;
+                }
+            }
+            
+            // 2. 加入星期資訊
+            for (const d of sortedData) {
+                const date = new Date(d.date);
+                d.dayOfWeek = date.getDay();
+                d.isWeekend = d.dayOfWeek === 0 || d.dayOfWeek === 6;
+            }
+            
+            // 3. 計算溫度變化相關性
+            const tempChangeData = sortedData.filter(d => d.tempChange !== undefined);
+            correlation.tempChange = pearson(
+                tempChangeData.map(d => d.tempChange),
+                tempChangeData.map(d => d.actual)
+            );
+            
+            // 4. 計算極端溫度變化的影響
+            const bigTempDrop = tempChangeData.filter(d => d.tempChange <= -5);
+            const bigTempRise = tempChangeData.filter(d => d.tempChange >= 5);
+            const stableTemp = tempChangeData.filter(d => Math.abs(d.tempChange) < 3);
+            
+            const avgBigDrop = bigTempDrop.length > 0 
+                ? Math.round(bigTempDrop.reduce((s, d) => s + d.actual, 0) / bigTempDrop.length) : null;
+            const avgBigRise = bigTempRise.length > 0 
+                ? Math.round(bigTempRise.reduce((s, d) => s + d.actual, 0) / bigTempRise.length) : null;
+            const avgStable = stableTemp.length > 0 
+                ? Math.round(stableTemp.reduce((s, d) => s + d.actual, 0) / stableTemp.length) : null;
+            
+            // 5. 計算星期 × 天氣交互效應
+            const dowNames = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+            const dowWeatherStats = {};
+            for (let dow = 0; dow <= 6; dow++) {
+                const dowData = sortedData.filter(d => d.dayOfWeek === dow);
+                const hotDow = dowData.filter(d => d.isHot);
+                const coldDow = dowData.filter(d => d.isCold);
+                const normalDow = dowData.filter(d => !d.isHot && !d.isCold);
+                
+                dowWeatherStats[dowNames[dow]] = {
+                    overall: dowData.length > 0 ? Math.round(dowData.reduce((s, d) => s + d.actual, 0) / dowData.length) : null,
+                    hot: hotDow.length > 0 ? Math.round(hotDow.reduce((s, d) => s + d.actual, 0) / hotDow.length) : null,
+                    cold: coldDow.length > 0 ? Math.round(coldDow.reduce((s, d) => s + d.actual, 0) / coldDow.length) : null,
+                    normal: normalDow.length > 0 ? Math.round(normalDow.reduce((s, d) => s + d.actual, 0) / normalDow.length) : null,
+                    hotCount: hotDow.length,
+                    coldCount: coldDow.length,
+                    normalCount: normalDow.length
+                };
+            }
+            
+            // 6. 計算整體平均
+            const overallAvg = Math.round(sortedData.reduce((s, d) => s + d.actual, 0) / sortedData.length);
+            
             sendJson(res, {
                 success: true,
-                data: dataPoints.slice(0, 500), // 限制返回數量
+                data: sortedData.slice(-500),
                 count: dataPoints.length,
                 correlation: correlation,
+                analysis: {
+                    overallAvg,
+                    tempChangeEffect: {
+                        bigDrop: { avg: avgBigDrop, count: bigTempDrop.length, desc: '驟降≥5°C' },
+                        bigRise: { avg: avgBigRise, count: bigTempRise.length, desc: '驟升≥5°C' },
+                        stable: { avg: avgStable, count: stableTemp.length, desc: '穩定(<3°C)' }
+                    },
+                    dowWeatherStats
+                },
                 source: 'HKO weather_history.csv + actual_data'
             });
         } catch (err) {
