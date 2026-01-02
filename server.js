@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '2.9.80';
+const MODEL_VERSION = '2.9.81';
 
 // ============================================
 // HKT 時間工具函數
@@ -3326,7 +3326,9 @@ async function generateServerSidePredictions() {
                 // 4. 趨勢效應（EWMA 捕捉的近期趨勢）
                 
                 // 使用 XGBoost 基準預測 + 星期效應差異
-                const todayDOW = new Date(today).getDay();
+                // 使用 HKT 時區計算今天的星期
+                const todayHK = new Date(today.getTime() + 8 * 60 * 60 * 1000);
+                const todayDOW = todayHK.getUTCDay();
                 const todayMean = dowMeans[todayDOW];
                 const targetMean = dowMeans[dow];
                 
