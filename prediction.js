@@ -4282,6 +4282,9 @@ async function initVolatilityChart(targetDate = null) {
                             unit: 'hour',
                             displayFormats: { hour: 'HH:mm' }
                         },
+                        // v3.0.26: 限制 X 軸範圍為選定日期的 00:00-23:59
+                        min: new Date(targetData.date + 'T00:00:00+08:00').getTime(),
+                        max: new Date(targetData.date + 'T23:59:59+08:00').getTime(),
                         title: { display: true, text: '時間', color: '#94a3b8' },
                         ticks: { color: '#94a3b8' },
                         grid: { color: 'rgba(148, 163, 184, 0.1)' }
