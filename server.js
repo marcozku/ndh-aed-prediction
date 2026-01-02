@@ -3290,11 +3290,25 @@ async function generateServerSidePredictions() {
                 weatherInfo = weatherForecast[dateStr];
             }
             
-            // 計算最終預測（加入天氣因素）
-            const adjusted = Math.round(basePrediction * dowFactor * monthFactor * aiFactor * weatherFactor);
+            // 添加自然變異（使預測更真實）
+            // 1. 基於日期的確定性"隨機"噪聲（每天不同但可重現）
+            const dateHash = dateStr.split('-').reduce((a, b) => a + parseInt(b), 0);
+            const dailyNoise = 1 + (Math.sin(dateHash * 12.345) * 0.05); // ±5% 確定性噪聲
             
-            // 計算置信區間
-            const std = adjusted * 0.12; // 12% 標準差
+            // 2. 週內趨勢：週初到週末的逐漸下降
+            const weekProgress = dow === 0 ? 1.0 : dow / 7;
+            const weekTrend = 1 - (weekProgress * 0.03); // 週末比週一低約3%
+            
+            // 3. 遠期不確定性：越遠的預測越接近平均值
+            const daysAhead = i;
+            const meanReversion = daysAhead > 14 ? 1 + (249 - basePrediction) / basePrediction * (daysAhead - 14) / 30 * 0.3 : 1.0;
+            
+            // 計算最終預測（加入所有因素）
+            const adjusted = Math.round(basePrediction * dowFactor * monthFactor * aiFactor * weatherFactor * dailyNoise * weekTrend * Math.min(1.1, Math.max(0.9, meanReversion)));
+            
+            // 計算置信區間（遠期預測區間更大）
+            const uncertaintyMultiplier = 1 + (daysAhead * 0.01); // 每天增加1%不確定性
+            const std = adjusted * 0.12 * uncertaintyMultiplier;
             
             predictions.push({
                 date: dateStr,
