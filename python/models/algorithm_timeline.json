@@ -199,7 +199,37 @@
       "research": "Facebook Prophet 趨勢分解, BMC EM (2025)",
       "key_features": ["加法效應", "硬上限控制", "趨勢衰減"],
       "improvement": "預測值限制在歷史合理範圍（180-320）"
+    },
+    {
+      "version": "3.0.60",
+      "date": "2026-01-03",
+      "description": "天氣警告數據擴展 + 真實影響分析",
+      "changes": [
+        "擴展天氣警告數據 (34天 → 1869天)",
+        "真實數據分析各警告類型影響",
+        "颱風/暴雨/酷熱/寒冷警告特徵",
+        "UI 圖表顯示真實統計數據"
+      ],
+      "metrics": {
+        "mae": 4.01,
+        "mape": 1.59,
+        "rmse": 5.45,
+        "r2": 0.958,
+        "adj_r2": 0.957,
+        "feature_count": 25,
+        "weather_features": 8,
+        "note": "等待重新訓練以整合新天氣特徵"
+      },
+      "research": "NDH AED 真實數據分析, HKO 歷史警告",
+      "key_features": ["Typhoon_Signal", "Rainstorm_Warning", "Hot_Warning", "Cold_Warning"],
+      "data_analysis": {
+        "baseline": "無警告日 251.3 人",
+        "T8_impact": "-12.1%",
+        "black_rain_impact": "-8.0%",
+        "sample_size": "3429 天"
+      },
+      "improvement": "基於真實數據的天氣影響量化"
     }
   ],
-  "last_updated": "2026-01-03T03:20:00+08:00"
+  "last_updated": "2026-01-03T04:00:00+08:00"
 }

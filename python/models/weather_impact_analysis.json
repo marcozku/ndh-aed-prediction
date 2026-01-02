@@ -1,0 +1,59 @@
+{
+  "baseline": {
+    "mean": 251.3,
+    "days": 2539
+  },
+  "total_days": 3429,
+  "analysis_date": "2026-01-03 03:48 HKT",
+  "factors": [
+    {
+      "factor": "🌧️ 黃色暴雨",
+      "days": 4,
+      "mean": 210.0,
+      "impact": -16.4,
+      "color": "rain"
+    },
+    {
+      "factor": "🌀 八號颱風 (T8+)",
+      "days": 23,
+      "mean": 220.9,
+      "impact": -12.1,
+      "color": "typhoon"
+    },
+    {
+      "factor": "⛈️ 黑色暴雨",
+      "days": 29,
+      "mean": 231.3,
+      "impact": -8.0,
+      "color": "rainstorm"
+    },
+    {
+      "factor": "⛈️ 紅色暴雨",
+      "days": 13,
+      "mean": 236.2,
+      "impact": -6.0,
+      "color": "rainstorm"
+    },
+    {
+      "factor": "🌀 三號颱風 (T3)",
+      "days": 21,
+      "mean": 241.6,
+      "impact": -3.9,
+      "color": "typhoon"
+    },
+    {
+      "factor": "❄️ 寒冷警告",
+      "days": 380,
+      "mean": 242.7,
+      "impact": -3.4,
+      "color": "cold"
+    },
+    {
+      "factor": "🔥 酷熱警告",
+      "days": 454,
+      "mean": 246.9,
+      "impact": -1.8,
+      "color": "hot"
+    }
+  ]
+}

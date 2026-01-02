@@ -1621,18 +1621,19 @@ const WeatherCorrChart = {
         try {
             // 天氣影響因子數據（基於歷史分析）
             // 正數 = 人流增加，負數 = 人流減少
-            // v3.0.60: 擴展天氣警告因素（基於 HKO 歷史數據分析）
+            // v3.0.60: 基於真實數據分析的天氣警告影響
+            // 數據來源: NDH 2015-2025 出席記錄 + HKO 警告歷史
+            // 基準: 無警告日平均 251.3 人 (2539 天)
             const weatherFactors = [
-                { factor: '🌀 八號颱風 (T8+)', impact: 25, color: 'typhoon' },
-                { factor: '🌀 三號颱風 (T3)', impact: 15, color: 'typhoon' },
-                { factor: '⛈️ 黑色暴雨', impact: 20, color: 'rainstorm' },
-                { factor: '⛈️ 紅色暴雨', impact: 12, color: 'rainstorm' },
-                { factor: '🔥 酷熱警告 (>33°C)', impact: 10, color: 'hot' },
-                { factor: '❄️ 寒冷警告 (<12°C)', impact: 8, color: 'cold' },
-                { factor: '💧 高濕度 (>95%)', impact: 3, color: 'neutral' },
-                { factor: '🌧️ 大雨 (>30mm)', impact: -5, color: 'rain' }
+                { factor: '🌧️ 黃色暴雨', impact: -16.4, days: 4, mean: 210.0, color: 'rain' },
+                { factor: '🌀 八號颱風 (T8+)', impact: -12.1, days: 23, mean: 220.9, color: 'typhoon' },
+                { factor: '⛈️ 黑色暴雨', impact: -8.0, days: 29, mean: 231.3, color: 'rainstorm' },
+                { factor: '⛈️ 紅色暴雨', impact: -6.0, days: 13, mean: 236.2, color: 'rainstorm' },
+                { factor: '🌀 三號颱風 (T3)', impact: -3.9, days: 21, mean: 241.6, color: 'typhoon' },
+                { factor: '❄️ 寒冷警告', impact: -3.4, days: 380, mean: 242.7, color: 'cold' },
+                { factor: '🔥 酷熱警告', impact: -1.8, days: 454, mean: 246.9, color: 'hot' }
             ];
-            // 注：正數=人流增加，負數=人流減少（基準線=0）
+            // 注：所有警告均降低出席（人們留家/交通受阻）
             
             loading.style.display = 'none';
             canvas.style.display = 'block';
@@ -1667,11 +1668,16 @@ const WeatherCorrChart = {
                             callbacks: {
                                 label: ctx => {
                                     const val = ctx.raw;
+                                    const factor = weatherFactors[ctx.dataIndex];
                                     if (val > 0) return `人流增加 +${val}%`;
                                     if (val < 0) return `人流減少 ${val}%`;
                                     return '無影響（基準線）';
                                 },
-                                footer: () => '💡 0% = 正常天氣（基準線）'
+                                afterLabel: ctx => {
+                                    const factor = weatherFactors[ctx.dataIndex];
+                                    return `平均 ${factor.mean} 人 (${factor.days} 天樣本)`;
+                                },
+                                footer: () => '📊 基準: 無警告日 251 人'
                             }
                         }
                     },
