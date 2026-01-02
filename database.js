@@ -819,7 +819,7 @@ async function updateAIFactorsCache(updateTime, factorsCache, analysisData = nul
     return result.rows[0];
 }
 
-// Insert daily prediction (each update throughout the day)
+// Insert or update daily prediction (UPSERT - each update throughout the day replaces old prediction)
 async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, modelVersion = '1.0.0', weatherData = null, aiFactors = null) {
     if (!pool) {
         throw new Error('Database pool not initialized');
@@ -827,6 +827,16 @@ async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, mod
     const query = `
         INSERT INTO daily_predictions (target_date, predicted_count, ci80_low, ci80_high, ci95_low, ci95_high, model_version, weather_data, ai_factors)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ON CONFLICT (target_date) DO UPDATE SET
+            predicted_count = EXCLUDED.predicted_count,
+            ci80_low = EXCLUDED.ci80_low,
+            ci80_high = EXCLUDED.ci80_high,
+            ci95_low = EXCLUDED.ci95_low,
+            ci95_high = EXCLUDED.ci95_high,
+            model_version = EXCLUDED.model_version,
+            weather_data = EXCLUDED.weather_data,
+            ai_factors = EXCLUDED.ai_factors,
+            created_at = CURRENT_TIMESTAMP
         RETURNING *
     `;
     // 確保所有數值都是整數（四捨五入）

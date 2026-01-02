@@ -1338,12 +1338,12 @@ async function initCharts(predictor) {
                     isHoliday: !!holidayInfo,
                     holidayName: holidayInfo?.name || null,
                     ci80: {
-                        lower: row.ci80_low || row.predicted_count - 32,
-                        upper: row.ci80_high || row.predicted_count + 32
+                        lower: Math.round(row.ci80_low || row.predicted_count - 32),
+                        upper: Math.round(row.ci80_high || row.predicted_count + 32)
                     },
                     ci95: {
-                        lower: row.ci95_low || row.predicted_count - 49,
-                        upper: row.ci95_high || row.predicted_count + 49
+                        lower: Math.round(row.ci95_low || row.predicted_count - 49),
+                        upper: Math.round(row.ci95_high || row.predicted_count + 49)
                     }
                 };
             });
@@ -5096,12 +5096,12 @@ async function updateUI(predictor, forceRecalculate = false) {
                         holidayName: '',
                         isFluSeason: month >= 12 || month <= 3,
                         ci80: {
-                            lower: row.ci80_low || row.predicted_count - 15,
-                            upper: row.ci80_high || row.predicted_count + 15
+                            lower: Math.round(row.ci80_low || row.predicted_count - 15),
+                            upper: Math.round(row.ci80_high || row.predicted_count + 15)
                         },
                         ci95: {
-                            lower: row.ci95_low || row.predicted_count - 25,
-                            upper: row.ci95_high || row.predicted_count + 25
+                            lower: Math.round(row.ci95_low || row.predicted_count - 25),
+                            upper: Math.round(row.ci95_high || row.predicted_count + 25)
                         },
                         savedAt: row.created_at
                     };
@@ -5156,9 +5156,9 @@ async function updateUI(predictor, forceRecalculate = false) {
         // 未來7天卡片使用簡短日期格式
         const dateFormat = formatDateDDMM(p.date);
         
-        // 處理兩種 CI 格式：{lower, upper} 或 {low, high}
-        const ci80Low = p.ci80?.lower ?? p.ci80?.low ?? (p.predicted ? Math.round(p.predicted * 0.88) : '--');
-        const ci80High = p.ci80?.upper ?? p.ci80?.high ?? (p.predicted ? Math.round(p.predicted * 1.12) : '--');
+        // 處理兩種 CI 格式：{lower, upper} 或 {low, high}，並確保四捨五入
+        const ci80Low = Math.round(p.ci80?.lower ?? p.ci80?.low ?? (p.predicted ? p.predicted * 0.88 : 0)) || '--';
+        const ci80High = Math.round(p.ci80?.upper ?? p.ci80?.high ?? (p.predicted ? p.predicted * 1.12 : 0)) || '--';
         
         return `
             <div class="${cardClass}">
