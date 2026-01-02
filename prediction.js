@@ -6124,21 +6124,25 @@ function updateAutoPredictDisplay(data) {
     const todayCount = data.todayCount || 0;
     const lastRunTime = data.lastRunTime ? new Date(data.lastRunTime) : null;
     
-    // v2.9.93: 計算上次執行時間（日期 + 時間 用空格分隔）
+    // v2.9.99: 手動構建日期時間格式確保正確分隔
     let lastRunDisplay = '尚未執行';
     if (lastRunTime) {
-        const options = { 
+        // 轉換為 HKT
+        const hkFormatter = new Intl.DateTimeFormat('en-CA', {
             timeZone: 'Asia/Hong_Kong',
             day: 'numeric',
             month: 'numeric',
             hour: '2-digit',
             minute: '2-digit',
             hour12: false
-        };
-        // 格式: "2/1 20:36"
-        const formatted = lastRunTime.toLocaleString('zh-HK', options);
-        // 確保日期和時間之間有空格
-        lastRunDisplay = formatted.replace(',', '').replace(/\s+/g, ' ');
+        });
+        const parts = hkFormatter.formatToParts(lastRunTime);
+        const day = parts.find(p => p.type === 'day')?.value || '';
+        const month = parts.find(p => p.type === 'month')?.value || '';
+        const hour = parts.find(p => p.type === 'hour')?.value || '';
+        const minute = parts.find(p => p.type === 'minute')?.value || '';
+        // 格式: "2/1 20:36" - 明確使用空格分隔
+        lastRunDisplay = `${day}/${month} ${hour}:${minute}`;
     }
     
     // 根據狀態選擇樣式
@@ -7395,12 +7399,17 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         lastUpdateTimestamp = now.getTime();
     }
     
-    // 計算下次更新倒計時
+    // 計算下次更新倒計時（v2.9.99: 同步自動預測計時器）
     let countdownHtml = '';
     if (lastUpdateTimestamp) {
         const nextUpdateTime = lastUpdateTimestamp + AI_UPDATE_INTERVAL;
         const now = Date.now();
         const remainingMs = nextUpdateTime - now;
+        
+        // v2.9.99: 同步自動預測計時器（使用相同的下次更新時間）
+        if (typeof autoPredictNextUpdateTime !== 'undefined') {
+            autoPredictNextUpdateTime = nextUpdateTime;
+        }
         
         if (remainingMs > 0) {
             const remainingMinutes = Math.floor(remainingMs / 60000);
