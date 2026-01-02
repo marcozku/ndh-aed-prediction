@@ -522,6 +522,9 @@ def create_comprehensive_features(df, ai_factors_dict=None):
     weather_df = load_weather_history()
     df = add_weather_features(df, weather_df)
     
+    # ============ 天氣警告特徵（颱風、暴雨、酷熱/寒冷警告）============
+    df = add_weather_warning_features(df)
+    
     return df
 
 def get_feature_columns():
@@ -635,6 +638,17 @@ def get_feature_columns():
         'Weather_Is_Very_Cold',    # 是否嚴寒 (<=8°C)
         'Weather_Temp_Deviation',  # 溫度偏離月平均
         'Weather_Has_Data',        # 是否有天氣數據
+        'Weather_Temp_Change',     # 溫度變化（今天vs昨天）
+        'Weather_Temp_Drop_5',     # 驟降 ≥5°C
+        'Weather_Temp_Rise_5',     # 驟升 ≥5°C
+        'Typhoon_Signal',          # 颱風信號 (0/1/3/8/10)
+        'Typhoon_T3_Plus',         # T3 或以上
+        'Typhoon_T8_Plus',         # T8 或以上
+        'Rainstorm_Warning',       # 暴雨警告 (0/1/2/3)
+        'Rainstorm_Red_Plus',      # 紅雨或以上
+        'Rainstorm_Black',         # 黑色暴雨
+        'Hot_Warning',             # 酷熱天氣警告
+        'Cold_Warning',            # 寒冷天氣警告
     ]
     return feature_cols
 
@@ -722,6 +736,94 @@ def add_weather_features(df, weather_df=None):
     # 溫度偏離（相對於該月平均）
     monthly_mean = df.groupby(df['Date'].dt.month)['Weather_Mean_Temp'].transform('mean')
     df['Weather_Temp_Deviation'] = df['Weather_Mean_Temp'] - monthly_mean
+    
+    # v3.0.10: 溫度變化特徵（今天 vs 昨天）
+    df = df.sort_values('Date').reset_index(drop=True)
+    df['Weather_Temp_Change'] = df['Weather_Mean_Temp'].diff()
+    df['Weather_Temp_Change'] = df['Weather_Temp_Change'].fillna(0)
+    
+    # 溫度變化分類
+    df['Weather_Temp_Drop_5'] = (df['Weather_Temp_Change'] <= -5).astype(int)  # 驟降 ≥5°C
+    df['Weather_Temp_Rise_5'] = (df['Weather_Temp_Change'] >= 5).astype(int)   # 驟升 ≥5°C
+    
+    return df
+
+
+def load_weather_warnings():
+    """從 CSV 文件加載天氣警告歷史數據（颱風、暴雨等）"""
+    import os
+    import sys as _sys
+    
+    possible_paths = [
+        'weather_warnings_history.csv',
+        'python/weather_warnings_history.csv',
+        os.path.join(os.path.dirname(__file__), 'weather_warnings_history.csv'),
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            try:
+                warnings_data = {}
+                with open(path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith('#') or line.startswith('Date'):
+                            continue
+                        parts = line.split(',')
+                        if len(parts) >= 5:
+                            date = parts[0].strip()
+                            warnings_data[date] = {
+                                'typhoon_signal': int(parts[1]) if parts[1].strip() else 0,
+                                'rainstorm_warning': int(parts[2]) if parts[2].strip() else 0,
+                                'hot_warning': int(parts[3]) if parts[3].strip() else 0,
+                                'cold_warning': int(parts[4]) if parts[4].strip() else 0,
+                            }
+                print(f"✅ 已加載天氣警告數據: {path} ({len(warnings_data)} 天)", file=_sys.stderr)
+                return warnings_data
+            except Exception as e:
+                print(f"⚠️ 讀取 {path} 失敗: {e}", file=_sys.stderr)
+    
+    print("ℹ️ 未找到天氣警告歷史數據文件", file=_sys.stderr)
+    return {}
+
+
+def add_weather_warning_features(df):
+    """添加天氣警告特徵（颱風、暴雨、酷熱/寒冷警告）"""
+    import sys as _sys
+    
+    warnings_data = load_weather_warnings()
+    
+    # 初始化列
+    df['Typhoon_Signal'] = 0
+    df['Typhoon_T3_Plus'] = 0
+    df['Typhoon_T8_Plus'] = 0
+    df['Rainstorm_Warning'] = 0
+    df['Rainstorm_Red_Plus'] = 0
+    df['Rainstorm_Black'] = 0
+    df['Hot_Warning'] = 0
+    df['Cold_Warning'] = 0
+    
+    if not warnings_data:
+        return df
+    
+    # 合併警告數據
+    matched = 0
+    for idx, row in df.iterrows():
+        date_str = row['Date'].strftime('%Y-%m-%d') if hasattr(row['Date'], 'strftime') else str(row['Date'])[:10]
+        if date_str in warnings_data:
+            w = warnings_data[date_str]
+            df.at[idx, 'Typhoon_Signal'] = w['typhoon_signal']
+            df.at[idx, 'Typhoon_T3_Plus'] = 1 if w['typhoon_signal'] >= 3 else 0
+            df.at[idx, 'Typhoon_T8_Plus'] = 1 if w['typhoon_signal'] >= 8 else 0
+            df.at[idx, 'Rainstorm_Warning'] = w['rainstorm_warning']
+            df.at[idx, 'Rainstorm_Red_Plus'] = 1 if w['rainstorm_warning'] >= 2 else 0
+            df.at[idx, 'Rainstorm_Black'] = 1 if w['rainstorm_warning'] >= 3 else 0
+            df.at[idx, 'Hot_Warning'] = w['hot_warning']
+            df.at[idx, 'Cold_Warning'] = w['cold_warning']
+            matched += 1
+    
+    if matched > 0:
+        print(f"✅ 已匹配 {matched} 天天氣警告數據", file=_sys.stderr)
     
     return df
 
