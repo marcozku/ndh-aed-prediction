@@ -4196,7 +4196,7 @@ async function initVolatilityChart(targetDate = null) {
         
         const datasets = [
             {
-                label: '預測值',
+                label: '伺服器預測',
                 data: predictions,
                 borderColor: 'rgba(139, 92, 246, 1)',
                 backgroundColor: 'rgba(139, 92, 246, 0.1)',
@@ -4207,6 +4207,27 @@ async function initVolatilityChart(targetDate = null) {
                 tension: 0.3
             }
         ];
+        
+        // v3.0.32: 今日視圖加入「實時預測」點（與主預測區一致）
+        const hk = getHKTime();
+        const isToday = targetData.date === hk.dateStr;
+        if (isToday) {
+            const realtimeEl = document.getElementById('realtime-predicted');
+            const realtimeValue = realtimeEl ? parseInt(realtimeEl.textContent) : null;
+            if (realtimeValue && !isNaN(realtimeValue)) {
+                datasets.push({
+                    label: `實時預測 (${realtimeValue})`,
+                    data: [{ x: new Date(), y: realtimeValue }],
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    backgroundColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 0,
+                    pointRadius: 8,
+                    pointHoverRadius: 10,
+                    pointStyle: 'star',
+                    showLine: false
+                });
+            }
+        }
         
         // v3.0.17: 使用與主預測相同的平滑方法計算平滑值
         // 獲取當前使用的平滑方法（從主預測區域）
