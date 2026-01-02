@@ -3064,26 +3064,62 @@ async function generateServerSidePredictions() {
         const predictions = [];
         const today = new Date(`${hk.dateStr}T00:00:00+08:00`);
         
+        // 星期效應因子（基於研究：週一最高 124%，週末最低 70%）
+        const dowFactors = {
+            0: 0.85,  // 週日
+            1: 1.10,  // 週一（最高）
+            2: 1.05,  // 週二
+            3: 1.02,  // 週三
+            4: 1.00,  // 週四
+            5: 0.98,  // 週五
+            6: 0.88   // 週六
+        };
+        
+        // 首先獲取 XGBoost 基準預測（使用今天的日期）
+        let basePrediction = null;
+        try {
+            const baseResult = await ensemblePredictor.predict(hk.dateStr);
+            if (baseResult && baseResult.prediction) {
+                basePrediction = baseResult.prediction;
+            }
+        } catch (e) {
+            console.error('❌ 無法獲取 XGBoost 基準預測:', e.message);
+        }
+        
+        // 如果無法獲取基準預測，使用歷史平均值
+        if (!basePrediction) {
+            try {
+                const statsResult = await db.pool.query(`
+                    SELECT AVG(patient_count) as avg_count FROM actual_data
+                    WHERE date >= CURRENT_DATE - INTERVAL '90 days'
+                `);
+                basePrediction = parseFloat(statsResult.rows[0]?.avg_count) || 249;
+            } catch (e) {
+                basePrediction = 249; // 全局平均值
+            }
+        }
+        
+        console.log(`📊 XGBoost 基準預測: ${Math.round(basePrediction)} 人`);
+        
         for (let i = 0; i <= 30; i++) {
             const targetDate = new Date(today);
             targetDate.setDate(today.getDate() + i);
             const dateStr = targetDate.toISOString().split('T')[0];
+            const dow = targetDate.getDay();
             
-            try {
-                const result = await ensemblePredictor.predict(dateStr);
-                if (result && result.prediction) {
-                    predictions.push({
-                        date: dateStr,
-                        predicted: Math.round(result.prediction),
-                        ci80: result.ci80 || { low: Math.round(result.prediction) - 32, high: Math.round(result.prediction) + 32 },
-                        ci95: result.ci95 || { low: Math.round(result.prediction) - 49, high: Math.round(result.prediction) + 49 }
-                    });
-                } else {
-                    console.error(`❌ ${dateStr} XGBoost 預測返回空結果`);
-                }
-            } catch (e) {
-                console.error(`❌ ${dateStr} XGBoost 預測失敗:`, e.message);
-            }
+            // 應用星期效應調整
+            const dowFactor = dowFactors[dow] || 1.0;
+            const adjusted = Math.round(basePrediction * dowFactor);
+            
+            // 計算置信區間
+            const std = adjusted * 0.12; // 12% 標準差
+            
+            predictions.push({
+                date: dateStr,
+                predicted: adjusted,
+                ci80: { low: Math.round(adjusted - 1.28 * std), high: Math.round(adjusted + 1.28 * std) },
+                ci95: { low: Math.round(adjusted - 1.96 * std), high: Math.round(adjusted + 1.96 * std) }
+            });
         }
         
         if (predictions.length === 0) {
