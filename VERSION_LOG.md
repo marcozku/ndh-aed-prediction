@@ -1,5 +1,32 @@
 # 版本更新日誌
 
+## v3.0.29 - 2026-01-04 01:30 HKT
+
+### 🐛 修復：實時預測未應用 AI 因子和天氣因子
+
+**問題**：
+- 實時預測與綜合預測差異很大
+- 原因：伺服器預測使用 `XGBoost × AI因子 × 天氣因子`
+- 但前端實時預測只使用純 `XGBoost` 預測
+
+**修復**：
+- `getXGBoostPredictionWithMetadata()` 現在應用因子調整：
+  - AI 因子（範圍 0.7-1.3）
+  - 天氣因子（溫度、濕度、降雨）
+
+```javascript
+// v3.0.29: 應用因子到 XGBoost 預測
+const adjustedPrediction = Math.round(
+    xgbResult.prediction * aiFactorMultiplier * weatherFactorMultiplier
+);
+```
+
+**效果**：
+- 實時預測現在與伺服器自動預測一致
+- 綜合預測（平均）和實時預測差異會減少
+
+---
+
 ## v3.0.28 - 2026-01-04 01:10 HKT
 
 ### 🗑️ 移除：圖表 Onboarding 提示

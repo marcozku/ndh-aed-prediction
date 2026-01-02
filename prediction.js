@@ -58,6 +58,7 @@ async function getXGBoostPrediction(targetDate) {
 
 // 獲取 XGBoost 預測並結合統計方法的元數據（完整格式）
 // predictorInstance: 預測器實例，用於獲取元數據
+// v3.0.29: 修復 - 將 AI 因子和天氣因子應用到 XGBoost 預測上
 async function getXGBoostPredictionWithMetadata(dateStr, predictorInstance, weatherData = null, aiFactor = null) {
     // 獲取統計方法的元數據（因子分解等）
     const statPred = predictorInstance.predict(dateStr, weatherData, aiFactor);
@@ -66,12 +67,59 @@ async function getXGBoostPredictionWithMetadata(dateStr, predictorInstance, weat
     const xgbResult = await getXGBoostPrediction(dateStr);
     
     if (xgbResult && xgbResult.prediction) {
-        // 使用 XGBoost 預測值，但保留統計方法的元數據
+        // v3.0.29: 計算 AI 因子和天氣因子的調整
+        let aiFactorMultiplier = 1.0;
+        let weatherFactorMultiplier = 1.0;
+        
+        // 計算 AI 因子（與伺服器邏輯一致）
+        if (aiFactor && aiFactor.impactFactor) {
+            // 限制範圍 0.7-1.3
+            aiFactorMultiplier = Math.max(0.7, Math.min(1.3, aiFactor.impactFactor));
+        }
+        
+        // 計算天氣因子（與伺服器邏輯一致）
+        if (weatherData) {
+            // 低溫效應
+            if (weatherData.temperature < 15) {
+                weatherFactorMultiplier *= 1.0 + (15 - weatherData.temperature) * 0.01;
+            }
+            // 高濕度效應
+            if (weatherData.humidity > 80) {
+                weatherFactorMultiplier *= 1.0 + (weatherData.humidity - 80) * 0.002;
+            }
+            // 降雨效應
+            if (weatherData.rainfall > 5) {
+                weatherFactorMultiplier *= 1.0 + Math.min(weatherData.rainfall, 50) * 0.003;
+            }
+            // 限制天氣因子範圍
+            weatherFactorMultiplier = Math.max(0.85, Math.min(1.15, weatherFactorMultiplier));
+        }
+        
+        // 應用因子到 XGBoost 預測
+        const adjustedPrediction = Math.round(xgbResult.prediction * aiFactorMultiplier * weatherFactorMultiplier);
+        
+        // 調整置信區間
+        const adjustedCi80 = xgbResult.ci80 ? {
+            lower: Math.round(xgbResult.ci80.lower * aiFactorMultiplier * weatherFactorMultiplier),
+            upper: Math.round(xgbResult.ci80.upper * aiFactorMultiplier * weatherFactorMultiplier)
+        } : statPred.ci80;
+        
+        const adjustedCi95 = xgbResult.ci95 ? {
+            lower: Math.round(xgbResult.ci95.lower * aiFactorMultiplier * weatherFactorMultiplier),
+            upper: Math.round(xgbResult.ci95.upper * aiFactorMultiplier * weatherFactorMultiplier)
+        } : statPred.ci95;
+        
+        console.log(`📊 XGBoost 調整: 基礎=${xgbResult.prediction}, AI因子=${aiFactorMultiplier.toFixed(2)}, 天氣因子=${weatherFactorMultiplier.toFixed(2)}, 最終=${adjustedPrediction}`);
+        
+        // 使用調整後的 XGBoost 預測值，保留統計方法的元數據
         return {
             ...statPred,
-            predicted: Math.round(xgbResult.prediction),
-            ci80: xgbResult.ci80 || statPred.ci80,
-            ci95: xgbResult.ci95 || statPred.ci95,
+            predicted: adjustedPrediction,
+            basePrediction: xgbResult.prediction,  // 保留原始 XGBoost 預測
+            aiFactorMultiplier,
+            weatherFactorMultiplier,
+            ci80: adjustedCi80,
+            ci95: adjustedCi95,
             method: 'xgboost',
             xgboostUsed: true
         };
