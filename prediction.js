@@ -1266,6 +1266,7 @@ async function initCharts(predictor) {
     
     let predictions = [];
     let usedDatabasePredictions = false;
+    let dbPredictionCount = 0;
     
     // 嘗試從資料庫載入 30 天 XGBoost 預測
     try {
@@ -1273,6 +1274,7 @@ async function initCharts(predictor) {
         const result = await response.json();
         
         if (result.success && result.data && result.data.length >= 20) {
+            dbPredictionCount = result.data.length;
             // 將資料庫格式轉換為前端格式
             predictions = result.data.map(row => {
                 const targetDate = new Date(row.target_date);
@@ -1328,7 +1330,7 @@ async function initCharts(predictor) {
         predictions = predictions.slice(0, 30);
         
         if (usedDatabasePredictions) {
-            console.log(`📊 30天趨勢圖：${result?.data?.length || 0} 天 XGBoost + ${30 - (result?.data?.length || 0)} 天統計方法`);
+            console.log(`📊 30天趨勢圖：${dbPredictionCount} 天 XGBoost + ${30 - dbPredictionCount} 天統計方法`);
         } else {
             console.log('⚠️ 30天趨勢圖使用統計方法（資料庫無足夠 XGBoost 預測）');
         }
