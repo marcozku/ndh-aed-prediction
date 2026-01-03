@@ -129,45 +129,67 @@ const NavManager = {
             });
         });
         
-        // 滾動時更新活動狀態 - 使用 href 屬性匹配
-        const sectionMap = {
-            'today-section': 'today',
-            'factors-section': 'factors',
-            'forecast-section': 'forecast',
-            'confidence-dashboard': 'confidence',
-            'charts-section': 'charts',
-            'model-training-section': 'training',
-            'timeline-section': 'timeline',
-            'algorithm-section': 'algorithm'
-        };
+        // 滾動時更新活動狀態 - 找最接近視窗頂部的區塊
+        const sectionIds = [
+            'today-section',
+            'factors-section', 
+            'forecast-section',
+            'confidence-dashboard',
+            'charts-section',
+            'model-training-section',
+            'timeline-section',
+            'algorithm-section'
+        ];
         
+        let ticking = false;
         window.addEventListener('scroll', () => {
-            const scrollPos = window.pageYOffset + 100;
-            let activeSection = null;
-            
-            // 找出當前可見的區塊
-            Object.keys(sectionMap).forEach(sectionId => {
-                const section = document.getElementById(sectionId);
-                if (section) {
-                    const top = section.offsetTop;
-                    const bottom = top + section.offsetHeight;
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    const navHeight = 70; // 導航欄高度
+                    const scrollPos = window.pageYOffset + navHeight + 20;
+                    let activeSection = null;
+                    let minDistance = Infinity;
                     
-                    if (scrollPos >= top && scrollPos < bottom) {
-                        activeSection = sectionId;
+                    // 找出距離視窗頂部最近的區塊
+                    sectionIds.forEach(sectionId => {
+                        const section = document.getElementById(sectionId);
+                        if (section) {
+                            const rect = section.getBoundingClientRect();
+                            const top = rect.top + window.pageYOffset;
+                            const distance = Math.abs(scrollPos - top);
+                            
+                            // 如果區塊頂部在視窗內或剛過去
+                            if (rect.top <= navHeight + 100 && rect.bottom > 0) {
+                                if (distance < minDistance) {
+                                    minDistance = distance;
+                                    activeSection = sectionId;
+                                }
+                            }
+                        }
+                    });
+                    
+                    // 如果沒找到，檢查是否在頁面底部
+                    if (!activeSection) {
+                        const lastSection = document.getElementById(sectionIds[sectionIds.length - 1]);
+                        if (lastSection && window.innerHeight + window.pageYOffset >= document.body.offsetHeight - 100) {
+                            activeSection = sectionIds[sectionIds.length - 1];
+                        }
                     }
-                }
-            });
-            
-            // 更新導航高亮
-            if (activeSection) {
-                links.forEach(link => {
-                    const href = link.getAttribute('href');
-                    if (href === `#${activeSection}`) {
-                        link.classList.add('active');
-                    } else {
-                        link.classList.remove('active');
+                    
+                    // 更新導航高亮
+                    if (activeSection) {
+                        links.forEach(link => {
+                            const href = link.getAttribute('href');
+                            if (href === `#${activeSection}`) {
+                                link.classList.add('active');
+                            } else {
+                                link.classList.remove('active');
+                            }
+                        });
                     }
+                    ticking = false;
                 });
+                ticking = true;
             }
         });
     },

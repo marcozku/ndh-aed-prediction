@@ -158,9 +158,13 @@
 
 html {
     scroll-behavior: smooth;
-    overflow-x: hidden;
-    width: 100%;
-    max-width: 100%;
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box;
+}
+
+*, *::before, *::after {
     box-sizing: border-box;
 }
 
@@ -6960,6 +6964,35 @@ section > * {
     .factor-grid,
     .reliability-bars {
         grid-template-columns: 1fr !important;
+    }
+    
+    /* Force ALL elements to respect viewport */
+    * {
+        max-width: 100vw !important;
+    }
+    
+    /* Timeline items */
+    .timeline-item,
+    .timeline-content,
+    .timeline-changes {
+        max-width: calc(100vw - 16px) !important;
+        overflow-x: hidden !important;
+        word-wrap: break-word !important;
+    }
+    
+    /* Algorithm section */
+    .algorithm-content,
+    .algo-card {
+        max-width: calc(100vw - 16px) !important;
+        overflow-x: hidden !important;
+    }
+    
+    /* Fix tags overflow */
+    .timeline-changes span,
+    .algo-tag {
+        max-width: 100% !important;
+        white-space: normal !important;
+        word-break: break-word !important;
     }
     
     /* Header - very compact */
