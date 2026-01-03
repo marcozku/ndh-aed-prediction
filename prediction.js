@@ -9342,7 +9342,7 @@ function initAlgorithmContent() {
         <!-- ==================== 第一部分：核心公式概覽 ==================== -->
         <div class="algo-card" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(59, 130, 246, 0.08)); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid rgba(34, 197, 94, 0.25);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h4 style="margin: 0; color: #22c55e; font-size: 1rem;">🧠 NDH AED 預測算法 v3.0.50</h4>
+                <h4 style="margin: 0; color: #22c55e; font-size: 1rem;">🧠 NDH AED 預測算法 v3.0.70</h4>
                 <span style="font-size: 0.7rem; color: var(--text-tertiary); background: var(--bg-tertiary); padding: 2px 8px; border-radius: 4px;">加法效應模型</span>
             </div>
             
@@ -9547,7 +9547,39 @@ function initAlgorithmContent() {
                         <span style="font-weight: 600;">🧠 AI 因子</span>
                         <span style="color: #8b5cf6; font-weight: 600;">±30%</span>
                     </div>
-                    <div style="color: var(--text-tertiary); font-size: 0.68rem;">實時新聞分析<br>事件影響評估</div>
+                    <div style="color: var(--text-tertiary); font-size: 0.68rem;">突發事件分析<br>政策變更評估</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ==================== 因子去重說明 (v3.0.70) ==================== -->
+        <div class="algo-card" style="background: rgba(239, 68, 68, 0.08); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid rgba(239, 68, 68, 0.2);">
+            <h4 style="margin: 0 0 12px 0; color: #ef4444; font-size: 0.95rem;">⚠️ 因子去重機制 (v3.0.70)</h4>
+            
+            <div style="font-size: 0.73rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 12px;">
+                為避免重複計算，各因子有明確的職責分工：
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #22c55e; font-weight: 600; margin-bottom: 6px;">✅ 系統自動計算</div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.5;">
+                        • 天氣 → Weather Factor<br>
+                        • 假期 → HK_PUBLIC_HOLIDAYS<br>
+                        • 流感季節 → fluSeasonFactor<br>
+                        • 週末 → dowFactors<br>
+                        • 月份 → monthFactors
+                    </div>
+                </div>
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #8b5cf6; font-weight: 600; margin-bottom: 6px;">🧠 AI 專責分析</div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.5;">
+                        • 健康政策變更<br>
+                        • 突發公衛事件<br>
+                        • 重大社會事件<br>
+                        • 醫院服務變更<br>
+                        <span style="color: #ef4444;">❌ 不分析天氣/假期/季節</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -9577,17 +9609,17 @@ function initAlgorithmContent() {
         
         <!-- ==================== 版本更新 ==================== -->
         <div style="padding: 14px; background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.05)); border-radius: 10px; border-left: 4px solid #22c55e;">
-            <div style="font-size: 0.82rem; color: #22c55e; font-weight: 600; margin-bottom: 8px;">🚀 v3.0.50 更新亮點</div>
+            <div style="font-size: 0.82rem; color: #22c55e; font-weight: 600; margin-bottom: 8px;">🚀 v3.0.70 更新亮點</div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; font-size: 0.72rem; color: var(--text-secondary);">
-                <div>✅ 改用加法效應模型，避免乘法疊加過高</div>
-                <div>📊 Post-COVID 2023-2025 數據校準</div>
-                <div>🛡️ 硬上限控制 180-320 (今日 340)</div>
-                <div>📉 遠期預測趨勢衰減 (回歸均值)</div>
+                <div>⚠️ 修復 AI 因子與系統因子重複計算</div>
+                <div>🧠 AI 專注突發事件、政策變更</div>
+                <div>🌤️ 天氣/假期由系統自動處理</div>
+                <div>⚡ 頁面載入速度優化 (並行+懶載入)</div>
             </div>
         </div>
     `;
     
-    console.log('✅ 算法說明內容已初始化 (v3.0.50 詳細版)');
+    console.log('✅ 算法說明內容已初始化 (v3.0.70 詳細版)');
 }
 
 // 載入算法說明 - 調用原有的詳細版本
