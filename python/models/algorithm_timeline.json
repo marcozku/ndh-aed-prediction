@@ -292,13 +292,13 @@
         "iOS Safari PWA 自動更新機制改進"
       ],
       "metrics": {
-        "mae": 4.01,
-        "mape": 1.59,
-        "rmse": 5.45,
-        "r2": 0.958,
-        "feature_count": 30,
-        "aqhi_features": 5,
-        "note": "待重新訓練以整合 AQHI 特徵"
+        "mae": 5.22,
+        "mape": 2.05,
+        "rmse": 7.23,
+        "r2": 0.925,
+        "feature_count": 27,
+        "aqhi_features": 2,
+        "note": "AQHI 數據覆蓋 587/3438 天，隨數據累積效果會提升"
       },
       "research": "空氣污染與呼吸道/心血管急症研究 (Lancet 2019)",
       "key_features": ["AQHI_General_Max", "AQHI_Roadside_Max", "AQHI_Risk"],
