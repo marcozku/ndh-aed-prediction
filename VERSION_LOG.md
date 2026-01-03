@@ -1,5 +1,44 @@
 # 版本更新日誌
 
+## v3.0.78 - 2026-01-04 05:46 HKT
+
+### 📄 修復技術文檔 PDF 公式渲染問題
+
+**問題描述**：
+`NDH_AED_Prediction_Algorithm_Technical_Document.pdf` 中的 LaTeX 數學公式渲染錯誤，例如：
+- `$EWMA_t - 1$` 應為 `$EWMA_{t-1}$`
+- `$\frac{1}{2} \text{span} + 1$` 應為 `$\frac{2}{span + 1}$`
+- 多個公式被截斷或亂碼
+
+**根本原因**：
+Markdown 源文件 (`docs/NDH_AED_Prediction_Algorithm_Technical_Document.md`) 的公式是正確的，但原本的 PDF 生成工具沒有正確支援 LaTeX/MathJax 渲染。
+
+**解決方案**：
+創建新的 PDF 生成腳本 `generate-algorithm-doc-pdf.js`，使用：
+- **Puppeteer** - 無頭瀏覽器渲染
+- **MathJax 3** - 專業 LaTeX 公式渲染
+- **marked** - Markdown 解析
+
+**技術細節**：
+1. 使用 regex 保護 `$$...$$` 和 `$...$` 數學表達式
+2. 用 marked 將 Markdown 轉換為 HTML
+3. 注入 MathJax 配置，等待公式渲染完成
+4. 使用 Puppeteer 生成帶頁眉頁腳的專業 PDF
+
+**渲染統計**：
+- 19 個顯示公式 (display math)
+- 35 個行內公式 (inline math)
+- 全部正確渲染
+
+**新增文件**：
+- `generate-algorithm-doc-pdf.js` - PDF 生成腳本
+
+**新增依賴**：
+- `puppeteer` - 無頭瀏覽器
+- `marked` - Markdown 解析器
+
+---
+
 ## v3.0.77 - 2026-01-04 05:20 HKT
 
 ### 🏷️ 修復預測來源標記錯誤 + 圖表視覺區分
