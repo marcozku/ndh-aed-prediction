@@ -520,16 +520,15 @@ def create_comprehensive_features(df, ai_factors_dict=None):
         df['AI_Impact_Rolling7'] = 1.0
         df['AI_Impact_Trend'] = 0.0
     
-    # ============ 天氣特徵（香港天文台歷史數據）============
-    weather_df = load_weather_history()
-    df = add_weather_features(df, weather_df)
-    
-    # ============ 天氣警告特徵（颱風、暴雨、酷熱/寒冷警告）============
-    df = add_weather_warning_features(df)
-    
-    # ============ AQHI 空氣質素特徵（環保署數據）============
-    # 數據來源: https://www.aqhi.gov.hk/en/past-data/past-aqhi.html
-    df = add_aqhi_features(df)
+    # ============ v3.0.76: 天氣/AQHI 特徵已停用 ============
+    # RFE 分析顯示這些特徵對預測準確度貢獻 <0.1%
+    # EWMA 已隱式捕獲天氣影響，極端條件由後處理層處理
+    # 
+    # 如需啟用，取消以下注釋：
+    # weather_df = load_weather_history()
+    # df = add_weather_features(df, weather_df)
+    # df = add_weather_warning_features(df)
+    # df = add_aqhi_features(df)
     
     return df
 
@@ -633,28 +632,9 @@ def get_feature_columns():
         'AI_Impact_Rolling7',      # 7天滾動平均影響
         'AI_Impact_Trend',         # 影響趨勢變化
         
-        # 天氣特徵（香港天文台歷史數據）
-        'Weather_Mean_Temp',       # 日平均氣溫
-        'Weather_Max_Temp',        # 日最高氣溫
-        'Weather_Min_Temp',        # 日最低氣溫
-        'Weather_Temp_Range',      # 日溫差
-        'Weather_Is_Very_Hot',     # 是否酷熱 (>=33°C)
-        'Weather_Is_Hot',          # 是否炎熱 (>=30°C)
-        'Weather_Is_Cold',         # 是否寒冷 (<=12°C)
-        'Weather_Is_Very_Cold',    # 是否嚴寒 (<=8°C)
-        'Weather_Temp_Deviation',  # 溫度偏離月平均
-        'Weather_Has_Data',        # 是否有天氣數據
-        'Weather_Temp_Change',     # 溫度變化（今天vs昨天）
-        'Weather_Temp_Drop_5',     # 驟降 ≥5°C
-        'Weather_Temp_Rise_5',     # 驟升 ≥5°C
-        'Typhoon_Signal',          # 颱風信號 (0/1/3/8/10)
-        'Typhoon_T3_Plus',         # T3 或以上
-        'Typhoon_T8_Plus',         # T8 或以上
-        'Rainstorm_Warning',       # 暴雨警告 (0/1/2/3)
-        'Rainstorm_Red_Plus',      # 紅雨或以上
-        'Rainstorm_Black',         # 黑色暴雨
-        'Hot_Warning',             # 酷熱天氣警告
-        'Cold_Warning',            # 寒冷天氣警告
+        # v3.0.76: 天氣/AQHI 特徵已停用 (RFE 分析顯示貢獻 <0.1%)
+        # 極端條件由 prediction.js 後處理層處理
+        # 如需完整列表，參見 git history
     ]
     return feature_cols
 
