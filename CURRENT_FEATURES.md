@@ -1,52 +1,53 @@
 # XGBoost 精選特徵列表
 
-**自動生成於**: 2026-01-04 03:36 HKT
-**特徵數量**: 40 個
-**模型版本**: 3.0.74
+**自動生成於**: 2026-01-04 03:40 HKT
+**特徵數量**: 25 個
+**模型版本**: 2.9.52
 
 ## 📊 模型性能
 
 | 指標 | 數值 |
 |------|------|
-| MAE | 6.08 病人 |
-| MAPE | 2.38% |
-| R² | 0.900 |
-| RMSE | 8.35 |
+| MAE | 6.18 病人 |
+| MAPE | 2.42% |
+| R² | 0.898 |
+| RMSE | 8.41 |
 
 ## 🎯 精選特徵列表
 
-### 時間特徵 (3個)
+### 時間特徵 (2個)
 
 - `Day_of_Week`
-- `DayOfWeek_sin`
 - `DayOfWeek_Target_Mean`
 
-### 滯後特徵 (4個)
+### 滯後特徵 (7個)
 
 - `Attendance_Lag1`
+- `Attendance_Lag3`
+- `Attendance_Lag5`
 - `Attendance_Lag7`
 - `Attendance_Lag30`
 - `Lag1_Diff`
+- `Lag7_Diff`
 
-### 滾動統計 (5個)
+### 滾動統計 (6個)
 
-- `Attendance_Rolling7`
 - `Attendance_Rolling14`
+- `Attendance_Std3`
+- `Attendance_Std7`
 - `Attendance_Min7`
-- `Attendance_Median14`
-- `Attendance_Median3`
+- `Attendance_Min90`
+- `Attendance_Median30`
 
-### EWMA 特徵 (3個)
+### EWMA 特徵 (1個)
 
 - `Attendance_EWMA7`
-- `Attendance_EWMA14`
-- `Attendance_EWMA30`
 
 ### 變化特徵 (3個)
 
 - `Daily_Change`
-- `Monthly_Change`
 - `Weekly_Change`
+- `Monthly_Change`
 
 ### 位置特徵 (3個)
 
@@ -54,43 +55,29 @@
 - `Attendance_Position14`
 - `Attendance_Position30`
 
-### 事件指標 (3個)
+### 事件指標 (1個)
 
-- `Is_Winter_Flu_Season`
-- `Is_Weekend`
 - `Holiday_Factor`
 
-### 天氣特徵 (9個)
-
-- `Rainfall_mm`
-- `Weather_High_Pressure`
-- `Weather_Low_Humidity`
-- `Weather_Heavy_Rain`
-- `Weather_Strong_Wind`
-- `Weather_Low_Visibility`
-- `Weather_Is_Cold`
-- `Weather_Is_Hot`
-- `Weather_Rain_Day`
-
-### 其他 (7個)
+### 其他 (2個)
 
 - `Attendance_Same_Weekday_Avg`
-- `AQHI_Risk`
-- `AQHI_High`
-- `Pressure_hPa`
-- `Humidity_pct`
-- `Wind_kmh`
-- `Visibility_km`
+- `Attendance_CV7`
 
 ## 📈 特徵重要性 (Top 10)
 
 | 排名 | 特徵 | 重要性 |
 |------|------|--------|
-| 1 | `Attendance_EWMA7` | 52.00% |
-| 2 | `Attendance_EWMA14` | 34.00% |
-| 3 | `Daily_Change` | 2.00% |
-| 4 | `Monthly_Change` | 2.00% |
-| 5 | `Attendance_EWMA30` | 2.00% |
+| 1 | `Attendance_EWMA7` | 86.89% |
+| 2 | `Monthly_Change` | 2.82% |
+| 3 | `Daily_Change` | 2.32% |
+| 4 | `Attendance_Lag1` | 1.10% |
+| 5 | `Weekly_Change` | 0.78% |
+| 6 | `Attendance_Rolling7` | 0.48% |
+| 7 | `Attendance_Lag30` | 0.47% |
+| 8 | `Attendance_Position7` | 0.47% |
+| 9 | `Day_of_Week` | 0.45% |
+| 10 | `DayOfWeek_sin` | 0.39% |
 
 ## 📝 備註
 
@@ -101,4 +88,4 @@
 
 ## 🔄 更新歷史
 
-- 2026-01-04 03:36 HKT: 自動生成
+- 2026-01-04 03:40 HKT: 自動生成

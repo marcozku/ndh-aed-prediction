@@ -1,81 +1,242 @@
 {
-  "version": "3.0.74",
-  "updated": "2026-01-04 03:35:00 HKT",
-  "optimal_n_features": 40,
+  "version": "3.0.75",
+  "updated": "2026-01-04 03:40:00 HKT",
+  "optimization_method": "RFE (Recursive Feature Elimination)",
+  "note": "EWMA7 dominates (87%), weather features weak correlation excluded",
+  "optimal_n_features": 25,
   "optimal_features": [
-    "Attendance_EWMA7",
-    "Attendance_EWMA14",
-    "Attendance_EWMA30",
-    "Daily_Change",
-    "Monthly_Change",
-    "Weekly_Change",
+    "Day_of_Week",
     "Attendance_Lag1",
+    "Attendance_Lag3",
+    "Attendance_Lag5",
     "Attendance_Lag7",
     "Attendance_Lag30",
     "Attendance_Same_Weekday_Avg",
     "Lag1_Diff",
-    "Day_of_Week",
-    "DayOfWeek_sin",
-    "Attendance_Rolling7",
+    "Lag7_Diff",
+    "Attendance_EWMA7",
     "Attendance_Rolling14",
+    "Attendance_Std3",
+    "Attendance_Std7",
+    "Attendance_Min7",
+    "Attendance_Min90",
+    "Attendance_Median30",
     "Attendance_Position7",
     "Attendance_Position14",
     "Attendance_Position30",
+    "Attendance_CV7",
     "DayOfWeek_Target_Mean",
-    "Attendance_Min7",
-    "Attendance_Median14",
-    "Attendance_Median3",
-    "Is_Winter_Flu_Season",
-    "Is_Weekend",
-    "Holiday_Factor",
-    "AQHI_Risk",
-    "AQHI_High",
-    "Pressure_hPa",
-    "Humidity_pct",
-    "Rainfall_mm",
-    "Wind_kmh",
-    "Visibility_km",
-    "Weather_High_Pressure",
-    "Weather_Low_Humidity",
-    "Weather_Heavy_Rain",
-    "Weather_Strong_Wind",
-    "Weather_Low_Visibility",
-    "Weather_Is_Cold",
-    "Weather_Is_Hot",
-    "Weather_Rain_Day"
+    "Daily_Change",
+    "Weekly_Change",
+    "Monthly_Change",
+    "Holiday_Factor"
   ],
-  "method": "importance_optimized",
+  "method": "rfe",
   "metrics": {
-    "mae": 5.22,
-    "mape": 2.05,
-    "r2": 0.925,
-    "note": "pending retrain with new weather features"
+    "mae": 3.355260133743286,
+    "mape": 1.3572875269053275,
+    "r2": 0.963655412197113
   },
-  "note": "v3.0.74: Added complete HKO weather factors (Pressure, Humidity, Rainfall, Wind, Visibility). Research shows significant correlations with ED attendance.",
   "feature_importance": [
-    {"feature": "Attendance_EWMA7", "importance": 0.52},
-    {"feature": "Attendance_EWMA14", "importance": 0.34},
-    {"feature": "Daily_Change", "importance": 0.02},
-    {"feature": "Monthly_Change", "importance": 0.02},
-    {"feature": "Attendance_EWMA30", "importance": 0.02}
-  ],
-  "new_weather_factors": {
-    "Visibility_km": {"r": 0.1196, "p": 0.0000, "impact": "highest correlation"},
-    "Wind_kmh": {"r": -0.1058, "p": 0.0000, "impact": "-2.8% on strong wind days"},
-    "Cold_Day": {"r": null, "p": 0.0000, "impact": "-6.8% when Min<12C"},
-    "Heavy_Rain": {"r": -0.0626, "p": 0.0000, "impact": "-4.9% when >25mm"},
-    "Low_Humidity": {"r": 0.0789, "p": 0.0109, "impact": "-4.7% when <50%"},
-    "High_Pressure": {"r": -0.0352, "p": 0.0275, "impact": "-1.5% when >1020hPa"}
-  },
-  "aqhi_analysis": {
-    "correlation": 0.21,
-    "high_aqhi_impact": "+4.7%",
-    "p_value": 0.0001,
-    "sample_days": 587
-  },
-  "data_sources": [
-    "HKO Daily Extract API (2014-2025, 4383 days)",
-    "EPD AQHI History (2014-2026, 4053 days)",
-    "NDH AED Records (2014-2025, 3438 days)"
+    {
+      "feature": "Attendance_EWMA7",
+      "importance": 0.8688923120498657
+    },
+    {
+      "feature": "Monthly_Change",
+      "importance": 0.028248321264982224
+    },
+    {
+      "feature": "Daily_Change",
+      "importance": 0.02323964238166809
+    },
+    {
+      "feature": "Attendance_Lag1",
+      "importance": 0.010991396382451057
+    },
+    {
+      "feature": "Weekly_Change",
+      "importance": 0.007813027128577232
+    },
+    {
+      "feature": "Attendance_Rolling7",
+      "importance": 0.0048472206108272076
+    },
+    {
+      "feature": "Attendance_Lag30",
+      "importance": 0.004712470341473818
+    },
+    {
+      "feature": "Attendance_Position7",
+      "importance": 0.004671758506447077
+    },
+    {
+      "feature": "Day_of_Week",
+      "importance": 0.004459735006093979
+    },
+    {
+      "feature": "DayOfWeek_sin",
+      "importance": 0.003911913372576237
+    },
+    {
+      "feature": "Attendance_Lag7",
+      "importance": 0.0035528752487152815
+    },
+    {
+      "feature": "Lag1_Diff",
+      "importance": 0.0028590357396751642
+    },
+    {
+      "feature": "Attendance_Rolling14",
+      "importance": 0.0016603112453594804
+    },
+    {
+      "feature": "Attendance_Position30",
+      "importance": 0.001428605755791068
+    },
+    {
+      "feature": "Attendance_Rolling3",
+      "importance": 0.0013598563382402062
+    },
+    {
+      "feature": "Attendance_Position14",
+      "importance": 0.001334478729404509
+    },
+    {
+      "feature": "Attendance_Same_Weekday_Avg",
+      "importance": 0.0012515096459537745
+    },
+    {
+      "feature": "Attendance_EWMA14",
+      "importance": 0.001049187732860446
+    },
+    {
+      "feature": "Attendance_Median14",
+      "importance": 0.000983053003437817
+    },
+    {
+      "feature": "DayOfWeek_Target_Mean",
+      "importance": 0.0009767904412001371
+    },
+    {
+      "feature": "Attendance_Median3",
+      "importance": 0.0009338964591734111
+    },
+    {
+      "feature": "Attendance_Min7",
+      "importance": 0.0009022799786180258
+    },
+    {
+      "feature": "Holiday_Factor",
+      "importance": 0.0007448751712217927
+    },
+    {
+      "feature": "Attendance_Lag5",
+      "importance": 0.0006950752576813102
+    },
+    {
+      "feature": "Attendance_Min3",
+      "importance": 0.000686779385432601
+    },
+    {
+      "feature": "Attendance_Median90",
+      "importance": 0.0006581929046660662
+    },
+    {
+      "feature": "Hot_Warning",
+      "importance": 0.0005893353372812271
+    },
+    {
+      "feature": "Attendance_Lag3",
+      "importance": 0.0005555906682275236
+    },
+    {
+      "feature": "Attendance_Lag4",
+      "importance": 0.0005532500217668712
+    },
+    {
+      "feature": "Is_Day_After_Holiday",
+      "importance": 0.0005503949942067266
+    },
+    {
+      "feature": "Attendance_Lag6",
+      "importance": 0.0005137561820447445
+    },
+    {
+      "feature": "Attendance_Max7",
+      "importance": 0.0004831338592339307
+    },
+    {
+      "feature": "Attendance_Lag2",
+      "importance": 0.00047259542043320835
+    },
+    {
+      "feature": "Attendance_Std3",
+      "importance": 0.0004597194492816925
+    },
+    {
+      "feature": "Attendance_Max14",
+      "importance": 0.000447354803327471
+    },
+    {
+      "feature": "Attendance_Lag21",
+      "importance": 0.0004370106616988778
+    },
+    {
+      "feature": "Weather_Max_Temp",
+      "importance": 0.0004262471047695726
+    },
+    {
+      "feature": "Attendance_Median7",
+      "importance": 0.00037330930354073644
+    },
+    {
+      "feature": "Weather_Temp_Change",
+      "importance": 0.00036871162592433393
+    },
+    {
+      "feature": "Attendance_Lag365",
+      "importance": 0.0003672874008771032
+    },
+    {
+      "feature": "DayOfYear",
+      "importance": 0.0003672473831102252
+    },
+    {
+      "feature": "Attendance_Std90",
+      "importance": 0.00036157466820441186
+    },
+    {
+      "feature": "Attendance_Rolling60",
+      "importance": 0.0003420267312321812
+    },
+    {
+      "feature": "Attendance_Std7",
+      "importance": 0.0003316562797408551
+    },
+    {
+      "feature": "Is_Monday_AND_Winter",
+      "importance": 0.00032821844797581434
+    },
+    {
+      "feature": "Attendance_Min21",
+      "importance": 0.00030019282712601125
+    },
+    {
+      "feature": "Attendance_Lag14",
+      "importance": 0.0002787073899526149
+    },
+    {
+      "feature": "Attendance_Rolling30",
+      "importance": 0.0002742515061981976
+    },
+    {
+      "feature": "Attendance_Max3",
+      "importance": 0.0002671044785529375
+    },
+    {
+      "feature": "Attendance_CV7",
+      "importance": 0.0002527767501305789
+    }
   ]
 }
