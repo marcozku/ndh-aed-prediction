@@ -1,7 +1,39 @@
+# Dependencies
 node_modules/
+
+# Environment variables
 .env
-*.code-workspace
+.env.local
+.env.production
+
+# Logs
+*.log
+npm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
 .DS_Store
+Thumbs.db
 
+# Temp files
+*.tmp
+intraday-check.json
 
-
+# Build outputs
+dist/
+build/
