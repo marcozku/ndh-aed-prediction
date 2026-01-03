@@ -258,7 +258,53 @@
         "output": "python/models/weather_impact_analysis.json"
       },
       "improvement": "數據驅動的自動化分析流程"
+    },
+    {
+      "version": "3.0.70",
+      "date": "2026-01-04",
+      "description": "AI 因子去重機制",
+      "changes": [
+        "修改 AI Prompt 避免重複計算天氣/假期/季節因素",
+        "AI 專注分析：健康政策、突發事件、醫院公告",
+        "系統自動處理：天氣、假期、流感季、週末",
+        "更新演算法文檔說明因子分工"
+      ],
+      "metrics": {
+        "mae": 4.01,
+        "mape": 1.59,
+        "rmse": 5.45,
+        "r2": 0.958,
+        "feature_count": 25,
+        "note": "邏輯優化，避免因子重複加權"
+      },
+      "research": "因子正交化、避免多重共線性",
+      "improvement": "AI 與系統因子不再重複，預測更穩定"
+    },
+    {
+      "version": "3.0.73",
+      "date": "2026-01-04",
+      "description": "AQHI 空氣質素整合",
+      "changes": [
+        "新增 EPD AQHI 歷史數據 (2013-2026，4000+ 天)",
+        "5 個 AQHI 特徵：General/Roadside Avg/Max、Risk Level",
+        "實時 AQHI 顯示與天氣一併展示",
+        "AI 新增分析：體育/文娛活動、學校日曆、傳染病爆發",
+        "iOS Safari PWA 自動更新機制改進"
+      ],
+      "metrics": {
+        "mae": 4.01,
+        "mape": 1.59,
+        "rmse": 5.45,
+        "r2": 0.958,
+        "feature_count": 30,
+        "aqhi_features": 5,
+        "note": "待重新訓練以整合 AQHI 特徵"
+      },
+      "research": "空氣污染與呼吸道/心血管急症研究 (Lancet 2019)",
+      "key_features": ["AQHI_General_Max", "AQHI_Roadside_Max", "AQHI_Risk"],
+      "data_source": "環保署 AQHI API (aqhi.gov.hk)",
+      "improvement": "預期：高 AQHI 日可提升預測準確度 5-10%"
     }
   ],
-  "last_updated": "2026-01-03T19:00:00+08:00"
+  "last_updated": "2026-01-04T03:30:00+08:00"
 }
