@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.0.76';
+const MODEL_VERSION = '3.0.77';
 
 // ============================================
 // HKT 時間工具函數
@@ -670,21 +670,34 @@ const apiHandlers = {
 
     // Manually trigger server-side prediction generation (synchronous - waits for completion)
     // v3.0.65: 傳遞 source='manual' 區分手動觸發
+    // v3.0.68: 支援 source 參數：manual/training/upload，預設為 manual
     'POST /api/trigger-prediction': async (req, res) => {
         try {
-            console.log('🔮 手動觸發預測更新（同步）...');
+            const parsedUrl = url.parse(req.url, true);
+            // 支援 query string 或 body 傳遞 source
+            const body = await parseBody(req).catch(() => ({}));
+            const validSources = ['manual', 'training', 'upload'];
+            const source = validSources.includes(parsedUrl.query.source) 
+                ? parsedUrl.query.source 
+                : validSources.includes(body?.source) 
+                    ? body.source 
+                    : 'manual';
+            
+            const sourceEmoji = source === 'manual' ? '🔧' : source === 'training' ? '🎓' : '📤';
+            const sourceLabel = source === 'manual' ? '手動' : source === 'training' ? '訓練後' : '上傳後';
+            console.log(`🔮 ${sourceEmoji} ${sourceLabel}觸發預測更新（同步）...`);
             const startTime = Date.now();
-            await generateServerSidePredictions('manual');  // 標記為手動觸發
+            await generateServerSidePredictions(source);
             const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-            console.log(`✅ 手動觸發的預測更新完成（${duration}秒）`);
+            console.log(`✅ ${sourceLabel}預測更新完成（${duration}秒）`);
             sendJson(res, { 
                 success: true, 
                 message: `預測更新完成（${duration}秒）`,
                 duration: parseFloat(duration),
-                source: 'manual'
+                source
             });
         } catch (error) {
-            console.error('❌ 手動觸發的預測更新失敗:', error);
+            console.error('❌ 預測更新失敗:', error);
             sendJson(res, { 
                 success: false, 
                 error: error.message,

@@ -4382,19 +4382,42 @@ async function initVolatilityChart(targetDate = null) {
         });
         
         // 為每個分組創建數據集
+        // v3.0.68: 使用 pointStyle 區分不同來源 (auto=circle, manual=rectRot, training=triangle, upload=star)
+        const sourceStyles = {
+            'auto': 'circle',
+            'manual': 'rectRot',      // 菱形
+            'training': 'triangle',   // 三角形
+            'upload': 'star'          // 星形
+        };
         const datasets = [];
         Object.keys(groupedByDay).sort((a, b) => b - a).forEach(key => {
             const dayKey = parseInt(key);
             const color = dayColors[dayKey] || dayColors[3];
-            const count = groupedByDay[dayKey].length;
+            const dataPoints = groupedByDay[dayKey];
+            const count = dataPoints.length;
+            
+            // 為每個點設定形狀
+            const pointStyles = dataPoints.map(p => sourceStyles[p.source] || 'circle');
+            // 非自動來源的點顯示更大
+            const pointRadii = dataPoints.map(p => {
+                const baseSize = dayKey === 0 ? 5 : 3;
+                return p.source !== 'auto' ? baseSize + 3 : baseSize;
+            });
+            // 非自動來源的點邊框加粗
+            const borderWidths = dataPoints.map(p => {
+                const baseWidth = dayKey === 0 ? 2 : 1;
+                return p.source !== 'auto' ? baseWidth + 1 : baseWidth;
+            });
+            
             datasets.push({
                 label: `${color.label} (${count}筆)`,
-                data: groupedByDay[dayKey],
+                data: dataPoints,
                 borderColor: color.border,
                 backgroundColor: color.bg,
-                borderWidth: dayKey === 0 ? 2 : 1,
-                pointRadius: dayKey === 0 ? 5 : 3,
+                borderWidth: borderWidths,
+                pointRadius: pointRadii,
                 pointHoverRadius: dayKey === 0 ? 7 : 5,
+                pointStyle: pointStyles,
                 fill: false,
                 tension: 0.1,
                 showLine: false  // 只顯示點，不連線（因為時間軸不連續）
@@ -4565,7 +4588,14 @@ async function initVolatilityChart(targetDate = null) {
                             label: (ctx) => {
                                 const value = ctx.parsed.y;
                                 const source = ctx.raw?.source;
-                                const sourceLabel = source === 'manual' ? ' 🔧手動' : '';
+                                // v3.0.68: 區分所有來源類型
+                                const sourceLabels = {
+                                    'manual': ' 🔧手動',
+                                    'training': ' 🎓訓練後',
+                                    'upload': ' 📤上傳後',
+                                    'auto': '' // 自動預測不顯示標籤（預設行為）
+                                };
+                                const sourceLabel = sourceLabels[source] || '';
                                 return `${ctx.dataset.label}: ${value} 人${sourceLabel}`;
                             }
                         }
@@ -8681,9 +8711,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateRealtimeFactors(aiAnalysisData);
         
         // 2. 觸發後端 XGBoost 預測（使用新的 AI + 天氣數據）
+        // v3.0.68: 前端定時器觸發的預測標記為 'auto'
         try {
             console.log('🔮 [自動] 觸發 XGBoost 預測...');
-            await fetch('/api/trigger-prediction', { method: 'POST' });
+            await fetch('/api/trigger-prediction?source=auto', { method: 'POST' });
             console.log('✅ [自動] XGBoost 預測完成');
             
             // v3.0.5: 清除計時器，讓 checkAutoPredictStatus 從後端獲取正確時間
@@ -8911,12 +8942,13 @@ function startTrainingSSE() {
             loadTrainingStatus();
             
             // v2.9.85: 訓練完成後觸發 XGBoost 預測
+            // v3.0.68: 傳遞 source='training' 區分訓練後觸發
             if (data.success) {
                 console.log('🔮 [訓練完成] 觸發 XGBoost + AI + 天氣預測...');
                 (async () => {
                     try {
-                        await fetch('/api/trigger-prediction', { method: 'POST' });
-                        console.log('✅ XGBoost 預測已觸發');
+                        await fetch('/api/trigger-prediction?source=training', { method: 'POST' });
+                        console.log('✅ XGBoost 預測已觸發（訓練後）');
                         
                         // v3.0.5: 清除計時器，讓 checkAutoPredictStatus 從後端獲取正確時間
                         autoPredictNextUpdateTime = null;
@@ -10309,9 +10341,10 @@ async function forceRefreshAI() {
         }
         
         // 🔄 觸發後端預測更新並刷新自動預測狀態 (v2.9.84)
+        // v3.0.68: 手動刷新 AI 時傳遞 source='manual'
         try {
             console.log('🔮 觸發後端預測更新...');
-            await fetch('/api/trigger-prediction', { method: 'POST' });
+            await fetch('/api/trigger-prediction?source=manual', { method: 'POST' });
             
             // v3.0.5: 清除當前計時器，讓 checkAutoPredictStatus 從後端獲取正確的時間
             autoPredictNextUpdateTime = null;

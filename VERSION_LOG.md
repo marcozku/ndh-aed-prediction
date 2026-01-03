@@ -1,5 +1,62 @@
 # 版本更新日誌
 
+## v3.0.77 - 2026-01-04 05:20 HKT
+
+### 🏷️ 修復預測來源標記錯誤 + 圖表視覺區分
+
+**問題 1 - 來源標記錯誤**：
+訓練完成後觸發的預測被錯誤標記為「手動」(`source='manual'`)，因為訓練完成後呼叫了 `/api/trigger-prediction` 而沒有傳遞正確的 source。
+
+**問題 2 - 無法視覺區分**：
+圖表無法區分哪些預測是自動生成、哪些是手動觸發、哪些是訓練後生成。
+
+**修復方案**：
+
+#### 1. 新增更多來源類型
+| source | 說明 | emoji |
+|--------|------|-------|
+| `auto` | 系統每 30 分鐘自動預測 | (無) |
+| `manual` | 用戶點擊「刷新 AI」按鈕 | 🔧 |
+| `training` | 模型訓練完成後自動觸發 | 🎓 |
+| `upload` | 上傳新數據後觸發 | 📤 |
+
+#### 2. API 更新
+`POST /api/trigger-prediction` 現在支援 `source` 參數：
+```bash
+# 手動刷新
+POST /api/trigger-prediction?source=manual
+
+# 訓練完成後
+POST /api/trigger-prediction?source=training
+
+# 上傳數據後
+POST /api/trigger-prediction?source=upload
+```
+
+#### 3. 圖表視覺區分
+不同來源使用不同的**點形狀**：
+| source | 形狀 | 說明 |
+|--------|------|------|
+| `auto` | ● 圓形 | 預設行為 |
+| `manual` | ◆ 菱形 | 手動觸發 |
+| `training` | ▲ 三角形 | 訓練後觸發 |
+| `upload` | ★ 星形 | 上傳後觸發 |
+
+非自動來源的點也會顯示更大 (+3px) 和加粗邊框 (+1px)。
+
+#### 4. Tooltip 更新
+懸停預測點時顯示來源標籤：
+- 自動預測：無標籤（預設）
+- 手動：`🔧手動`
+- 訓練後：`🎓訓練後`
+- 上傳後：`📤上傳後`
+
+**修改文件**：
+- `server.js` - API 支援 source 參數
+- `prediction.js` - 前端傳遞正確 source + 圖表視覺化
+
+---
+
 ## v3.0.70 - 2026-01-04 20:30 HKT
 
 ### 🔧 修復 AI 因子與其他因子重複計算問題

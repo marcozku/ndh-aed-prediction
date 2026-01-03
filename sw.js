@@ -4,9 +4,9 @@
  * v3.0.76 - 極端條件後處理調整
  */
 
-const SW_VERSION = '3.0.76';
-const CACHE_NAME = 'ndh-aed-v3.0.76';
-const STATIC_CACHE = 'ndh-static-v3.0.76';
+const SW_VERSION = '3.0.77';
+const CACHE_NAME = 'ndh-aed-v3.0.77';
+const STATIC_CACHE = 'ndh-static-v3.0.77';
 const DYNAMIC_CACHE = 'ndh-dynamic-v3.0.76';
 
 // 靜態資源（始終快取）
