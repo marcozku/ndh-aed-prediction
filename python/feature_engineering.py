@@ -528,9 +528,8 @@ def create_comprehensive_features(df, ai_factors_dict=None):
     df = add_weather_warning_features(df)
     
     # ============ AQHI 空氣質素特徵（環保署數據）============
-    # 注意：AQHI 功能暫時停用，因為環保署沒有提供公開 API 或歷史數據下載
-    # 待環保署開放數據後再啟用
-    # df = add_aqhi_features(df)
+    # 數據來源: https://www.aqhi.gov.hk/en/past-data/past-aqhi.html
+    df = add_aqhi_features(df)
     
     return df
 
@@ -911,10 +910,10 @@ def add_aqhi_features(df):
     df['AQHI_VeryHigh'] = 0  # AQHI >= 8
     
     if aqhi_df is None or len(aqhi_df) == 0:
-        print("ℹ️ 無 AQHI 數據，使用默認值", file=_sys.stderr)
+        print("Info: No AQHI data, using defaults", file=_sys.stderr)
         return df
     
-    # 合併 AQHI 數據
+    # 合併 AQHI 數據 - 使用 AQHI_General_Max 作為主要指標（每日最高值）
     matched = 0
     for idx, row in df.iterrows():
         date_val = row['Date']
@@ -927,8 +926,9 @@ def add_aqhi_features(df):
         aqhi_row = aqhi_df[aqhi_df['Date'].dt.strftime('%Y-%m-%d') == date_str]
         if len(aqhi_row) > 0:
             aqhi_row = aqhi_row.iloc[0]
-            general = aqhi_row.get('AQHI_General', 3)
-            roadside = aqhi_row.get('AQHI_Roadside', 4)
+            # 使用每日最高值作為主要指標（更能反映空氣質素對健康的影響）
+            general = aqhi_row.get('AQHI_General_Max', aqhi_row.get('AQHI_General', 3))
+            roadside = aqhi_row.get('AQHI_Roadside_Max', aqhi_row.get('AQHI_Roadside', 4))
             
             df.at[idx, 'AQHI_General'] = general
             df.at[idx, 'AQHI_Roadside'] = roadside

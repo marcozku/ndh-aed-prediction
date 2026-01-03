@@ -8401,8 +8401,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         historicalDataResult,
         weatherMonthlyResult,
         currentWeatherResult,
-        weatherForecastResult
-        // AQHI 暫時停用 - 環保署沒有公開 API
+        weatherForecastResult,
+        aqhiResult
     ] = await Promise.allSettled([
         checkDatabaseStatus(),
         checkAIStatus(),
@@ -8410,8 +8410,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         fetchHistoricalData().catch(e => ({ error: e.message })),
         fetchWeatherMonthlyAverages(),
         fetchCurrentWeather(),
-        fetchWeatherForecast()
-        // fetchCurrentAQHI() // 暫時停用
+        fetchWeatherForecast(),
+        fetchCurrentAQHI()
     ]);
     
     // 處理歷史數據結果
@@ -8580,7 +8580,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setInterval(async () => {
         const oldWeather = JSON.stringify(currentWeatherData);
         await fetchCurrentWeather();
-        // await fetchCurrentAQHI(); // AQHI 暫時停用
+        await fetchCurrentAQHI();
         updateWeatherDisplay();
         
         // 如果天氣數據有變化，刷新預測
@@ -9600,6 +9600,7 @@ function initAlgorithmContent() {
                     <div style="font-size: 0.75rem; color: #22c55e; font-weight: 600; margin-bottom: 6px;">✅ 系統自動計算 (XGBoost)</div>
                     <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.5;">
                         • 天氣 → Weather Factor<br>
+                        • <strong style="color: #3b82f6;">空氣質素 → AQHI 特徵</strong><br>
                         • 假期 → HK_PUBLIC_HOLIDAYS<br>
                         • 流感季節 → fluSeasonFactor<br>
                         • 週末/月份 → dowFactors
@@ -9613,7 +9614,7 @@ function initAlgorithmContent() {
                         • <strong>學校日曆事件</strong><br>
                         • <strong>傳染病/食物中毒爆發</strong><br>
                         • 醫院服務變更<br>
-                        <span style="color: #ef4444;">❌ 不分析天氣/假期</span>
+                        <span style="color: #ef4444;">❌ 不分析天氣/AQHI/假期</span>
                     </div>
                 </div>
             </div>
@@ -9646,10 +9647,10 @@ function initAlgorithmContent() {
         <div style="padding: 14px; background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.05)); border-radius: 10px; border-left: 4px solid #22c55e;">
             <div style="font-size: 0.82rem; color: #22c55e; font-weight: 600; margin-bottom: 8px;">🚀 v3.0.72 更新亮點</div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; font-size: 0.72rem; color: var(--text-secondary);">
+                <div>🌬️ 新增 AQHI 空氣質素特徵 (XGBoost)</div>
                 <div>🎭 AI 新增：體育/文娛活動分析</div>
                 <div>📚 AI 新增：學校日曆事件分析</div>
                 <div>🦠 AI 新增：傳染病/食物中毒爆發</div>
-                <div>⚠️ AQHI 待環保署開放 API 後啟用</div>
             </div>
         </div>
     `;
