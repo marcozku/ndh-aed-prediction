@@ -23,21 +23,43 @@ import { Status } from './modules/status.js';
 import { Weather } from './modules/weather.js';
 import { initUIEnhancements, AlertManager, Toast } from './modules/ui-enhancements.js';
 
-// 註冊 Service Worker
+// 註冊 Service Worker (改進 iOS Safari PWA 更新)
 async function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
         try {
             const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
             console.log('✅ Service Worker 已註冊:', registration.scope);
             
+            // 定期檢查更新 (每 5 分鐘，iOS Safari PWA 需要)
+            setInterval(() => {
+                registration.update().catch(() => {});
+            }, 5 * 60 * 1000);
+            
+            // 立即檢查更新
+            registration.update().catch(() => {});
+            
             // 檢查更新
             registration.addEventListener('updatefound', () => {
                 const newWorker = registration.installing;
-                newWorker?.addEventListener('statechange', () => {
-                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        console.log('🔄 新版本可用，請刷新頁面');
-                        if (typeof Toast !== 'undefined') {
-                            Toast.show('有新版本可用，請刷新頁面', 'info');
+                if (!newWorker) return;
+                
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed') {
+                        if (navigator.serviceWorker.controller) {
+                            // 有新版本 - 自動跳過等待並刷新 (iOS Safari PWA)
+                            console.log('🔄 新版本已安裝，自動更新...');
+                            newWorker.postMessage('SKIP_WAITING');
+                            
+                            // 顯示通知
+                            if (typeof Toast !== 'undefined') {
+                                Toast.show('正在更新到新版本...', 'info');
+                            }
+                            
+                            // 等待控制權切換後刷新
+                            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                                console.log('🔄 SW 控制權已切換，刷新頁面');
+                                window.location.reload();
+                            }, { once: true });
                         }
                     }
                 });

@@ -1,9 +1,10 @@
 /**
  * NDH AED 預測系統 - Service Worker
  * 提供離線支援和快取管理
- * v2.6.6
+ * v3.0.73 - 改進 iOS Safari PWA 更新機制
  */
 
+const SW_VERSION = '3.0.73';
 const CACHE_NAME = 'ndh-aed-v3.0.73';
 const STATIC_CACHE = 'ndh-static-v3.0.73';
 const DYNAMIC_CACHE = 'ndh-dynamic-v3.0.73';
@@ -48,7 +49,7 @@ self.addEventListener('install', (event) => {
 
 // 啟動事件
 self.addEventListener('activate', (event) => {
-    console.log('[SW] 啟動中...');
+    console.log('[SW] 啟動中... v' + SW_VERSION);
     event.waitUntil(
         caches.keys()
             .then((cacheNames) => {
@@ -61,8 +62,30 @@ self.addEventListener('activate', (event) => {
                         })
                 );
             })
-            .then(() => self.clients.claim())
+            .then(() => {
+                console.log('[SW] 已接管所有客戶端');
+                return self.clients.claim();
+            })
     );
+});
+
+// 監聽消息 - 支持強制更新 (iOS Safari PWA 需要)
+self.addEventListener('message', (event) => {
+    if (event.data === 'SKIP_WAITING') {
+        console.log('[SW] 收到 SKIP_WAITING 指令，立即更新');
+        self.skipWaiting();
+    }
+    if (event.data === 'GET_VERSION') {
+        event.ports[0].postMessage({ version: SW_VERSION });
+    }
+    if (event.data === 'FORCE_UPDATE') {
+        console.log('[SW] 收到 FORCE_UPDATE 指令，清除所有快取');
+        caches.keys().then(names => {
+            Promise.all(names.map(name => caches.delete(name))).then(() => {
+                self.skipWaiting();
+            });
+        });
+    }
 });
 
 // 請求攔截
