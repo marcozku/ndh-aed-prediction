@@ -6914,9 +6914,16 @@ section > * {
 
 /* Extra small devices: 480px and below */
 @media (max-width: 480px) {
+    /* Reduce gap between nav and content */
+    body {
+        padding-top: calc(var(--nav-height) + env(safe-area-inset-top, 0px) - 10px) !important;
+    }
+    
     /* Header - very compact */
     .app-header {
         padding: var(--space-sm) !important;
+        margin-bottom: var(--space-sm) !important;
+        margin-top: 0 !important;
     }
     
     .header-title {
