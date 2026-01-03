@@ -4418,18 +4418,37 @@ async function initVolatilityChart(targetDate = null) {
                         }
                     },
                     tooltip: {
-                        mode: 'index',
-                        intersect: false,
+                        mode: 'nearest',
+                        intersect: true,
                         callbacks: {
-                            title: (ctx) => {
-                                const date = new Date(ctx[0].parsed.x);
+                            // v3.0.68: 顯示原始預測時間，而非映射後的時間
+                            title: (ctxArr) => {
+                                if (!ctxArr || ctxArr.length === 0) return '';
+                                const dataPoint = ctxArr[0].raw;
+                                // 如果有原始時間，顯示它
+                                if (dataPoint && dataPoint.originalTime) {
+                                    const origTime = new Date(dataPoint.originalTime);
+                                    const daysAgo = dataPoint.daysAgo || 0;
+                                    const dayLabel = daysAgo === 0 ? '當天' : `前${daysAgo}天`;
+                                    return `預測於 ${origTime.toLocaleString('zh-HK', { 
+                                        timeZone: 'Asia/Hong_Kong',
+                                        month: 'numeric', day: 'numeric',
+                                        hour: '2-digit', minute: '2-digit'
+                                    })} (${dayLabel})`;
+                                }
+                                // 否則使用顯示時間
+                                const date = new Date(ctxArr[0].parsed.x);
                                 return date.toLocaleString('zh-HK', { 
                                     timeZone: 'Asia/Hong_Kong',
-                                    month: 'numeric', day: 'numeric',
                                     hour: '2-digit', minute: '2-digit'
                                 });
                             },
-                            label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y} 人`
+                            label: (ctx) => {
+                                const value = ctx.parsed.y;
+                                const source = ctx.raw?.source;
+                                const sourceLabel = source === 'manual' ? ' 🔧手動' : '';
+                                return `${ctx.dataset.label}: ${value} 人${sourceLabel}`;
+                            }
                         }
                     }
                 },
