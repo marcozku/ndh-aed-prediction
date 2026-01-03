@@ -2336,6 +2336,132 @@ const apiHandlers = {
         }
     },
     
+    // ============================================
+    // AQHI 空氣質素健康指數 API (v3.0.72)
+    // ============================================
+    'GET /api/aqhi-current': async (req, res) => {
+        try {
+            const https = require('https');
+            
+            // EPD AQHI RSS Feed (XML format)
+            const fetchAQHI = () => new Promise((resolve, reject) => {
+                const url = 'https://www.aqhi.gov.hk/epd/ddata/html/out/aqhi_ind_rss_eng.xml';
+                https.get(url, (response) => {
+                    let data = '';
+                    response.on('data', chunk => data += chunk);
+                    response.on('end', () => resolve(data));
+                }).on('error', reject);
+            });
+            
+            const xmlData = await fetchAQHI();
+            
+            // 解析 XML 提取 AQHI 數值
+            // 格式: <title>General Stations AQHI : 3 (Low)</title>
+            const generalMatch = xmlData.match(/General Stations AQHI\s*:\s*(\d+)/i);
+            const roadsideMatch = xmlData.match(/Roadside Stations AQHI\s*:\s*(\d+)/i);
+            
+            const general = generalMatch ? parseInt(generalMatch[1]) : null;
+            const roadside = roadsideMatch ? parseInt(roadsideMatch[1]) : null;
+            
+            // 計算風險等級
+            const maxAqhi = Math.max(general || 0, roadside || 0);
+            let risk = 1;
+            let riskLabel = 'Low';
+            if (maxAqhi >= 11) { risk = 5; riskLabel = 'Serious'; }
+            else if (maxAqhi >= 8) { risk = 4; riskLabel = 'Very High'; }
+            else if (maxAqhi >= 7) { risk = 3; riskLabel = 'High'; }
+            else if (maxAqhi >= 4) { risk = 2; riskLabel = 'Moderate'; }
+            
+            const result = {
+                success: true,
+                timestamp: new Date().toISOString(),
+                data: {
+                    general,
+                    roadside,
+                    risk,
+                    riskLabel,
+                    high: maxAqhi >= 7,
+                    veryHigh: maxAqhi >= 8
+                },
+                source: 'Hong Kong EPD AQHI'
+            };
+            
+            // 保存到歷史記錄
+            const today = new Date().toISOString().split('T')[0];
+            const aqhiPath = require('path').join(__dirname, 'python/aqhi_history.csv');
+            const fs = require('fs');
+            
+            try {
+                let existingData = '';
+                if (fs.existsSync(aqhiPath)) {
+                    existingData = fs.readFileSync(aqhiPath, 'utf8');
+                }
+                
+                // 檢查今天是否已有記錄
+                if (!existingData.includes(today)) {
+                    const newLine = `${today},${general || 3},${roadside || 4},${risk}\n`;
+                    if (!existingData) {
+                        fs.writeFileSync(aqhiPath, 'Date,AQHI_General,AQHI_Roadside,AQHI_Risk\n' + newLine);
+                    } else {
+                        fs.appendFileSync(aqhiPath, newLine);
+                    }
+                    console.log(`✅ AQHI 已保存: ${today} - General: ${general}, Roadside: ${roadside}`);
+                }
+            } catch (saveErr) {
+                console.error('⚠️ 保存 AQHI 歷史失敗:', saveErr.message);
+            }
+            
+            sendJson(res, result);
+        } catch (error) {
+            console.error('❌ 獲取 AQHI 失敗:', error.message);
+            sendJson(res, {
+                success: false,
+                error: error.message,
+                fallback: {
+                    general: 3,
+                    roadside: 4,
+                    risk: 1,
+                    riskLabel: 'Low'
+                }
+            }, 500);
+        }
+    },
+    
+    // AQHI 歷史數據
+    'GET /api/aqhi-history': async (req, res) => {
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const aqhiPath = path.join(__dirname, 'python/aqhi_history.csv');
+            
+            if (!fs.existsSync(aqhiPath)) {
+                return sendJson(res, { success: false, error: 'AQHI 歷史數據不存在' });
+            }
+            
+            const content = fs.readFileSync(aqhiPath, 'utf8');
+            const lines = content.trim().split('\n');
+            const headers = lines[0].split(',');
+            const data = lines.slice(1).map(line => {
+                const values = line.split(',');
+                return {
+                    date: values[0],
+                    general: parseInt(values[1]) || 3,
+                    roadside: parseInt(values[2]) || 4,
+                    risk: parseInt(values[3]) || 1
+                };
+            });
+            
+            sendJson(res, {
+                success: true,
+                count: data.length,
+                data,
+                source: 'aqhi_history.csv'
+            });
+        } catch (error) {
+            sendJson(res, { success: false, error: error.message }, 500);
+        }
+    },
+
     // 天氣月度平均（從真實歷史數據計算）
     'GET /api/weather-monthly-averages': async (req, res) => {
         try {

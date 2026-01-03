@@ -528,7 +528,9 @@ def create_comprehensive_features(df, ai_factors_dict=None):
     df = add_weather_warning_features(df)
     
     # ============ AQHI 空氣質素特徵（環保署數據）============
-    df = add_aqhi_features(df)
+    # 注意：AQHI 功能暫時停用，因為環保署沒有提供公開 API 或歷史數據下載
+    # 待環保署開放數據後再啟用
+    # df = add_aqhi_features(df)
     
     return df
 
