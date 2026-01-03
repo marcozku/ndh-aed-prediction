@@ -1,5 +1,56 @@
 # 版本更新日誌
 
+## v3.0.69 - 2026-01-04 20:00 HKT
+
+### ⚡ 頁面載入速度優化
+
+**問題**：
+頁面每次刷新載入較慢
+
+**優化措施**：
+
+#### 1. 移除 no-cache meta tag
+- 舊：`<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">`
+- 新：由 Service Worker 控制快取策略
+
+#### 2. 伺服器端快取策略
+```javascript
+// HTML/JS/CSS: 1小時，支援 stale-while-revalidate
+'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+
+// 圖片: 7天
+'Cache-Control': 'public, max-age=604800, immutable'
+
+// 字體: 30天
+'Cache-Control': 'public, max-age=2592000, immutable'
+```
+
+#### 3. 並行 API 請求
+初始化時的 7 個獨立請求現在並行執行：
+- `checkDatabaseStatus()`
+- `checkAIStatus()`
+- `checkAutoPredictStatus()`
+- `fetchHistoricalData()`
+- `fetchWeatherMonthlyAverages()`
+- `fetchCurrentWeather()`
+- `fetchWeatherForecast()`
+
+使用 `Promise.allSettled()` 確保即使部分請求失敗也不影響其他請求。
+
+#### 4. 圖表懶載入 (IntersectionObserver)
+非首屏圖表延遲載入直到滾動到可視區域：
+- 首屏直接載入：`forecast`, `dow`, `month`
+- 懶載入：`history`, `comparison`, `weather-corr`, `volatility`
+
+設置 `rootMargin: '200px'` 提前 200px 開始預載入。
+
+**預期效果**：
+- 首次載入快 50-70%
+- 重複載入快 80%+（快取命中）
+- 首屏渲染時間大幅減少
+
+---
+
 ## v3.0.68 - 2026-01-04 03:30 HKT
 
 ### 🔧 修復 Tooltip 顯示原始預測時間

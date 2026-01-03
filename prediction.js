@@ -6,7 +6,90 @@
  * 使用多因素預測模型：星期效應、假期效應、季節效應、流感季節等
  * 
  * v2.9.0: 新增 XGBoost 機器學習預測支持
+ * v3.0.69: 新增圖表懶載入、並行 API 請求優化
  */
+
+// ============================================
+// v3.0.69: 圖表懶載入管理器
+// ============================================
+const LazyChartLoader = {
+    observers: new Map(),
+    loadedCharts: new Set(),
+    predictor: null,
+    
+    // 設置預測器引用
+    setPredictor(p) {
+        this.predictor = p;
+    },
+    
+    // 初始化懶載入觀察器
+    init() {
+        if (!('IntersectionObserver' in window)) {
+            console.log('⚠️ IntersectionObserver 不支援，使用即時載入');
+            return false;
+        }
+        return true;
+    },
+    
+    // 為圖表設置懶載入
+    observe(chartId, loadFunction) {
+        const container = document.getElementById(`${chartId}-container`) || 
+                         document.getElementById(`${chartId}-chart-container`) ||
+                         document.querySelector(`#${chartId}-chart`)?.parentElement;
+        
+        if (!container) {
+            console.warn(`找不到圖表容器: ${chartId}`);
+            return;
+        }
+        
+        // 如果已載入，跳過
+        if (this.loadedCharts.has(chartId)) return;
+        
+        const observer = new IntersectionObserver(async (entries) => {
+            for (const entry of entries) {
+                if (entry.isIntersecting && !this.loadedCharts.has(chartId)) {
+                    console.log(`📊 懶載入圖表: ${chartId}`);
+                    this.loadedCharts.add(chartId);
+                    observer.disconnect();
+                    this.observers.delete(chartId);
+                    
+                    try {
+                        await loadFunction();
+                    } catch (error) {
+                        console.error(`圖表 ${chartId} 載入失敗:`, error);
+                        this.loadedCharts.delete(chartId); // 允許重試
+                    }
+                }
+            }
+        }, {
+            rootMargin: '200px 0px', // 提前 200px 開始載入
+            threshold: 0.01
+        });
+        
+        observer.observe(container);
+        this.observers.set(chartId, observer);
+    },
+    
+    // 強制載入特定圖表
+    async forceLoad(chartId, loadFunction) {
+        if (this.loadedCharts.has(chartId)) return;
+        this.loadedCharts.add(chartId);
+        
+        const observer = this.observers.get(chartId);
+        if (observer) {
+            observer.disconnect();
+            this.observers.delete(chartId);
+        }
+        
+        await loadFunction();
+    },
+    
+    // 清除所有觀察器
+    cleanup() {
+        this.observers.forEach(observer => observer.disconnect());
+        this.observers.clear();
+    }
+};
 
 // ============================================
 // XGBoost 預測 API
@@ -1829,21 +1912,50 @@ async function initCharts(predictor) {
         handleChartLoadingError('month', error);
     }
     
-    // 4. 歷史趨勢圖 - 從數據庫獲取數據
-    await initHistoryChart();
+    // v3.0.69: 使用懶載入優化非首屏圖表
+    // 首屏圖表直接載入：forecast, dow, month (已在上面處理)
+    // 非首屏圖表懶載入：history, comparison, weather-corr, volatility
     
-    // 5. 實際vs預測對比圖
-    await initComparisonChart();
-    
-    // 6. 詳細比較表格
-    await initComparisonTable();
-    
-    // 7. v2.9.91: 天氣影響分析圖表
-    await initWeatherCorrChart();
-    
-    // 8. v2.9.88: 預測波動圖表
-    await initVolatilityChart();
-    setupVolatilityChartEvents();
+    if (LazyChartLoader.init()) {
+        // 4. 歷史趨勢圖 - 懶載入
+        LazyChartLoader.observe('history', async () => {
+            await initHistoryChart();
+        });
+        
+        // 5. 實際vs預測對比圖 - 懶載入
+        LazyChartLoader.observe('comparison', async () => {
+            await initComparisonChart();
+            await initComparisonTable();
+        });
+        
+        // 7. 天氣影響分析圖表 - 懶載入
+        LazyChartLoader.observe('weather-corr', async () => {
+            await initWeatherCorrChart();
+        });
+        
+        // 8. 預測波動圖表 - 懶載入
+        LazyChartLoader.observe('volatility', async () => {
+            await initVolatilityChart();
+            setupVolatilityChartEvents();
+        });
+    } else {
+        // IntersectionObserver 不支援，直接載入
+        // 4. 歷史趨勢圖 - 從數據庫獲取數據
+        await initHistoryChart();
+        
+        // 5. 實際vs預測對比圖
+        await initComparisonChart();
+        
+        // 6. 詳細比較表格
+        await initComparisonTable();
+        
+        // 7. v2.9.91: 天氣影響分析圖表
+        await initWeatherCorrChart();
+        
+        // 8. v2.9.88: 預測波動圖表
+        await initVolatilityChart();
+        setupVolatilityChartEvents();
+    }
     
     // 強制所有圖表重新計算尺寸以確保響應式
     setTimeout(() => {
@@ -8240,14 +8352,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 先創建預測器（使用硬編碼數據作為初始值）
     const predictor = new NDHAttendancePredictor();
     
-    // 檢查數據庫狀態
+    // v3.0.69: 並行執行獨立的初始化任務以加速載入
     updateSectionProgress('today-prediction', 5);
-    await checkDatabaseStatus();
     
-    // 從數據庫載入最新歷史數據並更新預測器
+    // 並行執行：數據庫狀態、AI狀態、自動預測狀態、歷史數據、天氣數據
+    const [
+        dbStatusResult,
+        aiStatusResult,
+        autoPredictResult,
+        historicalDataResult,
+        weatherMonthlyResult,
+        currentWeatherResult,
+        weatherForecastResult
+    ] = await Promise.allSettled([
+        checkDatabaseStatus(),
+        checkAIStatus(),
+        checkAutoPredictStatus(),
+        fetchHistoricalData().catch(e => ({ error: e.message })),
+        fetchWeatherMonthlyAverages(),
+        fetchCurrentWeather(),
+        fetchWeatherForecast()
+    ]);
+    
+    // 處理歷史數據結果
     try {
-        const latestHistoricalData = await fetchHistoricalData();
-        if (latestHistoricalData && latestHistoricalData.length > 0) {
+        const latestHistoricalData = historicalDataResult.status === 'fulfilled' ? historicalDataResult.value : null;
+        if (latestHistoricalData && !latestHistoricalData.error && latestHistoricalData.length > 0) {
             // 轉換為預測器需要的格式
             const formattedData = latestHistoricalData.map(d => ({
                 date: d.date,
@@ -8260,18 +8390,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn('⚠️ 無法從數據庫載入歷史數據，使用硬編碼數據:', error.message);
     }
     
-    // 檢查 AI 狀態
-    updateSectionProgress('today-prediction', 8);
-    await checkAIStatus();
-    
-    // 檢查自動預測狀態 (v2.9.53)
-    await checkAutoPredictStatus();
-    
-    // 獲取並顯示天氣（使用真實 HKO API 數據）
-    updateSectionProgress('today-prediction', 10);
-    await fetchWeatherMonthlyAverages(); // 載入 HKO 歷史月度平均
-    await fetchCurrentWeather();
-    await fetchWeatherForecast();
+    // 顯示天氣
     updateWeatherDisplay();
     updateSectionProgress('today-prediction', 15);
     

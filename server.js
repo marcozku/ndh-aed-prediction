@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.0.68';
+const MODEL_VERSION = '3.0.69';
 
 // ============================================
 // HKT 時間工具函數
@@ -3652,6 +3652,28 @@ const server = http.createServer(async (req, res) => {
             'Content-Security-Policy': "frame-ancestors 'self' https://ndhaedduty.up.railway.app https://ndhaedroster.up.railway.app https://*.up.railway.app http://localhost:* http://127.0.0.1:*"
         };
         
+        // v3.0.69: 靜態資源快取策略
+        const getCacheHeaders = (ext) => {
+            // 可變更文件（使用版本號）- 1小時
+            if (['.html', '.js', '.css'].includes(ext)) {
+                return { 'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400' };
+            }
+            // 圖片資源 - 7天
+            if (['.png', '.jpg', '.jpeg', '.svg', '.webp', '.gif', '.ico'].includes(ext)) {
+                return { 'Cache-Control': 'public, max-age=604800, immutable' };
+            }
+            // 字體資源 - 30天
+            if (['.woff', '.woff2', '.ttf', '.eot'].includes(ext)) {
+                return { 'Cache-Control': 'public, max-age=2592000, immutable' };
+            }
+            // JSON 配置 - 1小時
+            if (ext === '.json') {
+                return { 'Cache-Control': 'public, max-age=3600' };
+            }
+            // 預設 - 不快取
+            return { 'Cache-Control': 'no-cache' };
+        };
+        
         fs.readFile(fullPath, (err, content) => {
             if (err) {
                 if (err.code === 'ENOENT') {
@@ -3660,7 +3682,11 @@ const server = http.createServer(async (req, res) => {
                             res.writeHead(500);
                             res.end('Server Error');
                         } else {
-                            res.writeHead(200, { 'Content-Type': 'text/html', ...frameHeaders });
+                            res.writeHead(200, { 
+                                'Content-Type': 'text/html', 
+                                'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+                                ...frameHeaders 
+                            });
                             res.end(content, 'utf-8');
                         }
                     });
@@ -3669,7 +3695,11 @@ const server = http.createServer(async (req, res) => {
                     res.end('Server Error');
                 }
             } else {
-                res.writeHead(200, { 'Content-Type': contentType, ...frameHeaders });
+                res.writeHead(200, { 
+                    'Content-Type': contentType, 
+                    ...getCacheHeaders(ext),
+                    ...frameHeaders 
+                });
                 res.end(content, 'utf-8');
             }
         });
