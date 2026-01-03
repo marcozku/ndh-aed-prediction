@@ -31,10 +31,22 @@ export class Status {
         const el = document.getElementById('ai-status');
         if (el) {
             el.className = `status-badge ai-status ${status.connected ? 'connected' : 'disconnected'}`;
-            el.innerHTML = `
-                <span class="status-icon">${status.connected ? '✅' : '❌'}</span>
-                <span class="status-text">${status.connected ? 'AI 已連接' : 'AI 未連接'}</span>
-            `;
+            if (status.connected) {
+                const modelName = status.currentModel || '未知';
+                // 簡化模型名稱顯示
+                const shortModel = modelName.replace('gpt-', '').replace('deepseek-', 'DS-');
+                el.innerHTML = `
+                    <span class="status-icon">🤖</span>
+                    <span class="status-text">${shortModel}</span>
+                `;
+                el.title = `AI 模型: ${modelName} (${status.modelTier || 'unknown'})`;
+            } else {
+                el.innerHTML = `
+                    <span class="status-icon">❌</span>
+                    <span class="status-text">AI 未連接</span>
+                `;
+                el.title = status.error || 'AI 服務未連接';
+            }
         }
     }
 }

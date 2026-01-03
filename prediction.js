@@ -6563,40 +6563,33 @@ async function checkAIStatus() {
         if (data.connected) {
             const modelName = data.currentModel || '未知';
             const tier = data.modelTier || 'unknown';
-            const tierNames = {
-                'premium': '高級',
-                'standard': '中級',
-                'basic': '基礎',
-                'unknown': '未知'
-            };
-            const tierName = tierNames[tier] || '未知';
+            // 簡化模型名稱顯示
+            const shortModel = modelName.replace('gpt-', '').replace('deepseek-', 'DS-');
             
-            aiStatusEl.className = 'ai-status connected';
+            aiStatusEl.className = 'status-badge ai-status connected';
             aiStatusEl.innerHTML = `
-                <span class="ai-status-icon">🤖</span>
-                <span class="ai-status-text">AI 已連接</span>
-                <span class="ai-status-details">
-                    ${tierName}模型: ${modelName}
-                </span>
+                <span class="status-icon">🤖</span>
+                <span class="status-text">${shortModel}</span>
             `;
+            aiStatusEl.title = `AI 模型: ${modelName} (${tier})`;
         } else {
-            aiStatusEl.className = 'ai-status disconnected';
+            aiStatusEl.className = 'status-badge ai-status disconnected';
             aiStatusEl.innerHTML = `
-                <span class="ai-status-icon">⚠️</span>
-                <span class="ai-status-text">AI 未連接</span>
-                <span class="ai-status-details">${data.error || '請檢查服務器配置'}</span>
+                <span class="status-icon">❌</span>
+                <span class="status-text">AI 未連接</span>
             `;
+            aiStatusEl.title = data.error || '請檢查服務器配置';
         }
         
         console.log('🤖 AI 狀態:', JSON.stringify(data, null, 2));
         return data;
     } catch (error) {
-        aiStatusEl.className = 'ai-status disconnected';
+        aiStatusEl.className = 'status-badge ai-status disconnected';
         aiStatusEl.innerHTML = `
-            <span class="ai-status-icon">❌</span>
-            <span class="ai-status-text">無法檢查 AI 狀態</span>
-            <span class="ai-status-details">${error.message}</span>
+            <span class="status-icon">❌</span>
+            <span class="status-text">AI 錯誤</span>
         `;
+        aiStatusEl.title = `無法檢查 AI 狀態: ${error.message}`;
         console.error('❌ AI 狀態檢查失敗:', error);
         return null;
     }
