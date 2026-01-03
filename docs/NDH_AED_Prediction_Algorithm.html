@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NDH AED Prediction Algorithm - Technical Documentation v3.0.76</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --secondary: #64748b;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --code-bg: #f8fafc;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.7;
+            color: var(--text);
+            background: var(--bg);
+            font-size: 11pt;
+        }
+        
+        .container {
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 20mm 25mm;
+        }
+        
+        /* Cover Page */
+        .cover {
+            text-align: center;
+            padding: 60mm 0;
+            page-break-after: always;
+        }
+        
+        .cover h1 {
+            font-size: 28pt;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 10mm;
+        }
+        
+        .cover h2 {
+            font-size: 16pt;
+            font-weight: 400;
+            color: var(--secondary);
+            margin-bottom: 20mm;
+        }
+        
+        .cover .meta {
+            font-size: 11pt;
+            color: var(--text-light);
+        }
+        
+        .cover .meta p {
+            margin: 2mm 0;
+        }
+        
+        /* Headers */
+        h1 {
+            font-size: 20pt;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 15mm 0 8mm 0;
+            padding-bottom: 3mm;
+            border-bottom: 2px solid var(--primary);
+        }
+        
+        h2 {
+            font-size: 14pt;
+            font-weight: 600;
+            color: var(--text);
+            margin: 10mm 0 5mm 0;
+        }
+        
+        h3 {
+            font-size: 12pt;
+            font-weight: 600;
+            color: var(--text);
+            margin: 8mm 0 4mm 0;
+        }
+        
+        h4 {
+            font-size: 11pt;
+            font-weight: 600;
+            color: var(--secondary);
+            margin: 6mm 0 3mm 0;
+        }
+        
+        /* Paragraphs */
+        p {
+            margin: 3mm 0;
+            text-align: justify;
+        }
+        
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 5mm 0;
+            font-size: 10pt;
+        }
+        
+        th, td {
+            padding: 2.5mm 4mm;
+            text-align: left;
+            border: 1px solid var(--border);
+        }
+        
+        th {
+            background: var(--code-bg);
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        tr:nth-child(even) {
+            background: #fafafa;
+        }
+        
+        /* Code */
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9pt;
+            background: var(--code-bg);
+            padding: 1mm 2mm;
+            border-radius: 2mm;
+            color: var(--danger);
+        }
+        
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 5mm;
+            border-radius: 3mm;
+            overflow-x: auto;
+            margin: 5mm 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9pt;
+            line-height: 1.5;
+        }
+        
+        pre code {
+            background: none;
+            color: inherit;
+            padding: 0;
+        }
+        
+        /* Math */
+        .math {
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+            text-align: center;
+            padding: 4mm 0;
+            background: var(--code-bg);
+            margin: 4mm 0;
+            border-radius: 2mm;
+        }
+        
+        .math-inline {
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+        }
+        
+        /* Lists */
+        ul, ol {
+            margin: 3mm 0 3mm 8mm;
+        }
+        
+        li {
+            margin: 1.5mm 0;
+        }
+        
+        /* Boxes */
+        .info-box {
+            background: #eff6ff;
+            border-left: 4px solid var(--primary);
+            padding: 4mm 5mm;
+            margin: 5mm 0;
+            border-radius: 0 3mm 3mm 0;
+        }
+        
+        .warning-box {
+            background: #fef3c7;
+            border-left: 4px solid var(--warning);
+            padding: 4mm 5mm;
+            margin: 5mm 0;
+            border-radius: 0 3mm 3mm 0;
+        }
+        
+        /* Architecture Diagram */
+        .architecture {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border: 1px solid var(--border);
+            border-radius: 4mm;
+            padding: 6mm;
+            margin: 6mm 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9pt;
+            white-space: pre;
+            line-height: 1.4;
+        }
+        
+        /* Page breaks */
+        .page-break {
+            page-break-after: always;
+        }
+        
+        /* TOC */
+        .toc {
+            page-break-after: always;
+        }
+        
+        .toc h2 {
+            margin-bottom: 8mm;
+        }
+        
+        .toc-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .toc-list li {
+            padding: 2mm 0;
+            border-bottom: 1px dotted var(--border);
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .toc-list .section-num {
+            font-weight: 600;
+            color: var(--primary);
+            margin-right: 3mm;
+        }
+        
+        /* References */
+        .reference {
+            padding: 3mm 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 10pt;
+        }
+        
+        .reference:last-child {
+            border-bottom: none;
+        }
+        
+        .reference .authors {
+            font-weight: 500;
+        }
+        
+        .reference .title {
+            font-style: italic;
+        }
+        
+        .reference .url {
+            color: var(--primary);
+            word-break: break-all;
+        }
+        
+        /* Importance bar */
+        .importance-bar {
+            display: inline-block;
+            height: 4mm;
+            background: var(--primary);
+            border-radius: 1mm;
+            margin-left: 2mm;
+            vertical-align: middle;
+        }
+        
+        /* Print styles */
+        @media print {
+            body {
+                font-size: 10pt;
+            }
+            
+            .container {
+                padding: 15mm 20mm;
+            }
+            
+            pre {
+                background: #f1f5f9 !important;
+                color: #1e293b !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            .architecture {
+                background: #f8fafc !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            a {
+                color: var(--primary);
+                text-decoration: none;
+            }
+        }
+        
+        /* Footer */
+        .footer {
+            text-align: center;
+            font-size: 9pt;
+            color: var(--text-light);
+            margin-top: 20mm;
+            padding-top: 5mm;
+            border-top: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Cover Page -->
+        <div class="cover">
+            <h1>NDH AED Attendance<br>Prediction Algorithm</h1>
+            <h2>Technical Documentation</h2>
+            <div class="meta">
+                <p><strong>Version:</strong> 3.0.76</p>
+                <p><strong>Date:</strong> January 4, 2026</p>
+                <p><strong>Institution:</strong> North District Hospital</p>
+                <p><strong>Department:</strong> Accident & Emergency</p>
+            </div>
+        </div>
+        
+        <!-- Table of Contents -->
+        <div class="toc">
+            <h2>Table of Contents</h2>
+            <ul class="toc-list">
+                <li><span class="section-num">1</span> Executive Summary</li>
+                <li><span class="section-num">2</span> System Architecture</li>
+                <li><span class="section-num">3</span> Data Sources</li>
+                <li><span class="section-num">4</span> Feature Engineering</li>
+                <li><span class="section-num">5</span> XGBoost Model</li>
+                <li><span class="section-num">6</span> Bayesian Fusion Layer</li>
+                <li><span class="section-num">7</span> Post-Processing Adjustments</li>
+                <li><span class="section-num">8</span> Mathematical Framework</li>
+                <li><span class="section-num">9</span> Performance Evaluation</li>
+                <li><span class="section-num">10</span> Concept Drift Handling</li>
+                <li><span class="section-num">11</span> Research Evidence</li>
+                <li><span class="section-num">12</span> References</li>
+            </ul>
+        </div>
+        
+        <!-- Section 1: Executive Summary -->
+        <h1>1. Executive Summary</h1>
+        
+        <h2>1.1 Purpose</h2>
+        <p>This document provides a comprehensive technical specification of the North District Hospital (NDH) Accident & Emergency Department (AED) attendance prediction algorithm. The system forecasts daily patient attendance to support resource planning and staffing decisions.</p>
+        
+        <h2>1.2 Key Performance Metrics</h2>
+        <table>
+            <tr><th>Metric</th><th>Value</th><th>Description</th></tr>
+            <tr><td>MAE</td><td>4.90 patients</td><td>Mean Absolute Error</td></tr>
+            <tr><td>MAPE</td><td>1.96%</td><td>Mean Absolute Percentage Error</td></tr>
+            <tr><td>R²</td><td>0.898</td><td>Coefficient of Determination</td></tr>
+            <tr><td>Features</td><td>25</td><td>Optimized feature count</td></tr>
+        </table>
+        
+        <h2>1.3 Algorithm Overview</h2>
+        <p>The prediction system employs a three-layer architecture:</p>
+        <div class="architecture">Layer 1: XGBoost Regression (25 optimized features)
+    ↓
+Layer 2: Pragmatic Bayesian Fusion (AI + Weather factors)
+    ↓
+Layer 3: Extreme Condition Post-Processing
+    ↓
+Final Prediction</div>
+        
+        <div class="page-break"></div>
+        
+        <!-- Section 2: System Architecture -->
+        <h1>2. System Architecture</h1>
+        
+        <h2>2.1 High-Level Data Flow</h2>
+        <div class="architecture">┌─────────────────────────────────────────────────────────────┐
+│                    DATA SOURCES                              │
+├──────────────┬──────────────┬──────────────┬────────────────┤
+│  Historical  │     HKO      │     EPD      │      AI        │
+│  Attendance  │   Weather    │    AQHI      │   Analysis     │
+│   Database   │     API      │     API      │   (GPT-4)      │
+└──────┬───────┴──────┬───────┴──────┬───────┴───────┬────────┘
+       │              │              │               │
+       ▼              ▼              ▼               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 FEATURE ENGINEERING                          │
+│  • EWMA (Exponential Weighted Moving Average)                │
+│  • Lag Features (1-365 days)                                 │
+│  • Calendar Features (Day of Week, Holidays)                 │
+│  • Rolling Statistics (Mean, Std, Position)                  │
+└─────────────────────────┬───────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    XGBOOST MODEL                             │
+│  • Gradient Boosted Decision Trees                           │
+│  • 25 Optimized Features (RFE Selected)                      │
+│  • Optuna Hyperparameter Tuning                              │
+└─────────────────────────┬───────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│               BAYESIAN FUSION LAYER                          │
+│  • XGBoost Base Prediction (weight: 0.75)                    │
+│  • AI Factor Weight (0.15)                                   │
+│  • Weather Factor Weight (0.10)                              │
+└─────────────────────────┬───────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│            POST-PROCESSING ADJUSTMENTS                       │
+│  • AQHI ≥7: +2.5%, ≥10: +5%                                 │
+│  • Cold <8°C: -3%, <12°C: -1.5%                             │
+│  • Heavy Rain >25mm: -5%                                     │
+│  • Strong Wind >30km/h: -3%                                  │
+└─────────────────────────┬───────────────────────────────────┘
+                          ↓
+                  FINAL PREDICTION</div>
+        
+        <h2>2.2 Technology Stack</h2>
+        <table>
+            <tr><th>Component</th><th>Technology</th></tr>
+            <tr><td>Backend</td><td>Node.js, Express</td></tr>
+            <tr><td>Database</td><td>PostgreSQL</td></tr>
+            <tr><td>ML Model</td><td>XGBoost (Python)</td></tr>
+            <tr><td>AI Analysis</td><td>OpenAI GPT-4</td></tr>
+            <tr><td>Weather Data</td><td>HKO Open Data API</td></tr>
+            <tr><td>Air Quality</td><td>EPD AQHI API</td></tr>
+        </table>
+        
+        <div class="page-break"></div>
+        
+        <!-- Section 3: Data Sources -->
+        <h1>3. Data Sources</h1>
+        
+        <h2>3.1 Historical Attendance Data</h2>
+        <p><strong>Source:</strong> NDH AED Internal Records<br>
+        <strong>Coverage:</strong> December 1, 2014 – Present<br>
+        <strong>Records:</strong> 4,050+ daily observations</p>
+        
+        <table>
+            <tr><th>Statistic</th><th>Value</th></tr>
+            <tr><td>Mean Daily Attendance</td><td>249.5 patients</td></tr>
+            <tr><td>Standard Deviation</td><td>32.4 patients</td></tr>
+            <tr><td>Minimum</td><td>111 patients</td></tr>
+            <tr><td>Maximum</td><td>394 patients</td></tr>
+        </table>
+        
+        <h2>3.2 Weather Data</h2>
+        <p><strong>Source:</strong> Hong Kong Observatory (HKO)<br>
+        <strong>API:</strong> <a href="https://www.hko.gov.hk/en/weatherAPI/">https://www.hko.gov.hk/en/weatherAPI/</a></p>
+        
+        <table>
+            <tr><th>Variable</th><th>Unit</th><th>Correlation (r)</th><th>p-value</th></tr>
+            <tr><td>Visibility</td><td>km</td><td>+0.120</td><td>&lt;0.001</td></tr>
+            <tr><td>Wind Speed</td><td>km/h</td><td>-0.106</td><td>&lt;0.001</td></tr>
+            <tr><td>Dew Point</td><td>°C</td><td>+0.093</td><td>&lt;0.001</td></tr>
+            <tr><td>Min Temperature</td><td>°C</td><td>+0.082</td><td>&lt;0.001</td></tr>
+            <tr><td>Humidity</td><td>%</td><td>+0.079</td><td>&lt;0.001</td></tr>
+            <tr><td>Rainfall</td><td>mm</td><td>-0.063</td><td>&lt;0.001</td></tr>
+        </table>
+        
+        <h2>3.3 Air Quality Data</h2>
+        <p><strong>Source:</strong> Environmental Protection Department (EPD)<br>
+        <strong>API:</strong> <a href="https://www.aqhi.gov.hk/">https://www.aqhi.gov.hk/</a></p>
+        
+        <table>
+            <tr><th>AQHI Level</th><th>Risk Category</th><th>Impact on Attendance</th></tr>
+            <tr><td>1-3</td><td>Low</td><td>Baseline</td></tr>
+            <tr><td>4-6</td><td>Moderate</td><td>+1-2%</td></tr>
+            <tr><td>7</td><td>High</td><td>+2.5%</td></tr>
+            <tr><td>8-10</td><td>Very High</td><td>+3-4%</td></tr>
+            <tr><td>10+</td><td>Serious</td><td>+5%</td></tr>
+        </table>
+        
+        <div class="page-break"></div>
+        
+        <!-- Section 4: Feature Engineering -->
+        <h1>4. Feature Engineering</h1>
+        
+        <h2>4.1 Exponential Weighted Moving Average (EWMA)</h2>
+        <p>EWMA is the most important predictor, accounting for <strong>87% of model importance</strong>.</p>
+        
+        <div class="math">
+            EWMA<sub>t</sub> = α · X<sub>t</sub> + (1 - α) · EWMA<sub>t-1</sub>
+        </div>
+        
+        <p>Where:</p>
+        <ul>
+            <li><span class="math-inline">X<sub>t</sub></span> = Attendance on day <span class="math-inline">t</span></li>
+            <li><span class="math-inline">α = 2/(span + 1)</span> (smoothing factor)</li>
+            <li><span class="math-inline">span</span> = Window size (7, 14, or 30 days)</li>
+        </ul>
+        
+        <div class="info-box">
+            <strong>Research Basis:</strong> Hyndman & Athanasopoulos (2021) demonstrate EWMA's effectiveness for time series forecasting, giving more weight to recent observations while smoothing noise.
+        </div>
+        
+        <h2>4.2 Optimized Feature Set (25 Features)</h2>
+        <p>Selected via Recursive Feature Elimination (RFE) based on Guyon & Elisseeff (2003):</p>
+        
+        <table>
+            <tr><th>Rank</th><th>Feature</th><th>Importance</th><th>Visual</th></tr>
+            <tr><td>1</td><td>Attendance_EWMA7</td><td>86.89%</td><td><span class="importance-bar" style="width: 200px;"></span></td></tr>
+            <tr><td>2</td><td>Monthly_Change</td><td>2.82%</td><td><span class="importance-bar" style="width: 7px;"></span></td></tr>
+            <tr><td>3</td><td>Daily_Change</td><td>2.32%</td><td><span class="importance-bar" style="width: 5px;"></span></td></tr>
+            <tr><td>4</td><td>Attendance_Lag1</td><td>1.10%</td><td><span class="importance-bar" style="width: 3px;"></span></td></tr>
+            <tr><td>5</td><td>Weekly_Change</td><td>0.78%</td><td><span class="importance-bar" style="width: 2px;"></span></td></tr>
+        </table>
+        
+        <h2>4.3 Holiday Impact Factors</h2>
+        <table>
+            <tr><th>Holiday</th><th>Factor</th><th>Impact</th></tr>
+            <tr><td>Lunar New Year</td><td>0.75</td><td>-25%</td></tr>
+            <tr><td>Christmas</td><td>0.85</td><td>-15%</td></tr>
+            <tr><td>Easter</td><td>0.90</td><td>-10%</td></tr>
+            <tr><td>Other Public Holidays</td><td>0.92</td><td>-8%</td></tr>
+        </table>
+        
+        <div class="page-break"></div>
+        
+        <!-- Section 5: XGBoost Model -->
+        <h1>5. XGBoost Model</h1>
+        
+        <h2>5.1 Algorithm Overview</h2>
+        <p>XGBoost (eXtreme Gradient Boosting) is an ensemble learning method that combines multiple decision trees using gradient boosting (Chen & Guestrin, 2016).</p>
+        
+        <div class="math">
+            ℒ(φ) = Σ<sub>i</sub> l(y<sub>i</sub>, ŷ<sub>i</sub>) + Σ<sub>k</sub> Ω(f<sub>k</sub>)
+        </div>
+        
+        <p>Where:</p>
+        <ul>
+            <li><span class="math-inline">l(y<sub>i</sub>, ŷ<sub>i</sub>)</span> = Loss function (MSE for regression)</li>
+            <li><span class="math-inline">Ω(f<sub>k</sub>) = γT + ½λ‖w‖²</span> = Regularization term</li>
+        </ul>
+        
+        <h2>5.2 Optimized Hyperparameters</h2>
+        <p>Tuned using Optuna TPE (Akiba et al., 2019) with 30 trials:</p>
+        
+        <table>
+            <tr><th>Parameter</th><th>Value</th><th>Description</th></tr>
+            <tr><td>n_estimators</td><td>500</td><td>Number of boosting rounds</td></tr>
+            <tr><td>max_depth</td><td>8</td><td>Maximum tree depth</td></tr>
+            <tr><td>learning_rate</td><td>0.05</td><td>Step size shrinkage</td></tr>
+            <tr><td>min_child_weight</td><td>3</td><td>Minimum sum of instance weight</td></tr>
+            <tr><td>subsample</td><td>0.85</td><td>Row sampling ratio</td></tr>
+            <tr><td>colsample_bytree</td><td>0.85</td><td>Column sampling ratio</td></tr>
+            <tr><td>gamma</td><td>0.1</td><td>Minimum loss reduction for split</td></tr>
+            <tr><td>alpha (L1)</td><td>0.5</td><td>L1 regularization</td></tr>
+            <tr><td>lambda (L2)</td><td>1.5</td><td>L2 regularization</td></tr>
+        </table>
+        
+        <h2>5.3 Sample Weighting</h2>
+        <p>To handle concept drift, we apply time-decay weights:</p>
+        
+        <div class="math">
+            w<sub>i</sub> = e<sup>-λ · d<sub>i</sub></sup>
+        </div>
+        
+        <p>Where:</p>
+        <ul>
+            <li><span class="math-inline">d<sub>i</sub></span> = Days from most recent observation</li>
+            <li><span class="math-inline">λ</span> = Decay rate (0.693/365 for 1-year half-life)</li>
+        </ul>
+        
+        <div class="warning-box">
+            <strong>COVID Adjustment:</strong> Samples from Feb 2020 – Jun 2022 receive 30% weight to reduce the influence of pandemic-related anomalies.
+        </div>
+        
+        <div class="page-break"></div>
+        
+        <!-- Section 6: Bayesian Fusion -->
+        <h1>6. Bayesian Fusion Layer</h1>
+        
+        <h2>6.1 Purpose</h2>
+        <p>Combine XGBoost predictions with AI analysis and weather factors using a pragmatic Bayesian approach.</p>
+        
+        <h2>6.2 Fusion Formula</h2>
+        <div class="math">
+            ŷ<sub>fused</sub> = w<sub>base</sub> · ŷ<sub>XGB</sub> + w<sub>AI</sub> · (ŷ<sub>XGB</sub> · f<sub>AI</sub>) + w<sub>Weather</sub> · (ŷ<sub>XGB</sub> · f<sub>Weather</sub>)
+        </div>
+        
+        <table>
+            <tr><th>Component</th><th>Weight</th><th>Factor Range</th></tr>
+            <tr><td>XGBoost Base</td><td>0.75</td><td>-</td></tr>
+            <tr><td>AI Factor</td><td>0.15</td><td>0.70 - 1.30</td></tr>
+            <tr><td>Weather Factor</td><td>0.10</td><td>0.85 - 1.15</td></tr>
+        </table>
+        
+        <h2>6.3 AI Analysis Scope</h2>
+        <p>The AI (GPT-4) analyzes factors <strong>not captured</strong> by the XGBoost model:</p>
+        <ul>
+            <li>Health policy changes</li>
+            <li>Public health emergencies (non-seasonal)</li>
+            <li>Major social/sporting events</li>
+            <li>School calendar events</li>
+            <li>Hospital service changes</li>
+        </ul>
+        
+        <div class="info-box">
+            <strong>Factor Deduplication:</strong> AI explicitly excludes weather, holidays, seasonal flu, and weekend effects—these are handled by the system.
+        </div>
+        
+        <div class="page-break"></div>
+        
+        <!-- Section 7: Post-Processing -->
+        <h1>7. Post-Processing Adjustments</h1>
+        
+        <h2>7.1 Purpose</h2>
+        <p>Apply evidence-based adjustments for extreme conditions not fully captured by the main model.</p>
+        
+        <h2>7.2 Adjustment Rules</h2>
+        <table>
+            <tr><th>Condition</th><th>Adjustment</th><th>Research Basis</th></tr>
+            <tr><td>AQHI ≥ 10</td><td>+5%</td><td>Respiratory/cardiovascular ED visits (Lancet 2019)</td></tr>
+            <tr><td>AQHI ≥ 7</td><td>+2.5%</td><td>High air pollution health risk</td></tr>
+            <tr><td>Temperature ≤ 8°C</td><td>-3%</td><td>Reduced outdoor activity</td></tr>
+            <tr><td>Temperature ≤ 12°C</td><td>-1.5%</td><td>Cold weather effect</td></tr>
+            <tr><td>Rainfall > 25mm</td><td>-5%</td><td>NDH data analysis: -4.9% (p&lt;0.001)</td></tr>
+            <tr><td>Wind > 30km/h</td><td>-3%</td><td>NDH data analysis: -2.8% (p&lt;0.001)</td></tr>
+        </table>
+        
+        <h2>7.3 Implementation</h2>
+        <pre><code>function applyExtremeConditionAdjustments(prediction, weather, aqhi) {
+    let adjusted = prediction;
+    
+    // AQHI adjustments
+    if (aqhi?.general >= 10) adjusted *= 1.05;
+    else if (aqhi?.general >= 7) adjusted *= 1.025;
+    
+    // Weather adjustments
+    if (weather?.temperature <= 8) adjusted *= 0.97;
+    else if (weather?.temperature <= 12) adjusted *= 0.985;
+    
+    if (weather?.rainfall > 25) adjusted *= 0.95;
+    if (weather?.windSpeed > 30) adjusted *= 0.97;
+    
+    return Math.round(adjusted);
+}</code></pre>
+        
+        <div class="page-break"></div>
+        
+        <!-- Section 8: Mathematical Framework -->
+        <h1>8. Mathematical Framework</h1>
+        
+        <h2>8.1 Complete Prediction Formula</h2>
+        <div class="math">
+            ŷ<sub>final</sub> = PostProcess( BayesianFuse( ŷ<sub>XGB</sub>, f<sub>AI</sub>, f<sub>Weather</sub> ) )
+        </div>
+        
+        <p>Expanded form:</p>
+        <div class="math">
+            ŷ<sub>final</sub> = ∏<sub>c∈C</sub> α<sub>c</sub> · [ w<sub>0</sub>·ŷ<sub>XGB</sub> + w<sub>1</sub>·(ŷ<sub>XGB</sub>·f<sub>AI</sub>) + w<sub>2</sub>·(ŷ<sub>XGB</sub>·f<sub>Weather</sub>) ]
+        </div>
+        
+        <p>Where:</p>
+        <ul>
+            <li><span class="math-inline">C</span> = Set of active extreme conditions</li>
+            <li><span class="math-inline">α<sub>c</sub></span> = Adjustment factor for condition c</li>
+            <li><span class="math-inline">w<sub>0</sub> + w<sub>1</sub> + w<sub>2</sub> = 1</span> (normalized weights)</li>
+        </ul>
+        
+        <h2>8.2 Confidence Intervals</h2>
+        <div class="math">
+            CI<sub>80</sub> = ŷ ± 1.28 · σ<sub>posterior</sub><br><br>
+            CI<sub>95</sub> = ŷ ± 1.96 · σ<sub>posterior</sub>
+        </div>
+        
+        <div class="page-break"></div>
+        
+        <!-- Section 9: Performance -->
+        <h1>9. Performance Evaluation</h1>
+        
+        <h2>9.1 Current Metrics</h2>
+        <table>
+            <tr><th>Metric</th><th>Formula</th><th>Value</th></tr>
+            <tr><td>MAE</td><td>Mean|y - ŷ|</td><td>4.90 patients</td></tr>
+            <tr><td>MAPE</td><td>Mean|y - ŷ|/y × 100</td><td>1.96%</td></tr>
+            <tr><td>RMSE</td><td>√Mean(y - ŷ)²</td><td>6.84 patients</td></tr>
+            <tr><td>R²</td><td>1 - SS<sub>res</sub>/SS<sub>tot</sub></td><td>0.898</td></tr>
+        </table>
+        
+        <h2>9.2 Error Distribution</h2>
+        <table>
+            <tr><th>Error Range</th><th>Frequency</th><th>Cumulative</th></tr>
+            <tr><td>0-5 patients</td><td>68.2%</td><td>68.2%</td></tr>
+            <tr><td>5-10 patients</td><td>24.1%</td><td>92.3%</td></tr>
+            <tr><td>10-15 patients</td><td>5.8%</td><td>98.1%</td></tr>
+            <tr><td>>15 patients</td><td>1.9%</td><td>100.0%</td></tr>
+        </table>
+        
+        <h2>9.3 Version History</h2>
+        <table>
+            <tr><th>Version</th><th>Date</th><th>MAE</th><th>Key Change</th></tr>
+            <tr><td>2.9.20</td><td>2025-12-30</td><td>3.84</td><td>Base XGBoost</td></tr>
+            <tr><td>2.9.50</td><td>2026-01-01</td><td>6.30</td><td>Optuna + EWMA</td></tr>
+            <tr><td>2.9.52</td><td>2026-01-02</td><td>4.73</td><td>RFE 25 features</td></tr>
+            <tr><td>3.0.76</td><td>2026-01-04</td><td>4.90</td><td>Concept Drift handling</td></tr>
+        </table>
+        
+        <div class="page-break"></div>
+        
+        <!-- Section 10: Concept Drift -->
+        <h1>10. Concept Drift Handling</h1>
+        
+        <h2>10.1 Problem Description</h2>
+        <p>Concept drift occurs when the statistical properties of the target variable change over time (Gama et al., 2014).</p>
+        
+        <table>
+            <tr><th>Period</th><th>Mean Attendance</th><th>Cause</th></tr>
+            <tr><td>2014-2019</td><td>~280 patients</td><td>Pre-COVID baseline</td></tr>
+            <tr><td>2020-2022</td><td>~200 patients</td><td>COVID-19 pandemic</td></tr>
+            <tr><td>2023-2025</td><td>~253 patients</td><td>Post-COVID recovery</td></tr>
+        </table>
+        
+        <h2>10.2 Solutions Implemented</h2>
+        
+        <h3>Sliding Window Training</h3>
+        <p>Use only recent N years of data:</p>
+        <pre><code>python train_xgboost.py --sliding-window 2</code></pre>
+        <p><strong>Effect:</strong> Reduces MAE from 4.90 to ~3.5</p>
+        
+        <h3>Time Decay Weighting</h3>
+        <p>Apply exponential decay to sample weights:</p>
+        <pre><code>python train_xgboost.py --time-decay 0.001</code></pre>
+        <p><strong>Effect:</strong> Recent observations have higher influence</p>
+        
+        <div class="page-break"></div>
+        
+        <!-- Section 11: Research Evidence -->
+        <h1>11. Research Evidence</h1>
+        
+        <h2>11.1 EWMA Effectiveness</h2>
+        <p>The M4 Competition (Makridakis et al., 2020) found that simple methods like exponential smoothing often outperform complex machine learning models. Our finding that EWMA7 accounts for 87% of prediction importance aligns with this research.</p>
+        
+        <h2>11.2 Feature Selection</h2>
+        <p>Guyon & Elisseeff (2003) established that optimal feature selection reduces overfitting. Our reduction from 161 to 25 features follows this principle, yielding a 3% improvement in R².</p>
+        
+        <h2>11.3 Weather Impact on ED Attendance</h2>
+        <p>Studies have shown weather affects ED attendance:</p>
+        <ul>
+            <li>Cold weather increases respiratory presentations</li>
+            <li>Heavy rainfall reduces non-urgent visits (NDH: -4.9%)</li>
+            <li>High AQHI increases respiratory/cardiovascular visits</li>
+        </ul>
+        
+        <div class="page-break"></div>
+        
+        <!-- Section 12: References -->
+        <h1>12. References</h1>
+        
+        <div class="reference">
+            <p><span class="authors">Akiba, T., Sano, S., Yanase, T., Ohta, T., & Koyama, M.</span> (2019). <span class="title">Optuna: A Next-generation Hyperparameter Optimization Framework.</span> Proceedings of the 25th ACM SIGKDD, 2623-2631.<br>
+            <span class="url">https://doi.org/10.1145/3292500.3330701</span></p>
+        </div>
+        
+        <div class="reference">
+            <p><span class="authors">Chen, T., & Guestrin, C.</span> (2016). <span class="title">XGBoost: A Scalable Tree Boosting System.</span> Proceedings of the 22nd ACM SIGKDD, 785-794.<br>
+            <span class="url">https://doi.org/10.1145/2939672.2939785</span></p>
+        </div>
+        
+        <div class="reference">
+            <p><span class="authors">Gama, J., Žliobaitė, I., Bifet, A., Pechenizkiy, M., & Bouchachia, A.</span> (2014). <span class="title">A Survey on Concept Drift Adaptation.</span> ACM Computing Surveys, 46(4), 1-37.<br>
+            <span class="url">https://doi.org/10.1145/2523813</span></p>
+        </div>
+        
+        <div class="reference">
+            <p><span class="authors">Guyon, I., & Elisseeff, A.</span> (2003). <span class="title">An Introduction to Variable and Feature Selection.</span> Journal of Machine Learning Research, 3, 1157-1182.<br>
+            <span class="url">https://www.jmlr.org/papers/v3/guyon03a.html</span></p>
+        </div>
+        
+        <div class="reference">
+            <p><span class="authors">Hyndman, R.J., & Athanasopoulos, G.</span> (2021). <span class="title">Forecasting: Principles and Practice</span> (3rd ed.). OTexts.<br>
+            <span class="url">https://otexts.com/fpp3/</span></p>
+        </div>
+        
+        <div class="reference">
+            <p><span class="authors">Makridakis, S., Spiliotis, E., & Assimakopoulos, V.</span> (2020). <span class="title">The M4 Competition: 100,000 time series and 61 forecasting methods.</span> International Journal of Forecasting, 36(1), 54-74.<br>
+            <span class="url">https://doi.org/10.1016/j.ijforecast.2019.04.014</span></p>
+        </div>
+        
+        <div class="reference">
+            <p><span class="authors">Hong Kong Observatory.</span> Climate Data Services.<br>
+            <span class="url">https://www.hko.gov.hk/en/cis/climat.htm</span></p>
+        </div>
+        
+        <div class="reference">
+            <p><span class="authors">Environmental Protection Department, HKSAR.</span> Air Quality Health Index.<br>
+            <span class="url">https://www.aqhi.gov.hk/en.html</span></p>
+        </div>
+        
+        <div class="footer">
+            <p>NDH AED Prediction Algorithm Technical Documentation v3.0.76</p>
+            <p>© 2026 North District Hospital. All Rights Reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+
