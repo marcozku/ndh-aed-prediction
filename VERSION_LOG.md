@@ -1,5 +1,33 @@
 # 版本更新日誌
 
+## v3.0.65 - 2026-01-04 02:30 HKT
+
+### 🏷️ 區分自動預測 vs 手動刷新
+
+**新功能**：
+- 每筆預測記錄新增 `source` 欄位
+- `auto`：系統每 30 分鐘自動生成
+- `manual`：用戶點擊「刷新」按鈕觸發
+
+**資料庫變更**：
+```sql
+ALTER TABLE intraday_predictions ADD COLUMN source VARCHAR(20) DEFAULT 'auto';
+```
+
+**API 變更**：
+- `GET /api/intraday-predictions` 現在返回 `source` 欄位
+- `POST /api/trigger-prediction` 標記為 `source='manual'`
+
+**清理邏輯改進**：
+- 移除 `<= 48` 的跳過條件
+- 現在始終檢查時間間隔，即使數量正常也會清理重複
+
+**手動刷新不受 25 分鐘限制**：
+- 自動預測：每 25 分鐘最多一筆
+- 手動刷新：不受限制，可隨時觸發
+
+---
+
 ## v3.0.64 - 2026-01-04 02:00 HKT
 
 ### 🐛 修復：預測波動圖表時間軸問題

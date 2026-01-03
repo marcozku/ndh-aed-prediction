@@ -341,6 +341,17 @@ async function initDatabase() {
         await client.query(`
             CREATE INDEX IF NOT EXISTS idx_intraday_predictions_time ON intraday_predictions(prediction_time)
         `);
+        
+        // v3.0.65: Add source column to distinguish auto vs manual predictions
+        await client.query(`
+            DO $$ 
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'intraday_predictions' AND column_name = 'source') THEN
+                    ALTER TABLE intraday_predictions ADD COLUMN source VARCHAR(20) DEFAULT 'auto';
+                END IF;
+            END $$;
+        `);
 
         // Table for time-slot accuracy history (for Time-Window Weighted smoothing)
         await client.query(`
@@ -882,7 +893,8 @@ async function updateAIFactorsCache(updateTime, factorsCache, analysisData = nul
 
 // Insert or update daily prediction (UPSERT - each update throughout the day replaces old prediction)
 // v2.9.88: Also inserts into intraday_predictions for history tracking
-async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, modelVersion = '1.0.0', weatherData = null, aiFactors = null) {
+// v3.0.65: 新增 source 參數區分自動預測 vs 手動刷新
+async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, modelVersion = '1.0.0', weatherData = null, aiFactors = null, source = 'auto') {
     if (!pool) {
         throw new Error('Database pool not initialized');
     }
@@ -926,8 +938,8 @@ async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, mod
         
         // 只為今天插入 intraday 記錄
         if (targetDate === todayStr) {
-            await insertIntradayPrediction(targetDate, predictedCount, ci80, ci95, modelVersion, weatherData, aiFactors);
-            console.log(`📊 已記錄今日 intraday 預測: ${targetDate} = ${Math.round(predictedCount)} 人`);
+            await insertIntradayPrediction(targetDate, predictedCount, ci80, ci95, modelVersion, weatherData, aiFactors, source);
+            console.log(`📊 已記錄今日 intraday 預測 (${source}): ${targetDate} = ${Math.round(predictedCount)} 人`);
         }
     } catch (err) {
         console.warn('⚠️ 無法保存 intraday 預測記錄:', err.message);
@@ -938,52 +950,86 @@ async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, mod
 
 // v2.9.88: Insert intraday prediction (NO UNIQUE - keeps all predictions throughout the day)
 // v3.0.50: 加入 25 分鐘間隔檢查，防止重複預測（伺服器重啟/多實例問題）
+// v3.0.65: 新增 source 參數區分自動預測 vs 手動刷新
 const MIN_PREDICTION_INTERVAL_MINUTES = 25;
 
-async function insertIntradayPrediction(targetDate, predictedCount, ci80, ci95, modelVersion = '1.0.0', weatherData = null, aiFactors = null) {
+async function insertIntradayPrediction(targetDate, predictedCount, ci80, ci95, modelVersion = '1.0.0', weatherData = null, aiFactors = null, source = 'auto') {
     if (!pool) {
         throw new Error('Database pool not initialized');
     }
     
-    // v3.0.50: 檢查是否在過去 25 分鐘內已有預測
-    try {
-        const recentCheck = await queryWithRetry(`
-            SELECT prediction_time 
-            FROM intraday_predictions 
-            WHERE target_date = $1 
-            AND prediction_time > NOW() - INTERVAL '${MIN_PREDICTION_INTERVAL_MINUTES} minutes'
-            ORDER BY prediction_time DESC
-            LIMIT 1
-        `, [targetDate]);
-        
-        if (recentCheck.rows.length > 0) {
-            const lastTime = new Date(recentCheck.rows[0].prediction_time);
-            const minutesAgo = Math.round((Date.now() - lastTime.getTime()) / 60000);
-            console.log(`⏳ 跳過 intraday 記錄：${targetDate} 在 ${minutesAgo} 分鐘前已有預測（間隔需 ≥${MIN_PREDICTION_INTERVAL_MINUTES} 分鐘）`);
-            return null; // 跳過插入
+    // v3.0.50: 檢查是否在過去 25 分鐘內已有預測（只對自動預測生效，手動刷新不受限）
+    if (source === 'auto') {
+        try {
+            const recentCheck = await queryWithRetry(`
+                SELECT prediction_time 
+                FROM intraday_predictions 
+                WHERE target_date = $1 
+                AND prediction_time > NOW() - INTERVAL '${MIN_PREDICTION_INTERVAL_MINUTES} minutes'
+                ORDER BY prediction_time DESC
+                LIMIT 1
+            `, [targetDate]);
+            
+            if (recentCheck.rows.length > 0) {
+                const lastTime = new Date(recentCheck.rows[0].prediction_time);
+                const minutesAgo = Math.round((Date.now() - lastTime.getTime()) / 60000);
+                console.log(`⏳ 跳過 intraday 記錄：${targetDate} 在 ${minutesAgo} 分鐘前已有預測（間隔需 ≥${MIN_PREDICTION_INTERVAL_MINUTES} 分鐘）`);
+                return null; // 跳過插入
+            }
+        } catch (err) {
+            console.warn('⚠️ 檢查最近預測時出錯，繼續插入:', err.message);
         }
-    } catch (err) {
-        console.warn('⚠️ 檢查最近預測時出錯，繼續插入:', err.message);
     }
     
-    const query = `
-        INSERT INTO intraday_predictions (target_date, predicted_count, ci80_low, ci80_high, ci95_low, ci95_high, model_version, weather_data, ai_factors, prediction_time)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
-        RETURNING *
-    `;
+    // v3.0.65: 嘗試添加 source 欄位（如果不存在則使用舊格式）
+    let query;
+    let params;
     const toInt = (val) => val != null ? Math.round(val) : null;
-    const result = await queryWithRetry(query, [
-        targetDate,
-        toInt(predictedCount),
-        toInt(ci80?.low),
-        toInt(ci80?.high),
-        toInt(ci95?.low),
-        toInt(ci95?.high),
-        modelVersion,
-        weatherData ? JSON.stringify(weatherData) : null,
-        aiFactors ? JSON.stringify(aiFactors) : null
-    ]);
-    return result.rows[0];
+    
+    try {
+        query = `
+            INSERT INTO intraday_predictions (target_date, predicted_count, ci80_low, ci80_high, ci95_low, ci95_high, model_version, weather_data, ai_factors, prediction_time, source)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, $10)
+            RETURNING *
+        `;
+        params = [
+            targetDate,
+            toInt(predictedCount),
+            toInt(ci80?.low),
+            toInt(ci80?.high),
+            toInt(ci95?.low),
+            toInt(ci95?.high),
+            modelVersion,
+            weatherData ? JSON.stringify(weatherData) : null,
+            aiFactors ? JSON.stringify(aiFactors) : null,
+            source
+        ];
+        const result = await queryWithRetry(query, params);
+        return result.rows[0];
+    } catch (err) {
+        // 如果 source 欄位不存在，使用舊格式
+        if (err.message.includes('source')) {
+            query = `
+                INSERT INTO intraday_predictions (target_date, predicted_count, ci80_low, ci80_high, ci95_low, ci95_high, model_version, weather_data, ai_factors, prediction_time)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+                RETURNING *
+            `;
+            params = [
+                targetDate,
+                toInt(predictedCount),
+                toInt(ci80?.low),
+                toInt(ci80?.high),
+                toInt(ci95?.low),
+                toInt(ci95?.high),
+                modelVersion,
+                weatherData ? JSON.stringify(weatherData) : null,
+                aiFactors ? JSON.stringify(aiFactors) : null
+            ];
+            const result = await queryWithRetry(query, params);
+            return result.rows[0];
+        }
+        throw err;
+    }
 }
 
 // v3.0.50: 清理重複的 intraday predictions（保留每 30 分鐘一筆）
@@ -1021,13 +1067,8 @@ async function cleanupDuplicateIntradayPredictions(targetDate = null) {
                 ORDER BY prediction_time
             `, [dateStr]);
             
-            if (predictions.rows.length <= 48) {
-                // 正常數量，跳過
-                results.push({ date: dateStr, before: predictions.rows.length, after: predictions.rows.length, deleted: 0 });
-                continue;
-            }
-            
-            // 找出需要刪除的 ID（保留每 30 分鐘間隔的預測）
+            // v3.0.65: 移除 <= 48 的跳過邏輯，改為始終檢查時間間隔
+            // 找出需要保留的 ID（保留每 25 分鐘間隔的預測）
             const idsToKeep = [];
             let lastKeptTime = null;
             
@@ -1055,6 +1096,9 @@ async function cleanupDuplicateIntradayPredictions(targetDate = null) {
                     deleted 
                 });
                 console.log(`🧹 ${dateStr}: 清理 ${deleted} 筆重複預測 (${predictions.rows.length} → ${idsToKeep.length})`);
+            } else {
+                // 無需清理
+                results.push({ date: dateStr, before: predictions.rows.length, after: predictions.rows.length, deleted: 0 });
             }
         }
         
@@ -1073,6 +1117,7 @@ async function getIntradayPredictions(targetDate) {
     if (!pool) {
         throw new Error('Database pool not initialized');
     }
+    // v3.0.65: 加入 source 欄位
     const query = `
         SELECT 
             id,
@@ -1083,7 +1128,8 @@ async function getIntradayPredictions(targetDate) {
             ci95_low,
             ci95_high,
             model_version,
-            prediction_time
+            prediction_time,
+            COALESCE(source, 'auto') as source
         FROM intraday_predictions
         WHERE target_date = $1
         ORDER BY prediction_time ASC
@@ -1093,6 +1139,7 @@ async function getIntradayPredictions(targetDate) {
 }
 
 // v2.9.88: Get intraday predictions for multiple dates (for chart)
+// v3.0.65: 加入 source 欄位
 async function getIntradayPredictionsRange(startDate, endDate) {
     if (!pool) {
         throw new Error('Database pool not initialized');
@@ -1105,6 +1152,7 @@ async function getIntradayPredictionsRange(startDate, endDate) {
             ip.ci80_low,
             ip.ci80_high,
             ip.prediction_time,
+            COALESCE(ip.source, 'auto') as source,
             fdp.predicted_count as final_predicted,
             a.patient_count as actual
         FROM intraday_predictions ip

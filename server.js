@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.0.64';
+const MODEL_VERSION = '3.0.65';
 
 // ============================================
 // HKT 時間工具函數
@@ -621,7 +621,8 @@ const apiHandlers = {
                     time: row.prediction_time,
                     predicted: row.predicted_count,
                     ci80_low: row.ci80_low,
-                    ci80_high: row.ci80_high
+                    ci80_high: row.ci80_high,
+                    source: row.source || 'auto'  // v3.0.65: 加入來源類型
                 });
             }
             
@@ -668,17 +669,19 @@ const apiHandlers = {
     },
 
     // Manually trigger server-side prediction generation (synchronous - waits for completion)
+    // v3.0.65: 傳遞 source='manual' 區分手動觸發
     'POST /api/trigger-prediction': async (req, res) => {
         try {
             console.log('🔮 手動觸發預測更新（同步）...');
             const startTime = Date.now();
-            await generateServerSidePredictions();
+            await generateServerSidePredictions('manual');  // 標記為手動觸發
             const duration = ((Date.now() - startTime) / 1000).toFixed(1);
             console.log(`✅ 手動觸發的預測更新完成（${duration}秒）`);
             sendJson(res, { 
                 success: true, 
                 message: `預測更新完成（${duration}秒）`,
-                duration: parseFloat(duration)
+                duration: parseFloat(duration),
+                source: 'manual'
             });
         } catch (error) {
             console.error('❌ 手動觸發的預測更新失敗:', error);
@@ -3893,8 +3896,9 @@ function scheduleDailyStatsReset() {
 
 // ============================================================
 // 伺服器端自動預測（每 30 分鐘執行一次，僅使用 XGBoost）
+// v3.0.65: 新增 source 參數區分自動預測 vs 手動刷新
 // ============================================================
-async function generateServerSidePredictions() {
+async function generateServerSidePredictions(source = 'auto') {
     const startTime = Date.now();
     if (!db || !db.pool) {
         console.log('⚠️ 數據庫未配置，跳過伺服器端自動預測');
@@ -4298,7 +4302,8 @@ async function generateServerSidePredictions() {
                     pred.ci95,
                     MODEL_VERSION,
                     weatherData,
-                    aiFactorsData
+                    aiFactorsData,
+                    source  // v3.0.65: 傳遞來源類型
                 );
                 if (savedCount === 0) {
                     console.log(`📝 首筆預測已保存: ${pred.date} = ${pred.predicted}人, id=${result?.id || 'unknown'}`);

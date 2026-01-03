@@ -4257,7 +4257,8 @@ async function initVolatilityChart(targetDate = null) {
                 y: p.value || p.predicted,
                 // 保存原始時間用於 tooltip
                 originalTime: predTime,
-                daysAgo: diffDays
+                daysAgo: diffDays,
+                source: p.source || 'auto'  // v3.0.65: 保存來源類型
             });
         });
         
