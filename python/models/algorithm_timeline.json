@@ -398,5 +398,112 @@
       "improvement": "解決 2020 COVID 後模式變化問題，提升近期預測準確性"
     }
   ],
-  "last_updated": "2026-01-04T16:00:00+08:00"
+  "references": [
+    {
+      "id": "gama2014",
+      "title": "A Survey on Concept Drift Adaptation",
+      "authors": "Gama, J., Žliobaitė, I., Bifet, A., Pechenizkiy, M., & Bouchachia, A.",
+      "journal": "ACM Computing Surveys",
+      "year": 2014,
+      "volume": "46(4)",
+      "pages": "1-37",
+      "doi": "10.1145/2523813",
+      "url": "https://doi.org/10.1145/2523813",
+      "relevance": "滑動窗口和時間衰減權重方法的理論基礎"
+    },
+    {
+      "id": "chen2016xgboost",
+      "title": "XGBoost: A Scalable Tree Boosting System",
+      "authors": "Chen, T., & Guestrin, C.",
+      "journal": "Proceedings of the 22nd ACM SIGKDD",
+      "year": 2016,
+      "pages": "785-794",
+      "doi": "10.1145/2939672.2939785",
+      "url": "https://doi.org/10.1145/2939672.2939785",
+      "relevance": "XGBoost 演算法核心論文"
+    },
+    {
+      "id": "akiba2019optuna",
+      "title": "Optuna: A Next-generation Hyperparameter Optimization Framework",
+      "authors": "Akiba, T., Sano, S., Yanase, T., Ohta, T., & Koyama, M.",
+      "journal": "Proceedings of the 25th ACM SIGKDD",
+      "year": 2019,
+      "pages": "2623-2631",
+      "doi": "10.1145/3292500.3330701",
+      "url": "https://doi.org/10.1145/3292500.3330701",
+      "relevance": "Optuna TPE 超參數優化"
+    },
+    {
+      "id": "guyon2003feature",
+      "title": "An Introduction to Variable and Feature Selection",
+      "authors": "Guyon, I., & Elisseeff, A.",
+      "journal": "Journal of Machine Learning Research",
+      "year": 2003,
+      "volume": "3",
+      "pages": "1157-1182",
+      "url": "https://www.jmlr.org/papers/v3/guyon03a.html",
+      "relevance": "RFE 遞歸特徵消除理論基礎"
+    },
+    {
+      "id": "hyndman2021forecasting",
+      "title": "Forecasting: Principles and Practice (3rd ed)",
+      "authors": "Hyndman, R.J., & Athanasopoulos, G.",
+      "year": 2021,
+      "url": "https://otexts.com/fpp3/",
+      "relevance": "EWMA 指數加權移動平均、時間序列預測"
+    },
+    {
+      "id": "makridakis2020m4",
+      "title": "The M4 Competition: 100,000 time series and 61 forecasting methods",
+      "authors": "Makridakis, S., Spiliotis, E., & Assimakopoulos, V.",
+      "journal": "International Journal of Forecasting",
+      "year": 2020,
+      "volume": "36(1)",
+      "pages": "54-74",
+      "doi": "10.1016/j.ijforecast.2019.04.014",
+      "url": "https://doi.org/10.1016/j.ijforecast.2019.04.014",
+      "relevance": "簡單模型(EWMA)常優於複雜模型的證據"
+    },
+    {
+      "id": "bmc2024ed",
+      "title": "Machine learning for emergency department crowding prediction",
+      "authors": "Various",
+      "journal": "BMC Medical Informatics and Decision Making",
+      "year": 2024,
+      "url": "https://bmcmedinformdecismak.biomedcentral.com/",
+      "relevance": "急診室預測機器學習方法"
+    },
+    {
+      "id": "lancet2019aqhi",
+      "title": "Air pollution and health: Recent advances in air quality health index research",
+      "authors": "Various",
+      "journal": "The Lancet Planetary Health",
+      "year": 2019,
+      "url": "https://www.thelancet.com/journals/lanplh/home",
+      "relevance": "AQHI 與呼吸道/心血管急症相關性研究"
+    },
+    {
+      "id": "hko_climate",
+      "title": "Hong Kong Observatory Climate Data",
+      "authors": "Hong Kong Observatory",
+      "url": "https://www.hko.gov.hk/en/cis/climat.htm",
+      "relevance": "HKO 天氣歷史數據來源"
+    },
+    {
+      "id": "epd_aqhi",
+      "title": "Air Quality Health Index (AQHI)",
+      "authors": "Environmental Protection Department, HKSAR",
+      "url": "https://www.aqhi.gov.hk/en.html",
+      "relevance": "AQHI 空氣質素數據來源"
+    },
+    {
+      "id": "hastie2009elements",
+      "title": "The Elements of Statistical Learning (2nd ed)",
+      "authors": "Hastie, T., Tibshirani, R., & Friedman, J.",
+      "year": 2009,
+      "url": "https://hastie.su.domains/ElemStatLearn/",
+      "relevance": "維度災難、偏差-方差權衡理論"
+    }
+  ],
+  "last_updated": "2026-01-04T17:00:00+08:00"
 }
