@@ -752,6 +752,46 @@ def add_weather_features(df, weather_df=None):
     df['Weather_Temp_Drop_5'] = (df['Weather_Temp_Change'] <= -5).astype(int)  # 驟降 ≥5°C
     df['Weather_Temp_Rise_5'] = (df['Weather_Temp_Change'] >= 5).astype(int)   # 驟升 ≥5°C
     
+    # v3.0.73: 新增天氣因素 (基於 HKO 完整數據分析)
+    # 這些因素經過統計驗證與急診求診量有顯著相關性
+    
+    if weather_df is not None:
+        # 合併新天氣欄位 (如果存在)
+        new_weather_cols = ['Pressure_hPa', 'Humidity_pct', 'Rainfall_mm', 'Wind_kmh', 
+                           'Visibility_km', 'DewPoint', 'Cloud_pct', 'Sunshine_hrs']
+        
+        for col in new_weather_cols:
+            if col in weather_df.columns:
+                weather_subset = weather_df[['Date', col]].copy()
+                df = df.merge(weather_subset, on='Date', how='left')
+                # 填充缺失值
+                df[col] = df[col].fillna(df[col].median())
+        
+        # 氣壓特徵 (r=-0.0352, p=0.039*)
+        if 'Pressure_hPa' in df.columns:
+            df['Weather_High_Pressure'] = (df['Pressure_hPa'] > 1020).astype(int)  # -1.5%
+            df['Weather_Low_Pressure'] = (df['Pressure_hPa'] < 1010).astype(int)
+            df['Weather_Pressure_Change'] = df['Pressure_hPa'].diff().fillna(0)
+        
+        # 濕度特徵 (r=+0.0789, p<0.001***)
+        if 'Humidity_pct' in df.columns:
+            df['Weather_Low_Humidity'] = (df['Humidity_pct'] < 50).astype(int)  # -4.7%
+            df['Weather_High_Humidity'] = (df['Humidity_pct'] > 90).astype(int)
+        
+        # 降雨特徵 (r=-0.0626, p<0.001***)
+        if 'Rainfall_mm' in df.columns:
+            df['Weather_Heavy_Rain'] = (df['Rainfall_mm'] > 25).astype(int)  # -4.9%
+            df['Weather_Rain_Day'] = (df['Rainfall_mm'] > 0.1).astype(int)  # -1.0%
+            df['Weather_No_Rain'] = (df['Rainfall_mm'] == 0).astype(int)
+        
+        # 風速特徵 (r=-0.1058, p<0.001***)
+        if 'Wind_kmh' in df.columns:
+            df['Weather_Strong_Wind'] = (df['Wind_kmh'] > 30).astype(int)  # -2.8%
+        
+        # 能見度特徵 (r=+0.1196, p<0.001***)
+        if 'Visibility_km' in df.columns:
+            df['Weather_Low_Visibility'] = (df['Visibility_km'] < 8).astype(int)
+    
     return df
 
 
@@ -837,8 +877,37 @@ def add_weather_warning_features(df):
 def load_weather_history():
     """從 CSV 文件加載天氣歷史數據"""
     import os
+    import sys as _sys
     
-    # 嘗試多個可能的路徑
+    # 優先使用完整天氣數據 (包含氣壓、濕度、降雨、風速等)
+    full_weather_paths = [
+        'weather_full_history.csv',
+        'python/weather_full_history.csv',
+        os.path.join(os.path.dirname(__file__), 'weather_full_history.csv'),
+    ]
+    
+    for path in full_weather_paths:
+        if os.path.exists(path):
+            try:
+                df = pd.read_csv(path)
+                df['Date'] = pd.to_datetime(df['Date'])
+                print(f"✅ 已加載完整天氣數據: {path} ({len(df)} 天)", file=_sys.stderr)
+                
+                # 標準化列名以匹配現有代碼
+                rename_map = {
+                    'Temp_Mean': 'mean_temp',
+                    'Temp_Max': 'max_temp',
+                    'Temp_Min': 'min_temp',
+                }
+                for old, new in rename_map.items():
+                    if old in df.columns and new not in df.columns:
+                        df[new] = df[old]
+                
+                return df
+            except Exception as e:
+                print(f"⚠️ 讀取 {path} 失敗: {e}", file=_sys.stderr)
+    
+    # 回退到舊格式
     possible_paths = [
         'weather_history.csv',
         'python/weather_history.csv',
@@ -850,13 +919,11 @@ def load_weather_history():
             try:
                 df = pd.read_csv(path)
                 df['Date'] = pd.to_datetime(df['Date'])
-                import sys as _sys
                 print(f"✅ 已加載天氣歷史數據: {path} ({len(df)} 天)", file=_sys.stderr)
                 return df
             except Exception as e:
                 print(f"⚠️ 讀取 {path} 失敗: {e}", file=_sys.stderr)
     
-    import sys as _sys
     print("ℹ️ 未找到天氣歷史數據文件", file=_sys.stderr)
     return None
 

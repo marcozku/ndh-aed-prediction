@@ -1,7 +1,7 @@
 {
-  "version": "3.0.73",
-  "updated": "2026-01-04 03:20:00 HKT",
-  "optimal_n_features": 30,
+  "version": "3.0.74",
+  "updated": "2026-01-04 03:35:00 HKT",
+  "optimal_n_features": 40,
   "optimal_features": [
     "Attendance_EWMA7",
     "Attendance_EWMA14",
@@ -28,31 +28,54 @@
     "Is_Winter_Flu_Season",
     "Is_Weekend",
     "Holiday_Factor",
-    "AQHI_General_Avg",
-    "AQHI_General_Max",
-    "AQHI_Roadside_Max",
     "AQHI_Risk",
-    "AQHI_High"
+    "AQHI_High",
+    "Pressure_hPa",
+    "Humidity_pct",
+    "Rainfall_mm",
+    "Wind_kmh",
+    "Visibility_km",
+    "Weather_High_Pressure",
+    "Weather_Low_Humidity",
+    "Weather_Heavy_Rain",
+    "Weather_Strong_Wind",
+    "Weather_Low_Visibility",
+    "Weather_Is_Cold",
+    "Weather_Is_Hot",
+    "Weather_Rain_Day"
   ],
   "method": "importance_optimized",
   "metrics": {
-    "mae": 4.97,
-    "mape": 1.97,
-    "r2": 0.928
+    "mae": 5.22,
+    "mape": 2.05,
+    "r2": 0.925,
+    "note": "pending retrain with new weather features"
   },
-  "note": "v3.0.73 added AQHI air quality features (5). Research shows +4.7% attendance on high AQHI days.",
+  "note": "v3.0.74: Added complete HKO weather factors (Pressure, Humidity, Rainfall, Wind, Visibility). Research shows significant correlations with ED attendance.",
   "feature_importance": [
     {"feature": "Attendance_EWMA7", "importance": 0.52},
     {"feature": "Attendance_EWMA14", "importance": 0.34},
     {"feature": "Daily_Change", "importance": 0.02},
     {"feature": "Monthly_Change", "importance": 0.02},
-    {"feature": "Attendance_EWMA30", "importance": 0.02},
-    {"feature": "AQHI_General_Max", "importance": 0.01, "note": "new"}
+    {"feature": "Attendance_EWMA30", "importance": 0.02}
   ],
+  "new_weather_factors": {
+    "Visibility_km": {"r": 0.1196, "p": 0.0000, "impact": "highest correlation"},
+    "Wind_kmh": {"r": -0.1058, "p": 0.0000, "impact": "-2.8% on strong wind days"},
+    "Cold_Day": {"r": null, "p": 0.0000, "impact": "-6.8% when Min<12C"},
+    "Heavy_Rain": {"r": -0.0626, "p": 0.0000, "impact": "-4.9% when >25mm"},
+    "Low_Humidity": {"r": 0.0789, "p": 0.0109, "impact": "-4.7% when <50%"},
+    "High_Pressure": {"r": -0.0352, "p": 0.0275, "impact": "-1.5% when >1020hPa"}
+  },
   "aqhi_analysis": {
     "correlation": 0.21,
     "high_aqhi_impact": "+4.7%",
     "p_value": 0.0001,
     "sample_days": 587
-  }
+  },
+  "data_sources": [
+    "HKO Daily Extract API (2014-2025, 4383 days)",
+    "EPD AQHI History (2014-2026, 4053 days)",
+    "NDH AED Records (2014-2025, 3438 days)"
+  ]
 }

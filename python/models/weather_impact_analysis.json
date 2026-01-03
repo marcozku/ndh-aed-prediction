@@ -1,60 +1,154 @@
 {
   "baseline": {
-    "mean": 251.3,
-    "days": 2548
+    "mean": 249.5,
+    "days": 3438
   },
   "total_days": 3438,
   "data_range": "2014-12-01 to 2025-12-07",
-  "analysis_date": "2026-01-03 04:06 HKT",
+  "analysis_date": "2026-01-04 03:30 HKT",
+  "version": "3.0.73",
+  "data_source": "HKO Daily Extract API + NDH AED Records",
   "factors": [
     {
-      "factor": "Yellow Rain",
-      "days": 4,
-      "mean": 210.0,
-      "impact": -16.4,
-      "color": "rain"
+      "factor": "Cold (Min <12C)",
+      "days": 128,
+      "mean": 232.6,
+      "impact": -6.8,
+      "color": "cold",
+      "p_value": 0.0000,
+      "significance": "***"
     },
+    {
+      "factor": "Heavy Rain (>25mm)",
+      "days": 232,
+      "mean": 237.4,
+      "impact": -4.9,
+      "color": "rainstorm",
+      "p_value": 0.0000,
+      "significance": "***"
+    },
+    {
+      "factor": "Low Humidity (<50%)",
+      "days": 94,
+      "mean": 237.9,
+      "impact": -4.7,
+      "color": "humidity",
+      "p_value": 0.0109,
+      "significance": "*"
+    },
+    {
+      "factor": "Strong Wind (>30km/h)",
+      "days": 789,
+      "mean": 242.5,
+      "impact": -2.8,
+      "color": "wind",
+      "p_value": 0.0000,
+      "significance": "***"
+    },
+    {
+      "factor": "High Pressure (>1020hPa)",
+      "days": 581,
+      "mean": 245.8,
+      "impact": -1.5,
+      "color": "pressure",
+      "p_value": 0.0275,
+      "significance": "*"
+    },
+    {
+      "factor": "Hot (Max >30C)",
+      "days": 1064,
+      "mean": 252.6,
+      "impact": 1.2,
+      "color": "hot",
+      "p_value": 0.0069,
+      "significance": "**"
+    },
+    {
+      "factor": "Rain Day (>0.1mm)",
+      "days": 1212,
+      "mean": 247.0,
+      "impact": -1.0,
+      "color": "rain",
+      "p_value": 0.0152,
+      "significance": "*"
+    }
+  ],
+  "correlations": [
+    {"factor": "Visibility_km", "r": 0.1196, "p": 0.0000, "significance": "***"},
+    {"factor": "Wind_kmh", "r": -0.1058, "p": 0.0000, "significance": "***"},
+    {"factor": "DewPoint", "r": 0.0932, "p": 0.0000, "significance": "***"},
+    {"factor": "Temp_Min", "r": 0.0820, "p": 0.0000, "significance": "***"},
+    {"factor": "Humidity_pct", "r": 0.0789, "p": 0.0000, "significance": "***"},
+    {"factor": "Temp_Mean", "r": 0.0749, "p": 0.0000, "significance": "***"},
+    {"factor": "Rainfall_mm", "r": -0.0626, "p": 0.0002, "significance": "***"},
+    {"factor": "Temp_Max", "r": 0.0561, "p": 0.0010, "significance": "**"},
+    {"factor": "Pressure_hPa", "r": -0.0352, "p": 0.0390, "significance": "*"}
+  ],
+  "weather_warnings": [
     {
       "factor": "T8+ Typhoon",
       "days": 23,
       "mean": 220.9,
       "impact": -12.1,
-      "color": "typhoon"
+      "color": "typhoon",
+      "significance": "***"
     },
     {
       "factor": "Black Rainstorm",
       "days": 29,
       "mean": 231.3,
       "impact": -8.0,
-      "color": "rainstorm"
+      "color": "rainstorm",
+      "significance": "***"
     },
     {
       "factor": "Red Rainstorm",
       "days": 13,
       "mean": 236.2,
       "impact": -6.0,
-      "color": "rainstorm"
+      "color": "rainstorm",
+      "significance": "**"
     },
     {
       "factor": "T3 Typhoon",
       "days": 21,
       "mean": 241.6,
       "impact": -3.9,
-      "color": "typhoon"
+      "color": "typhoon",
+      "significance": "*"
     },
     {
       "factor": "Cold Warning",
       "days": 380,
       "mean": 242.7,
       "impact": -3.5,
-      "color": "cold"
+      "color": "cold",
+      "significance": "***"
     },
     {
       "factor": "Hot Warning",
       "days": 454,
       "mean": 246.9,
       "impact": -1.8,
-      "color": "hot"
+      "color": "hot",
+      "significance": "*"
     }
-  ]
+  ],
+  "recommendations": {
+    "add_to_xgboost": [
+      "Pressure_hPa",
+      "Humidity_pct",
+      "Rainfall_mm",
+      "Wind_kmh",
+      "Visibility_km",
+      "DewPoint"
+    ],
+    "extreme_conditions": [
+      {"name": "Is_Cold_Day", "condition": "Temp_Min < 12", "impact": -6.8},
+      {"name": "Is_Heavy_Rain", "condition": "Rainfall_mm > 25", "impact": -4.9},
+      {"name": "Is_Low_Humidity", "condition": "Humidity_pct < 50", "impact": -4.7},
+      {"name": "Is_Strong_Wind", "condition": "Wind_kmh > 30", "impact": -2.8},
+      {"name": "Is_Hot_Day", "condition": "Temp_Max > 30", "impact": 1.2}
+    ]
+  }
 }
