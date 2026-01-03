@@ -4213,12 +4213,12 @@ async function initVolatilityChart(targetDate = null) {
         // v3.0.63: 按預測日期分組，用不同顏色標記
         const targetDateObj = new Date(targetData.date + 'T00:00:00+08:00');
         
-        // 顏色配置：當天、-1天、-2天、更早
+        // v3.0.67: 改進顏色配置，更加區分
         const dayColors = {
-            0: { border: 'rgba(16, 185, 129, 1)', bg: 'rgba(16, 185, 129, 0.8)', label: '當天預測' },      // 綠色
-            1: { border: 'rgba(59, 130, 246, 1)', bg: 'rgba(59, 130, 246, 0.8)', label: '前1天預測' },     // 藍色
+            0: { border: 'rgba(16, 185, 129, 1)', bg: 'rgba(16, 185, 129, 0.8)', label: '當天預測' },      // 翠綠色
+            1: { border: 'rgba(245, 158, 11, 1)', bg: 'rgba(245, 158, 11, 0.8)', label: '前1天預測' },     // 橙色（改）
             2: { border: 'rgba(139, 92, 246, 1)', bg: 'rgba(139, 92, 246, 0.8)', label: '前2天預測' },     // 紫色
-            3: { border: 'rgba(156, 163, 175, 1)', bg: 'rgba(156, 163, 175, 0.8)', label: '更早預測' }      // 灰色
+            3: { border: 'rgba(107, 114, 128, 1)', bg: 'rgba(107, 114, 128, 0.6)', label: '更早預測' }      // 深灰色
         };
         
         // 按預測日期分組
@@ -4300,14 +4300,23 @@ async function initVolatilityChart(targetDate = null) {
             const realtimeEl = document.getElementById('realtime-predicted');
             const realtimeValue = realtimeEl ? parseInt(realtimeEl.textContent) : null;
             if (realtimeValue && !isNaN(realtimeValue)) {
+                // v3.0.67: 使用紅色星星，更大更明顯
+                // 計算當前 HKT 時間在目標日期時間軸上的位置
+                const now = new Date();
+                const hkNow = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+                const hktHour = hkNow.getUTCHours();
+                const hktMinute = hkNow.getUTCMinutes();
+                const [rtYear, rtMonth, rtDay] = targetData.date.split('-').map(Number);
+                const realtimeX = new Date(Date.UTC(rtYear, rtMonth - 1, rtDay, hktHour, hktMinute, 0) - 8 * 60 * 60 * 1000);
+                
                 datasets.push({
-                    label: `實時預測 (${realtimeValue})`,
-                    data: [{ x: new Date(), y: realtimeValue }],
-                    borderColor: 'rgba(59, 130, 246, 1)',
-                    backgroundColor: 'rgba(59, 130, 246, 1)',
-                    borderWidth: 0,
-                    pointRadius: 8,
-                    pointHoverRadius: 10,
+                    label: `⭐ 實時預測 (${realtimeValue})`,
+                    data: [{ x: realtimeX, y: realtimeValue }],
+                    borderColor: 'rgba(239, 68, 68, 1)',      // 紅色邊框
+                    backgroundColor: 'rgba(239, 68, 68, 1)',   // 紅色填充
+                    borderWidth: 3,
+                    pointRadius: 12,                           // 更大
+                    pointHoverRadius: 15,
                     pointStyle: 'star',
                     showLine: false
                 });
