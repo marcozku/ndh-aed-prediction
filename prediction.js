@@ -7276,7 +7276,7 @@ function updateHistoryNavigationButtons(range, pageOffset, historicalData) {
     console.log(`📊 歷史導航按鈕已更新：範圍=${range}, pageOffset=${pageOffset}, 上一頁=${!newPrevBtn.disabled}, 下一頁=${!newNextBtn.disabled}`);
 }
 
-// 更新天氣顯示
+// 更新天氣顯示（包含 AQHI 空氣質素）
 function updateWeatherDisplay() {
     const weatherEl = document.getElementById('weather-display');
     if (!weatherEl) return;
@@ -7301,6 +7301,15 @@ function updateWeatherDisplay() {
         impactHtml = `<span class="weather-impact ${impactClass}">${mainImpact.icon} ${mainImpact.desc} ${impactText}</span>`;
     }
     
+    // 構建 AQHI 顯示（使用真實環保署數據）
+    let aqhiHtml = '';
+    if (currentAQHI) {
+        const aqhiValue = currentAQHI.general || currentAQHI.roadside || 0;
+        const aqhiRisk = currentAQHI.riskLabel || getAQHIRiskLabel(aqhiValue);
+        const aqhiColor = aqhiValue >= 7 ? '#ef4444' : aqhiValue >= 4 ? '#f59e0b' : '#22c55e';
+        aqhiHtml = `<span class="weather-detail-item" style="color: ${aqhiColor};" title="空氣質素健康指數 (環保署數據)">🌬️ AQHI ${aqhiValue} ${aqhiRisk}</span>`;
+    }
+    
     weatherEl.innerHTML = `
         <span class="weather-icon">${icon}</span>
         <span class="weather-temp">${weather.temperature !== null ? weather.temperature + '°C' : '--'}</span>
@@ -7308,10 +7317,20 @@ function updateWeatherDisplay() {
             <span class="weather-detail-item">💧 ${weather.humidity !== null ? weather.humidity + '%' : '--'}</span>
             <span class="weather-detail-item">🌧️ ${weather.rainfall}mm</span>
             ${weather.uvIndex ? `<span class="weather-detail-item">☀️ UV ${weather.uvIndex}</span>` : ''}
+            ${aqhiHtml}
         </div>
         ${impactHtml}
         <span class="weather-desc">📍 北區上水</span>
     `;
+}
+
+// 獲取 AQHI 風險等級標籤
+function getAQHIRiskLabel(value) {
+    if (value >= 10) return '嚴重';
+    if (value >= 8) return '甚高';
+    if (value >= 7) return '高';
+    if (value >= 4) return '中';
+    return '低';
 }
 
 // ============================================
@@ -9377,7 +9396,7 @@ function initAlgorithmContent() {
         <!-- ==================== 第一部分：核心公式概覽 ==================== -->
         <div class="algo-card" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(59, 130, 246, 0.08)); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid rgba(34, 197, 94, 0.25);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h4 style="margin: 0; color: #22c55e; font-size: 1rem;">🧠 NDH AED 預測算法 v3.0.70</h4>
+                <h4 style="margin: 0; color: #22c55e; font-size: 1rem;">🧠 NDH AED 預測算法 v3.0.73</h4>
                 <span style="font-size: 0.7rem; color: var(--text-tertiary); background: var(--bg-tertiary); padding: 2px 8px; border-radius: 4px;">加法效應模型</span>
             </div>
             
@@ -9587,9 +9606,9 @@ function initAlgorithmContent() {
             </div>
         </div>
         
-        <!-- ==================== 因子去重說明 (v3.0.70) ==================== -->
+        <!-- ==================== 因子去重說明 (v3.0.73) ==================== -->
         <div class="algo-card" style="background: rgba(239, 68, 68, 0.08); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid rgba(239, 68, 68, 0.2);">
-            <h4 style="margin: 0 0 12px 0; color: #ef4444; font-size: 0.95rem;">⚠️ 因子去重機制 (v3.0.70)</h4>
+            <h4 style="margin: 0 0 12px 0; color: #ef4444; font-size: 0.95rem;">⚠️ 因子去重機制 (v3.0.73)</h4>
             
             <div style="font-size: 0.73rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 12px;">
                 為避免重複計算，各因子有明確的職責分工：
@@ -9627,6 +9646,7 @@ function initAlgorithmContent() {
                 <div style="font-size: 0.73rem; color: var(--text-secondary); line-height: 1.7;">
                     <div>• <strong>NDH AED:</strong> 2014-至今 (4000+ 筆)</div>
                     <div>• <strong>HKO 打鼓嶺:</strong> 1988-至今 (13000+ 天)</div>
+                    <div>• <strong style="color: #3b82f6;">EPD AQHI:</strong> 2014-至今 (4000+ 天)</div>
                     <div>• <strong>AI 新聞:</strong> GPT-4o/DeepSeek (實時)</div>
                     <div>• <strong>假期:</strong> 香港公眾假期 2014-2030</div>
                 </div>
@@ -9645,9 +9665,10 @@ function initAlgorithmContent() {
         
         <!-- ==================== 版本更新 ==================== -->
         <div style="padding: 14px; background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.05)); border-radius: 10px; border-left: 4px solid #22c55e;">
-            <div style="font-size: 0.82rem; color: #22c55e; font-weight: 600; margin-bottom: 8px;">🚀 v3.0.72 更新亮點</div>
+            <div style="font-size: 0.82rem; color: #22c55e; font-weight: 600; margin-bottom: 8px;">🚀 v3.0.73 更新亮點</div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; font-size: 0.72rem; color: var(--text-secondary);">
-                <div>🌬️ 新增 AQHI 空氣質素特徵 (XGBoost)</div>
+                <div>🌬️ <strong style="color: #3b82f6;">AQHI 真實數據</strong> (環保署 EPD 4000+ 天)</div>
+                <div>📊 AQHI 與天氣一同顯示</div>
                 <div>🎭 AI 新增：體育/文娛活動分析</div>
                 <div>📚 AI 新增：學校日曆事件分析</div>
                 <div>🦠 AI 新增：傳染病/食物中毒爆發</div>
@@ -9655,7 +9676,7 @@ function initAlgorithmContent() {
         </div>
     `;
     
-    console.log('✅ 算法說明內容已初始化 (v3.0.72 詳細版)');
+    console.log('✅ 算法說明內容已初始化 (v3.0.73 詳細版)');
 }
 
 // 載入算法說明 - 調用原有的詳細版本
