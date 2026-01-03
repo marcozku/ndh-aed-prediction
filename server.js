@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.0.61';
+const MODEL_VERSION = '3.0.62';
 
 // ============================================
 // HKT 時間工具函數
@@ -641,6 +641,29 @@ const apiHandlers = {
                 error: error.message,
                 dateRange: { start: null, end: null }
             });
+        }
+    },
+
+    // v3.0.50: Cleanup duplicate intraday predictions
+    'POST /api/cleanup-intraday': async (req, res) => {
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
+        
+        try {
+            const data = await parseBody(req);
+            const targetDate = data?.date || null;
+            
+            console.log(`🧹 開始清理重複的 intraday 預測${targetDate ? ` (日期: ${targetDate})` : ' (所有日期)'}...`);
+            const result = await db.cleanupDuplicateIntradayPredictions(targetDate);
+            
+            console.log(`✅ 清理完成：刪除 ${result.totalDeleted} 筆重複記錄`);
+            sendJson(res, {
+                success: true,
+                message: `已刪除 ${result.totalDeleted} 筆重複記錄`,
+                ...result
+            });
+        } catch (error) {
+            console.error('❌ 清理 intraday 預測失敗:', error);
+            sendJson(res, { success: false, error: error.message }, 500);
         }
     },
 

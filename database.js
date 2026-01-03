@@ -937,10 +937,35 @@ async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, mod
 }
 
 // v2.9.88: Insert intraday prediction (NO UNIQUE - keeps all predictions throughout the day)
+// v3.0.50: 加入 25 分鐘間隔檢查，防止重複預測（伺服器重啟/多實例問題）
+const MIN_PREDICTION_INTERVAL_MINUTES = 25;
+
 async function insertIntradayPrediction(targetDate, predictedCount, ci80, ci95, modelVersion = '1.0.0', weatherData = null, aiFactors = null) {
     if (!pool) {
         throw new Error('Database pool not initialized');
     }
+    
+    // v3.0.50: 檢查是否在過去 25 分鐘內已有預測
+    try {
+        const recentCheck = await queryWithRetry(`
+            SELECT prediction_time 
+            FROM intraday_predictions 
+            WHERE target_date = $1 
+            AND prediction_time > NOW() - INTERVAL '${MIN_PREDICTION_INTERVAL_MINUTES} minutes'
+            ORDER BY prediction_time DESC
+            LIMIT 1
+        `, [targetDate]);
+        
+        if (recentCheck.rows.length > 0) {
+            const lastTime = new Date(recentCheck.rows[0].prediction_time);
+            const minutesAgo = Math.round((Date.now() - lastTime.getTime()) / 60000);
+            console.log(`⏳ 跳過 intraday 記錄：${targetDate} 在 ${minutesAgo} 分鐘前已有預測（間隔需 ≥${MIN_PREDICTION_INTERVAL_MINUTES} 分鐘）`);
+            return null; // 跳過插入
+        }
+    } catch (err) {
+        console.warn('⚠️ 檢查最近預測時出錯，繼續插入:', err.message);
+    }
+    
     const query = `
         INSERT INTO intraday_predictions (target_date, predicted_count, ci80_low, ci80_high, ci95_low, ci95_high, model_version, weather_data, ai_factors, prediction_time)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
@@ -959,6 +984,88 @@ async function insertIntradayPrediction(targetDate, predictedCount, ci80, ci95, 
         aiFactors ? JSON.stringify(aiFactors) : null
     ]);
     return result.rows[0];
+}
+
+// v3.0.50: 清理重複的 intraday predictions（保留每 30 分鐘一筆）
+async function cleanupDuplicateIntradayPredictions(targetDate = null) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+    
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // 獲取需要清理的日期
+        let dates = [];
+        if (targetDate) {
+            dates = [targetDate];
+        } else {
+            const datesResult = await client.query(`
+                SELECT DISTINCT target_date FROM intraday_predictions ORDER BY target_date
+            `);
+            dates = datesResult.rows.map(r => r.target_date);
+        }
+        
+        let totalDeleted = 0;
+        const results = [];
+        
+        for (const date of dates) {
+            const dateStr = typeof date === 'string' ? date : date.toISOString().split('T')[0];
+            
+            // 獲取該日期的所有預測
+            const predictions = await client.query(`
+                SELECT id, prediction_time 
+                FROM intraday_predictions 
+                WHERE target_date = $1 
+                ORDER BY prediction_time
+            `, [dateStr]);
+            
+            if (predictions.rows.length <= 48) {
+                // 正常數量，跳過
+                results.push({ date: dateStr, before: predictions.rows.length, after: predictions.rows.length, deleted: 0 });
+                continue;
+            }
+            
+            // 找出需要刪除的 ID（保留每 30 分鐘間隔的預測）
+            const idsToKeep = [];
+            let lastKeptTime = null;
+            
+            for (const pred of predictions.rows) {
+                const predTime = new Date(pred.prediction_time);
+                if (!lastKeptTime || (predTime - lastKeptTime) >= 25 * 60 * 1000) {
+                    idsToKeep.push(pred.id);
+                    lastKeptTime = predTime;
+                }
+            }
+            
+            // 刪除不需要的記錄
+            if (idsToKeep.length < predictions.rows.length) {
+                const deleteResult = await client.query(`
+                    DELETE FROM intraday_predictions 
+                    WHERE target_date = $1 AND id NOT IN (${idsToKeep.join(',')})
+                `, [dateStr]);
+                
+                const deleted = deleteResult.rowCount;
+                totalDeleted += deleted;
+                results.push({ 
+                    date: dateStr, 
+                    before: predictions.rows.length, 
+                    after: idsToKeep.length, 
+                    deleted 
+                });
+                console.log(`🧹 ${dateStr}: 清理 ${deleted} 筆重複預測 (${predictions.rows.length} → ${idsToKeep.length})`);
+            }
+        }
+        
+        await client.query('COMMIT');
+        return { success: true, totalDeleted, details: results };
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
 }
 
 // v2.9.88: Get all intraday predictions for a date
@@ -1627,6 +1734,8 @@ module.exports = {
     insertIntradayPrediction,
     getIntradayPredictions,
     getIntradayPredictionsRange,
+    // v3.0.50: Cleanup duplicates
+    cleanupDuplicateIntradayPredictions,
     // v2.9.90: Auto predict stats (persisted)
     getAutoPredictStats,
     saveAutoPredictStats,

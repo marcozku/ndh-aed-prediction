@@ -1,5 +1,73 @@
 # 版本更新日誌
 
+## v3.0.62 - 2026-01-04 01:00 HKT
+
+### 🛡️ 修復：防止 Intraday 預測重複插入
+
+**問題診斷**：
+用戶發現預測波動分析顯示異常次數：
+- 4/1: 45次 ✅ 正常
+- 3/1: 196次 ⚠️ 異常（正常應為 ~48 次）
+- 2/1: 99次 ⚠️ 偏高
+
+**根本原因**：
+- 伺服器重啟時會在 10 秒後觸發預測
+- 多次重啟或多實例運行導致短時間內插入大量預測
+- `intraday_predictions` 表無間隔限制
+
+**解決方案**：
+
+#### 1. 新增 25 分鐘間隔檢查
+在 `insertIntradayPrediction` 中加入防重複機制：
+```javascript
+// 檢查過去 25 分鐘內是否已有預測
+const recentCheck = await queryWithRetry(`
+    SELECT prediction_time 
+    FROM intraday_predictions 
+    WHERE target_date = $1 
+    AND prediction_time > NOW() - INTERVAL '25 minutes'
+    LIMIT 1
+`, [targetDate]);
+
+if (recentCheck.rows.length > 0) {
+    console.log(`⏳ 跳過：${minutesAgo} 分鐘前已有預測`);
+    return null; // 跳過插入
+}
+```
+
+#### 2. 新增清理 API
+- `POST /api/cleanup-intraday` - 清理重複的 intraday 預測
+- 可指定 `date` 參數清理特定日期，或清理所有日期
+- 保留每 25 分鐘間隔的預測記錄
+
+#### 3. 清理邏輯
+```javascript
+// 保留每 30 分鐘間隔的預測
+for (const pred of predictions) {
+    if (!lastKeptTime || (predTime - lastKeptTime) >= 25 * 60 * 1000) {
+        idsToKeep.push(pred.id);
+        lastKeptTime = predTime;
+    }
+}
+```
+
+**預期效果**：
+| 日期 | 清理前 | 清理後 |
+|------|-------|-------|
+| 3/1 | 196次 | ~48次 |
+| 2/1 | 99次 | ~48次 |
+
+**使用方式**：
+```bash
+# 清理所有日期
+curl -X POST http://localhost:3000/api/cleanup-intraday
+
+# 清理特定日期
+curl -X POST http://localhost:3000/api/cleanup-intraday -H "Content-Type: application/json" -d '{"date":"2026-03-01"}'
+```
+
+---
+
 ## v3.0.61 - 2026-01-03 19:00 HKT
 
 ### 🔄 自動天氣影響分析整合
