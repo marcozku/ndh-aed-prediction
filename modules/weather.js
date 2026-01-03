@@ -21,12 +21,12 @@ export class Weather {
     static async init() {
         await this.fetchCurrent();
         await this.fetchForecast();
-        this.updateDisplay();
+        // 不在這裡更新顯示，讓 prediction.js 統一處理（包含天氣影響計算）
     }
 
     static async update() {
         await this.fetchCurrent();
-        this.updateDisplay();
+        // 不在這裡更新顯示，讓 prediction.js 統一處理
     }
 
     static async fetchCurrent() {
