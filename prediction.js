@@ -9552,23 +9552,24 @@ function initAlgorithmContent() {
             
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
                 <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px;">
-                    <div style="font-size: 0.75rem; color: #22c55e; font-weight: 600; margin-bottom: 6px;">✅ 系統自動計算</div>
+                    <div style="font-size: 0.75rem; color: #22c55e; font-weight: 600; margin-bottom: 6px;">✅ 系統自動計算 (XGBoost)</div>
                     <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.5;">
                         • 天氣 → Weather Factor<br>
+                        • <strong style="color: #3b82f6;">空氣質素 → AQHI 特徵</strong><br>
                         • 假期 → HK_PUBLIC_HOLIDAYS<br>
                         • 流感季節 → fluSeasonFactor<br>
-                        • 週末 → dowFactors<br>
-                        • 月份 → monthFactors
+                        • 週末/月份 → dowFactors
                     </div>
                 </div>
                 <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px;">
                     <div style="font-size: 0.75rem; color: #8b5cf6; font-weight: 600; margin-bottom: 6px;">🧠 AI 專責分析</div>
                     <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.5;">
                         • 健康政策變更<br>
-                        • 突發公衛事件<br>
-                        • 重大社會事件<br>
+                        • <strong>體育/文娛活動</strong><br>
+                        • <strong>學校日曆事件</strong><br>
+                        • <strong>傳染病/食物中毒爆發</strong><br>
                         • 醫院服務變更<br>
-                        <span style="color: #ef4444;">❌ 不分析天氣/假期/季節</span>
+                        <span style="color: #ef4444;">❌ 不分析天氣/AQHI/假期</span>
                     </div>
                 </div>
             </div>
@@ -9599,17 +9600,17 @@ function initAlgorithmContent() {
         
         <!-- ==================== 版本更新 ==================== -->
         <div style="padding: 14px; background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.05)); border-radius: 10px; border-left: 4px solid #22c55e;">
-            <div style="font-size: 0.82rem; color: #22c55e; font-weight: 600; margin-bottom: 8px;">🚀 v3.0.70 更新亮點</div>
+            <div style="font-size: 0.82rem; color: #22c55e; font-weight: 600; margin-bottom: 8px;">🚀 v3.0.72 更新亮點</div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; font-size: 0.72rem; color: var(--text-secondary);">
-                <div>⚠️ 修復 AI 因子與系統因子重複計算</div>
-                <div>🧠 AI 專注突發事件、政策變更</div>
-                <div>🌤️ 天氣/假期由系統自動處理</div>
-                <div>⚡ 頁面載入速度優化 (並行+懶載入)</div>
+                <div>🌬️ 新增 AQHI 空氣質素特徵 (XGBoost)</div>
+                <div>🎭 AI 新增：體育/文娛活動分析</div>
+                <div>📚 AI 新增：學校日曆事件分析</div>
+                <div>🦠 AI 新增：傳染病/食物中毒爆發</div>
             </div>
         </div>
     `;
     
-    console.log('✅ 算法說明內容已初始化 (v3.0.70 詳細版)');
+    console.log('✅ 算法說明內容已初始化 (v3.0.72 詳細版)');
 }
 
 // 載入算法說明 - 調用原有的詳細版本

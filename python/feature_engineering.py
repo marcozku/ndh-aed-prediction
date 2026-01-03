@@ -527,6 +527,9 @@ def create_comprehensive_features(df, ai_factors_dict=None):
     # ============ 天氣警告特徵（颱風、暴雨、酷熱/寒冷警告）============
     df = add_weather_warning_features(df)
     
+    # ============ AQHI 空氣質素特徵（環保署數據）============
+    df = add_aqhi_features(df)
+    
     return df
 
 def get_feature_columns():
@@ -855,4 +858,99 @@ def load_weather_history():
     import sys as _sys
     print("ℹ️ 未找到天氣歷史數據文件", file=_sys.stderr)
     return None
+
+
+def load_aqhi_history():
+    """從 CSV 文件加載 AQHI 空氣質素歷史數據"""
+    import os
+    import sys as _sys
+    
+    possible_paths = [
+        'aqhi_history.csv',
+        'python/aqhi_history.csv',
+        os.path.join(os.path.dirname(__file__), 'aqhi_history.csv'),
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            try:
+                df = pd.read_csv(path)
+                df['Date'] = pd.to_datetime(df['Date'])
+                print(f"✅ 已加載 AQHI 歷史數據: {path} ({len(df)} 天)", file=_sys.stderr)
+                return df
+            except Exception as e:
+                print(f"⚠️ 讀取 AQHI {path} 失敗: {e}", file=_sys.stderr)
+    
+    print("ℹ️ 未找到 AQHI 歷史數據文件", file=_sys.stderr)
+    return None
+
+
+def add_aqhi_features(df):
+    """添加 AQHI 空氣質素特徵到數據框
+    
+    AQHI 風險等級:
+    - 1-3: 低 (Low)
+    - 4-6: 中 (Moderate)  
+    - 7: 高 (High)
+    - 8-10: 非常高 (Very High)
+    - 10+: 嚴重 (Serious)
+    
+    研究顯示高 AQHI 與呼吸系統相關急症室求診增加 5-15% 相關
+    """
+    import sys as _sys
+    
+    aqhi_df = load_aqhi_history()
+    
+    # 初始化默認值
+    df['AQHI_General'] = 3  # 預設低風險
+    df['AQHI_Roadside'] = 4
+    df['AQHI_Risk'] = 1  # 1=低, 2=中, 3=高, 4=非常高, 5=嚴重
+    df['AQHI_High'] = 0  # AQHI >= 7
+    df['AQHI_VeryHigh'] = 0  # AQHI >= 8
+    
+    if aqhi_df is None or len(aqhi_df) == 0:
+        print("ℹ️ 無 AQHI 數據，使用默認值", file=_sys.stderr)
+        return df
+    
+    # 合併 AQHI 數據
+    matched = 0
+    for idx, row in df.iterrows():
+        date_val = row['Date']
+        if hasattr(date_val, 'strftime'):
+            date_str = date_val.strftime('%Y-%m-%d')
+        else:
+            date_str = str(date_val)[:10]
+        
+        # 查找匹配的 AQHI 數據
+        aqhi_row = aqhi_df[aqhi_df['Date'].dt.strftime('%Y-%m-%d') == date_str]
+        if len(aqhi_row) > 0:
+            aqhi_row = aqhi_row.iloc[0]
+            general = aqhi_row.get('AQHI_General', 3)
+            roadside = aqhi_row.get('AQHI_Roadside', 4)
+            
+            df.at[idx, 'AQHI_General'] = general
+            df.at[idx, 'AQHI_Roadside'] = roadside
+            
+            # 計算風險等級
+            max_aqhi = max(general, roadside)
+            if max_aqhi <= 3:
+                risk = 1
+            elif max_aqhi <= 6:
+                risk = 2
+            elif max_aqhi == 7:
+                risk = 3
+            elif max_aqhi <= 10:
+                risk = 4
+            else:
+                risk = 5
+            
+            df.at[idx, 'AQHI_Risk'] = risk
+            df.at[idx, 'AQHI_High'] = 1 if max_aqhi >= 7 else 0
+            df.at[idx, 'AQHI_VeryHigh'] = 1 if max_aqhi >= 8 else 0
+            matched += 1
+    
+    if matched > 0:
+        print(f"✅ 已匹配 {matched} 天 AQHI 數據", file=_sys.stderr)
+    
+    return df
 
