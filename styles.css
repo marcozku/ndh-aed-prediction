@@ -6919,6 +6919,49 @@ section > * {
         padding-top: calc(var(--nav-height) + env(safe-area-inset-top, 0px) - 10px) !important;
     }
     
+    /* Force all elements to fit screen width */
+    .app-container,
+    .app-container > *,
+    section,
+    .card,
+    .prediction-card,
+    .forecast-card,
+    .algo-card,
+    .factor-item,
+    .chart-container,
+    .timeline-item,
+    .training-card,
+    .confidence-dashboard,
+    .bayesian-breakdown,
+    .factors-section,
+    .algorithm-section,
+    .model-training-section {
+        max-width: 100% !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+    }
+    
+    /* Ensure padding doesn't cause overflow */
+    .app-container {
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+    }
+    
+    /* Tables and pre elements */
+    table, pre, code {
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        word-break: break-word !important;
+    }
+    
+    /* Grids - single column on mobile */
+    .forecast-cards,
+    .factor-grid,
+    .reliability-bars {
+        grid-template-columns: 1fr !important;
+    }
+    
     /* Header - very compact */
     .app-header {
         padding: var(--space-sm) !important;
