@@ -372,12 +372,15 @@ def time_series_cross_validate(df, feature_cols, n_splits=3):
     return avg_scores
 
 
-def train_xgboost_model(train_data, test_data, feature_cols):
+def train_xgboost_model(train_data, test_data, feature_cols, sample_weights=None):
     """
     訓練 XGBoost 模型（使用正確的時間序列驗證）
     
     關鍵：Early stopping 使用訓練集內的驗證集，而非測試集！
     這樣確保測試集在整個訓練過程中完全未被模型看到。
+    
+    參數:
+        sample_weights: 樣本權重（用於時間衰減，近期數據權重更高）
     """
     print(f"\n{'='*60}")
     print("🚀 XGBoost 模型訓練開始")
@@ -552,16 +555,22 @@ def train_xgboost_model(train_data, test_data, feature_cols):
         
         return weights
     
-    train_weights = calculate_sample_weights(
-        pd.to_datetime(train_data['Date']), 
-        train_data['Attendance'].values
-    )
-    
-    # 計算訓練子集的權重
-    train_subset_weights = calculate_sample_weights(
-        pd.to_datetime(train_subset['Date']), 
-        train_subset['Attendance'].values
-    )
+    # 使用外部提供的權重或計算新權重
+    if sample_weights is not None:
+        print(f"   📊 使用外部提供的樣本權重 (命令行 --time-decay)")
+        train_weights = sample_weights.values if hasattr(sample_weights, 'values') else sample_weights
+        # 對應訓練子集
+        train_subset_weights = train_weights[:len(train_subset)]
+    else:
+        train_weights = calculate_sample_weights(
+            pd.to_datetime(train_data['Date']), 
+            train_data['Attendance'].values
+        )
+        # 計算訓練子集的權重
+        train_subset_weights = calculate_sample_weights(
+            pd.to_datetime(train_subset['Date']), 
+            train_subset['Attendance'].values
+        )
     
     covid_count = ((pd.to_datetime(train_subset['Date']) >= '2020-02-01') & 
                    (pd.to_datetime(train_subset['Date']) <= '2022-06-30')).sum()
@@ -672,6 +681,8 @@ def main():
     parser.add_argument('--full', action='store_true', help='Use full feature set (161 features) instead of optimized')
     parser.add_argument('--optimize', action='store_true', help='Run feature optimization before training')
     parser.add_argument('--quick-optimize', action='store_true', help='Run quick feature optimization')
+    parser.add_argument('--sliding-window', type=int, default=0, help='Use only recent N years of data (0=all data)')
+    parser.add_argument('--time-decay', type=float, default=0.0, help='Time decay rate for sample weights (0=no decay, 0.001=recommended)')
     args = parser.parse_args()
     
     # 動態加載優化特徵集（從 optimal_features.json）
@@ -858,11 +869,34 @@ def main():
     if len(df) < original_len:
         print(f"   ⚠️ 移除了 {original_len - len(df)} 筆無效數據")
     
+    # ============ 滑動窗口過濾 (解決 Concept Drift) ============
+    sliding_window_years = args.sliding_window or int(os.environ.get('SLIDING_WINDOW_YEARS', '0'))
+    if sliding_window_years > 0:
+        cutoff_date = df['Date'].max() - pd.Timedelta(days=sliding_window_years * 365)
+        original_len = len(df)
+        df = df[df['Date'] >= cutoff_date].copy()
+        print(f"\n📅 滑動窗口訓練模式:")
+        print(f"   ├─ 窗口大小: 最近 {sliding_window_years} 年")
+        print(f"   ├─ 截止日期: {cutoff_date.strftime('%Y-%m-%d')}")
+        print(f"   └─ 數據量: {original_len} → {len(df)} 筆 (-{original_len - len(df)} 筆舊數據)")
+    
     # ============ 數據分割 ============
     print(f"\n✂️ 時間序列分割 (80/20):")
     split_idx = int(len(df) * 0.8)
     train_data = df[:split_idx].copy()
     test_data = df[split_idx:].copy()
+    
+    # ============ 時間衰減權重 (解決 Concept Drift) ============
+    time_decay_rate = args.time_decay or float(os.environ.get('TIME_DECAY_RATE', '0'))
+    sample_weights = None
+    if time_decay_rate > 0:
+        days_from_end = (train_data['Date'].max() - train_data['Date']).dt.days
+        sample_weights = np.exp(-time_decay_rate * days_from_end)
+        sample_weights = sample_weights / sample_weights.mean()  # 歸一化
+        print(f"\n⚖️ 時間衰減權重模式:")
+        print(f"   ├─ 衰減率: {time_decay_rate}")
+        print(f"   ├─ 最新數據權重: {sample_weights.iloc[-1]:.2f}")
+        print(f"   └─ 最舊數據權重: {sample_weights.iloc[0]:.2f}")
     
     print(f"   ├─ 訓練集: {len(train_data)} 筆")
     print(f"   │     日期: {train_data['Date'].min()} → {train_data['Date'].max()}")
@@ -895,7 +929,7 @@ def main():
     cv_scores = time_series_cross_validate(train_data, feature_cols, n_splits=3)
     
     # 訓練最終模型
-    model, metrics = train_xgboost_model(train_data, test_data, feature_cols)
+    model, metrics = train_xgboost_model(train_data, test_data, feature_cols, sample_weights=sample_weights)
     
     # 保存模型（使用絕對路徑）
     script_dir = os.path.dirname(os.path.abspath(__file__))

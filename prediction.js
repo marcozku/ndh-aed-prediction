@@ -214,10 +214,14 @@ async function getXGBoostPredictionWithMetadata(dateStr, predictorInstance, weat
             } : statPred.ci95;
         }
         
+        // v3.0.76: 應用極端條件後處理調整
+        const finalPrediction = applyExtremeConditionAdjustments(adjustedPrediction, weatherData, currentAQHI);
+        
         return {
             ...statPred,
-            predicted: adjustedPrediction,
+            predicted: finalPrediction,
             basePrediction: xgbResult.prediction,
+            adjustedPrediction: adjustedPrediction, // Bayesian 融合後的值
             aiFactorMultiplier,
             weatherFactorMultiplier,
             ci80: adjustedCi80,
@@ -225,13 +229,16 @@ async function getXGBoostPredictionWithMetadata(dateStr, predictorInstance, weat
             method: 'xgboost',
             predictionMethod,
             bayesianWeights: bayesianResult?.weights || null,
-            xgboostUsed: true
+            xgboostUsed: true,
+            extremeAdjusted: finalPrediction !== adjustedPrediction
         };
     }
     
     // XGBoost 不可用時返回統計預測
     console.warn(`⚠️ ${dateStr} XGBoost 不可用，使用統計方法`);
-    return { ...statPred, method: 'statistical', xgboostUsed: false };
+    const statPrediction = statPred.predicted || statPred.prediction;
+    const finalStatPrediction = applyExtremeConditionAdjustments(statPrediction, weatherData, currentAQHI);
+    return { ...statPred, predicted: finalStatPrediction, method: 'statistical', xgboostUsed: false };
 }
 
 // 批量獲取 XGBoost 預測並結合元數據
@@ -6459,6 +6466,60 @@ function updateAQHIWarning(aqhi) {
     warningEl.style.cssText = 'background: rgba(239, 68, 68, 0.2); color: #ef4444; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; margin-left: 4px;';
     warningEl.textContent = `⚠️ AQHI ${aqhi.general || aqhi.roadside} (${aqhi.riskLabel})`;
     weatherEl.appendChild(warningEl);
+}
+
+// ============================================
+// v3.0.76: 極端條件後處理調整層
+// 研究基礎: 極端天氣/AQHI 對急診求診量有額外影響
+// 這些調整在 XGBoost+Bayesian 融合之後應用
+// ============================================
+function applyExtremeConditionAdjustments(prediction, weather, aqhi) {
+    if (!prediction || isNaN(prediction)) return prediction;
+    
+    let adjustedPrediction = prediction;
+    const adjustments = [];
+    
+    // 極端 AQHI 調整 (>=7 高風險, >=10 嚴重)
+    if (aqhi && aqhi.general !== null) {
+        const aqhiValue = aqhi.general;
+        if (aqhiValue >= 10) {
+            adjustedPrediction *= 1.05; // +5% 嚴重空氣污染
+            adjustments.push({ reason: 'AQHI>=10', factor: 1.05 });
+        } else if (aqhiValue >= 7) {
+            adjustedPrediction *= 1.025; // +2.5% 高空氣污染
+            adjustments.push({ reason: 'AQHI>=7', factor: 1.025 });
+        }
+    }
+    
+    // 極端天氣調整
+    if (weather) {
+        // 極寒天氣 (<8°C) - 研究顯示增加求診
+        if (weather.temperature !== null && weather.temperature <= 8) {
+            adjustedPrediction *= 0.97; // -3% (減少出門，但呼吸道問題增加)
+            adjustments.push({ reason: '極寒<8°C', factor: 0.97 });
+        } else if (weather.temperature !== null && weather.temperature <= 12) {
+            adjustedPrediction *= 0.985; // -1.5% 寒冷
+            adjustments.push({ reason: '寒冷<12°C', factor: 0.985 });
+        }
+        
+        // 暴雨 (>25mm) - 研究顯示減少求診
+        if (weather.rainfall !== null && weather.rainfall > 25) {
+            adjustedPrediction *= 0.95; // -5% 暴雨
+            adjustments.push({ reason: '暴雨>25mm', factor: 0.95 });
+        }
+        
+        // 強風 (>30km/h) - 研究顯示減少求診
+        if (weather.windSpeed !== null && weather.windSpeed > 30) {
+            adjustedPrediction *= 0.97; // -3% 強風
+            adjustments.push({ reason: '強風>30km/h', factor: 0.97 });
+        }
+    }
+    
+    if (adjustments.length > 0) {
+        console.log(`🌡️ 極端條件調整: ${prediction} → ${Math.round(adjustedPrediction)} (${adjustments.map(a => a.reason).join(', ')})`);
+    }
+    
+    return Math.round(adjustedPrediction);
 }
 
 // 計算天氣影響因子
