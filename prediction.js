@@ -4210,24 +4210,67 @@ async function initVolatilityChart(targetDate = null) {
         }
         
         // 準備圖表數據 (v2.9.91: 使用 value 字段)
+        // v3.0.63: 按預測日期分組，用不同顏色標記
+        const targetDateObj = new Date(targetData.date + 'T00:00:00+08:00');
+        
+        // 顏色配置：當天、-1天、-2天、更早
+        const dayColors = {
+            0: { border: 'rgba(16, 185, 129, 1)', bg: 'rgba(16, 185, 129, 0.8)', label: '當天預測' },      // 綠色
+            1: { border: 'rgba(59, 130, 246, 1)', bg: 'rgba(59, 130, 246, 0.8)', label: '前1天預測' },     // 藍色
+            2: { border: 'rgba(139, 92, 246, 1)', bg: 'rgba(139, 92, 246, 0.8)', label: '前2天預測' },     // 紫色
+            3: { border: 'rgba(156, 163, 175, 1)', bg: 'rgba(156, 163, 175, 0.8)', label: '更早預測' }      // 灰色
+        };
+        
+        // 按預測日期分組
+        const groupedByDay = {};
+        targetData.predictions.forEach(p => {
+            const predTime = new Date(p.time);
+            // 計算預測時間與目標日期的天數差（HKT）
+            const predDateHKT = new Date(predTime.getTime() + 8 * 60 * 60 * 1000);
+            const predDateStr = predDateHKT.toISOString().split('T')[0];
+            const targetDateStr = targetData.date;
+            
+            // 計算天數差
+            const predDate = new Date(predDateStr);
+            const targetDate = new Date(targetDateStr);
+            const diffDays = Math.round((targetDate - predDate) / (24 * 60 * 60 * 1000));
+            
+            // 分組：0=當天, 1=前1天, 2=前2天, 3+=更早
+            const groupKey = Math.min(diffDays, 3);
+            if (!groupedByDay[groupKey]) {
+                groupedByDay[groupKey] = [];
+            }
+            groupedByDay[groupKey].push({
+                x: predTime,
+                y: p.value || p.predicted
+            });
+        });
+        
+        // 為每個分組創建數據集
+        const datasets = [];
+        Object.keys(groupedByDay).sort((a, b) => b - a).forEach(key => {
+            const dayKey = parseInt(key);
+            const color = dayColors[dayKey] || dayColors[3];
+            const count = groupedByDay[dayKey].length;
+            datasets.push({
+                label: `${color.label} (${count}筆)`,
+                data: groupedByDay[dayKey],
+                borderColor: color.border,
+                backgroundColor: color.bg,
+                borderWidth: dayKey === 0 ? 2 : 1,
+                pointRadius: dayKey === 0 ? 5 : 3,
+                pointHoverRadius: dayKey === 0 ? 7 : 5,
+                fill: false,
+                tension: 0.1,
+                showLine: false  // 只顯示點，不連線（因為時間軸不連續）
+            });
+        });
+        
+        // 保留原始的全部預測數據用於統計
         const predictions = targetData.predictions.map(p => ({
             x: new Date(p.time),
             y: p.value || p.predicted
         }));
-        
-        const datasets = [
-            {
-                label: '伺服器預測',
-                data: predictions,
-                borderColor: 'rgba(139, 92, 246, 1)',
-                backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                borderWidth: 2,
-                pointRadius: 4,
-                pointHoverRadius: 6,
-                fill: false,
-                tension: 0.3
-            }
-        ];
         
         // v3.0.37: 區分今日 vs 歷史日期的顯示邏輯
         const hk = getHKTime();
