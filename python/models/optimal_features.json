@@ -1,7 +1,7 @@
 {
-  "version": "2.9.52",
-  "updated": "2026-01-02 05:25:00 HKT",
-  "optimal_n_features": 25,
+  "version": "3.0.73",
+  "updated": "2026-01-04 03:20:00 HKT",
+  "optimal_n_features": 30,
   "optimal_features": [
     "Attendance_EWMA7",
     "Attendance_EWMA14",
@@ -27,20 +27,32 @@
     "Attendance_Median3",
     "Is_Winter_Flu_Season",
     "Is_Weekend",
-    "Holiday_Factor"
+    "Holiday_Factor",
+    "AQHI_General_Avg",
+    "AQHI_General_Max",
+    "AQHI_Roadside_Max",
+    "AQHI_Risk",
+    "AQHI_High"
   ],
   "method": "importance_optimized",
   "metrics": {
-    "mae": 5.33,
-    "mape": 2.10,
-    "r2": 0.92
+    "mae": 4.97,
+    "mape": 1.97,
+    "r2": 0.928
   },
-  "note": "優化後的特徵集，包含 EWMA7+EWMA14（佔 90% 重要性）",
+  "note": "v3.0.73 added AQHI air quality features (5). Research shows +4.7% attendance on high AQHI days.",
   "feature_importance": [
-    {"feature": "Attendance_EWMA7", "importance": 0.45},
-    {"feature": "Attendance_EWMA14", "importance": 0.45},
+    {"feature": "Attendance_EWMA7", "importance": 0.52},
+    {"feature": "Attendance_EWMA14", "importance": 0.34},
     {"feature": "Daily_Change", "importance": 0.02},
     {"feature": "Monthly_Change", "importance": 0.02},
-    {"feature": "Attendance_EWMA30", "importance": 0.01}
-  ]
+    {"feature": "Attendance_EWMA30", "importance": 0.02},
+    {"feature": "AQHI_General_Max", "importance": 0.01, "note": "new"}
+  ],
+  "aqhi_analysis": {
+    "correlation": 0.21,
+    "high_aqhi_impact": "+4.7%",
+    "p_value": 0.0001,
+    "sample_days": 587
+  }
 }
