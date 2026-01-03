@@ -929,6 +929,7 @@ async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, mod
     
     // v2.9.88: Also insert into intraday_predictions for history tracking
     // v3.0.14: Only insert for TODAY (not future dates) to track prediction volatility
+    // v3.0.66: 恢復記錄未來 7 天的預測，以追蹤預測收斂過程
     try {
         // 獲取今天的日期（HKT）
         const now = new Date();
@@ -936,10 +937,16 @@ async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, mod
         const hkNow = new Date(now.getTime() + hkOffset);
         const todayStr = hkNow.toISOString().split('T')[0];
         
-        // 只為今天插入 intraday 記錄
-        if (targetDate === todayStr) {
+        // 計算目標日期與今天的天數差
+        const targetDateObj = new Date(targetDate);
+        const todayDateObj = new Date(todayStr);
+        const diffDays = Math.round((targetDateObj - todayDateObj) / (24 * 60 * 60 * 1000));
+        
+        // 記錄未來 7 天的預測（包括今天）
+        if (diffDays >= 0 && diffDays <= 7) {
             await insertIntradayPrediction(targetDate, predictedCount, ci80, ci95, modelVersion, weatherData, aiFactors, source);
-            console.log(`📊 已記錄今日 intraday 預測 (${source}): ${targetDate} = ${Math.round(predictedCount)} 人`);
+            const dayLabel = diffDays === 0 ? '今日' : `+${diffDays}天`;
+            console.log(`📊 已記錄 intraday 預測 (${source}, ${dayLabel}): ${targetDate} = ${Math.round(predictedCount)} 人`);
         }
     } catch (err) {
         console.warn('⚠️ 無法保存 intraday 預測記錄:', err.message);
