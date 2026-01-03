@@ -129,24 +129,46 @@ const NavManager = {
             });
         });
         
-        // 滾動時更新活動狀態
-        const sections = ['today-section', 'forecast-section', 'charts-section', 'model-training-section'];
+        // 滾動時更新活動狀態 - 使用 href 屬性匹配
+        const sectionMap = {
+            'today-section': 'today',
+            'factors-section': 'factors',
+            'forecast-section': 'forecast',
+            'confidence-dashboard': 'confidence',
+            'charts-section': 'charts',
+            'model-training-section': 'training',
+            'timeline-section': 'timeline',
+            'algorithm-section': 'algorithm'
+        };
         
         window.addEventListener('scroll', () => {
             const scrollPos = window.pageYOffset + 100;
+            let activeSection = null;
             
-            sections.forEach((sectionId, index) => {
+            // 找出當前可見的區塊
+            Object.keys(sectionMap).forEach(sectionId => {
                 const section = document.getElementById(sectionId);
                 if (section) {
                     const top = section.offsetTop;
                     const bottom = top + section.offsetHeight;
                     
                     if (scrollPos >= top && scrollPos < bottom) {
-                        links.forEach(l => l.classList.remove('active'));
-                        links[index]?.classList.add('active');
+                        activeSection = sectionId;
                     }
                 }
             });
+            
+            // 更新導航高亮
+            if (activeSection) {
+                links.forEach(link => {
+                    const href = link.getAttribute('href');
+                    if (href === `#${activeSection}`) {
+                        link.classList.add('active');
+                    } else {
+                        link.classList.remove('active');
+                    }
+                });
+            }
         });
     },
     
@@ -1819,4 +1841,5 @@ export function initUIEnhancements() {
 
 // 導出供外部使用
 export { ThemeManager, NavManager, Toast, AlertManager, ChartControls, ConfidenceDashboard };
+
 
