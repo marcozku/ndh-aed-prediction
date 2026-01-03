@@ -141,7 +141,12 @@ export class Weather {
         el.innerHTML = `
             <span class="weather-icon">${icon}</span>
             <span class="weather-temp">${weather.temperature !== null ? weather.temperature + '°C' : '--'}</span>
-            <span class="weather-desc">${weather.description}</span>
+            <div class="weather-details">
+                <span class="weather-detail-item">💧 ${weather.humidity !== null ? weather.humidity + '%' : '--'}</span>
+                <span class="weather-detail-item">🌧️ ${weather.rainfall || 0}mm</span>
+                ${weather.uvIndex ? `<span class="weather-detail-item">☀️ UV ${weather.uvIndex}</span>` : ''}
+            </div>
+            <span class="weather-desc">${weather.description} 📍 北區</span>
         `;
     }
 }
