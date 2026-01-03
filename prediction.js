@@ -9457,7 +9457,7 @@ function initAlgorithmContent() {
         <!-- ==================== 第一部分：核心公式概覽 ==================== -->
         <div class="algo-card" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(59, 130, 246, 0.08)); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid rgba(34, 197, 94, 0.25);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h4 style="margin: 0; color: #22c55e; font-size: 1rem;">🧠 NDH AED 預測算法 v3.0.73</h4>
+                <h4 style="margin: 0; color: #22c55e; font-size: 1rem;">🧠 NDH AED 預測算法 v3.0.76</h4>
                 <span style="font-size: 0.7rem; color: var(--text-tertiary); background: var(--bg-tertiary); padding: 2px 8px; border-radius: 4px;">加法效應模型</span>
             </div>
             
@@ -9715,29 +9715,76 @@ function initAlgorithmContent() {
             <div class="algo-card" style="background: var(--bg-secondary); padding: 14px; border-radius: 10px;">
                 <h4 style="margin: 0 0 10px 0; color: var(--text-primary); font-size: 0.88rem;">📚 研究參考</h4>
                 <div style="font-size: 0.73rem; color: var(--text-secondary); line-height: 1.7;">
-                    <div>• BMC EM (2025) - XGBoost ED 預測</div>
-                    <div>• Chen & Guestrin (2016) - XGBoost</div>
-                    <div>• Facebook Prophet - 趨勢分解</div>
-                    <div>• Bayesian Model Averaging</div>
-                    <div>• Kalman (1960) - 最優估計</div>
+                    <div>• <a href="https://doi.org/10.1145/2939672.2939785" target="_blank" style="color: #3b82f6;">Chen & Guestrin (2016)</a> - XGBoost</div>
+                    <div>• <a href="https://doi.org/10.1145/3292500.3330701" target="_blank" style="color: #3b82f6;">Akiba et al. (2019)</a> - Optuna</div>
+                    <div>• <a href="https://otexts.com/fpp3/" target="_blank" style="color: #3b82f6;">Hyndman (2021)</a> - EWMA/預測</div>
+                    <div>• <a href="https://doi.org/10.1145/2523813" target="_blank" style="color: #3b82f6;">Gama et al. (2014)</a> - Concept Drift</div>
+                    <div>• <a href="https://www.jmlr.org/papers/v3/guyon03a.html" target="_blank" style="color: #3b82f6;">Guyon (2003)</a> - RFE 特徵選擇</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ==================== 完整參考文獻 ==================== -->
+        <div class="algo-card" style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+            <h4 style="margin: 0 0 12px 0; color: var(--text-primary); font-size: 0.92rem;">📖 學術參考文獻</h4>
+            <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.8; column-count: 2; column-gap: 20px;">
+                <div style="margin-bottom: 8px; break-inside: avoid;">
+                    <strong>[1]</strong> Chen, T. & Guestrin, C. (2016). XGBoost: A Scalable Tree Boosting System. <em>ACM SIGKDD</em>. 
+                    <a href="https://doi.org/10.1145/2939672.2939785" target="_blank" style="color: #3b82f6;">DOI↗</a>
+                </div>
+                <div style="margin-bottom: 8px; break-inside: avoid;">
+                    <strong>[2]</strong> Akiba, T. et al. (2019). Optuna: A Next-generation Hyperparameter Optimization Framework. <em>ACM SIGKDD</em>. 
+                    <a href="https://doi.org/10.1145/3292500.3330701" target="_blank" style="color: #3b82f6;">DOI↗</a>
+                </div>
+                <div style="margin-bottom: 8px; break-inside: avoid;">
+                    <strong>[3]</strong> Gama, J. et al. (2014). A Survey on Concept Drift Adaptation. <em>ACM Computing Surveys</em>. 
+                    <a href="https://doi.org/10.1145/2523813" target="_blank" style="color: #3b82f6;">DOI↗</a>
+                </div>
+                <div style="margin-bottom: 8px; break-inside: avoid;">
+                    <strong>[4]</strong> Guyon, I. & Elisseeff, A. (2003). An Introduction to Variable and Feature Selection. <em>JMLR</em>. 
+                    <a href="https://www.jmlr.org/papers/v3/guyon03a.html" target="_blank" style="color: #3b82f6;">Link↗</a>
+                </div>
+                <div style="margin-bottom: 8px; break-inside: avoid;">
+                    <strong>[5]</strong> Hyndman, R.J. & Athanasopoulos, G. (2021). Forecasting: Principles and Practice (3rd ed.). 
+                    <a href="https://otexts.com/fpp3/" target="_blank" style="color: #3b82f6;">Book↗</a>
+                </div>
+                <div style="margin-bottom: 8px; break-inside: avoid;">
+                    <strong>[6]</strong> Makridakis, S. et al. (2020). The M4 Competition. <em>Int. J. Forecasting</em>. 
+                    <a href="https://doi.org/10.1016/j.ijforecast.2019.04.014" target="_blank" style="color: #3b82f6;">DOI↗</a>
+                </div>
+                <div style="margin-bottom: 8px; break-inside: avoid;">
+                    <strong>[7]</strong> Hastie, T. et al. (2009). The Elements of Statistical Learning. 
+                    <a href="https://hastie.su.domains/ElemStatLearn/" target="_blank" style="color: #3b82f6;">Book↗</a>
+                </div>
+                <div style="margin-bottom: 8px; break-inside: avoid;">
+                    <strong>[8]</strong> Hong Kong Observatory. Climate Data Services. 
+                    <a href="https://www.hko.gov.hk/en/cis/climat.htm" target="_blank" style="color: #3b82f6;">HKO↗</a>
+                </div>
+                <div style="margin-bottom: 8px; break-inside: avoid;">
+                    <strong>[9]</strong> Environmental Protection Dept. Air Quality Health Index. 
+                    <a href="https://www.aqhi.gov.hk/en.html" target="_blank" style="color: #3b82f6;">AQHI↗</a>
+                </div>
+                <div style="margin-bottom: 8px; break-inside: avoid;">
+                    <strong>[10]</strong> Lancet Planetary Health (2019). Air Pollution and Health. 
+                    <a href="https://www.thelancet.com/journals/lanplh/home" target="_blank" style="color: #3b82f6;">Journal↗</a>
                 </div>
             </div>
         </div>
         
         <!-- ==================== 版本更新 ==================== -->
         <div style="padding: 14px; background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.05)); border-radius: 10px; border-left: 4px solid #22c55e;">
-            <div style="font-size: 0.82rem; color: #22c55e; font-weight: 600; margin-bottom: 8px;">🚀 v3.0.73 更新亮點</div>
+            <div style="font-size: 0.82rem; color: #22c55e; font-weight: 600; margin-bottom: 8px;">🚀 v3.0.76 更新亮點</div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; font-size: 0.72rem; color: var(--text-secondary);">
-                <div>🌬️ <strong style="color: #3b82f6;">AQHI 真實數據</strong> (環保署 EPD 4000+ 天)</div>
-                <div>📊 AQHI 與天氣一同顯示</div>
-                <div>🎭 AI 新增：體育/文娛活動分析</div>
-                <div>📚 AI 新增：學校日曆事件分析</div>
-                <div>🦠 AI 新增：傳染病/食物中毒爆發</div>
+                <div>📊 <strong style="color: #8b5cf6;">Concept Drift 解決方案</strong></div>
+                <div>⏱️ 滑動窗口訓練 (--sliding-window)</div>
+                <div>⚖️ 時間衰減權重 (--time-decay)</div>
+                <div>🌡️ 極端條件後處理調整層</div>
+                <div>📖 <strong style="color: #3b82f6;">10 篇學術參考文獻</strong></div>
             </div>
         </div>
     `;
     
-    console.log('✅ 算法說明內容已初始化 (v3.0.73 詳細版)');
+    console.log('✅ 算法說明內容已初始化 (v3.0.76 詳細版)');
 }
 
 // 載入算法說明 - 調用原有的詳細版本
