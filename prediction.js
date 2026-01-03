@@ -7849,11 +7849,17 @@ function updateRealtimeFactors(aiAnalysisData = null) {
         const factorDescription = convertToTraditional(String(factor.description || '無描述'));
         const factorReasoning = factor.reasoning ? convertToTraditional(String(factor.reasoning)) : null;
         
-        // 根據類型選擇圖標
+        // 根據類型選擇圖標 (v3.0.70: 更新類型，排除天氣/假期/季節等已自動計算的因素)
         let icon = '📊';
-        if (factor.type === '天氣') icon = '🌤️';
+        if (factor.type === '健康政策' || factor.type?.includes('政策')) icon = '📋';
+        else if (factor.type === '醫院當局公告' || factor.type?.includes('公告')) icon = '🏥';
+        else if (factor.type === '突發公衛' || factor.type?.includes('公衛')) icon = '🚨';
+        else if (factor.type === '社會事件' || factor.type?.includes('事件')) icon = '📰';
+        else if (factor.type === '服務變更' || factor.type?.includes('服務')) icon = '🔧';
+        else if (factor.type === '新聞報導' || factor.type?.includes('新聞')) icon = '📰';
+        // 向後兼容舊類型
+        else if (factor.type === '天氣') icon = '🌤️';
         else if (factor.type === '公共衛生') icon = '🏥';
-        else if (factor.type === '社會事件') icon = '📰';
         else if (factor.type === '季節性') icon = '📅';
         
         // 根據信心度選擇顏色

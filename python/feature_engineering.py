@@ -471,12 +471,14 @@ def create_comprehensive_features(df, ai_factors_dict=None):
                 confidence_score = 0.6
             
             # 因子類型編碼（獨熱編碼）
+            # v3.0.70: AI 分析已排除 天氣/假期/季節性流感/週末 因素（由系統自動計算）
+            # 這些特徵保留用於向後兼容，但新的 AI 分析不會產生這些類型
             factor_type = factor_data.get('type', '').lower()
             type_weather = 1 if any(w in factor_type for w in ['天氣', '氣溫', '濕度', '雨', '熱', '冷', 'weather', 'temperature']) else 0
-            type_health = 1 if any(w in factor_type for w in ['健康', '流感', '疫情', '病毒', '公共衛生', 'health', 'flu', 'virus']) else 0
-            type_policy = 1 if any(w in factor_type for w in ['政策', '當局', '醫院', '醫管局', 'policy', 'hospital']) else 0
+            type_health = 1 if any(w in factor_type for w in ['健康', '流感', '疫情', '病毒', '公共衛生', 'health', 'flu', 'virus', '突發公衛']) else 0
+            type_policy = 1 if any(w in factor_type for w in ['政策', '當局', '醫院', '醫管局', 'policy', 'hospital', '服務變更']) else 0
             type_event = 1 if any(w in factor_type for w in ['事件', '新聞', '社會', 'event', 'news']) else 0
-            type_seasonal = 1 if any(w in factor_type for w in ['季節', '節日', '假期', 'season', 'holiday']) else 0
+            type_seasonal = 1 if any(w in factor_type for w in ['季節', '節日', '假期', 'season', 'holiday']) else 0  # 已棄用，保留向後兼容
             
             return pd.Series({
                 'AI_Impact_Factor': impact_factor,
