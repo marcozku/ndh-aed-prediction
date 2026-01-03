@@ -6563,15 +6563,13 @@ async function checkAIStatus() {
         if (data.connected) {
             const modelName = data.currentModel || '未知';
             const tier = data.modelTier || 'unknown';
-            // 簡化模型名稱顯示
-            const shortModel = modelName.replace('gpt-', '').replace('deepseek-', 'DS-');
             
             aiStatusEl.className = 'status-badge ai-status connected';
             aiStatusEl.innerHTML = `
                 <span class="status-icon">🤖</span>
-                <span class="status-text">${shortModel}</span>
+                <span class="status-text">${modelName}</span>
             `;
-            aiStatusEl.title = `AI 模型: ${modelName} (${tier})`;
+            aiStatusEl.title = `${tier} 層級`;
         } else {
             aiStatusEl.className = 'status-badge ai-status disconnected';
             aiStatusEl.innerHTML = `

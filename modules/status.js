@@ -33,13 +33,11 @@ export class Status {
             el.className = `status-badge ai-status ${status.connected ? 'connected' : 'disconnected'}`;
             if (status.connected) {
                 const modelName = status.currentModel || '未知';
-                // 簡化模型名稱顯示
-                const shortModel = modelName.replace('gpt-', '').replace('deepseek-', 'DS-');
                 el.innerHTML = `
                     <span class="status-icon">🤖</span>
-                    <span class="status-text">${shortModel}</span>
+                    <span class="status-text">${modelName}</span>
                 `;
-                el.title = `AI 模型: ${modelName} (${status.modelTier || 'unknown'})`;
+                el.title = `${status.modelTier || 'unknown'} 層級`;
             } else {
                 el.innerHTML = `
                     <span class="status-icon">❌</span>
