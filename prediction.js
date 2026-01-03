@@ -6562,21 +6562,20 @@ async function checkAIStatus() {
         
         if (data.connected) {
             const modelName = data.currentModel || '未知';
-            const tier = data.modelTier || 'unknown';
+            const tierNames = { premium: '高級', standard: '中級', basic: '基礎' };
+            const tierName = tierNames[data.modelTier] || '';
             
             aiStatusEl.className = 'status-badge ai-status connected';
             aiStatusEl.innerHTML = `
                 <span class="status-icon">🤖</span>
-                <span class="status-text">${modelName}</span>
+                <span class="status-text">${tierName} ${modelName}</span>
             `;
-            aiStatusEl.title = `${tier} 層級`;
         } else {
             aiStatusEl.className = 'status-badge ai-status disconnected';
             aiStatusEl.innerHTML = `
                 <span class="status-icon">❌</span>
                 <span class="status-text">AI 未連接</span>
             `;
-            aiStatusEl.title = data.error || '請檢查服務器配置';
         }
         
         console.log('🤖 AI 狀態:', JSON.stringify(data, null, 2));

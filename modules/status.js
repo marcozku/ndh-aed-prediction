@@ -33,17 +33,17 @@ export class Status {
             el.className = `status-badge ai-status ${status.connected ? 'connected' : 'disconnected'}`;
             if (status.connected) {
                 const modelName = status.currentModel || '未知';
+                const tierNames = { premium: '高級', standard: '中級', basic: '基礎' };
+                const tierName = tierNames[status.modelTier] || '';
                 el.innerHTML = `
                     <span class="status-icon">🤖</span>
-                    <span class="status-text">${modelName}</span>
+                    <span class="status-text">${tierName} ${modelName}</span>
                 `;
-                el.title = `${status.modelTier || 'unknown'} 層級`;
             } else {
                 el.innerHTML = `
                     <span class="status-icon">❌</span>
                     <span class="status-text">AI 未連接</span>
                 `;
-                el.title = status.error || 'AI 服務未連接';
             }
         }
     }
