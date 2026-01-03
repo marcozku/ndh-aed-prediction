@@ -4223,6 +4223,8 @@ async function initVolatilityChart(targetDate = null) {
         
         // 按預測日期分組
         const groupedByDay = {};
+        const [tYear, tMonth, tDay] = targetData.date.split('-').map(Number);
+        
         targetData.predictions.forEach(p => {
             const predTime = new Date(p.time);
             // 計算預測時間與目標日期的天數差（HKT）
@@ -4232,17 +4234,30 @@ async function initVolatilityChart(targetDate = null) {
             
             // 計算天數差
             const predDate = new Date(predDateStr);
-            const targetDate = new Date(targetDateStr);
-            const diffDays = Math.round((targetDate - predDate) / (24 * 60 * 60 * 1000));
+            const targetDateCalc = new Date(targetDateStr);
+            const diffDays = Math.round((targetDateCalc - predDate) / (24 * 60 * 60 * 1000));
             
             // 分組：0=當天, 1=前1天, 2=前2天, 3+=更早
             const groupKey = Math.min(diffDays, 3);
             if (!groupedByDay[groupKey]) {
                 groupedByDay[groupKey] = [];
             }
+            
+            // v3.0.64: 將預測時間映射到目標日期的時間軸上
+            // 提取 HKT 時分秒，然後設置到目標日期上
+            const hktHour = predDateHKT.getUTCHours();
+            const hktMinute = predDateHKT.getUTCMinutes();
+            const hktSecond = predDateHKT.getUTCSeconds();
+            
+            // 創建目標日期上的時間點（用於 x 軸顯示）
+            const displayTime = new Date(Date.UTC(tYear, tMonth - 1, tDay, hktHour, hktMinute, hktSecond) - 8 * 60 * 60 * 1000);
+            
             groupedByDay[groupKey].push({
-                x: predTime,
-                y: p.value || p.predicted
+                x: displayTime,
+                y: p.value || p.predicted,
+                // 保存原始時間用於 tooltip
+                originalTime: predTime,
+                daysAgo: diffDays
             });
         });
         

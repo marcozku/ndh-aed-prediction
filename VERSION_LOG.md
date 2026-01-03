@@ -1,5 +1,30 @@
 # 版本更新日誌
 
+## v3.0.64 - 2026-01-04 02:00 HKT
+
+### 🐛 修復：預測波動圖表時間軸問題
+
+**問題**：
+- 前幾天的預測（如「前2天預測」）在圖表上不可見
+- 原因：x 軸只顯示目標日期的 00:00-23:00
+- 但前幾天的預測時間戳是過去日期，超出 x 軸範圍
+
+**解決方案**：
+將所有預測時間映射到目標日期的時間軸上：
+```javascript
+// 提取 HKT 時分秒，設置到目標日期上
+const hktHour = predDateHKT.getUTCHours();
+const hktMinute = predDateHKT.getUTCMinutes();
+const displayTime = new Date(Date.UTC(tYear, tMonth - 1, tDay, hktHour, hktMinute));
+```
+
+**效果**：
+- 1/2 在 20:00 做的預測 → 顯示在目標日期的 20:00 位置
+- 不同天的預測用不同顏色區分
+- 現在可以看到所有預測點的分佈
+
+---
+
 ## v3.0.63 - 2026-01-04 01:30 HKT
 
 ### 📊 預測波動圖表改進：按預測日期分色顯示
