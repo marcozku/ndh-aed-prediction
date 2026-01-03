@@ -304,7 +304,45 @@
       "key_features": ["AQHI_General_Max", "AQHI_Roadside_Max", "AQHI_Risk"],
       "data_source": "環保署 AQHI API (aqhi.gov.hk)",
       "improvement": "預期：高 AQHI 日可提升預測準確度 5-10%"
+    },
+    {
+      "version": "3.0.74",
+      "date": "2026-01-04",
+      "description": "完整 HKO 天氣因素分析整合",
+      "changes": [
+        "下載 HKO JSON 天氣數據 (2014-2025，4383 天)",
+        "新增 11 個天氣變量：氣壓、濕度、降雨、風速、能見度等",
+        "統計相關性分析 (Pearson r, t-test)",
+        "發現顯著因素：寒冷(-6.8%)、大雨(-4.9%)、強風(-2.8%)",
+        "40 個優化特徵集 (含新天氣極端條件特徵)"
+      ],
+      "metrics": {
+        "mae": 6.08,
+        "mape": 2.38,
+        "rmse": 8.35,
+        "r2": 0.900,
+        "feature_count": 40,
+        "weather_features": 11,
+        "note": "新天氣特徵相關性較弱(r<0.12)，主要在極端條件下有效"
+      },
+      "research": "HKO Daily Extract API, Pearson 相關性分析",
+      "correlations": [
+        {"factor": "Visibility", "r": 0.1196, "p": "<0.001"},
+        {"factor": "Wind", "r": -0.1058, "p": "<0.001"},
+        {"factor": "DewPoint", "r": 0.0932, "p": "<0.001"},
+        {"factor": "Temp_Min", "r": 0.0820, "p": "<0.001"},
+        {"factor": "Humidity", "r": 0.0789, "p": "<0.001"}
+      ],
+      "extreme_conditions": [
+        {"condition": "Cold (Min<12C)", "impact": "-6.8%", "n": 128, "p": "<0.001"},
+        {"condition": "Heavy Rain (>25mm)", "impact": "-4.9%", "n": 232, "p": "<0.001"},
+        {"condition": "Low Humidity (<50%)", "impact": "-4.7%", "n": 94, "p": "0.011"},
+        {"condition": "Strong Wind (>30km/h)", "impact": "-2.8%", "n": 789, "p": "<0.001"},
+        {"condition": "Hot (Max>30C)", "impact": "+1.2%", "n": 1064, "p": "0.007"}
+      ],
+      "data_source": "HKO Daily Extract JSON API (2014-2025)",
+      "improvement": "完整天氣因素量化分析，極端天氣預測更準確"
     }
   ],
-  "last_updated": "2026-01-04T03:30:00+08:00"
+  "last_updated": "2026-01-04T03:40:00+08:00"
 }

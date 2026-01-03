@@ -1,17 +1,17 @@
 # XGBoost 精選特徵列表
 
-**自動生成於**: 2026-01-04 03:20 HKT
-**特徵數量**: 27 個
-**模型版本**: 3.0.73
+**自動生成於**: 2026-01-04 03:36 HKT
+**特徵數量**: 40 個
+**模型版本**: 3.0.74
 
 ## 📊 模型性能
 
 | 指標 | 數值 |
 |------|------|
-| MAE | 5.22 病人 |
-| MAPE | 2.05% |
-| R² | 0.925 |
-| RMSE | 7.23 |
+| MAE | 6.08 病人 |
+| MAPE | 2.38% |
+| R² | 0.900 |
+| RMSE | 8.35 |
 
 ## 🎯 精選特徵列表
 
@@ -60,11 +60,27 @@
 - `Is_Weekend`
 - `Holiday_Factor`
 
-### 其他 (3個)
+### 天氣特徵 (9個)
+
+- `Rainfall_mm`
+- `Weather_High_Pressure`
+- `Weather_Low_Humidity`
+- `Weather_Heavy_Rain`
+- `Weather_Strong_Wind`
+- `Weather_Low_Visibility`
+- `Weather_Is_Cold`
+- `Weather_Is_Hot`
+- `Weather_Rain_Day`
+
+### 其他 (7個)
 
 - `Attendance_Same_Weekday_Avg`
 - `AQHI_Risk`
 - `AQHI_High`
+- `Pressure_hPa`
+- `Humidity_pct`
+- `Wind_kmh`
+- `Visibility_km`
 
 ## 📈 特徵重要性 (Top 10)
 
@@ -75,7 +91,6 @@
 | 3 | `Daily_Change` | 2.00% |
 | 4 | `Monthly_Change` | 2.00% |
 | 5 | `Attendance_EWMA30` | 2.00% |
-| 6 | `AQHI_General_Max` | 1.00% |
 
 ## 📝 備註
 
@@ -86,4 +101,4 @@
 
 ## 🔄 更新歷史
 
-- 2026-01-04 03:20 HKT: 自動生成
+- 2026-01-04 03:36 HKT: 自動生成
