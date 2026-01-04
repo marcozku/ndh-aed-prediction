@@ -9421,7 +9421,7 @@ function updateBayesianBreakdown(todayPred) {
     const weatherFactor = todayPred.weatherFactorMultiplier || todayPred.weatherFactor || 1.0;
     
     const valueXgboost = document.getElementById('value-xgboost');
-    if (valueXgboost) valueXgboost.textContent = `${basePred} 人`;
+    if (valueXgboost) valueXgboost.textContent = `${Math.round(basePred)} 人`;
     
     const valueAi = document.getElementById('value-ai');
     if (valueAi) valueAi.textContent = `${Math.round(basePred * aiFactor)} 人`;
