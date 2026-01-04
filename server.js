@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.0.89';
+const MODEL_VERSION = '3.0.90';
 
 // ============================================
 // HKT 時間工具函數
@@ -4246,6 +4246,11 @@ const server = http.createServer(async (req, res) => {
                 }
             }
             return;
+        }
+
+        // v3.0.90: API fallback 保持 JSON，不再回退到 index.html
+        if (pathname.startsWith('/api/')) {
+            return sendJson(res, { success: false, error: 'API route not found', route: routeKey }, 404);
         }
 
         // Static file serving
