@@ -5461,7 +5461,8 @@ section h2 {
     .back-to-top {
         width: 44px;
         height: 44px;
-        bottom: 20px;
+        /* v3.0.87: 移到 mobile nav bar 上方 */
+        bottom: calc(70px + env(safe-area-inset-bottom, 0px));
         right: 20px;
     }
     
@@ -6489,7 +6490,8 @@ section h2 {
         background: var(--accent-primary);
         color: white;
         box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
-        bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+        /* v3.0.87: 移到 mobile nav bar 上方 (nav height ~60px) */
+        bottom: calc(75px + env(safe-area-inset-bottom, 0px));
         right: 16px;
     }
     
