@@ -9574,8 +9574,15 @@ async function autoLearnReliability() {
     
     try {
         // 獲取過去 30 天的預測和實際數據
-        const response = await fetch('/api/accuracy-history?days=30');
+        const url = `/api/accuracy-history?days=30&_=${Date.now()}`; // cache-bust（避免 edge 快取舊 HTML）
+        const response = await fetch(url, { cache: 'no-store' });
         if (!response.ok) return;
+
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            const text = await response.text();
+            throw new Error(`accuracy-history 非 JSON 回應: ${contentType} / ${text.slice(0, 80)}`);
+        }
         
         const data = await response.json();
         if (!data.success || !data.history || data.history.length < 10) return;
@@ -10125,13 +10132,20 @@ async function initDualTrackChart() {
     
     try {
         // 獲取準確度歷史數據
-        const response = await fetch('/api/accuracy-history?days=30');
+        const url = `/api/accuracy-history?days=30&_=${Date.now()}`; // cache-bust（避免 edge 快取舊 HTML）
+        const response = await fetch(url, { cache: 'no-store' });
         if (!response.ok) {
             console.warn('⚠️ 無法獲取雙軌歷史數據:', response.status);
             canvas.parentElement.innerHTML = '<div style="text-align: center; color: var(--text-tertiary); padding: 40px;">API 暫時無法連接</div>';
             return;
         }
         
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            const text = await response.text();
+            throw new Error(`accuracy-history 非 JSON 回應: ${contentType} / ${text.slice(0, 80)}`);
+        }
+
         const result = await response.json();
         if (!result.success || !result.history || result.history.length === 0) {
             canvas.parentElement.innerHTML = '<div style="text-align: center; color: var(--text-tertiary); padding: 40px;">暫無雙軌對比數據</div>';

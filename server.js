@@ -247,7 +247,10 @@ function sendJson(res, data, statusCode = 200) {
     
     res.writeHead(statusCode, { 
         'Content-Type': 'application/json; charset=utf-8',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
+        // v3.0.90: 避免任何 CDN / edge / browser 快取 API 回應（防止 JSON 變成舊 HTML 被快取）
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma': 'no-cache'
     });
     res.end(buffer);
 }
