@@ -4079,35 +4079,52 @@ const server = http.createServer(async (req, res) => {
             return { 'Cache-Control': 'no-cache' };
         };
         
-        fs.readFile(fullPath, (err, content) => {
-            if (err) {
-                if (err.code === 'ENOENT') {
-                    fs.readFile(path.join(__dirname, 'index.html'), (err, content) => {
-                        if (err) {
-                            res.writeHead(500);
-                            res.end('Server Error');
-                        } else {
-                            res.writeHead(200, { 
-                                'Content-Type': 'text/html', 
-                                'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
-                                ...frameHeaders 
-                            });
-                            res.end(content, 'utf-8');
-                        }
-                    });
-                } else {
-                    res.writeHead(500);
-                    res.end('Server Error');
-                }
-            } else {
-                res.writeHead(200, { 
-                    'Content-Type': contentType, 
-                    ...getCacheHeaders(ext),
-                    ...frameHeaders 
+        // v3.0.83: 嘗試多個位置查找靜態文件
+        const tryReadFile = (paths, index = 0) => {
+            if (index >= paths.length) {
+                // 所有路徑都找不到，返回 index.html (SPA fallback)
+                fs.readFile(path.join(__dirname, 'index.html'), (err, content) => {
+                    if (err) {
+                        res.writeHead(500);
+                        res.end('Server Error');
+                    } else {
+                        res.writeHead(200, { 
+                            'Content-Type': 'text/html', 
+                            'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+                            ...frameHeaders 
+                        });
+                        res.end(content, 'utf-8');
+                    }
                 });
-                res.end(content, 'utf-8');
+                return;
             }
-        });
+            
+            fs.readFile(paths[index], (err, content) => {
+                if (err) {
+                    if (err.code === 'ENOENT') {
+                        // 嘗試下一個路徑
+                        tryReadFile(paths, index + 1);
+                    } else {
+                        res.writeHead(500);
+                        res.end('Server Error');
+                    }
+                } else {
+                    res.writeHead(200, { 
+                        'Content-Type': contentType, 
+                        ...getCacheHeaders(ext),
+                        ...frameHeaders 
+                    });
+                    res.end(content, 'utf-8');
+                }
+            });
+        };
+        
+        // 查找順序: 根目錄 -> public 資料夾
+        const searchPaths = [
+            fullPath,
+            path.join(__dirname, 'public', filePath)
+        ];
+        tryReadFile(searchPaths);
     } catch (error) {
         // 全局錯誤處理
         console.error('服務器全局錯誤:', error);
