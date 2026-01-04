@@ -776,6 +776,46 @@ const apiHandlers = {
             sendJson(res, { error: error.message, stack: error.stack }, 500);
         }
     },
+    
+    // v3.0.87: 準確度歷史（用於可靠度學習）
+    'GET /api/accuracy-history': async (req, res) => {
+        if (!db || !db.pool) {
+            return sendJson(res, { error: 'Database not configured' }, 503);
+        }
+        try {
+            const parsedUrl = url.parse(req.url, true);
+            const days = parseInt(parsedUrl.query.days) || 30;
+            
+            const query = `
+                SELECT 
+                    dp.target_date as date,
+                    dp.predicted_count as predicted,
+                    ad.patient_count as actual,
+                    dp.prediction_production,
+                    dp.prediction_experimental,
+                    dp.xgboost_base,
+                    dp.ai_factor,
+                    dp.weather_factor
+                FROM daily_predictions dp
+                INNER JOIN actual_data ad ON dp.target_date = ad.date
+                WHERE dp.target_date >= CURRENT_DATE - INTERVAL '${days} days'
+                  AND dp.target_date < CURRENT_DATE
+                ORDER BY dp.target_date DESC
+            `;
+            
+            const result = await db.pool.query(query);
+            
+            sendJson(res, {
+                success: true,
+                history: result.rows,
+                count: result.rows.length,
+                days: days
+            });
+        } catch (error) {
+            console.error('❌ 獲取準確度歷史失敗:', error);
+            sendJson(res, { success: false, error: error.message }, 500);
+        }
+    },
 
     // Debug: Check data for specific dates
     'GET /api/debug-data': async (req, res) => {
