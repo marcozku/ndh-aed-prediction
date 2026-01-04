@@ -10127,7 +10127,8 @@ async function initDualTrackChart() {
         // 獲取準確度歷史數據
         const response = await fetch('/api/accuracy-history?days=30');
         if (!response.ok) {
-            console.warn('⚠️ 無法獲取雙軌歷史數據');
+            console.warn('⚠️ 無法獲取雙軌歷史數據:', response.status);
+            canvas.parentElement.innerHTML = '<div style="text-align: center; color: var(--text-tertiary); padding: 40px;">API 暫時無法連接</div>';
             return;
         }
         
@@ -10146,8 +10147,23 @@ async function initDualTrackChart() {
         
         const actualData = history.map(d => d.actual);
         const predictedData = history.map(d => d.predicted);
-        const productionData = history.map(d => d.prediction_production ? parseFloat(d.prediction_production) : d.predicted);
-        const experimentalData = history.map(d => d.prediction_experimental ? parseFloat(d.prediction_experimental) : d.predicted);
+        
+        // 檢查是否有雙軌數據
+        const hasDualTrackData = history.some(d => d.prediction_production !== null);
+        
+        // 如果沒有雙軌數據，顯示預測 vs 實際對比
+        const productionData = history.map(d => {
+            if (d.prediction_production !== null) return parseFloat(d.prediction_production);
+            // 無雙軌數據時：Production = predicted（模擬無 AI 的情況）
+            return d.predicted;
+        });
+        const experimentalData = history.map(d => {
+            if (d.prediction_experimental !== null) return parseFloat(d.prediction_experimental);
+            // 無雙軌數據時：Experimental = predicted（模擬含 AI 的情況）
+            return d.predicted;
+        });
+        
+        console.log(`📊 雙軌圖表數據: ${history.length} 筆, 有雙軌數據: ${hasDualTrackData}`);
         
         // 銷毀舊圖表
         destroyChart('dual-track-chart');
@@ -10170,7 +10186,7 @@ async function initDualTrackChart() {
                         pointBackgroundColor: '#22c55e'
                     },
                     {
-                        label: 'Production (無 AI)',
+                        label: hasDualTrackData ? 'Production (無 AI)' : '預測值',
                         data: productionData,
                         borderColor: '#3b82f6',
                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -10178,9 +10194,10 @@ async function initDualTrackChart() {
                         fill: false,
                         tension: 0.3,
                         pointRadius: 3,
-                        borderDash: [5, 5]
+                        borderDash: hasDualTrackData ? [5, 5] : []
                     },
-                    {
+                    // 只有當有雙軌數據時才顯示 Experimental 線
+                    ...(hasDualTrackData ? [{
                         label: 'Experimental (含 AI)',
                         data: experimentalData,
                         borderColor: '#f59e0b',
@@ -10190,7 +10207,7 @@ async function initDualTrackChart() {
                         tension: 0.3,
                         pointRadius: 3,
                         borderDash: [2, 2]
-                    }
+                    }] : [])
                 ]
             },
             options: {
@@ -10239,10 +10256,20 @@ async function initDualTrackChart() {
             }
         });
         
-        console.log('✅ 雙軌對比圖表已載入');
+        // 更新標題反映數據狀態
+        const titleEl = canvas.parentElement.previousElementSibling;
+        if (titleEl && titleEl.tagName === 'H4') {
+            if (!hasDualTrackData) {
+                titleEl.innerHTML = '📊 預測 vs 實際對比 (過去 30 天) <span style="font-size: 0.7rem; color: var(--text-tertiary); font-weight: normal;">(雙軌數據收集中)</span>';
+            }
+        }
+        
+        console.log(`✅ 雙軌對比圖表已載入 (有雙軌數據: ${hasDualTrackData})`);
     } catch (error) {
         console.warn('⚠️ 雙軌圖表載入失敗:', error.message);
-        canvas.parentElement.innerHTML = `<div style="text-align: center; color: var(--text-tertiary); padding: 40px;">圖表載入失敗: ${error.message}</div>`;
+        if (canvas && canvas.parentElement) {
+            canvas.parentElement.innerHTML = `<div style="text-align: center; color: var(--text-tertiary); padding: 40px;">圖表載入失敗: ${error.message}</div>`;
+        }
     }
 }
 
