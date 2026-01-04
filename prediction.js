@@ -9913,7 +9913,7 @@ function loadAlgorithmDescription() {
     initAlgorithmContent();
 }
 
-// v3.0.83: 載入雙軌預測系統
+// v3.0.85: 載入雙軌預測系統 (改進版)
 async function loadDualTrackSection() {
     const container = document.getElementById('dual-track-content');
     const loading = document.getElementById('dual-track-loading');
@@ -9925,21 +9925,46 @@ async function loadDualTrackSection() {
         
         if (loading) loading.style.display = 'none';
         
-        if (!response.ok || !result.today) {
-            container.innerHTML = `
-                <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                    <div style="font-size: 2rem; margin-bottom: 16px;">🔬</div>
-                    <div style="font-size: 0.9rem;">雙軌系統數據載入中...</div>
-                    <div style="font-size: 0.75rem; margin-top: 8px; color: var(--text-tertiary);">需要預測數據才能顯示對比</div>
-                </div>
-            `;
-            return;
-        }
+        // v3.0.85: 如果沒有雙軌數據，使用當前預測創建模擬對比
+        let prod, exp, validation;
         
-        const data = result;
-        const prod = data.today?.production || {};
-        const exp = data.today?.experimental || {};
-        const validation = data.validation || {};
+        if (!response.ok || !result.today) {
+            // 從 reliability API 獲取權重
+            let reliability = { xgboost: 0.95, ai: 0.00, weather: 0.05 };
+            try {
+                const relResp = await fetch('/api/reliability');
+                const relData = await relResp.json();
+                if (relData.success && relData.data) {
+                    reliability = {
+                        xgboost: parseFloat(relData.data.xgboost_reliability) || 0.95,
+                        ai: parseFloat(relData.data.ai_reliability) || 0.00,
+                        weather: parseFloat(relData.data.weather_reliability) || 0.05
+                    };
+                }
+            } catch (e) { /* use defaults */ }
+            
+            // 使用靜態模擬數據
+            prod = {
+                prediction: '--',
+                weights: { w_base: reliability.xgboost, w_weather: reliability.weather, w_ai: reliability.ai }
+            };
+            exp = {
+                prediction: '--',
+                weights: { w_base: 0.85, w_weather: 0.05, w_ai: 0.10 }
+            };
+            validation = {
+                samples: { total: 0 },
+                improvement: { percentage: 0 },
+                experimental: { win_rate: '--' },
+                production: { mae: '--' },
+                recommendation: '累積更多數據後才能進行驗證分析'
+            };
+        } else {
+            const data = result;
+            prod = data.today?.production || {};
+            exp = data.today?.experimental || {};
+            validation = data.validation || {};
+        }
         
         container.innerHTML = `
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
