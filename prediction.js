@@ -9565,7 +9565,7 @@ function initAlgorithmContent() {
         <!-- ==================== 第一部分：核心公式概覽 ==================== -->
         <div class="algo-card" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(59, 130, 246, 0.08)); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid rgba(34, 197, 94, 0.25);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h4 style="margin: 0; color: #22c55e; font-size: 1rem;">🧠 NDH AED 預測算法 v3.0.79</h4>
+                <h4 style="margin: 0; color: #22c55e; font-size: 1rem;">🧠 NDH AED 預測算法 v3.0.83</h4>
                 <span style="font-size: 0.7rem; color: var(--text-tertiary); background: var(--bg-tertiary); padding: 2px 8px; border-radius: 4px;">XGBoost 混合模型</span>
             </div>
             
@@ -9636,7 +9636,7 @@ function initAlgorithmContent() {
             </div>
             
             <div style="background: rgba(245, 158, 11, 0.1); padding: 10px; border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary);">
-                <strong style="color: #f59e0b;">📊 模型性能:</strong> MAE = 4.01 人 · MAPE = 1.59% · R² = 95.8% · 25 精選特徵
+                <strong style="color: #f59e0b;">📊 模型性能:</strong> MAE = 4.53 人 · MAPE = 1.81% · R² = 94.8% · 25 精選特徵 · 4,052 天數據
             </div>
         </div>
         
@@ -9657,19 +9657,19 @@ function initAlgorithmContent() {
                 <div style="text-align: center; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 8px;">
                     <div style="font-size: 0.9rem; margin-bottom: 4px;">🤖</div>
                     <div style="font-weight: 600; color: #8b5cf6; font-size: 0.8rem;">XGBoost</div>
-                    <div style="font-size: 0.72rem; color: var(--text-secondary);">可靠度 90%</div>
+                    <div style="font-size: 0.72rem; color: var(--text-secondary);">可靠度 95% <span style="font-size:9px;color:#22c55e;">(實時學習)</span></div>
                     <div style="font-size: 0.68rem; color: var(--text-tertiary);">mean = 模型輸出</div>
                 </div>
                 <div style="text-align: center; padding: 10px; background: rgba(245, 158, 11, 0.1); border-radius: 8px;">
                     <div style="font-size: 0.9rem; margin-bottom: 4px;">🧠</div>
                     <div style="font-weight: 600; color: #f59e0b; font-size: 0.8rem;">AI 因子</div>
-                    <div style="font-size: 0.72rem; color: var(--text-secondary);">可靠度 60%</div>
+                    <div style="font-size: 0.72rem; color: var(--text-secondary);">可靠度 0% <span style="font-size:9px;color:#f59e0b;">(累積驗證中)</span></div>
                     <div style="font-size: 0.68rem; color: var(--text-tertiary);">mean = XGB × factor</div>
                 </div>
                 <div style="text-align: center; padding: 10px; background: rgba(59, 130, 246, 0.1); border-radius: 8px;">
                     <div style="font-size: 0.9rem; margin-bottom: 4px;">🌤️</div>
                     <div style="font-weight: 600; color: #3b82f6; font-size: 0.8rem;">天氣因子</div>
-                    <div style="font-size: 0.72rem; color: var(--text-secondary);">可靠度 75%</div>
+                    <div style="font-size: 0.72rem; color: var(--text-secondary);">可靠度 5% <span style="font-size:9px;color:#3b82f6;">(弱相關)</span></div>
                     <div style="font-size: 0.68rem; color: var(--text-tertiary);">mean = XGB × factor</div>
                 </div>
             </div>
