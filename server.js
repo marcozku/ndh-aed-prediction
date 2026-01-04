@@ -777,6 +777,11 @@ const apiHandlers = {
         }
     },
     
+    // v3.0.89: 簡單測試端點
+    'GET /api/test-route': async (req, res) => {
+        sendJson(res, { success: true, message: 'Route matching works!', version: MODEL_VERSION });
+    },
+
     // v3.0.87: 準確度歷史（用於可靠度學習）
     'GET /api/accuracy-history': async (req, res) => {
         console.log('📊 accuracy-history API 被調用');
@@ -4212,6 +4217,12 @@ const server = http.createServer(async (req, res) => {
         const parsedUrl = url.parse(req.url, true);
         const pathname = parsedUrl.pathname;
         const routeKey = `${req.method} ${pathname}`;
+        
+        // v3.0.89: 調試路由匹配
+        if (pathname.includes('accuracy-history')) {
+            console.log(`🔍 [DEBUG] 接收到 accuracy-history 請求:`, { pathname, routeKey, hasHandler: !!apiHandlers[routeKey] });
+            console.log(`🔍 [DEBUG] apiHandlers 中的相似路由:`, Object.keys(apiHandlers).filter(k => k.includes('accuracy')));
+        }
         
         if (apiHandlers[routeKey]) {
             try {
