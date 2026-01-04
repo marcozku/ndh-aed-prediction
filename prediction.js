@@ -9179,14 +9179,21 @@ function formatFileSize(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// 格式化訓練日期（HKT）
+// 格式化訓練日期（HKT）- v3.0.84: 處理 HKT 後綴
 function formatTrainingDate(dateStr) {
     if (!dateStr) return '未知';
     try {
-        const date = new Date(dateStr);
+        // 處理 "2026-01-05 05:03:00 HKT" 格式
+        let cleanDateStr = dateStr;
+        if (cleanDateStr.includes('HKT')) {
+            cleanDateStr = cleanDateStr.replace(' HKT', '').replace('HKT', '');
+        }
+        const date = new Date(cleanDateStr);
+        if (isNaN(date.getTime())) {
+            return dateStr; // 如果解析失敗，返回原字串
+        }
         return date.toLocaleString('zh-HK', {
             timeZone: 'Asia/Hong_Kong',
-            year: 'numeric',
             month: '2-digit',
             day: '2-digit',
             hour: '2-digit',

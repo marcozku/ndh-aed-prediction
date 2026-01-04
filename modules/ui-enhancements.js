@@ -1217,18 +1217,27 @@ const MethodologyModal = {
                     mapeEl.textContent = metrics.mape.toFixed(2);
                 }
                 if (trainDateEl && metrics.training_date) {
-                    // 格式化為 HKT 時間
-                    const date = new Date(metrics.training_date);
-                    const hktDate = date.toLocaleString('zh-HK', {
-                        timeZone: 'Asia/Hong_Kong',
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: false
-                    });
-                    trainDateEl.textContent = hktDate;
+                    // v3.0.84: 處理 "2026-01-05 05:03:00 HKT" 格式
+                    let dateStr = metrics.training_date;
+                    // 移除 HKT 後綴並解析
+                    if (dateStr.includes('HKT')) {
+                        dateStr = dateStr.replace(' HKT', '').replace('HKT', '');
+                    }
+                    const date = new Date(dateStr);
+                    if (!isNaN(date.getTime())) {
+                        const hktDate = date.toLocaleString('zh-HK', {
+                            timeZone: 'Asia/Hong_Kong',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false
+                        });
+                        trainDateEl.textContent = hktDate;
+                    } else {
+                        // 如果解析失敗，直接顯示原字串
+                        trainDateEl.textContent = metrics.training_date;
+                    }
                 }
                 if (dataCountEl && metrics.data_count !== undefined) {
                     dataCountEl.textContent = metrics.data_count.toLocaleString();
