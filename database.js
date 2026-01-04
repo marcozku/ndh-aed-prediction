@@ -272,6 +272,14 @@ async function initDatabase() {
         await client.query(`
             CREATE INDEX IF NOT EXISTS idx_daily_predictions_created_at ON daily_predictions(created_at)
         `);
+        
+        // v3.0.86: Add dual-track columns for production/experimental predictions
+        await client.query(`ALTER TABLE daily_predictions ADD COLUMN IF NOT EXISTS prediction_production DECIMAL(10,2)`);
+        await client.query(`ALTER TABLE daily_predictions ADD COLUMN IF NOT EXISTS prediction_experimental DECIMAL(10,2)`);
+        await client.query(`ALTER TABLE daily_predictions ADD COLUMN IF NOT EXISTS xgboost_base DECIMAL(10,2)`);
+        await client.query(`ALTER TABLE daily_predictions ADD COLUMN IF NOT EXISTS ai_factor DECIMAL(5,3)`);
+        await client.query(`ALTER TABLE daily_predictions ADD COLUMN IF NOT EXISTS weather_factor DECIMAL(5,3)`);
+        console.log('✅ Dual-track columns added to daily_predictions');
 
         // Table for final daily averaged predictions (calculated at end of day)
         await client.query(`
@@ -909,13 +917,20 @@ async function updateAIFactorsCache(updateTime, factorsCache, analysisData = nul
 // Insert or update daily prediction (UPSERT - each update throughout the day replaces old prediction)
 // v2.9.88: Also inserts into intraday_predictions for history tracking
 // v3.0.65: 新增 source 參數區分自動預測 vs 手動刷新
-async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, modelVersion = '1.0.0', weatherData = null, aiFactors = null, source = 'auto') {
+// v3.0.86: 新增 dualTrack 參數存儲雙軌預測
+async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, modelVersion = '1.0.0', weatherData = null, aiFactors = null, source = 'auto', dualTrack = null) {
     if (!pool) {
         throw new Error('Database pool not initialized');
     }
+    
+    // v3.0.86: 如果有雙軌數據，使用擴展查詢
     const query = `
-        INSERT INTO daily_predictions (target_date, predicted_count, ci80_low, ci80_high, ci95_low, ci95_high, model_version, weather_data, ai_factors)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        INSERT INTO daily_predictions (
+            target_date, predicted_count, ci80_low, ci80_high, ci95_low, ci95_high, 
+            model_version, weather_data, ai_factors,
+            prediction_production, prediction_experimental, xgboost_base, ai_factor, weather_factor
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         ON CONFLICT (target_date) DO UPDATE SET
             predicted_count = EXCLUDED.predicted_count,
             ci80_low = EXCLUDED.ci80_low,
@@ -925,11 +940,18 @@ async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, mod
             model_version = EXCLUDED.model_version,
             weather_data = EXCLUDED.weather_data,
             ai_factors = EXCLUDED.ai_factors,
+            prediction_production = COALESCE(EXCLUDED.prediction_production, daily_predictions.prediction_production),
+            prediction_experimental = COALESCE(EXCLUDED.prediction_experimental, daily_predictions.prediction_experimental),
+            xgboost_base = COALESCE(EXCLUDED.xgboost_base, daily_predictions.xgboost_base),
+            ai_factor = COALESCE(EXCLUDED.ai_factor, daily_predictions.ai_factor),
+            weather_factor = COALESCE(EXCLUDED.weather_factor, daily_predictions.weather_factor),
             created_at = CURRENT_TIMESTAMP
         RETURNING *
     `;
     // 確保所有數值都是整數（四捨五入）
     const toInt = (val) => val != null ? Math.round(val) : null;
+    const toDecimal = (val) => val != null ? parseFloat(val) : null;
+    
     const result = await queryWithRetry(query, [
         targetDate,
         toInt(predictedCount),
@@ -939,7 +961,12 @@ async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, mod
         toInt(ci95?.high),
         modelVersion,
         weatherData ? JSON.stringify(weatherData) : null,
-        aiFactors ? JSON.stringify(aiFactors) : null
+        aiFactors ? JSON.stringify(aiFactors) : null,
+        toDecimal(dualTrack?.production),
+        toDecimal(dualTrack?.experimental),
+        toDecimal(dualTrack?.xgboostBase),
+        toDecimal(dualTrack?.aiFactor),
+        toDecimal(dualTrack?.weatherFactor)
     ]);
     
     // v2.9.88: Also insert into intraday_predictions for history tracking

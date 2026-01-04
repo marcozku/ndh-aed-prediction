@@ -1,5 +1,22 @@
 # 版本更新日誌
 
+## v3.0.87 - 2026-01-06 03:30 HKT
+**🔬 雙軌系統實際數據存儲**
+
+### 修復
+- ✅ **新增雙軌欄位**：`prediction_production`, `prediction_experimental`, `xgboost_base`, `ai_factor`, `weather_factor`
+- ✅ **修復 API 欄位名**：`target_date` 而非 `prediction_date`
+- ✅ **計算雙軌預測**：Production (XGBoost + Weather) vs Experimental (XGBoost + Weather + AI)
+- ✅ **存儲到數據庫**：`insertDailyPrediction` 現在接受 `dualTrack` 參數
+- ✅ **動態假期因子 API**：`/api/holiday-factors` 端點取代 Node.js require
+
+### 技術細節
+- Production Track：AI 權重 = 0，保守模式
+- Experimental Track：AI 權重 = 10-20%，測試模式
+- 雙軌數據用於未來驗證和權重優化
+
+---
+
 ## v3.0.86 - 2026-01-06 03:00 HKT
 **📆 預測範圍改為 7 天**
 

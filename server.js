@@ -3878,27 +3878,26 @@ const apiHandlers = {
     // ============================================
     
     // Get dual-track summary
+    // v3.0.86: 使用正確的欄位名稱 (target_date 而非 prediction_date)
     'GET /api/dual-track/summary': async (req, res) => {
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         try {
-            const DualTrackPredictor = require('./modules/dual-track-predictor');
-            const dualTrack = new DualTrackPredictor(db.pool);
-            
-            // Get validation summary
-            const validation = await dualTrack.getValidationSummary();
-            
             // Get today's prediction
             const today = getHKTDate();
             const query = `
                 SELECT 
+                    target_date,
+                    predicted_count,
                     prediction_production,
                     prediction_experimental,
                     xgboost_base,
                     ai_factor,
-                    weather_factor
+                    weather_factor,
+                    ci80_low,
+                    ci80_high
                 FROM daily_predictions
-                WHERE prediction_date = $1
+                WHERE target_date = $1
                 ORDER BY created_at DESC
                 LIMIT 1
             `;
@@ -3906,27 +3905,75 @@ const apiHandlers = {
             const result = await db.pool.query(query, [today]);
             
             let todayPrediction = null;
-            if (result.rows.length > 0) {
+            if (result.rows.length > 0 && result.rows[0].prediction_production !== null) {
                 const pred = result.rows[0];
+                const prodPred = parseFloat(pred.prediction_production);
+                const expPred = parseFloat(pred.prediction_experimental);
+                const xgbBase = parseFloat(pred.xgboost_base);
+                const aiFactor = parseFloat(pred.ai_factor) || 1.0;
+                const weatherFactor = parseFloat(pred.weather_factor) || 1.0;
+                
+                // 獲取當前可靠度權重
+                let reliability = { xgboost_reliability: 0.95, ai_reliability: 0.00, weather_reliability: 0.05 };
+                try {
+                    const relState = await db.getReliabilityState();
+                    if (relState) reliability = relState;
+                } catch (e) {}
+                
                 todayPrediction = {
                     date: today,
-                    xgboost_base: pred.xgboost_base,
+                    xgboost_base: Math.round(xgbBase),
                     production: {
-                        prediction: Math.round(pred.prediction_production),
-                        weights: { w_base: 0.95, w_weather: 0.05, w_ai: 0.00 },
+                        prediction: Math.round(prodPred),
+                        weights: { 
+                            w_base: parseFloat(reliability.xgboost_reliability) || 0.95, 
+                            w_weather: parseFloat(reliability.weather_reliability) || 0.05, 
+                            w_ai: 0.00 
+                        },
                         ci80: { 
-                            low: Math.round(pred.prediction_production - 8), 
-                            high: Math.round(pred.prediction_production + 8) 
+                            low: pred.ci80_low || Math.round(prodPred - 8), 
+                            high: pred.ci80_high || Math.round(prodPred + 8) 
                         }
                     },
                     experimental: {
-                        prediction: Math.round(pred.prediction_experimental),
-                        weights: { w_base: 0.85, w_weather: 0.05, w_ai: 0.10 }
+                        prediction: Math.round(expPred),
+                        weights: { 
+                            w_base: Math.max(0.70, parseFloat(reliability.xgboost_reliability) - 0.10), 
+                            w_weather: parseFloat(reliability.weather_reliability) || 0.05, 
+                            w_ai: Math.min(0.20, parseFloat(reliability.ai_reliability) + 0.10) 
+                        },
+                        ci80: { 
+                            low: Math.round(expPred - 8), 
+                            high: Math.round(expPred + 8) 
+                        }
                     },
-                    aiImpact: pred.ai_factor !== 1.0 ? 
-                        `${((pred.ai_factor - 1) * 100).toFixed(1)}%` : 'None'
+                    aiImpact: aiFactor !== 1.0 ? 
+                        `${((aiFactor - 1) * 100).toFixed(1)}%` : 'None'
                 };
             }
+            
+            // 計算驗證統計
+            const validationQuery = `
+                SELECT 
+                    COUNT(*) as total,
+                    COUNT(CASE WHEN prediction_production IS NOT NULL AND prediction_experimental IS NOT NULL THEN 1 END) as with_dual,
+                    AVG(ABS(predicted_count - (SELECT patient_count FROM actual_data ad WHERE ad.date = dp.target_date))) as avg_error
+                FROM daily_predictions dp
+                WHERE target_date >= CURRENT_DATE - INTERVAL '30 days'
+            `;
+            const valResult = await db.pool.query(validationQuery);
+            const valStats = valResult.rows[0] || {};
+            
+            const validation = {
+                total_comparisons: parseInt(valStats.with_dual) || 0,
+                prod_wins: 0,
+                exp_wins: 0,
+                prod_mae: valStats.avg_error ? parseFloat(valStats.avg_error).toFixed(1) : '--',
+                exp_mae: '--',
+                mae_improvement_pct: '--',
+                win_rate_pct: '--',
+                recommendation: todayPrediction ? '雙軌系統運行中' : '等待雙軌預測數據'
+            };
             
             sendJson(res, {
                 success: true,
@@ -4780,6 +4827,26 @@ async function generateServerSidePredictions(source = 'auto') {
                 anomaly = { type: 'high', message: `預測值 ${adjusted} 高於歷史範圍 (${NORMAL_MAX})` };
             }
             
+            // v3.0.86: 計算雙軌預測
+            // Production = XGBoost + Weather (AI 權重 = 0)
+            // Experimental = XGBoost + Weather + AI
+            let prodPrediction = adjusted;
+            let expPrediction = adjusted;
+            
+            if (daysAhead === 0 && bayesianResult) {
+                // 使用 Bayesian 融合結果
+                const { getPragmaticBayesian } = require('./modules/pragmatic-bayesian');
+                const bayesian = getPragmaticBayesian({ baseStd: dowStds[dow] || 15 });
+                
+                // Production: 不使用 AI 因子
+                const prodResult = bayesian.predict(basePrediction, 1.0, weatherFactor);
+                prodPrediction = prodResult.prediction;
+                
+                // Experimental: 使用 AI 因子
+                const expResult = bayesian.predict(basePrediction, aiFactor, weatherFactor);
+                expPrediction = expResult.prediction;
+            }
+            
             predictions.push({
                 date: dateStr,
                 predicted: adjusted,
@@ -4793,7 +4860,15 @@ async function generateServerSidePredictions(source = 'auto') {
                 },
                 weatherInfo,
                 aiInfo,
-                anomaly  // v3.0.85: 異常標記
+                anomaly,  // v3.0.85: 異常標記
+                // v3.0.86: 雙軌數據
+                dualTrack: {
+                    xgboostBase: basePrediction,
+                    production: prodPrediction,
+                    experimental: expPrediction,
+                    aiFactor: aiFactor,
+                    weatherFactor: weatherFactor
+                }
             });
         }
         
@@ -4838,7 +4913,8 @@ async function generateServerSidePredictions(source = 'auto') {
                     MODEL_VERSION,
                     weatherData,
                     aiFactorsData,
-                    source  // v3.0.65: 傳遞來源類型
+                    source,  // v3.0.65: 傳遞來源類型
+                    pred.dualTrack  // v3.0.86: 雙軌數據
                 );
                 if (savedCount === 0) {
                     console.log(`📝 首筆預測已保存: ${pred.date} = ${pred.predicted}人, id=${result?.id || 'unknown'}`);
