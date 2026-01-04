@@ -10180,10 +10180,10 @@ async function initDualTrackChart() {
         console.log(`📊 雙軌圖表數據: ${history.length} 筆, 有雙軌數據: ${hasDualTrackData}`);
         
         // 銷毀舊圖表
-        destroyChart('dual-track-chart');
+        safeDestroyChart(window.dualTrackChartInstance, 'dual-track-chart');
         
         const ctx = canvas.getContext('2d');
-        new Chart(ctx, {
+        window.dualTrackChartInstance = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
