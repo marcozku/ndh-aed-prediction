@@ -4913,24 +4913,34 @@ async function generateServerSidePredictions(source = 'auto') {
                 anomaly = { type: 'high', message: `預測值 ${adjusted} 高於歷史範圍 (${NORMAL_MAX})` };
             }
             
-            // v3.0.86: 計算雙軌預測
-            // Production = XGBoost + Weather (AI 權重 = 0)
-            // Experimental = XGBoost + Weather + AI
+            // v3.0.87: 計算雙軌預測（簡化版）
+            // Production = 當前預測（已包含天氣，但可能不含 AI）
+            // Experimental = 當前預測（如果有 AI 因子則不同）
             let prodPrediction = adjusted;
             let expPrediction = adjusted;
             
-            if (daysAhead === 0 && bayesianResult) {
-                // 使用 Bayesian 融合結果
-                const { getPragmaticBayesian } = require('./modules/pragmatic-bayesian');
-                const bayesian = getPragmaticBayesian({ baseStd: dowStds[dow] || 15 });
-                
-                // Production: 不使用 AI 因子
-                const prodResult = bayesian.predict(basePrediction, 1.0, weatherFactor);
-                prodPrediction = prodResult.prediction;
-                
-                // Experimental: 使用 AI 因子
-                const expResult = bayesian.predict(basePrediction, aiFactor, weatherFactor);
-                expPrediction = expResult.prediction;
+            if (daysAhead === 0) {
+                try {
+                    // Production: 不使用 AI 因子
+                    const targetMean = dowMeans[dow] || 247;
+                    const deviation = basePrediction - targetMean;
+                    
+                    // Production: 只用天氣
+                    let prodValue = targetMean + deviation;
+                    if (weatherFactor !== 1.0) {
+                        prodValue += (weatherFactor - 1.0) * targetMean * 0.3;
+                    }
+                    prodPrediction = Math.round(prodValue);
+                    
+                    // Experimental: 加入 AI
+                    let expValue = prodValue;
+                    if (aiFactor !== 1.0) {
+                        expValue += (aiFactor - 1.0) * targetMean * 0.5;
+                    }
+                    expPrediction = Math.round(expValue);
+                } catch (e) {
+                    console.warn('⚠️ 雙軌計算失敗:', e.message);
+                }
             }
             
             predictions.push({
