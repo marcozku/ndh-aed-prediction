@@ -388,14 +388,6 @@ const KeyboardManager = {
                         e.preventDefault();
                         ThemeManager.toggle();
                         break;
-                    case 'e':
-                        e.preventDefault();
-                        document.getElementById('export-modal').style.display = 'flex';
-                        break;
-                    case 's':
-                        e.preventDefault();
-                        document.getElementById('share-modal').style.display = 'flex';
-                        break;
                 }
                 return;
             }
@@ -410,12 +402,6 @@ const KeyboardManager = {
                     break;
                 case 'd':
                     ThemeManager.toggle();
-                    break;
-                case 'e':
-                    document.getElementById('export-modal').style.display = 'flex';
-                    break;
-                case 's':
-                    document.getElementById('share-modal').style.display = 'flex';
                     break;
                 case 'home':
                     window.scrollTo({ top: 0, behavior: 'smooth' });
