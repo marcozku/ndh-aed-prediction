@@ -1,5 +1,5 @@
 # NDH AED Attendance Prediction Algorithm
-## Technical Documentation v3.0.85
+## Technical Documentation v3.0.86
 
 <!--
 This document is designed to be rendered into PDF via generate-algorithm-doc-pdf.js.
@@ -12,8 +12,8 @@ HTML blocks below are intentional to achieve a clean, Apple-style, print-friendl
   <div class="cover-subtitle">Technical Documentation</div>
   <div class="cover-meta">
     <div class="cover-meta-row"><span class="k">Hospital</span><span class="v">North District Hospital • Emergency Department</span></div>
-    <div class="cover-meta-row"><span class="k">Document Version</span><span class="v">3.0.85</span></div>
-    <div class="cover-meta-row"><span class="k">Last Updated (HKT)</span><span class="v">06 Jan 2026 02:00 HKT</span></div>
+    <div class="cover-meta-row"><span class="k">Document Version</span><span class="v">3.0.86</span></div>
+    <div class="cover-meta-row"><span class="k">Last Updated (HKT)</span><span class="v">06 Jan 2026 03:00 HKT</span></div>
     <div class="cover-meta-row"><span class="k">Author</span><span class="v">Ma Tsz Kiu</span></div>
   </div>
 </div>
@@ -702,15 +702,14 @@ To prevent runaway adjustments:
 3. **Weighting**: blend factors instead of direct multiplication of final output
 4. **Post-process only for extremes**: keep most days model-driven
 
-### 6.6 Future horizon strategy (Day 0–30) — exact runtime logic
+### 6.6 Future horizon strategy (Day 0–7) — exact runtime logic
 
-The runtime strategy differs by forecast horizon because **lag-heavy features become unreliable** as horizon increases.
+**v3.0.86 Change:** Prediction horizon reduced from 30 days to 7 days. Research shows XGBoost predictions beyond 7 days lose accuracy due to lag feature unavailability.
 
 | Horizon | Method | Why |
 |---|---|---|
 | **Day 0** | **XGBoost + Bayesian** | Full lag feature availability and stable EWMA |
 | **Day 1–7** | **XGBoost + mean blend** | Partial lag proxying; blend reduces accumulation error |
-| **Day 8–30** | **Mean regression + bias decay** | Lag features become synthetic; pure XGB drift risk rises |
 
 **Day 1–7 blend weight**:
 
@@ -723,7 +722,13 @@ Day 2: 80% XGBoost + 20% mean
 Day 7: 30% XGBoost + 70% mean
 ```
 
-After blending, apply AI + weather factors and then post-processing rules.
+**Rationale for 7-Day Limit:**
+- 40%+ of XGBoost features are lag-based (Lag1-30, EWMA, Rolling stats)
+- Beyond Day 7, these features become synthetic/imputed, causing error accumulation
+- Research on ED volume forecasting shows accuracy degrades significantly beyond 7 days
+- Clinical utility: 7-day staffing schedules are standard in healthcare operations
+
+After blending, apply AI + weather factors and then anomaly detection (no hard clipping).
 
 ---
 

@@ -1487,7 +1487,7 @@ async function initCharts(predictor) {
     let totalProgress = 0;
     const totalCharts = 4;
     
-    // 未來30天預測（從明天開始，不包含今天）
+    // v3.0.86: 改為 7 天預測（Day 8+ 準確度不可靠）
     // 優先使用資料庫的 XGBoost 預測（準確度更高）
     updateLoadingProgress('forecast', 10);
     
@@ -1495,12 +1495,12 @@ async function initCharts(predictor) {
     let usedDatabasePredictions = false;
     let dbPredictionCount = 0;
     
-    // 嘗試從資料庫載入 30 天 XGBoost 預測
+    // 嘗試從資料庫載入 7 天 XGBoost 預測
     try {
-        const response = await fetch('/api/future-predictions?days=30');
+        const response = await fetch('/api/future-predictions?days=7');
         const result = await response.json();
         
-        if (result.success && result.data && result.data.length >= 20) {
+        if (result.success && result.data && result.data.length >= 5) {
             dbPredictionCount = result.data.length;
             // 將資料庫格式轉換為前端格式
             predictions = result.data.map(row => {
@@ -1528,10 +1528,10 @@ async function initCharts(predictor) {
                 };
             });
             usedDatabasePredictions = true;
-            console.log(`✅ 30天趨勢圖使用資料庫 XGBoost 預測（${predictions.length} 天）`);
+            console.log(`✅ 7天趨勢圖使用資料庫 XGBoost 預測（${predictions.length} 天）`);
         }
     } catch (error) {
-        console.warn('⚠️ 無法從資料庫載入 30 天預測:', error);
+        console.warn('⚠️ 無法從資料庫載入 7 天預測:', error);
     }
     
     // 如果資料庫預測不足，使用 XGBoost API 補充
@@ -1543,7 +1543,8 @@ async function initCharts(predictor) {
         const todayPartsForChart = today.split('-').map(Number);
         const todayDateForChart = new Date(Date.UTC(todayPartsForChart[0], todayPartsForChart[1] - 1, todayPartsForChart[2]));
         
-        for (let i = 1; i <= 30; i++) {
+        // v3.0.86: 只顯示 7 天預測
+        for (let i = 1; i <= 7; i++) {
             const targetDate = new Date(todayDateForChart);
             targetDate.setUTCDate(todayDateForChart.getUTCDate() + i);
             const dateStr = `${targetDate.getUTCFullYear()}-${String(targetDate.getUTCMonth() + 1).padStart(2, '0')}-${String(targetDate.getUTCDate()).padStart(2, '0')}`;
@@ -1565,10 +1566,10 @@ async function initCharts(predictor) {
         
         // 按日期排序
         predictions.sort((a, b) => new Date(a.date) - new Date(b.date));
-        predictions = predictions.slice(0, 30);
+        predictions = predictions.slice(0, 7);
         
         const xgboostCount = predictions.filter(p => p.xgboostUsed || p.method === 'xgboost').length;
-        console.log(`📊 30天趨勢圖：${xgboostCount}/30 天使用 XGBoost`);
+        console.log(`📊 7天趨勢圖：${xgboostCount}/7 天使用 XGBoost`);
     }
     updateLoadingProgress('forecast', 30);
     
@@ -2077,7 +2078,7 @@ async function refreshAllChartsAfterDataUpdate() {
             await updateUI(predictor, true);
         }
         
-        // 7. 刷新未來30天預測圖、星期效應圖、月份分佈圖
+        // 7. 刷新未來7天預測圖、星期效應圖、月份分佈圖
         // 這些圖表依賴預測器的統計數據，使用新數據重新初始化
         if (typeof initCharts === 'function') {
             console.log('📉 刷新統計圖表（預測趨勢、星期效應、月份分佈）...');
@@ -6258,7 +6259,7 @@ async function updateUI(predictor, forceRecalculate = false) {
         console.log(`📊 客戶端預測完成（XGBoost: ${xgboostCount}/7）`);
     }
     
-    // 緩存 7 天預測結果，確保 30 天趨勢圖使用相同數據
+    // 緩存 7 天預測結果，確保趨勢圖使用相同數據
     cached7DayForecasts = forecasts.slice(); // 複製陣列
     console.log('📊 已緩存 7 天預測結果，確保趨勢圖數據一致');
     
@@ -6356,7 +6357,7 @@ let weatherForecastData = null;
 let weatherMonthlyAverages = null; // 從 HKO 歷史數據計算的月度平均
 let currentAQHI = null; // AQHI 空氣質素數據
 
-// 緩存 7 天預測結果（確保 7 天預測卡片和 30 天趨勢圖數據一致）
+// 緩存 7 天預測結果（確保 7 天預測卡片和趨勢圖數據一致）
 let cached7DayForecasts = null;
 
 // 天氣快取
@@ -9596,12 +9597,12 @@ function initAlgorithmContent() {
                         w = 0.9→0.3
                     </div>
                 </div>
-                <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px; border-left: 3px solid #3b82f6;">
-                    <div style="font-size: 0.72rem; color: #3b82f6; font-weight: 600; margin-bottom: 6px;">📆 Day 8-30</div>
-                    <div style="font-family: 'Fira Code', monospace; font-size: 0.72rem; color: var(--text-primary); line-height: 1.5;">
-                        μ<sub>dow</sub> + Δ·e<sup>-0.1d</sup><br>
-                        + effects<br>
-                        → ⚠️ 異常警告
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px; border-left: 3px solid #6b7280;">
+                    <div style="font-size: 0.72rem; color: #6b7280; font-weight: 600; margin-bottom: 6px;">ℹ️ v3.0.86</div>
+                    <div style="font-family: 'Fira Code', monospace; font-size: 0.72rem; color: var(--text-secondary); line-height: 1.5;">
+                        Day 8+ 已移除<br>
+                        (準確度不足)<br>
+                        只預測 7 天
                     </div>
                 </div>
             </div>

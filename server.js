@@ -490,13 +490,13 @@ const apiHandlers = {
         sendJson(res, { success: true, data });
     },
 
-    // Get saved future predictions (default 7 days, supports ?days=30 for 30 days)
+    // v3.0.86: 只支援 7 天預測（Day 8+ 準確度不可靠）
     'GET /api/future-predictions': async (req, res) => {
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         try {
             const parsedUrl = url.parse(req.url, true);
-            const days = parseInt(parsedUrl.query.days) || 7; // 預設 7 天，可傳入 ?days=30
+            const days = Math.min(parseInt(parsedUrl.query.days) || 7, 7); // v3.0.86: 最多 7 天
             
             // 獲取香港時間的今天日期
             const now = new Date();
@@ -4375,7 +4375,7 @@ async function generateServerSidePredictions(source = 'auto') {
             return;
         }
         
-        // 生成今天和未來 30 天的預測（用於 30 天趨勢圖）
+        // v3.0.86: 生成今天和未來 7 天的預測（Day 8+ 準確度不可靠）
         const predictions = [];
         const today = new Date(`${hk.dateStr}T00:00:00+08:00`);
         
@@ -4553,7 +4553,8 @@ async function generateServerSidePredictions(source = 'auto') {
         console.log(`📊 XGBoost 基準預測: ${Math.round(basePrediction)} 人`);
         console.log(`📅 預測起始日期: ${hk.dateStr}`);
         
-        for (let i = 0; i <= 30; i++) {
+        // v3.0.86: 只預測 7 天（Day 0-7）
+        for (let i = 0; i <= 7; i++) {
             // 使用 HKT 日期計算，避免 UTC 時區偏移問題
             const targetDate = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
             // 轉換為 HKT 時區的日期字符串
@@ -4712,40 +4713,7 @@ async function generateServerSidePredictions(source = 'auto') {
                     predictionMethod = 'deviation_decay';
                 }
                 
-                // v3.0.85: 移除硬上限
-                
-            } else {
-                // ============================================================
-                // Day 8-30：均值回歸 + 偏差衰減（遠期預測回歸穩定）
-                // ============================================================
-                const targetMean = dowMeans[dow];
-                const todayHK = new Date(today.getTime() + 8 * 60 * 60 * 1000);
-                const todayDOW = todayHK.getUTCDay();
-                const todayMean = dowMeans[todayDOW];
-                
-                // XGBoost 偏差隨時間衰減（遠期預測回歸歷史均值）
-                const xgboostDeviation = basePrediction - todayMean;
-                const decayFactor = Math.exp(-0.1 * daysAhead);
-                const decayedDeviation = xgboostDeviation * decayFactor;
-                
-                let value = targetMean + decayedDeviation;
-                
-                // 月份效應
-                value += (monthFactor - 1.0) * targetMean * 0.5;
-                
-                // AI 因素
-                if (aiFactor !== 1.0) {
-                    value += (aiFactor - 1.0) * targetMean * 0.5;
-                }
-                
-                // 天氣因素
-                if (weatherFactor !== 1.0) {
-                    value += (weatherFactor - 1.0) * targetMean * 0.3;
-                }
-                
-                // v3.0.85: 移除硬上限
-                adjusted = Math.round(value);
-                predictionMethod = 'mean_reversion';
+                // v3.0.86: Day 1-7 已涵蓋所有預測範圍
             }
             
             // 置信區間：基於歷史標準差
