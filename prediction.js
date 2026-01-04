@@ -347,9 +347,9 @@ function safeDestroyChart(chartVar, canvasId) {
 // 香港公眾假期 2024-2026 (v3.0.81: 使用動態 factors)
 // ============================================
 
-// v3.0.85: 使用靜態 fallback（瀏覽器環境不支持 Node.js require）
-// 這些值來自 2026-01-05 Railway 數據庫計算 (4,052 days)
-const DYNAMIC_HOLIDAY_FACTORS = {
+// v3.0.86: 動態載入假期因子（從 API 獲取）
+// 初始值使用靜態 fallback，然後異步更新
+let DYNAMIC_HOLIDAY_FACTORS = {
     '農曆新年': { factor: 0.951, count: 132 },
     '聖誕節': { factor: 0.920, count: 12 },
     '聖誕節翌日': { factor: 1.002, count: 12 },
@@ -366,6 +366,45 @@ const DYNAMIC_HOLIDAY_FACTORS = {
     '香港特別行政區成立紀念日': { factor: 0.967, count: 11 },
     '國慶日': { factor: 0.972, count: 11 }
 };
+
+// 異步載入動態假期因子
+async function loadDynamicHolidayFactorsAsync() {
+    try {
+        const response = await fetch('/api/holiday-factors');
+        if (!response.ok) throw new Error('API error');
+        
+        const result = await response.json();
+        if (result.success && result.data) {
+            DYNAMIC_HOLIDAY_FACTORS = result.data;
+            console.log(`✅ 動態假期因子已載入 (${result.total_days || '--'} 天數據, 更新: ${result.updated || '--'})`);
+            
+            // 更新 HK_PUBLIC_HOLIDAYS 中的因子值
+            updateHolidayFactors();
+        }
+    } catch (error) {
+        console.warn('⚠️ 無法載入動態假期因子，使用靜態值:', error.message);
+    }
+}
+
+// 更新 HK_PUBLIC_HOLIDAYS 使用最新因子
+function updateHolidayFactors() {
+    for (const [date, holiday] of Object.entries(HK_PUBLIC_HOLIDAYS)) {
+        // 根據假期名稱查找動態因子
+        for (const [name, data] of Object.entries(DYNAMIC_HOLIDAY_FACTORS)) {
+            if (holiday.name.includes(name) || name.includes(holiday.name.split(' ')[0])) {
+                holiday.factor = data.factor;
+                break;
+            }
+        }
+    }
+}
+
+// 頁面載入時執行
+if (typeof window !== 'undefined') {
+    window.addEventListener('DOMContentLoaded', () => {
+        loadDynamicHolidayFactorsAsync();
+    });
+}
 
 const HK_PUBLIC_HOLIDAYS = {
     // 2024

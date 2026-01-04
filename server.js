@@ -2608,6 +2608,56 @@ const apiHandlers = {
         }
     },
     
+    // v3.0.86: 動態假期因子 API
+    'GET /api/holiday-factors': async (req, res) => {
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const factorsPath = path.join(__dirname, 'python/models/dynamic_factors.json');
+            
+            if (fs.existsSync(factorsPath)) {
+                const data = JSON.parse(fs.readFileSync(factorsPath, 'utf8'));
+                sendJson(res, {
+                    success: true,
+                    data: data.holiday_factors || {},
+                    dow_factors: data.dow_factors || {},
+                    overall_mean: data.overall_mean,
+                    total_days: data.total_days,
+                    updated: data.updated,
+                    source: data.source
+                });
+            } else {
+                // Fallback: 使用靜態值
+                sendJson(res, {
+                    success: true,
+                    fallback: true,
+                    data: {
+                        '農曆新年': { factor: 0.951, count: 132 },
+                        '聖誕節': { factor: 0.920, count: 12 },
+                        '聖誕節翌日': { factor: 1.002, count: 12 },
+                        '元旦': { factor: 0.955, count: 12 },
+                        '清明節': { factor: 0.967, count: 22 },
+                        '端午節': { factor: 1.027, count: 132 },
+                        '中秋節翌日': { factor: 1.035, count: 132 },
+                        '重陽節': { factor: 1.038, count: 132 },
+                        '佛誕': { factor: 1.041, count: 132 },
+                        '勞動節': { factor: 1.003, count: 11 },
+                        '耶穌受難日': { factor: 0.987, count: 121 },
+                        '耶穌受難日翌日': { factor: 0.987, count: 121 },
+                        '復活節星期一': { factor: 0.988, count: 121 },
+                        '香港特別行政區成立紀念日': { factor: 0.967, count: 11 },
+                        '國慶日': { factor: 0.972, count: 11 }
+                    },
+                    updated: 'static fallback',
+                    source: 'hardcoded values'
+                });
+            }
+        } catch (error) {
+            console.error('獲取假期因子失敗:', error);
+            sendJson(res, { success: false, error: error.message }, 500);
+        }
+    },
+    
     // 算法演進時間線
     'GET /api/algorithm-timeline': async (req, res) => {
         try {
