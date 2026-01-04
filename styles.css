@@ -5799,6 +5799,25 @@ section h2 {
     box-shadow: var(--shadow-md);
 }
 
+/* v3.0.83: 雙軌預測系統 */
+.dual-track-section {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    margin-bottom: var(--space-xl);
+    box-shadow: var(--shadow-md);
+}
+
+.dual-track-container {
+    width: 100%;
+}
+
+@media (max-width: 640px) {
+    .dual-track-section {
+        padding: var(--space-lg);
+    }
+}
+
 .timeline-main-container {
     display: grid;
     grid-template-columns: 1fr 1fr;

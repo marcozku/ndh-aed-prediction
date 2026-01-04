@@ -8806,6 +8806,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 載入算法說明
     loadAlgorithmDescription();
     
+    // v3.0.83: 載入雙軌預測系統
+    loadDualTrackSection();
+    
     // v3.0.39: 初始化 Bayesian 分解 UI
     initBayesianToggle();
     
@@ -9903,6 +9906,135 @@ function initAlgorithmContent() {
 // 載入算法說明 - 調用原有的詳細版本
 function loadAlgorithmDescription() {
     initAlgorithmContent();
+}
+
+// v3.0.83: 載入雙軌預測系統
+async function loadDualTrackSection() {
+    const container = document.getElementById('dual-track-content');
+    const loading = document.getElementById('dual-track-loading');
+    if (!container) return;
+    
+    try {
+        const response = await fetch('/api/dual-track/summary');
+        const result = await response.json();
+        
+        if (loading) loading.style.display = 'none';
+        
+        if (!response.ok || !result.today) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    <div style="font-size: 2rem; margin-bottom: 16px;">🔬</div>
+                    <div style="font-size: 0.9rem;">雙軌系統數據載入中...</div>
+                    <div style="font-size: 0.75rem; margin-top: 8px; color: var(--text-tertiary);">需要預測數據才能顯示對比</div>
+                </div>
+            `;
+            return;
+        }
+        
+        const data = result;
+        const prod = data.today?.production || {};
+        const exp = data.today?.experimental || {};
+        const validation = data.validation || {};
+        
+        container.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+                <!-- Production Track -->
+                <div class="prediction-card" style="background: var(--bg-secondary); border-radius: 16px; padding: 20px; border-top: 4px solid #22c55e;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <span style="font-weight: 600; color: var(--text-primary);">🏭 Production Track</span>
+                        <span style="background: #22c55e; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">ACTIVE</span>
+                    </div>
+                    <div style="font-size: 2.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">
+                        ${prod.prediction || '--'}
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 16px;">今日預測</div>
+                    <div style="background: var(--bg-tertiary); padding: 12px; border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.8rem;">
+                            <span style="color: var(--text-secondary);">XGBoost</span>
+                            <span style="font-weight: 600; color: var(--text-primary);">${((prod.weights?.w_base || 0.95) * 100).toFixed(0)}%</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.8rem;">
+                            <span style="color: var(--text-secondary);">Weather</span>
+                            <span style="font-weight: 600; color: var(--text-primary);">${((prod.weights?.w_weather || 0.05) * 100).toFixed(0)}%</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.8rem;">
+                            <span style="color: var(--text-secondary);">AI Factor</span>
+                            <span style="font-weight: 600; color: var(--text-primary);">${((prod.weights?.w_ai || 0) * 100).toFixed(0)}%</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Experimental Track -->
+                <div class="prediction-card" style="background: var(--bg-secondary); border-radius: 16px; padding: 20px; border-top: 4px solid #f59e0b;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <span style="font-weight: 600; color: var(--text-primary);">🧪 Experimental Track</span>
+                        <span style="background: #f59e0b; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">TESTING</span>
+                    </div>
+                    <div style="font-size: 2.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">
+                        ${exp.prediction || '--'}
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 16px;">今日預測 (含 AI 因子)</div>
+                    <div style="background: var(--bg-tertiary); padding: 12px; border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.8rem;">
+                            <span style="color: var(--text-secondary);">XGBoost</span>
+                            <span style="font-weight: 600; color: var(--text-primary);">${((exp.weights?.w_base || 0.85) * 100).toFixed(0)}%</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.8rem;">
+                            <span style="color: var(--text-secondary);">Weather</span>
+                            <span style="font-weight: 600; color: var(--text-primary);">${((exp.weights?.w_weather || 0.05) * 100).toFixed(0)}%</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.8rem;">
+                            <span style="color: var(--text-secondary);">AI Factor</span>
+                            <span style="font-weight: 600; color: #f59e0b;">${((exp.weights?.w_ai || 0.10) * 100).toFixed(0)}%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Validation Summary -->
+            <div style="margin-top: 20px; background: var(--bg-secondary); border-radius: 12px; padding: 20px;">
+                <h4 style="margin: 0 0 16px 0; color: var(--text-primary); font-size: 0.95rem;">📊 驗證摘要 (過去 90 天)</h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px;">
+                    <div style="text-align: center; padding: 12px; background: var(--bg-tertiary); border-radius: 8px;">
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">${validation.samples?.total || 0}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">驗證樣本</div>
+                    </div>
+                    <div style="text-align: center; padding: 12px; background: var(--bg-tertiary); border-radius: 8px;">
+                        <div style="font-size: 1.5rem; font-weight: 700; color: ${parseFloat(validation.improvement?.percentage || 0) > 0 ? '#22c55e' : '#ef4444'};">
+                            ${parseFloat(validation.improvement?.percentage || 0) > 0 ? '+' : ''}${parseFloat(validation.improvement?.percentage || 0).toFixed(1)}%
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">改進幅度</div>
+                    </div>
+                    <div style="text-align: center; padding: 12px; background: var(--bg-tertiary); border-radius: 8px;">
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">${validation.experimental?.win_rate || '--'}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Exp 勝率</div>
+                    </div>
+                    <div style="text-align: center; padding: 12px; background: var(--bg-tertiary); border-radius: 8px;">
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">${validation.production?.mae?.toFixed(1) || '--'}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Prod MAE</div>
+                    </div>
+                </div>
+                ${validation.recommendation ? `
+                <div style="margin-top: 16px; padding: 12px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1)); border-radius: 8px;">
+                    <div style="font-size: 0.8rem; font-weight: 600; color: #8b5cf6; margin-bottom: 4px;">🎯 系統建議</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">${validation.recommendation}</div>
+                </div>
+                ` : ''}
+            </div>
+        `;
+        
+        console.log('✅ 雙軌預測系統已載入');
+    } catch (error) {
+        console.warn('⚠️ 雙軌系統載入失敗:', error.message);
+        if (loading) loading.style.display = 'none';
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                <div style="font-size: 2rem; margin-bottom: 16px;">🔬</div>
+                <div style="font-size: 0.9rem;">雙軌系統暫時無法載入</div>
+                <div style="font-size: 0.75rem; margin-top: 8px; color: var(--text-tertiary);">請稍後再試</div>
+            </div>
+        `;
+    }
 }
 
 // 觸發添加實際數據

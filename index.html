@@ -64,7 +64,7 @@
                     <span class="nav-icon">📐</span>
                     <span class="nav-text">算法</span>
                 </a>
-                <a href="/dual-track.html" class="nav-link" aria-label="雙軌預測">
+                <a href="#dual-track-section" class="nav-link" data-section="dual-track" aria-label="雙軌預測">
                     <span class="nav-icon">🔬</span>
                     <span class="nav-text">雙軌</span>
                 </a>
@@ -678,11 +678,24 @@
             </div>
         </section>
 
+        <!-- 雙軌智能預測系統 - v3.0.83 -->
+        <section class="dual-track-section" id="dual-track-section">
+            <h2 class="section-title">🔬 雙軌智能預測系統</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">AI 因子實時驗證與自適應學習</p>
+            
+            <div class="dual-track-container" id="dual-track-content">
+                <div class="section-loading" id="dual-track-loading">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">載入雙軌數據...</div>
+                </div>
+            </div>
+        </section>
+
         <!-- 頁腳 -->
         <footer class="app-footer" role="contentinfo">
             <p id="data-source-info" style="cursor: pointer; text-decoration: underline;" data-lang-key="footer-source">數據來源：載入中...</p>
             <p id="last-update-info" class="last-update-info"></p>
-            <p>預測模型版本 3.0.83 · 香港時間 HKT</p>
+            <p>預測模型版本 3.0.84 · 香港時間 HKT</p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2025 Marco Ma. All Rights Reserved.</p>
             <div class="footer-links">
                 <a href="/api/docs" class="footer-link" data-lang-key="footer-api">API 文檔</a>
