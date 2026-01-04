@@ -1854,6 +1854,63 @@ export function initUIEnhancements() {
         console.warn('  ⚠️ theme-toggle button not found');
     }
     
+    // v3.0.87: 強制刷新按鈕（清除 Service Worker 快取）
+    const forceRefreshBtn = document.getElementById('force-refresh-btn');
+    if (forceRefreshBtn) {
+        forceRefreshBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // 顯示確認對話框
+            if (!confirm('強制刷新將清除所有快取並重新載入應用程式。\n\n繼續？')) {
+                return;
+            }
+            
+            Toast.show('🔄 正在清除快取...', 'info');
+            
+            try {
+                // 1. 取消註冊所有 Service Worker
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (const registration of registrations) {
+                        await registration.unregister();
+                        console.log('🗑️ Service Worker 已取消註冊');
+                    }
+                }
+                
+                // 2. 清除所有快取
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    for (const name of cacheNames) {
+                        await caches.delete(name);
+                        console.log(`🗑️ 快取已刪除: ${name}`);
+                    }
+                }
+                
+                // 3. 清除 localStorage 中的版本標記
+                localStorage.removeItem('ndh-sw-version');
+                localStorage.removeItem('ndh-app-version');
+                
+                Toast.show('✅ 快取已清除，即將重新載入...', 'success');
+                
+                // 4. 強制重新載入（忽略快取）
+                setTimeout(() => {
+                    window.location.reload(true);
+                }, 1000);
+                
+            } catch (error) {
+                console.error('❌ 強制刷新失敗:', error);
+                Toast.show('❌ 刷新失敗: ' + error.message, 'error');
+                
+                // 即使失敗也嘗試重載
+                setTimeout(() => {
+                    window.location.reload(true);
+                }, 2000);
+            }
+        });
+        console.log('  ✓ Force refresh button bound');
+    }
+    
     // 延遲初始化圖表相關（等待 Chart.js 和其他圖表載入完成）
     setTimeout(() => {
         try {
