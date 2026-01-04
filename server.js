@@ -5093,9 +5093,9 @@ async function syncModelMetricsFromFile() {
                 feature_count: fileMetrics.feature_count,
                 ai_factors_count: fileMetrics.ai_factors_count || 0
             });
-            console.log('✅ Metrics 已同步: MAE=' + fileMetrics.mae?.toFixed(2) + ', MAPE=' + fileMetrics.mape?.toFixed(2) + '%');
+            console.log('✅ Metrics 已同步: MAE=' + parseFloat(fileMetrics.mae).toFixed(2) + ', MAPE=' + parseFloat(fileMetrics.mape).toFixed(2) + '%');
         } else {
-            console.log('📊 數據庫 metrics 是最新的: MAE=' + dbMetrics?.mae?.toFixed(2) + ', MAPE=' + dbMetrics?.mape?.toFixed(2) + '%');
+            console.log('📊 數據庫 metrics 是最新的: MAE=' + parseFloat(dbMetrics?.mae || 0).toFixed(2) + ', MAPE=' + parseFloat(dbMetrics?.mape || 0).toFixed(2) + '%');
         }
     } catch (e) {
         console.warn('⚠️ 同步 metrics 失敗:', e.message);

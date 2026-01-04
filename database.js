@@ -280,6 +280,42 @@ async function initDatabase() {
         await client.query(`ALTER TABLE daily_predictions ADD COLUMN IF NOT EXISTS ai_factor DECIMAL(5,3)`);
         await client.query(`ALTER TABLE daily_predictions ADD COLUMN IF NOT EXISTS weather_factor DECIMAL(5,3)`);
         console.log('✅ Dual-track columns added to daily_predictions');
+        
+        // v3.0.87: Reliability learning tables
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS reliability_state (
+                id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+                xgboost_reliability NUMERIC(5,4) DEFAULT 0.95,
+                ai_reliability NUMERIC(5,4) DEFAULT 0.00,
+                weather_reliability NUMERIC(5,4) DEFAULT 0.05,
+                learning_rate NUMERIC(5,4) DEFAULT 0.10,
+                base_std NUMERIC(10,2) DEFAULT 15.00,
+                total_samples INTEGER DEFAULT 0,
+                last_updated TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        await client.query(`
+            INSERT INTO reliability_state (id) VALUES (1) ON CONFLICT (id) DO NOTHING
+        `);
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS reliability_history (
+                id SERIAL PRIMARY KEY,
+                date DATE NOT NULL,
+                actual_attendance INTEGER NOT NULL,
+                xgboost_prediction NUMERIC(10,2),
+                ai_prediction NUMERIC(10,2),
+                weather_prediction NUMERIC(10,2),
+                xgboost_error NUMERIC(10,2),
+                ai_error NUMERIC(10,2),
+                weather_error NUMERIC(10,2),
+                xgboost_reliability NUMERIC(5,4),
+                ai_reliability NUMERIC(5,4),
+                weather_reliability NUMERIC(5,4),
+                created_at TIMESTAMP DEFAULT NOW(),
+                UNIQUE(date)
+            )
+        `);
+        console.log('✅ Reliability tables initialized');
 
         // Table for final daily averaged predictions (calculated at end of day)
         await client.query(`
