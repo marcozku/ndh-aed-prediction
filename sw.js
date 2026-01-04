@@ -1,13 +1,13 @@
 /**
  * NDH AED 預測系統 - Service Worker
  * 提供離線支援和快取管理
- * v3.0.76 - 極端條件後處理調整
+ * v3.0.85 - 移除硬上限，異常警告
  */
 
-const SW_VERSION = '3.0.77';
-const CACHE_NAME = 'ndh-aed-v3.0.77';
-const STATIC_CACHE = 'ndh-static-v3.0.77';
-const DYNAMIC_CACHE = 'ndh-dynamic-v3.0.76';
+const SW_VERSION = '3.0.85';
+const CACHE_NAME = 'ndh-aed-v3.0.85';
+const STATIC_CACHE = 'ndh-static-v3.0.85';
+const DYNAMIC_CACHE = 'ndh-dynamic-v3.0.85';
 
 // 靜態資源（始終快取）
 const STATIC_ASSETS = [
@@ -232,5 +232,5 @@ self.addEventListener('notificationclick', (event) => {
     );
 });
 
-console.log('[SW] Service Worker 已載入 v3.0.76');
+console.log('[SW] Service Worker 已載入 v3.0.85');
 

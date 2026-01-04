@@ -347,43 +347,25 @@ function safeDestroyChart(chartVar, canvasId) {
 // 香港公眾假期 2024-2026 (v3.0.81: 使用動態 factors)
 // ============================================
 
-// 載入動態 holiday factors（從 Railway Database 實時計算）
-function loadDynamicHolidayFactors() {
-    try {
-        const fs = require('fs');
-        const path = require('path');
-        const factorsPath = path.join(__dirname, 'python', 'models', 'dynamic_factors.json');
-        
-        if (fs.existsSync(factorsPath)) {
-            const data = JSON.parse(fs.readFileSync(factorsPath, 'utf8'));
-            console.log(`✅ Loaded dynamic holiday factors (updated: ${data.updated}, ${data.total_days} days)`);
-            return data.holiday_factors;
-        }
-    } catch (error) {
-        console.warn(`⚠️ Could not load dynamic_factors.json: ${error.message}`);
-    }
-    
-    // Fallback: 使用最後已知的真實值（從 2026-01-05, 4,052 days）
-    return {
-        '農曆新年': { factor: 0.951, count: 132 },
-        '聖誕節': { factor: 0.920, count: 12 },
-        '聖誕節翌日': { factor: 1.002, count: 12 },
-        '元旦': { factor: 0.955, count: 12 },
-        '清明節': { factor: 0.967, count: 22 },
-        '端午節': { factor: 1.027, count: 132 },
-        '中秋節翌日': { factor: 1.035, count: 132 },
-        '重陽節': { factor: 1.038, count: 132 },
-        '佛誕': { factor: 1.041, count: 132 },
-        '勞動節': { factor: 1.003, count: 11 },
-        '耶穌受難日': { factor: 0.987, count: 121 },
-        '耶穌受難日翌日': { factor: 0.987, count: 121 },
-        '復活節星期一': { factor: 0.988, count: 121 },
-        '香港特別行政區成立紀念日': { factor: 0.967, count: 11 },
-        '國慶日': { factor: 0.972, count: 11 }
-    };
-}
-
-const DYNAMIC_HOLIDAY_FACTORS = loadDynamicHolidayFactors();
+// v3.0.85: 使用靜態 fallback（瀏覽器環境不支持 Node.js require）
+// 這些值來自 2026-01-05 Railway 數據庫計算 (4,052 days)
+const DYNAMIC_HOLIDAY_FACTORS = {
+    '農曆新年': { factor: 0.951, count: 132 },
+    '聖誕節': { factor: 0.920, count: 12 },
+    '聖誕節翌日': { factor: 1.002, count: 12 },
+    '元旦': { factor: 0.955, count: 12 },
+    '清明節': { factor: 0.967, count: 22 },
+    '端午節': { factor: 1.027, count: 132 },
+    '中秋節翌日': { factor: 1.035, count: 132 },
+    '重陽節': { factor: 1.038, count: 132 },
+    '佛誕': { factor: 1.041, count: 132 },
+    '勞動節': { factor: 1.003, count: 11 },
+    '耶穌受難日': { factor: 0.987, count: 121 },
+    '耶穌受難日翌日': { factor: 0.987, count: 121 },
+    '復活節星期一': { factor: 0.988, count: 121 },
+    '香港特別行政區成立紀念日': { factor: 0.967, count: 11 },
+    '國慶日': { factor: 0.972, count: 11 }
+};
 
 const HK_PUBLIC_HOLIDAYS = {
     // 2024
