@@ -65,6 +65,52 @@ function triggerWeatherAnalysis() {
     });
 }
 
+// ============================================
+// v3.0.83: 可靠度學習工具函數
+// ============================================
+async function triggerReliabilityLearning(importedDates) {
+    if (!db || !db.pool || !importedDates || importedDates.length === 0) {
+        return { message: 'No dates to process', count: 0 };
+    }
+    
+    console.log(`📊 觸發可靠度學習 (${importedDates.length} 天)...`);
+    
+    let learningCount = 0;
+    for (const date of importedDates) {
+        try {
+            // 獲取該日期的實際數據
+            const actualData = await db.getActualData(date, date);
+            if (!actualData || actualData.length === 0) continue;
+            
+            const actual = actualData[0].attendance;
+            
+            // 獲取該日期的預測數據
+            const predictions = await db.getPredictions(date, date);
+            if (!predictions || predictions.length === 0) continue;
+            
+            // 取最後一次預測
+            const pred = predictions[predictions.length - 1];
+            
+            // 組裝預測數據
+            const predictionData = {
+                xgboost: pred.predicted_count || pred.prediction,
+                ai: pred.ai_prediction || null,
+                weather: pred.weather_prediction || null
+            };
+            
+            // 執行可靠度學習
+            const result = await db.updateReliabilityLearning(date, actual, predictionData);
+            if (result) learningCount++;
+            
+        } catch (err) {
+            console.warn(`可靠度學習跳過 ${date}:`, err.message);
+        }
+    }
+    
+    console.log(`✅ 可靠度學習完成: ${learningCount}/${importedDates.length} 天`);
+    return { message: 'Reliability learning completed', count: learningCount };
+}
+
 // AI 服務（僅在服務器端使用）
 let aiService = null;
 try {
@@ -1004,13 +1050,19 @@ const apiHandlers = {
                     console.warn('天氣影響分析失敗（非關鍵）:', err.message);
                 });
                 
+                // v3.0.83: 觸發可靠度學習（異步，不阻塞響應）
+                triggerReliabilityLearning(result.importedDates).catch(err => {
+                    console.warn('可靠度學習失敗（非關鍵）:', err.message);
+                });
+                
                 sendJson(res, {
                     success: true,
                     message: `成功導入 ${result.count} 筆數據${accuracyCount > 0 ? `，已計算 ${accuracyCount} 筆準確度` : ''}`,
                     count: result.count,
                     errors: result.errors || 0,
                     accuracyCalculated: accuracyCount,
-                    weatherAnalysis: 'triggered'
+                    weatherAnalysis: 'triggered',
+                    reliabilityLearning: 'triggered'
                 });
             } else {
                 sendJson(res, { error: result.error || '導入失敗' }, 500);
@@ -2617,6 +2669,48 @@ const apiHandlers = {
             sendJson(res, {
                 success: false,
                 error: error.message
+            }, 500);
+        }
+    },
+    
+    // v3.0.83: 獲取可靠度學習狀態
+    'GET /api/reliability': async (req, res) => {
+        try {
+            if (!db || !db.pool) {
+                return sendJson(res, { 
+                    success: true, 
+                    data: {
+                        xgboost: 0.95,
+                        ai: 0.00,
+                        weather: 0.05,
+                        source: 'default'
+                    }
+                });
+            }
+            
+            const state = await db.getReliabilityState();
+            const history = await db.getReliabilityHistory(30);
+            
+            sendJson(res, {
+                success: true,
+                data: {
+                    current: {
+                        xgboost: parseFloat(state.xgboost_reliability) || 0.95,
+                        ai: parseFloat(state.ai_reliability) || 0.00,
+                        weather: parseFloat(state.weather_reliability) || 0.05
+                    },
+                    learningRate: parseFloat(state.learning_rate) || 0.10,
+                    totalSamples: parseInt(state.total_samples) || 0,
+                    lastUpdated: state.last_updated,
+                    recentHistory: history.slice(0, 10),
+                    source: 'database'
+                }
+            });
+        } catch (error) {
+            console.error('獲取可靠度狀態失敗:', error);
+            sendJson(res, { 
+                success: false, 
+                error: error.message 
             }, 500);
         }
     },

@@ -9449,9 +9449,24 @@ function updateBayesianBreakdown(todayPred) {
         if (valueEl) valueEl.textContent = `${(value * 100).toFixed(0)}%`;
     };
     
-    updateReliability('rel-xgboost', reliability.xgboost || 0.9);
-    updateReliability('rel-ai', reliability.ai || 0.6);
-    updateReliability('rel-weather', reliability.weather || 0.75);
+    // v3.0.83: 從 API 獲取實時可靠度（如果可用）
+    fetchRealtimeReliability().then(realReliability => {
+        const rel = realReliability || reliability;
+        updateReliability('rel-xgboost', rel.xgboost || 0.9);
+        updateReliability('rel-ai', rel.ai || 0.0);
+        updateReliability('rel-weather', rel.weather || 0.05);
+        
+        // 如果是實時數據，添加標記
+        const labelEl = document.querySelector('.reliability-label');
+        if (labelEl && realReliability && realReliability.source === 'database') {
+            labelEl.innerHTML = '📊 可靠度學習 <span style="font-size:10px;color:var(--success)">(實時)</span>';
+        }
+    }).catch(() => {
+        // 使用默認值
+        updateReliability('rel-xgboost', reliability.xgboost || 0.9);
+        updateReliability('rel-ai', reliability.ai || 0.0);
+        updateReliability('rel-weather', reliability.weather || 0.05);
+    });
     
     console.log('✅ Bayesian 分解已更新:', {
         weights,
@@ -9460,6 +9475,28 @@ function updateBayesianBreakdown(todayPred) {
         weatherFactor,
         reliability
     });
+}
+
+// v3.0.83: 獲取實時可靠度
+async function fetchRealtimeReliability() {
+    try {
+        const response = await fetch('/api/reliability');
+        if (!response.ok) return null;
+        const result = await response.json();
+        if (result.success && result.data?.current) {
+            return {
+                xgboost: result.data.current.xgboost,
+                ai: result.data.current.ai,
+                weather: result.data.current.weather,
+                source: result.data.source,
+                totalSamples: result.data.totalSamples
+            };
+        }
+        return null;
+    } catch (e) {
+        console.warn('⚠️ 無法獲取實時可靠度:', e.message);
+        return null;
+    }
 }
 
 // 初始化 Bayesian 區塊的折疊功能

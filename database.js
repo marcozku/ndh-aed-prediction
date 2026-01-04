@@ -1771,6 +1771,196 @@ async function getAutoPredictCumulativeStats() {
     }
 }
 
+// ============================================================
+// v3.0.83: Reliability Learning System
+// 實時可靠度學習系統
+// ============================================================
+
+// 獲取當前可靠度狀態
+async function getReliabilityState() {
+    if (!pool) return null;
+    try {
+        // 確保表存在
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS reliability_state (
+                id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+                xgboost_reliability NUMERIC(5,4) DEFAULT 0.95,
+                ai_reliability NUMERIC(5,4) DEFAULT 0.00,
+                weather_reliability NUMERIC(5,4) DEFAULT 0.05,
+                learning_rate NUMERIC(5,4) DEFAULT 0.10,
+                base_std NUMERIC(10,2) DEFAULT 15.00,
+                total_samples INTEGER DEFAULT 0,
+                last_updated TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        
+        // 確保有初始數據
+        await pool.query(`
+            INSERT INTO reliability_state (id, xgboost_reliability, ai_reliability, weather_reliability)
+            VALUES (1, 0.95, 0.00, 0.05)
+            ON CONFLICT (id) DO NOTHING
+        `);
+        
+        const result = await pool.query('SELECT * FROM reliability_state WHERE id = 1');
+        return result.rows[0] || {
+            xgboost_reliability: 0.95,
+            ai_reliability: 0.00,
+            weather_reliability: 0.05,
+            learning_rate: 0.10,
+            base_std: 15.00,
+            total_samples: 0
+        };
+    } catch (error) {
+        console.error('❌ 獲取可靠度狀態失敗:', error.message);
+        return {
+            xgboost_reliability: 0.95,
+            ai_reliability: 0.00,
+            weather_reliability: 0.05,
+            learning_rate: 0.10,
+            base_std: 15.00,
+            total_samples: 0
+        };
+    }
+}
+
+// 更新可靠度學習（當實際數據到達時調用）
+async function updateReliabilityLearning(date, actual, predictions) {
+    if (!pool) return null;
+    try {
+        const state = await getReliabilityState();
+        const learningRate = parseFloat(state.learning_rate) || 0.10;
+        const baseStd = parseFloat(state.base_std) || 15.00;
+        
+        // 計算各來源誤差
+        const xgboostError = predictions.xgboost ? Math.abs(predictions.xgboost - actual) : null;
+        const aiError = predictions.ai ? Math.abs(predictions.ai - actual) : null;
+        const weatherError = predictions.weather ? Math.abs(predictions.weather - actual) : null;
+        
+        // 當前可靠度
+        let xgboostRel = parseFloat(state.xgboost_reliability) || 0.95;
+        let aiRel = parseFloat(state.ai_reliability) || 0.00;
+        let weatherRel = parseFloat(state.weather_reliability) || 0.05;
+        
+        // 更新 XGBoost 可靠度
+        if (xgboostError !== null && predictions.xgboost) {
+            const expectedError = baseStd / xgboostRel;
+            if (xgboostError < expectedError) {
+                xgboostRel = Math.min(0.98, xgboostRel + learningRate * (1 - xgboostRel));
+            } else {
+                xgboostRel = Math.max(0.50, xgboostRel - learningRate * xgboostRel * 0.3);
+            }
+        }
+        
+        // 更新 AI 可靠度（只有當 AI 預測存在且不同於 XGBoost 時）
+        if (aiError !== null && predictions.ai && predictions.ai !== predictions.xgboost) {
+            const expectedError = baseStd / (aiRel + 0.01);
+            if (aiError < expectedError && aiError < (xgboostError || Infinity)) {
+                // AI 比 XGBoost 更準確，增加 AI 可靠度
+                aiRel = Math.min(0.30, aiRel + learningRate * 0.5);
+                console.log(`📈 AI 可靠度提升: ${aiRel.toFixed(3)} (AI 誤差 ${aiError.toFixed(1)} < XGBoost 誤差 ${xgboostError?.toFixed(1)})`);
+            } else {
+                aiRel = Math.max(0.00, aiRel - learningRate * 0.2);
+            }
+        }
+        
+        // 更新 Weather 可靠度
+        if (weatherError !== null && predictions.weather) {
+            const expectedError = baseStd / (weatherRel + 0.01);
+            if (weatherError < expectedError) {
+                weatherRel = Math.min(0.15, weatherRel + learningRate * 0.3);
+            } else {
+                weatherRel = Math.max(0.02, weatherRel - learningRate * 0.2);
+            }
+        }
+        
+        // 正規化確保總和 = 1
+        const total = xgboostRel + aiRel + weatherRel;
+        xgboostRel = xgboostRel / total;
+        aiRel = aiRel / total;
+        weatherRel = weatherRel / total;
+        
+        // 保存歷史記錄
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS reliability_history (
+                id SERIAL PRIMARY KEY,
+                date DATE NOT NULL,
+                actual_attendance INTEGER NOT NULL,
+                xgboost_prediction NUMERIC(10,2),
+                ai_prediction NUMERIC(10,2),
+                weather_prediction NUMERIC(10,2),
+                xgboost_error NUMERIC(10,2),
+                ai_error NUMERIC(10,2),
+                weather_error NUMERIC(10,2),
+                xgboost_reliability NUMERIC(5,4),
+                ai_reliability NUMERIC(5,4),
+                weather_reliability NUMERIC(5,4),
+                created_at TIMESTAMP DEFAULT NOW(),
+                UNIQUE(date)
+            )
+        `);
+        
+        await pool.query(`
+            INSERT INTO reliability_history 
+                (date, actual_attendance, xgboost_prediction, ai_prediction, weather_prediction,
+                 xgboost_error, ai_error, weather_error,
+                 xgboost_reliability, ai_reliability, weather_reliability)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            ON CONFLICT (date) DO UPDATE SET
+                actual_attendance = EXCLUDED.actual_attendance,
+                xgboost_prediction = EXCLUDED.xgboost_prediction,
+                ai_prediction = EXCLUDED.ai_prediction,
+                weather_prediction = EXCLUDED.weather_prediction,
+                xgboost_error = EXCLUDED.xgboost_error,
+                ai_error = EXCLUDED.ai_error,
+                weather_error = EXCLUDED.weather_error,
+                xgboost_reliability = EXCLUDED.xgboost_reliability,
+                ai_reliability = EXCLUDED.ai_reliability,
+                weather_reliability = EXCLUDED.weather_reliability,
+                created_at = NOW()
+        `, [date, actual, predictions.xgboost, predictions.ai, predictions.weather,
+            xgboostError, aiError, weatherError, xgboostRel, aiRel, weatherRel]);
+        
+        // 更新當前狀態
+        await pool.query(`
+            UPDATE reliability_state SET
+                xgboost_reliability = $1,
+                ai_reliability = $2,
+                weather_reliability = $3,
+                total_samples = total_samples + 1,
+                last_updated = NOW()
+            WHERE id = 1
+        `, [xgboostRel, aiRel, weatherRel]);
+        
+        console.log(`📊 可靠度學習更新 [${date}]: XGB=${(xgboostRel*100).toFixed(1)}%, AI=${(aiRel*100).toFixed(1)}%, Weather=${(weatherRel*100).toFixed(1)}%`);
+        
+        return {
+            xgboost: xgboostRel,
+            ai: aiRel,
+            weather: weatherRel,
+            errors: { xgboost: xgboostError, ai: aiError, weather: weatherError }
+        };
+    } catch (error) {
+        console.error('❌ 更新可靠度學習失敗:', error.message);
+        return null;
+    }
+}
+
+// 獲取可靠度學習歷史
+async function getReliabilityHistory(days = 90) {
+    if (!pool) return [];
+    try {
+        const result = await pool.query(`
+            SELECT * FROM reliability_history
+            WHERE date >= CURRENT_DATE - INTERVAL '${days} days'
+            ORDER BY date DESC
+        `);
+        return result.rows;
+    } catch (error) {
+        console.error('❌ 獲取可靠度歷史失敗:', error.message);
+        return [];
+    }
+}
+
 module.exports = {
     get pool() { return pool; },
     initDatabase,
@@ -1809,6 +1999,10 @@ module.exports = {
     // v2.9.90: Auto predict stats (persisted)
     getAutoPredictStats,
     saveAutoPredictStats,
-    getAutoPredictCumulativeStats
+    getAutoPredictCumulativeStats,
+    // v3.0.83: Reliability learning
+    getReliabilityState,
+    updateReliabilityLearning,
+    getReliabilityHistory
 };
 
