@@ -10063,24 +10063,24 @@ async function loadDualTrackSection() {
             
             <!-- Validation Summary -->
             <div style="margin-top: 20px; background: var(--bg-secondary); border-radius: 12px; padding: 20px;">
-                <h4 style="margin: 0 0 16px 0; color: var(--text-primary); font-size: 0.95rem;">📊 驗證摘要 (過去 90 天)</h4>
+                <h4 style="margin: 0 0 16px 0; color: var(--text-primary); font-size: 0.95rem;">📊 驗證摘要 (過去 30 天)</h4>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px;">
                     <div style="text-align: center; padding: 12px; background: var(--bg-tertiary); border-radius: 8px;">
-                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">${validation.samples?.total || 0}</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">${validation.total_comparisons || 0}</div>
                         <div style="font-size: 0.75rem; color: var(--text-secondary);">驗證樣本</div>
                     </div>
                     <div style="text-align: center; padding: 12px; background: var(--bg-tertiary); border-radius: 8px;">
-                        <div style="font-size: 1.5rem; font-weight: 700; color: ${parseFloat(validation.improvement?.percentage || 0) > 0 ? '#22c55e' : '#ef4444'};">
-                            ${parseFloat(validation.improvement?.percentage || 0) > 0 ? '+' : ''}${parseFloat(validation.improvement?.percentage || 0).toFixed(1)}%
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">
+                            ${validation.mae_improvement_pct || '--'}
                         </div>
                         <div style="font-size: 0.75rem; color: var(--text-secondary);">改進幅度</div>
                     </div>
                     <div style="text-align: center; padding: 12px; background: var(--bg-tertiary); border-radius: 8px;">
-                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">${validation.experimental?.win_rate || '--'}</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">${validation.win_rate_pct || '--'}</div>
                         <div style="font-size: 0.75rem; color: var(--text-secondary);">Exp 勝率</div>
                     </div>
                     <div style="text-align: center; padding: 12px; background: var(--bg-tertiary); border-radius: 8px;">
-                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">${validation.production?.mae?.toFixed(1) || '--'}</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">${validation.prod_mae || '--'}</div>
                         <div style="font-size: 0.75rem; color: var(--text-secondary);">Prod MAE</div>
                     </div>
                 </div>

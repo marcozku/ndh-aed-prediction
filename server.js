@@ -3878,31 +3878,68 @@ const apiHandlers = {
     // ============================================
     
     // Get dual-track summary
-    // v3.0.86: 使用正確的欄位名稱 (target_date 而非 prediction_date)
+    // v3.0.87: 使用正確的欄位名稱，處理缺失欄位
     'GET /api/dual-track/summary': async (req, res) => {
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
         
         try {
+            // 首先檢查欄位是否存在
+            let hasColumns = false;
+            try {
+                await db.pool.query(`SELECT prediction_production FROM daily_predictions LIMIT 1`);
+                hasColumns = true;
+            } catch (e) {
+                // 欄位不存在，嘗試創建
+                try {
+                    await db.pool.query(`ALTER TABLE daily_predictions ADD COLUMN IF NOT EXISTS prediction_production DECIMAL(10,2)`);
+                    await db.pool.query(`ALTER TABLE daily_predictions ADD COLUMN IF NOT EXISTS prediction_experimental DECIMAL(10,2)`);
+                    await db.pool.query(`ALTER TABLE daily_predictions ADD COLUMN IF NOT EXISTS xgboost_base DECIMAL(10,2)`);
+                    await db.pool.query(`ALTER TABLE daily_predictions ADD COLUMN IF NOT EXISTS ai_factor DECIMAL(5,3)`);
+                    await db.pool.query(`ALTER TABLE daily_predictions ADD COLUMN IF NOT EXISTS weather_factor DECIMAL(5,3)`);
+                    hasColumns = true;
+                    console.log('✅ 雙軌欄位已創建');
+                } catch (err) {
+                    console.warn('⚠️ 無法創建雙軌欄位:', err.message);
+                }
+            }
+            
             // Get today's prediction
             const today = getHKTDate();
-            const query = `
-                SELECT 
-                    target_date,
-                    predicted_count,
-                    prediction_production,
-                    prediction_experimental,
-                    xgboost_base,
-                    ai_factor,
-                    weather_factor,
-                    ci80_low,
-                    ci80_high
-                FROM daily_predictions
-                WHERE target_date = $1
-                ORDER BY created_at DESC
-                LIMIT 1
-            `;
+            let result;
             
-            const result = await db.pool.query(query, [today]);
+            if (hasColumns) {
+                const query = `
+                    SELECT 
+                        target_date,
+                        predicted_count,
+                        prediction_production,
+                        prediction_experimental,
+                        xgboost_base,
+                        ai_factor,
+                        weather_factor,
+                        ci80_low,
+                        ci80_high
+                    FROM daily_predictions
+                    WHERE target_date = $1
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                `;
+                result = await db.pool.query(query, [today]);
+            } else {
+                // 只查詢基本欄位
+                const query = `
+                    SELECT 
+                        target_date,
+                        predicted_count,
+                        ci80_low,
+                        ci80_high
+                    FROM daily_predictions
+                    WHERE target_date = $1
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                `;
+                result = await db.pool.query(query, [today]);
+            }
             
             let todayPrediction = null;
             if (result.rows.length > 0 && result.rows[0].prediction_production !== null) {
@@ -3953,16 +3990,25 @@ const apiHandlers = {
             }
             
             // 計算驗證統計
-            const validationQuery = `
-                SELECT 
-                    COUNT(*) as total,
-                    COUNT(CASE WHEN prediction_production IS NOT NULL AND prediction_experimental IS NOT NULL THEN 1 END) as with_dual,
-                    AVG(ABS(predicted_count - (SELECT patient_count FROM actual_data ad WHERE ad.date = dp.target_date))) as avg_error
-                FROM daily_predictions dp
-                WHERE target_date >= CURRENT_DATE - INTERVAL '30 days'
-            `;
-            const valResult = await db.pool.query(validationQuery);
-            const valStats = valResult.rows[0] || {};
+            let valStats = { total: 0, with_dual: 0, avg_error: null };
+            try {
+                const validationQuery = hasColumns ? `
+                    SELECT 
+                        COUNT(*) as total,
+                        COUNT(CASE WHEN prediction_production IS NOT NULL AND prediction_experimental IS NOT NULL THEN 1 END) as with_dual,
+                        AVG(ABS(predicted_count - (SELECT patient_count FROM actual_data ad WHERE ad.date = dp.target_date))) as avg_error
+                    FROM daily_predictions dp
+                    WHERE target_date >= CURRENT_DATE - INTERVAL '30 days'
+                ` : `
+                    SELECT COUNT(*) as total, 0 as with_dual, NULL as avg_error
+                    FROM daily_predictions
+                    WHERE target_date >= CURRENT_DATE - INTERVAL '30 days'
+                `;
+                const valResult = await db.pool.query(validationQuery);
+                valStats = valResult.rows[0] || {};
+            } catch (e) {
+                console.warn('⚠️ 驗證統計查詢失敗:', e.message);
+            }
             
             const validation = {
                 total_comparisons: parseInt(valStats.with_dual) || 0,
