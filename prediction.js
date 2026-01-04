@@ -344,36 +344,75 @@ function safeDestroyChart(chartVar, canvasId) {
 }
 
 // ============================================
-// 香港公眾假期 2024-2026
+// 香港公眾假期 2024-2026 (v3.0.81: 使用動態 factors)
 // ============================================
+
+// 載入動態 holiday factors（從 Railway Database 實時計算）
+function loadDynamicHolidayFactors() {
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        const factorsPath = path.join(__dirname, 'python', 'models', 'dynamic_factors.json');
+        
+        if (fs.existsSync(factorsPath)) {
+            const data = JSON.parse(fs.readFileSync(factorsPath, 'utf8'));
+            console.log(`✅ Loaded dynamic holiday factors (updated: ${data.updated}, ${data.total_days} days)`);
+            return data.holiday_factors;
+        }
+    } catch (error) {
+        console.warn(`⚠️ Could not load dynamic_factors.json: ${error.message}`);
+    }
+    
+    // Fallback: 使用最後已知的真實值（從 2026-01-05, 4,052 days）
+    return {
+        '農曆新年': { factor: 0.951, count: 132 },
+        '聖誕節': { factor: 0.920, count: 12 },
+        '聖誕節翌日': { factor: 1.002, count: 12 },
+        '元旦': { factor: 0.955, count: 12 },
+        '清明節': { factor: 0.967, count: 22 },
+        '端午節': { factor: 1.027, count: 132 },
+        '中秋節翌日': { factor: 1.035, count: 132 },
+        '重陽節': { factor: 1.038, count: 132 },
+        '佛誕': { factor: 1.041, count: 132 },
+        '勞動節': { factor: 1.003, count: 11 },
+        '耶穌受難日': { factor: 0.987, count: 121 },
+        '耶穌受難日翌日': { factor: 0.987, count: 121 },
+        '復活節星期一': { factor: 0.988, count: 121 },
+        '香港特別行政區成立紀念日': { factor: 0.967, count: 11 },
+        '國慶日': { factor: 0.972, count: 11 }
+    };
+}
+
+const DYNAMIC_HOLIDAY_FACTORS = loadDynamicHolidayFactors();
+
 const HK_PUBLIC_HOLIDAYS = {
     // 2024
-    '2024-12-25': { name: 'Christmas Day', type: 'western', factor: 0.91 },
-    '2024-12-26': { name: 'Boxing Day', type: 'western', factor: 0.95 },
+    '2024-12-25': { name: 'Christmas Day', type: 'western', factor: DYNAMIC_HOLIDAY_FACTORS['聖誕節']?.factor || 0.920 },
+    '2024-12-26': { name: 'Boxing Day', type: 'western', factor: DYNAMIC_HOLIDAY_FACTORS['聖誕節翌日']?.factor || 1.002 },
     // 2025
-    '2025-01-01': { name: 'New Year', type: 'western', factor: 0.95 },
-    '2025-01-29': { name: '農曆新年初一', type: 'lny', factor: 0.73 },
-    '2025-01-30': { name: '農曆新年初二', type: 'lny', factor: 0.93 },
-    '2025-01-31': { name: '農曆新年初三', type: 'lny', factor: 0.98 },
+    '2025-01-01': { name: 'New Year', type: 'western', factor: DYNAMIC_HOLIDAY_FACTORS['元旦']?.factor || 0.955 },
+    '2025-01-29': { name: '農曆新年初一', type: 'lny', factor: DYNAMIC_HOLIDAY_FACTORS['農曆新年']?.factor || 0.951 },
+    '2025-01-30': { name: '農曆新年初二', type: 'lny', factor: DYNAMIC_HOLIDAY_FACTORS['農曆新年']?.factor || 0.951 },
+    '2025-01-31': { name: '農曆新年初三', type: 'lny', factor: DYNAMIC_HOLIDAY_FACTORS['農曆新年']?.factor || 0.951 },
     '2025-02-01': { name: '農曆新年初四', type: 'lny', factor: 1.0 },
-    '2025-04-04': { name: '清明節', type: 'traditional', factor: 0.85 },
-    '2025-04-18': { name: 'Good Friday', type: 'western', factor: 0.95 },
-    '2025-04-19': { name: 'Holy Saturday', type: 'western', factor: 0.95 },
-    '2025-04-21': { name: 'Easter Monday', type: 'western', factor: 0.95 },
-    '2025-05-01': { name: '勞動節', type: 'statutory', factor: 0.95 },
-    '2025-05-05': { name: '佛誕', type: 'traditional', factor: 0.93 },
-    '2025-05-31': { name: '端午節', type: 'traditional', factor: 0.90 },
-    '2025-07-01': { name: '香港特區成立紀念日', type: 'statutory', factor: 0.92 },
-    '2025-10-01': { name: '國慶日', type: 'statutory', factor: 0.92 },
-    '2025-10-07': { name: '中秋節翌日', type: 'traditional', factor: 0.90 },
-    '2025-10-29': { name: '重陽節', type: 'traditional', factor: 0.93 },
-    '2025-12-25': { name: 'Christmas Day', type: 'western', factor: 0.91 },
-    '2025-12-26': { name: 'Boxing Day', type: 'western', factor: 0.95 },
+    '2025-04-04': { name: '清明節', type: 'traditional', factor: DYNAMIC_HOLIDAY_FACTORS['清明節']?.factor || 0.967 },
+    '2025-04-18': { name: 'Good Friday', type: 'western', factor: DYNAMIC_HOLIDAY_FACTORS['耶穌受難日']?.factor || 0.987 },
+    '2025-04-19': { name: 'Holy Saturday', type: 'western', factor: DYNAMIC_HOLIDAY_FACTORS['耶穌受難日翌日']?.factor || 0.987 },
+    '2025-04-21': { name: 'Easter Monday', type: 'western', factor: DYNAMIC_HOLIDAY_FACTORS['復活節星期一']?.factor || 0.988 },
+    '2025-05-01': { name: '勞動節', type: 'statutory', factor: DYNAMIC_HOLIDAY_FACTORS['勞動節']?.factor || 1.003 },
+    '2025-05-05': { name: '佛誕', type: 'traditional', factor: DYNAMIC_HOLIDAY_FACTORS['佛誕']?.factor || 1.041 },
+    '2025-05-31': { name: '端午節', type: 'traditional', factor: DYNAMIC_HOLIDAY_FACTORS['端午節']?.factor || 1.027 },
+    '2025-07-01': { name: '香港特區成立紀念日', type: 'statutory', factor: DYNAMIC_HOLIDAY_FACTORS['香港特別行政區成立紀念日']?.factor || 0.967 },
+    '2025-10-01': { name: '國慶日', type: 'statutory', factor: DYNAMIC_HOLIDAY_FACTORS['國慶日']?.factor || 0.972 },
+    '2025-10-07': { name: '中秋節翌日', type: 'traditional', factor: DYNAMIC_HOLIDAY_FACTORS['中秋節翌日']?.factor || 1.035 },
+    '2025-10-29': { name: '重陽節', type: 'traditional', factor: DYNAMIC_HOLIDAY_FACTORS['重陽節']?.factor || 1.038 },
+    '2025-12-25': { name: 'Christmas Day', type: 'western', factor: DYNAMIC_HOLIDAY_FACTORS['聖誕節']?.factor || 0.920 },
+    '2025-12-26': { name: 'Boxing Day', type: 'western', factor: DYNAMIC_HOLIDAY_FACTORS['聖誕節翌日']?.factor || 1.002 },
     // 2026
-    '2026-01-01': { name: 'New Year', type: 'western', factor: 0.95 },
-    '2026-02-17': { name: '農曆新年初一', type: 'lny', factor: 0.73 },
-    '2026-02-18': { name: '農曆新年初二', type: 'lny', factor: 0.93 },
-    '2026-02-19': { name: '農曆新年初三', type: 'lny', factor: 0.98 },
+    '2026-01-01': { name: 'New Year', type: 'western', factor: DYNAMIC_HOLIDAY_FACTORS['元旦']?.factor || 0.955 },
+    '2026-02-17': { name: '農曆新年初一', type: 'lny', factor: DYNAMIC_HOLIDAY_FACTORS['農曆新年']?.factor || 0.951 },
+    '2026-02-18': { name: '農曆新年初二', type: 'lny', factor: DYNAMIC_HOLIDAY_FACTORS['農曆新年']?.factor || 0.951 },
+    '2026-02-19': { name: '農曆新年初三', type: 'lny', factor: DYNAMIC_HOLIDAY_FACTORS['農曆新年']?.factor || 0.951 },
 };
 
 // ============================================

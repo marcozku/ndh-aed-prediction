@@ -10,11 +10,11 @@
 
 class PragmaticBayesianPredictor {
     constructor(options = {}) {
-        // 各來源的初始可靠度 (0-1)
+        // 各來源的初始可靠度 (0-1) - v3.0.81: 統計優化後的權重
         this.reliability = {
-            xgboost: options.xgboostReliability || 0.90,   // 高可靠（主模型）
-            ai: options.aiReliability || 0.60,              // 中等可靠（新因素）
-            weather: options.weatherReliability || 0.75     // 較高可靠
+            xgboost: options.xgboostReliability || 0.95,   // 統計驗證：MAPE=2.42%, EWMA7=86.89%
+            weather: options.weatherReliability || 0.05,   // 統計驗證：|r|<0.12 (weak correlations)
+            ai: options.aiReliability || 0.00              // 無歷史驗證數據，暫時排除
         };
         
         // 基礎標準差（根據歷史 MAE 估計）
@@ -29,6 +29,9 @@ class PragmaticBayesianPredictor {
         
         // 預測記錄（用於回測）
         this.lastPrediction = null;
+        
+        // v3.0.81: 統計驗證說明
+        this.optimizationNote = 'Weights optimized from 688 test days. See bayesian_weights_optimized.json';
     }
     
     /**

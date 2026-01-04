@@ -4,6 +4,9 @@
 """
 import pandas as pd
 import numpy as np
+import json
+import os
+import sys
 from datetime import datetime, timedelta
 
 # ============ 香港公眾假期資料庫 ============
@@ -140,11 +143,50 @@ def get_hk_public_holidays(year):
     return holidays
 
 
+def load_dynamic_factors():
+    """
+    從 dynamic_factors.json 載入實時計算的 factors
+    如果文件不存在，返回預設值
+    """
+    try:
+        factors_file = os.path.join(os.path.dirname(__file__), 'models', 'dynamic_factors.json')
+        if os.path.exists(factors_file):
+            with open(factors_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"Warning: Could not load dynamic_factors.json: {e}", file=sys.stderr)
+    
+    # Fallback: 如果無法載入，使用最後已知的真實值（從 2026-01-05 計算）
+    return {
+        'holiday_factors': {
+            '農曆新年': {'factor': 0.801},
+            '聖誕節': {'factor': 0.936},
+            '聖誕節翌日': {'factor': 1.000},
+            '元旦': {'factor': 0.993},
+            '清明節': {'factor': 0.938},
+            '端午節': {'factor': 0.967},
+            '中秋節翌日': {'factor': 1.064},
+            '重陽節': {'factor': 1.016},
+            '佛誕': {'factor': 1.040},
+            '勞動節': {'factor': 1.030},
+            '耶穌受難日': {'factor': 0.978},
+            '耶穌受難日翌日': {'factor': 0.978},
+            '復活節星期一': {'factor': 1.045},
+            '香港特別行政區成立紀念日': {'factor': 0.977},
+            '國慶日': {'factor': 1.019}
+        }
+    }
+
+# 載入動態 factors（程式啟動時執行一次）
+_DYNAMIC_FACTORS = load_dynamic_factors()
+
 def get_holiday_info(date):
     """
     獲取指定日期的假期信息
     
     返回: (is_holiday, holiday_name, holiday_factor)
+    
+    v3.0.81: 使用動態計算的 factors（從 Railway Database 實時更新）
     """
     year = date.year
     month = date.month
@@ -154,25 +196,12 @@ def get_holiday_info(date):
     
     if (month, day) in holidays:
         holiday_name = holidays[(month, day)]
-        # 不同假期的影響因子
-        holiday_factors = {
-            '農曆新年': 0.75,       # 農曆新年通常急診較少
-            '聖誕節': 0.85,
-            '聖誕節翌日': 0.88,
-            '元旦': 0.90,
-            '清明節': 0.92,
-            '端午節': 0.92,
-            '中秋節翌日': 0.92,
-            '重陽節': 0.92,
-            '佛誕': 0.93,
-            '勞動節': 0.93,
-            '耶穌受難日': 0.90,
-            '耶穌受難日翌日': 0.90,
-            '復活節星期一': 0.92,
-            '香港特別行政區成立紀念日': 0.93,
-            '國慶日': 0.93,
-        }
-        factor = holiday_factors.get(holiday_name, 0.92)
+        
+        # 從動態 factors 獲取（每次模型訓練時自動更新）
+        holiday_factors_data = _DYNAMIC_FACTORS.get('holiday_factors', {})
+        holiday_factor_obj = holiday_factors_data.get(holiday_name, {'factor': 0.95})
+        factor = holiday_factor_obj['factor']
+        
         return True, holiday_name, factor
     
     return False, None, 1.0

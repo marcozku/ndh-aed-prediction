@@ -1,7 +1,8 @@
 """
-XGBoost 模型訓練腳本 v2.9.52
+XGBoost 模型訓練腳本 v3.0.81
 根據 AI-AED-Algorithm-Specification.txt Section 6.1
 新增: Optuna 超參數優化、特徵選擇優化（25特徵）、R² 指標
+v3.0.81: 訓練前自動更新動態 factors（從 Railway Database）
 """
 import pandas as pd
 import numpy as np
@@ -13,6 +14,7 @@ import os
 import sys
 import datetime
 import time
+import subprocess
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
@@ -30,6 +32,38 @@ except ImportError:
 
 # HKT 時區
 HKT = ZoneInfo('Asia/Hong_Kong')
+
+def update_dynamic_factors():
+    """
+    訓練前更新動態 factors（從 Railway Database）
+    確保使用最新的真實數據
+    """
+    print("\n" + "=" * 80)
+    print("STEP 0: Updating Dynamic Factors from Railway Database")
+    print("=" * 80)
+    
+    try:
+        script_path = os.path.join(os.path.dirname(__file__), 'calculate_dynamic_factors.py')
+        result = subprocess.run(
+            [sys.executable, script_path],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        
+        if result.returncode == 0:
+            print(result.stdout)
+            print("✅ Dynamic factors updated successfully")
+            return True
+        else:
+            print(f"⚠️ Warning: Could not update dynamic factors")
+            print(f"Error: {result.stderr}")
+            print("Continuing with existing factors...")
+            return False
+    except Exception as e:
+        print(f"⚠️ Warning: Error updating dynamic factors: {e}")
+        print("Continuing with existing factors...")
+        return False
 
 def load_ai_factors_from_db(conn):
     """從數據庫加載 AI 因子數據"""

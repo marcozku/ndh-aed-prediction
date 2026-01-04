@@ -1,5 +1,26 @@
 # 版本更新日誌
 
+## v3.0.81 - 2026-01-05 02:52 HKT
+
+### 📄 技術文檔升級：Apple 風格專業目錄 + 逐步算法拆解 + 版本一致性
+
+**改進內容**：
+- 技術文檔封面改為 Apple-style 卡片化設計（更易讀、適合 PDF）
+- 新增「Technical Menu」目錄（卡片式分區 + pill 標籤）
+- 補齊 runtime 推論流程（step-by-step）：從輸入 → 特徵 → XGBoost → Bayesian 融合 → 極端條件後處理 → guardrails
+- 明確寫入 Day 0 / Day 1–7 / Day 8–30 预测策略（含 Day 1–7 權重公式）
+- 修正文檔內版本/作者/Last Updated 與系統版本不一致問題
+
+**PDF 生成器改進**：
+- `generate-algorithm-doc-pdf.js` header/footer 不再硬編碼版本與日期
+- PDF 版本自動讀取 `package.json`（v3.0.81）
+- PDF footer 使用真實香港時間（HKT）生成時間
+
+**作者更新**：
+- Author 改為：**Ma Tsz Kiu**
+
+---
+
 ## v3.0.80 - 2026-01-04 23:15 HKT
 
 ### 🐛 修復誤差計算錯誤

@@ -1,0 +1,206 @@
+{
+  "version": "3.0.81",
+  "updated": "2026-01-05 04:33 HKT",
+  "source": "Railway Production Database (actual_data table)",
+  "total_days": 4052,
+  "overall_mean": 252.4,
+  "dow_factors": {
+    "0": {
+      "name": "Sunday",
+      "factor": 0.961,
+      "mean": 242.51,
+      "count": 578
+    },
+    "1": {
+      "name": "Monday",
+      "factor": 1.092,
+      "mean": 275.56,
+      "count": 579
+    },
+    "2": {
+      "name": "Tuesday",
+      "factor": 1.016,
+      "mean": 256.44,
+      "count": 579
+    },
+    "3": {
+      "name": "Wednesday",
+      "factor": 0.994,
+      "mean": 251.01,
+      "count": 579
+    },
+    "4": {
+      "name": "Thursday",
+      "factor": 1.005,
+      "mean": 253.78,
+      "count": 579
+    },
+    "5": {
+      "name": "Friday",
+      "factor": 0.998,
+      "mean": 251.78,
+      "count": 579
+    },
+    "6": {
+      "name": "Saturday",
+      "factor": 0.934,
+      "mean": 235.73,
+      "count": 579
+    }
+  },
+  "month_factors": {
+    "1": {
+      "factor": 0.985,
+      "mean": 248.63,
+      "count": 344
+    },
+    "2": {
+      "factor": 0.964,
+      "mean": 243.22,
+      "count": 311
+    },
+    "3": {
+      "factor": 0.977,
+      "mean": 246.66,
+      "count": 341
+    },
+    "4": {
+      "factor": 0.999,
+      "mean": 252.18,
+      "count": 330
+    },
+    "5": {
+      "factor": 1.04,
+      "mean": 262.42,
+      "count": 341
+    },
+    "6": {
+      "factor": 1.025,
+      "mean": 258.63,
+      "count": 330
+    },
+    "7": {
+      "factor": 1.01,
+      "mean": 254.81,
+      "count": 341
+    },
+    "8": {
+      "factor": 0.975,
+      "mean": 246.03,
+      "count": 341
+    },
+    "9": {
+      "factor": 1.015,
+      "mean": 256.29,
+      "count": 330
+    },
+    "10": {
+      "factor": 1.026,
+      "mean": 258.92,
+      "count": 341
+    },
+    "11": {
+      "factor": 1.003,
+      "mean": 253.2,
+      "count": 330
+    },
+    "12": {
+      "factor": 0.982,
+      "mean": 247.82,
+      "count": 372
+    }
+  },
+  "holiday_factors": {
+    "農曆新年": {
+      "factor": 0.951,
+      "mean": 240.11,
+      "count": 132,
+      "impact_pct": -4.9
+    },
+    "聖誕節": {
+      "factor": 0.92,
+      "mean": 232.33,
+      "count": 12,
+      "impact_pct": -8.0
+    },
+    "聖誕節翌日": {
+      "factor": 1.002,
+      "mean": 253.0,
+      "count": 12,
+      "impact_pct": 0.2
+    },
+    "元旦": {
+      "factor": 0.955,
+      "mean": 241.17,
+      "count": 12,
+      "impact_pct": -4.5
+    },
+    "清明節": {
+      "factor": 0.967,
+      "mean": 244.09,
+      "count": 22,
+      "impact_pct": -3.3
+    },
+    "端午節": {
+      "factor": 1.027,
+      "mean": 259.17,
+      "count": 132,
+      "impact_pct": 2.7
+    },
+    "中秋節翌日": {
+      "factor": 1.035,
+      "mean": 261.14,
+      "count": 132,
+      "impact_pct": 3.5
+    },
+    "重陽節": {
+      "factor": 1.038,
+      "mean": 261.97,
+      "count": 132,
+      "impact_pct": 3.8
+    },
+    "佛誕": {
+      "factor": 1.041,
+      "mean": 262.85,
+      "count": 132,
+      "impact_pct": 4.1
+    },
+    "勞動節": {
+      "factor": 1.003,
+      "mean": 253.27,
+      "count": 11,
+      "impact_pct": 0.3
+    },
+    "耶穌受難日": {
+      "factor": 0.987,
+      "mean": 249.03,
+      "count": 121,
+      "impact_pct": -1.3
+    },
+    "復活節星期一": {
+      "factor": 0.988,
+      "mean": 249.5,
+      "count": 121,
+      "impact_pct": -1.2
+    },
+    "香港特別行政區成立紀念日": {
+      "factor": 0.967,
+      "mean": 244.09,
+      "count": 11,
+      "impact_pct": -3.3
+    },
+    "國慶日": {
+      "factor": 0.972,
+      "mean": 245.45,
+      "count": 11,
+      "impact_pct": -2.8
+    },
+    "耶穌受難日翌日": {
+      "factor": 0.987,
+      "mean": 249.03,
+      "count": 121,
+      "impact_pct": -1.3
+    }
+  },
+  "note": "All factors dynamically calculated from real data. Auto-updates when new data is uploaded."
+}
