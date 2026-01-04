@@ -10091,7 +10091,18 @@ async function loadDualTrackSection() {
                 </div>
                 ` : ''}
             </div>
+            
+            <!-- Dual-Track Comparison Chart -->
+            <div style="margin-top: 20px; background: var(--bg-secondary); border-radius: 12px; padding: 20px;">
+                <h4 style="margin: 0 0 16px 0; color: var(--text-primary); font-size: 0.95rem;">📊 雙軌對比圖 (過去 30 天)</h4>
+                <div style="height: 250px;">
+                    <canvas id="dual-track-chart"></canvas>
+                </div>
+            </div>
         `;
+        
+        // 初始化雙軌對比圖表
+        await initDualTrackChart();
         
         console.log('✅ 雙軌預測系統已載入');
     } catch (error) {
@@ -10104,6 +10115,134 @@ async function loadDualTrackSection() {
                 <div style="font-size: 0.75rem; margin-top: 8px; color: var(--text-tertiary);">請稍後再試</div>
             </div>
         `;
+    }
+}
+
+// v3.0.87: 初始化雙軌對比圖表
+async function initDualTrackChart() {
+    const canvas = document.getElementById('dual-track-chart');
+    if (!canvas) return;
+    
+    try {
+        // 獲取準確度歷史數據
+        const response = await fetch('/api/accuracy-history?days=30');
+        if (!response.ok) {
+            console.warn('⚠️ 無法獲取雙軌歷史數據');
+            return;
+        }
+        
+        const result = await response.json();
+        if (!result.success || !result.history || result.history.length === 0) {
+            canvas.parentElement.innerHTML = '<div style="text-align: center; color: var(--text-tertiary); padding: 40px;">暫無雙軌對比數據</div>';
+            return;
+        }
+        
+        // 準備數據
+        const history = result.history.reverse(); // 按時間順序排列
+        const labels = history.map(d => {
+            const date = new Date(d.date);
+            return `${date.getMonth() + 1}/${date.getDate()}`;
+        });
+        
+        const actualData = history.map(d => d.actual);
+        const predictedData = history.map(d => d.predicted);
+        const productionData = history.map(d => d.prediction_production ? parseFloat(d.prediction_production) : d.predicted);
+        const experimentalData = history.map(d => d.prediction_experimental ? parseFloat(d.prediction_experimental) : d.predicted);
+        
+        // 銷毀舊圖表
+        destroyChart('dual-track-chart');
+        
+        const ctx = canvas.getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '實際值',
+                        data: actualData,
+                        borderColor: '#22c55e',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        borderWidth: 3,
+                        fill: false,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#22c55e'
+                    },
+                    {
+                        label: 'Production (無 AI)',
+                        data: productionData,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.3,
+                        pointRadius: 3,
+                        borderDash: [5, 5]
+                    },
+                    {
+                        label: 'Experimental (含 AI)',
+                        data: experimentalData,
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.3,
+                        pointRadius: 3,
+                        borderDash: [2, 2]
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 15,
+                            font: { size: 11 }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.dataset.label}: ${context.parsed.y} 人`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        grid: { color: 'rgba(128, 128, 128, 0.1)' },
+                        title: {
+                            display: true,
+                            text: '病人數',
+                            font: { size: 11 }
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        title: {
+                            display: true,
+                            text: '日期',
+                            font: { size: 11 }
+                        }
+                    }
+                }
+            }
+        });
+        
+        console.log('✅ 雙軌對比圖表已載入');
+    } catch (error) {
+        console.warn('⚠️ 雙軌圖表載入失敗:', error.message);
+        canvas.parentElement.innerHTML = `<div style="text-align: center; color: var(--text-tertiary); padding: 40px;">圖表載入失敗: ${error.message}</div>`;
     }
 }
 
