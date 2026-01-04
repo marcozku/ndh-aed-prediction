@@ -308,6 +308,11 @@ body {
     transform: scale(0.95);
 }
 
+/* v3.0.84: Mobile bottom nav - hidden on desktop */
+.mobile-bottom-nav {
+    display: none;
+}
+
 #lang-toggle {
     font-size: 0.75rem;
     font-weight: 700;
@@ -5364,18 +5369,8 @@ section h2 {
         height: 32px;
     }
     
+    /* v3.0.84: Mobile - 隱藏頂部 nav-links，使用底部導航 */
     .nav-links {
-        gap: 2px;
-        flex: 1;
-        justify-content: center;
-    }
-    
-    .nav-link {
-        padding: var(--space-xs);
-        font-size: 0.75rem;
-    }
-    
-    .nav-text {
         display: none;
     }
     
@@ -5389,13 +5384,78 @@ section h2 {
         font-size: 0.9rem;
     }
     
-    .nav-icon {
-        font-size: 1.25rem;
+    /* Mobile Bottom Navigation Bar */
+    .mobile-bottom-nav {
+        display: flex !important;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: calc(60px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        background: var(--bg-glass);
+        backdrop-filter: var(--blur-lg);
+        -webkit-backdrop-filter: var(--blur-lg);
+        border-top: 1px solid var(--border-subtle);
+        z-index: 1000;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
     }
     
-    .nav-action-btn {
-        width: 36px;
-        height: 36px;
+    .mobile-bottom-nav::-webkit-scrollbar {
+        display: none;
+    }
+    
+    .mobile-nav-inner {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 4px;
+        padding: 8px 12px;
+        min-width: max-content;
+    }
+    
+    .mobile-nav-link {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 12px;
+        border-radius: 12px;
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 0.65rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        min-width: 52px;
+        gap: 2px;
+    }
+    
+    .mobile-nav-link:hover,
+    .mobile-nav-link:active {
+        background: var(--bg-card);
+        color: var(--text-primary);
+    }
+    
+    .mobile-nav-link.active {
+        background: var(--gradient-primary);
+        color: white;
+    }
+    
+    .mobile-nav-link .nav-icon {
+        font-size: 1.3rem;
+    }
+    
+    .mobile-nav-link .nav-text {
+        font-size: 0.6rem;
+        white-space: nowrap;
+    }
+    
+    /* Add bottom padding to body for mobile nav */
+    body {
+        padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
     }
     
     .back-to-top {

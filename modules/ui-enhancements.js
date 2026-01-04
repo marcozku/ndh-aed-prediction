@@ -116,10 +116,13 @@ const NavManager = {
     },
     
     setupNavLinks() {
-        const links = document.querySelectorAll('.nav-link');
+        // v3.0.84: 同時處理桌面和手機導航
+        const desktopLinks = document.querySelectorAll('.nav-link');
+        const mobileLinks = document.querySelectorAll('.mobile-nav-link');
+        const allLinks = [...desktopLinks, ...mobileLinks];
         
         // 點擊導航連結
-        links.forEach(link => {
+        allLinks.forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 const target = document.querySelector(link.getAttribute('href'));
@@ -138,7 +141,8 @@ const NavManager = {
             'charts-section',
             'model-training-section',
             'timeline-section',
-            'algorithm-section'
+            'algorithm-section',
+            'dual-track-section'
         ];
         
         let ticking = false;
@@ -176,9 +180,9 @@ const NavManager = {
                         }
                     }
                     
-                    // 更新導航高亮
+                    // 更新導航高亮（桌面和手機）
                     if (activeSection) {
-                        links.forEach(link => {
+                        allLinks.forEach(link => {
                             const href = link.getAttribute('href');
                             if (href === `#${activeSection}`) {
                                 link.classList.add('active');
@@ -186,6 +190,18 @@ const NavManager = {
                                 link.classList.remove('active');
                             }
                         });
+                        
+                        // v3.0.84: 滾動手機導航到當前活動項目
+                        const mobileNav = document.querySelector('.mobile-bottom-nav');
+                        const activeLink = document.querySelector(`.mobile-nav-link[href="#${activeSection}"]`);
+                        if (mobileNav && activeLink) {
+                            const navRect = mobileNav.getBoundingClientRect();
+                            const linkRect = activeLink.getBoundingClientRect();
+                            // 如果活動項目不在可視範圍內，滾動到中間
+                            if (linkRect.left < navRect.left || linkRect.right > navRect.right) {
+                                activeLink.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                            }
+                        }
                     }
                     ticking = false;
                 });
