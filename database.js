@@ -784,12 +784,27 @@ async function getComparisonData(limit = 100) {
                  ORDER BY created_at DESC LIMIT 1),
                 p.ci95_high
             )::integer as ci95_high,
-            pa.error::numeric as error,
-            pa.error_percentage::numeric as error_percentage
+            -- v3.0.80: 直接計算 error，不依賴可能過時的 prediction_accuracy 表
+            (COALESCE(
+                fdp.predicted_count,
+                (SELECT predicted_count FROM daily_predictions 
+                 WHERE target_date = a.date 
+                 ORDER BY created_at DESC LIMIT 1),
+                p.predicted_count
+            ) - a.patient_count)::numeric as error,
+            ROUND(
+                ((COALESCE(
+                    fdp.predicted_count,
+                    (SELECT predicted_count FROM daily_predictions 
+                     WHERE target_date = a.date 
+                     ORDER BY created_at DESC LIMIT 1),
+                    p.predicted_count
+                ) - a.patient_count)::numeric / NULLIF(a.patient_count, 0) * 100)::numeric, 
+                2
+            ) as error_percentage
         FROM actual_data a
         LEFT JOIN final_daily_predictions fdp ON a.date = fdp.target_date
         LEFT JOIN predictions p ON a.date = p.target_date
-        LEFT JOIN prediction_accuracy pa ON a.date = pa.target_date
         WHERE 
             -- 確保至少有一個預測數據來源（使用子查詢檢查 daily_predictions）
             (
