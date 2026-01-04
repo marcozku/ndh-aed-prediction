@@ -943,10 +943,10 @@ const MethodologyModal = {
                 // 使用本地備用數據
                 const fallbackTimeline = [
                     { version: '2.9.20', date: '2025-12-30', description: '基礎 XGBoost', metrics: { mae: 3.84, mape: 1.56, feature_count: 52 }, changes: ['300樹', '深度6'] },
-                    { version: '2.9.24', date: '2025-12-31', description: '天氣特徵', metrics: { mae: 3.75, mape: 1.52, feature_count: 89 }, changes: ['HKO數據'] },
-                    { version: '2.9.28', date: '2026-01-02', description: '研究優化', metrics: { mae: 3.84, mape: 1.56, feature_count: 99 }, changes: ['500樹', 'Fourier'] },
-                    { version: '2.9.50', date: '2026-01-01', description: 'Optuna+EWMA', metrics: { mae: 6.30, mape: 2.45, r2: 0.90, feature_count: 161 }, changes: ['Optuna優化', 'EWMA'] },
-                    { version: '2.9.52', date: '2026-01-02', description: '自動特徵優化', metrics: { mae: 5.33, mape: 2.10, r2: 0.92, feature_count: 25 }, changes: ['智能優化器', '25特徵', 'R²92%'] }
+                    { version: '2.9.52', date: '2026-01-02', description: '自動特徵優化', metrics: { mae: 4.73, mape: 1.87, r2: 0.933, feature_count: 25 }, changes: ['25特徵', 'RFE優化'] },
+                    { version: '3.0.38', date: '2026-01-04', description: 'Bayesian 融合', metrics: { mae: 4.01, mape: 1.59, r2: 0.958, feature_count: 25 }, changes: ['多來源融合'] },
+                    { version: '3.0.75', date: '2026-01-04', description: 'RFE 特徵優化', metrics: { mae: 3.36, mape: 1.36, r2: 0.964, feature_count: 25 }, changes: ['EWMA7主導'] },
+                    { version: '3.0.76', date: '2026-01-04', description: 'Concept Drift', metrics: { mae: 6.18, mape: 2.42, r2: 0.898, feature_count: 25 }, changes: ['滑動窗口', '極端後處理'] }
                 ];
                 this.renderTimeline(container, fallbackTimeline);
                 this.renderAccuracyChart(fallbackTimeline);
@@ -965,9 +965,9 @@ const MethodologyModal = {
             // 顯示錯誤但仍然嘗試顯示備用數據
             const fallbackTimeline = [
                 { version: '2.9.20', date: '2025-12-30', description: '基礎 XGBoost', metrics: { mae: 3.84, mape: 1.56, feature_count: 52 }, changes: ['300樹'] },
-                { version: '2.9.28', date: '2026-01-02', description: '研究優化', metrics: { mae: 3.84, mape: 1.56, feature_count: 99 }, changes: ['500樹', 'Fourier'] },
-                { version: '2.9.50', date: '2026-01-01', description: 'Optuna+EWMA', metrics: { mae: 6.30, mape: 2.45, r2: 0.90, feature_count: 161 }, changes: ['Optuna優化'] },
-                { version: '2.9.52', date: '2026-01-02', description: '特徵優化', metrics: { mae: 4.73, mape: 1.87, r2: 0.933, feature_count: 25 }, changes: ['25特徵', 'R²93%'] }
+                { version: '3.0.38', date: '2026-01-04', description: 'Bayesian 融合', metrics: { mae: 4.01, mape: 1.59, r2: 0.958, feature_count: 25 }, changes: ['多來源融合'] },
+                { version: '3.0.75', date: '2026-01-04', description: 'RFE 特徵優化', metrics: { mae: 3.36, mape: 1.36, r2: 0.964, feature_count: 25 }, changes: ['EWMA7主導'] },
+                { version: '3.0.76', date: '2026-01-04', description: 'Concept Drift', metrics: { mae: 6.18, mape: 2.42, r2: 0.898, feature_count: 25 }, changes: ['滑動窗口', '極端後處理'] }
             ];
             this.renderTimeline(container, fallbackTimeline);
             this.renderAccuracyChart(fallbackTimeline);
@@ -1288,10 +1288,10 @@ const MainPageTimeline = {
         if (!timeline) {
             timeline = [
                 { version: '2.9.20', date: '2025-12-30', description: '基礎 XGBoost', metrics: { mae: 3.84, mape: 1.56, feature_count: 52 }, changes: ['300樹', '深度6'] },
-                { version: '2.9.24', date: '2025-12-31', description: '天氣特徵整合', metrics: { mae: 3.75, mape: 1.52, feature_count: 89 }, changes: ['HKO數據', '10天氣特徵'] },
-                { version: '2.9.28', date: '2026-01-02', description: '研究基礎優化', metrics: { mae: 3.84, mape: 1.56, feature_count: 99 }, changes: ['500樹', 'Fourier', '樣本權重'] },
-                { version: '2.9.50', date: '2026-01-01', description: 'Optuna 超參數優化', metrics: { mae: 6.30, mape: 2.45, r2: 0.90, feature_count: 161 }, changes: ['Optuna TPE', 'EWMA特徵', 'R²90.3%'] },
-                { version: '2.9.52', date: '2026-01-02', description: '自動特徵優化', metrics: { mae: 5.33, mape: 2.10, r2: 0.92, feature_count: 25 }, changes: ['智能優化器', '25特徵', 'R²92%'] }
+                { version: '2.9.52', date: '2026-01-02', description: '自動特徵優化', metrics: { mae: 4.73, mape: 1.87, r2: 0.933, feature_count: 25 }, changes: ['25特徵', 'RFE優化'] },
+                { version: '3.0.38', date: '2026-01-04', description: 'Bayesian 融合', metrics: { mae: 4.01, mape: 1.59, r2: 0.958, feature_count: 25 }, changes: ['多來源融合'] },
+                { version: '3.0.75', date: '2026-01-04', description: 'RFE 特徵優化', metrics: { mae: 3.36, mape: 1.36, r2: 0.964, feature_count: 25 }, changes: ['EWMA7主導'] },
+                { version: '3.0.76', date: '2026-01-04', description: 'Concept Drift', metrics: { mae: 6.18, mape: 2.42, r2: 0.898, feature_count: 25 }, changes: ['滑動窗口', '極端後處理'] }
             ];
         }
         

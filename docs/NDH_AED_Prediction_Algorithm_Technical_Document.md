@@ -1,5 +1,5 @@
 # NDH AED Attendance Prediction Algorithm
-## Technical Documentation v3.0.82
+## Technical Documentation v3.0.83
 
 <!--
 This document is designed to be rendered into PDF via generate-algorithm-doc-pdf.js.
@@ -12,8 +12,8 @@ HTML blocks below are intentional to achieve a clean, Apple-style, print-friendl
   <div class="cover-subtitle">Technical Documentation</div>
   <div class="cover-meta">
     <div class="cover-meta-row"><span class="k">Hospital</span><span class="v">North District Hospital • Emergency Department</span></div>
-    <div class="cover-meta-row"><span class="k">Document Version</span><span class="v">3.0.82</span></div>
-    <div class="cover-meta-row"><span class="k">Last Updated (HKT)</span><span class="v">05 Jan 2026 06:30 HKT</span></div>
+    <div class="cover-meta-row"><span class="k">Document Version</span><span class="v">3.0.83</span></div>
+    <div class="cover-meta-row"><span class="k">Last Updated (HKT)</span><span class="v">06 Jan 2026 00:10 HKT</span></div>
     <div class="cover-meta-row"><span class="k">Author</span><span class="v">Ma Tsz Kiu</span></div>
   </div>
 </div>
