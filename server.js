@@ -779,12 +779,14 @@ const apiHandlers = {
     
     // v3.0.87: 準確度歷史（用於可靠度學習）
     'GET /api/accuracy-history': async (req, res) => {
+        console.log('📊 accuracy-history API 被調用');
         if (!db || !db.pool) {
             return sendJson(res, { error: 'Database not configured' }, 503);
         }
         try {
             const parsedUrl = url.parse(req.url, true);
             const days = parseInt(parsedUrl.query.days) || 30;
+            console.log(`📊 查詢 ${days} 天的準確度歷史`);
             
             const query = `
                 SELECT 
@@ -798,12 +800,13 @@ const apiHandlers = {
                     dp.weather_factor
                 FROM daily_predictions dp
                 INNER JOIN actual_data ad ON dp.target_date = ad.date
-                WHERE dp.target_date >= CURRENT_DATE - INTERVAL '${days} days'
+                WHERE dp.target_date >= CURRENT_DATE - $1::interval
                   AND dp.target_date < CURRENT_DATE
                 ORDER BY dp.target_date DESC
             `;
             
-            const result = await db.pool.query(query);
+            const result = await db.pool.query(query, [`${days} days`]);
+            console.log(`📊 查詢返回 ${result.rows.length} 筆數據`);
             
             sendJson(res, {
                 success: true,
