@@ -10101,8 +10101,8 @@ async function loadDualTrackSection() {
             
             <!-- Dual-Track Comparison Chart -->
             <div style="margin-top: 20px; background: var(--bg-secondary); border-radius: 12px; padding: 20px;">
-                <h4 style="margin: 0 0 16px 0; color: var(--text-primary); font-size: 0.95rem;">📊 雙軌對比圖 (過去 30 天)</h4>
-                <div style="height: 250px;">
+                <h4 style="margin: 0 0 16px 0; color: var(--text-primary); font-size: 0.95rem;">📊 Production vs Experimental vs 實際 (過去 30 天)</h4>
+                <div style="height: 280px;">
                     <canvas id="dual-track-chart"></canvas>
                 </div>
             </div>
@@ -10165,15 +10165,18 @@ async function initDualTrackChart() {
         // 檢查是否有雙軌數據
         const hasDualTrackData = history.some(d => d.prediction_production !== null);
         
-        // 如果沒有雙軌數據，顯示預測 vs 實際對比
+        // Production = 無 AI 的預測 (使用 xgboost_base 或 predicted)
         const productionData = history.map(d => {
             if (d.prediction_production !== null) return parseFloat(d.prediction_production);
-            // 無雙軌數據時：Production = predicted（模擬無 AI 的情況）
+            if (d.xgboost_base !== null) return parseFloat(d.xgboost_base);
+            // 回退：使用 predicted 作為基準
             return d.predicted;
         });
+        
+        // Experimental = 含 AI 的預測 (使用 prediction_experimental 或 predicted)
         const experimentalData = history.map(d => {
             if (d.prediction_experimental !== null) return parseFloat(d.prediction_experimental);
-            // 無雙軌數據時：Experimental = predicted（模擬含 AI 的情況）
+            // 回退：使用 predicted（已包含 AI 因素）
             return d.predicted;
         });
         
@@ -10196,11 +10199,11 @@ async function initDualTrackChart() {
                         borderWidth: 3,
                         fill: false,
                         tension: 0.3,
-                        pointRadius: 4,
+                        pointRadius: 5,
                         pointBackgroundColor: '#22c55e'
                     },
                     {
-                        label: hasDualTrackData ? 'Production (無 AI)' : '預測值',
+                        label: 'Production (無 AI)',
                         data: productionData,
                         borderColor: '#3b82f6',
                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -10208,10 +10211,10 @@ async function initDualTrackChart() {
                         fill: false,
                         tension: 0.3,
                         pointRadius: 3,
-                        borderDash: hasDualTrackData ? [5, 5] : []
+                        pointBackgroundColor: '#3b82f6',
+                        borderDash: [5, 5]
                     },
-                    // 只有當有雙軌數據時才顯示 Experimental 線
-                    ...(hasDualTrackData ? [{
+                    {
                         label: 'Experimental (含 AI)',
                         data: experimentalData,
                         borderColor: '#f59e0b',
@@ -10220,8 +10223,9 @@ async function initDualTrackChart() {
                         fill: false,
                         tension: 0.3,
                         pointRadius: 3,
+                        pointBackgroundColor: '#f59e0b',
                         borderDash: [2, 2]
-                    }] : [])
+                    }
                 ]
             },
             options: {
@@ -10273,9 +10277,10 @@ async function initDualTrackChart() {
         // 更新標題反映數據狀態
         const titleEl = canvas.parentElement.previousElementSibling;
         if (titleEl && titleEl.tagName === 'H4') {
-            if (!hasDualTrackData) {
-                titleEl.innerHTML = '📊 預測 vs 實際對比 (過去 30 天) <span style="font-size: 0.7rem; color: var(--text-tertiary); font-weight: normal;">(雙軌數據收集中)</span>';
-            }
+            const statusNote = hasDualTrackData 
+                ? '' 
+                : '<span style="font-size: 0.7rem; color: var(--text-tertiary); font-weight: normal; margin-left: 8px;">(雙軌分離數據收集中)</span>';
+            titleEl.innerHTML = `📊 Production vs Experimental vs 實際 (過去 30 天)${statusNote}`;
         }
         
         console.log(`✅ 雙軌對比圖表已載入 (有雙軌數據: ${hasDualTrackData})`);
