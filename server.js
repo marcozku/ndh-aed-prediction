@@ -4603,9 +4603,10 @@ async function generateServerSidePredictions(source = 'auto') {
             // Mean: 253.8 ± 28, Monday: 270 ± 35, Saturday: 235 ± 32
             const dowMeans = { 0: 225, 1: 270, 2: 260, 3: 255, 4: 252, 5: 245, 6: 235 };
             const dowStds = { 0: 28, 1: 35, 2: 30, 3: 28, 4: 28, 5: 28, 6: 32 };
-            // 預測值上下限（基於 Post-COVID 95% CI: 198-310，極端高: 380）
-            const PREDICTION_MIN = 180;
-            const PREDICTION_MAX = 320;
+            // v3.0.85: 移除硬上限，改用異常標記
+            // 歷史參考範圍（用於異常檢測，不再 clip）
+            const NORMAL_MIN = 180;  // Post-COVID 歷史低值
+            const NORMAL_MAX = 320;  // Post-COVID 95% CI 上限
             
             // 計算預測值
             let adjusted;
@@ -4642,9 +4643,7 @@ async function generateServerSidePredictions(source = 'auto') {
                     adjusted = Math.round(value);
                 }
                 
-                // 應用硬上限（今天允許稍高範圍）
-                const TODAY_MAX = 340;
-                adjusted = Math.max(PREDICTION_MIN, Math.min(TODAY_MAX, adjusted));
+                // v3.0.85: 移除硬上限，讓模型自由預測
                 
             } else if (daysAhead <= 7) {
                 // ============================================================
@@ -4713,7 +4712,7 @@ async function generateServerSidePredictions(source = 'auto') {
                     predictionMethod = 'deviation_decay';
                 }
                 
-                adjusted = Math.max(PREDICTION_MIN, Math.min(PREDICTION_MAX, adjusted));
+                // v3.0.85: 移除硬上限
                 
             } else {
                 // ============================================================
@@ -4744,7 +4743,8 @@ async function generateServerSidePredictions(source = 'auto') {
                     value += (weatherFactor - 1.0) * targetMean * 0.3;
                 }
                 
-                adjusted = Math.round(Math.max(PREDICTION_MIN, Math.min(PREDICTION_MAX, value)));
+                // v3.0.85: 移除硬上限
+                adjusted = Math.round(value);
                 predictionMethod = 'mean_reversion';
             }
             
@@ -4753,6 +4753,14 @@ async function generateServerSidePredictions(source = 'auto') {
             // 遠期預測不確定性增加
             const uncertaintyMultiplier = 1.0 + daysAhead * 0.03; // 每天增加 3%
             const std = baseStd * uncertaintyMultiplier;
+            
+            // v3.0.85: 異常檢測標記
+            let anomaly = null;
+            if (adjusted < NORMAL_MIN) {
+                anomaly = { type: 'low', message: `預測值 ${adjusted} 低於歷史範圍 (${NORMAL_MIN})` };
+            } else if (adjusted > NORMAL_MAX) {
+                anomaly = { type: 'high', message: `預測值 ${adjusted} 高於歷史範圍 (${NORMAL_MAX})` };
+            }
             
             predictions.push({
                 date: dateStr,
@@ -4766,7 +4774,8 @@ async function generateServerSidePredictions(source = 'auto') {
                     weather: weatherFactor
                 },
                 weatherInfo,
-                aiInfo
+                aiInfo,
+                anomaly  // v3.0.85: 異常標記
             });
         }
         

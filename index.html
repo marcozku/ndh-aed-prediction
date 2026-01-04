@@ -182,6 +182,8 @@
                             <span class="ci-label" data-lang-key="ci-95">95% 信賴區間</span>
                             <span class="ci-value" id="today-ci95">-- - -- 人</span>
                         </div>
+                        <!-- v3.0.85: 異常警告 -->
+                        <div class="anomaly-warning" id="anomaly-warning" style="display: none; margin-top: 8px; padding: 8px 12px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; font-size: 0.8rem; text-align: center;"></div>
                     </div>
                     
                     <!-- v3.0.39: Bayesian 預測分解 -->
@@ -695,7 +697,7 @@
         <footer class="app-footer" role="contentinfo">
             <p id="data-source-info" style="cursor: pointer; text-decoration: underline;" data-lang-key="footer-source">數據來源：載入中...</p>
             <p id="last-update-info" class="last-update-info"></p>
-            <p>預測模型版本 3.0.84 · 香港時間 HKT</p>
+            <p>預測模型版本 3.0.85 · 香港時間 HKT</p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2025 Marco Ma. All Rights Reserved.</p>
             <div class="footer-links">
                 <a href="/api/docs" class="footer-link" data-lang-key="footer-api">API 文檔</a>
@@ -771,7 +773,7 @@
                         <code>預測 = 星期均值 + 趨勢偏差 + 月份效應 + AI效應 + 天氣效應</code>
                     </div>
                     <p style="font-size: 0.8em; color: var(--text-secondary); margin-top: 8px;">
-                        ✅ 加法效應模型 · 🛡️ 硬上限 180-320 · 📊 Post-COVID 2023-2025 校準
+                        ✅ 加法效應模型 · ⚠️ 異常值警告 · 📊 Post-COVID 2023-2025 校準
                     </p>
                 </div>
                 <div class="methodology-section">

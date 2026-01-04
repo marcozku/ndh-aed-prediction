@@ -1,5 +1,5 @@
 # NDH AED Attendance Prediction Algorithm
-## Technical Documentation v3.0.83
+## Technical Documentation v3.0.85
 
 <!--
 This document is designed to be rendered into PDF via generate-algorithm-doc-pdf.js.
@@ -12,8 +12,8 @@ HTML blocks below are intentional to achieve a clean, Apple-style, print-friendl
   <div class="cover-subtitle">Technical Documentation</div>
   <div class="cover-meta">
     <div class="cover-meta-row"><span class="k">Hospital</span><span class="v">North District Hospital • Emergency Department</span></div>
-    <div class="cover-meta-row"><span class="k">Document Version</span><span class="v">3.0.83</span></div>
-    <div class="cover-meta-row"><span class="k">Last Updated (HKT)</span><span class="v">06 Jan 2026 00:10 HKT</span></div>
+    <div class="cover-meta-row"><span class="k">Document Version</span><span class="v">3.0.85</span></div>
+    <div class="cover-meta-row"><span class="k">Last Updated (HKT)</span><span class="v">06 Jan 2026 02:00 HKT</span></div>
     <div class="cover-meta-row"><span class="k">Author</span><span class="v">Ma Tsz Kiu</span></div>
   </div>
 </div>
@@ -587,12 +587,13 @@ Use **statistically optimized weights** $w_{base}=0.95$, $w_{Weather}=0.05$, $w_
 
 Apply AQHI / extreme weather rule multipliers (Section 7).
 
-#### Step 5 — Guardrails
+#### Step 5 — Anomaly Detection (v3.0.85)
 
-Final guardrails applied:
+Final processing:
 
 - Rounding to integer attendance
-- Clipping to operational bounds where configured (to prevent unstable extremes)
+- **Anomaly warning** (not clipping): Predictions outside historical range (180-320) trigger UI warning but are NOT clamped
+- Rationale: Allow model to express genuine extreme predictions for unusual events
 
 ### 5.4 Prediction Formula
 

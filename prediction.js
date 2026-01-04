@@ -6109,6 +6109,22 @@ async function updateUI(predictor, forceRecalculate = false) {
     document.getElementById('today-ci80').textContent = `${todayPred.ci80.lower} - ${todayPred.ci80.upper} 人`;
     document.getElementById('today-ci95').textContent = `${todayPred.ci95.lower} - ${todayPred.ci95.upper} 人`;
     
+    // v3.0.85: 顯示異常警告
+    const anomalyWarning = document.getElementById('anomaly-warning');
+    if (anomalyWarning) {
+        if (todayPred.anomaly) {
+            const isHigh = todayPred.anomaly.type === 'high';
+            anomalyWarning.innerHTML = `
+                <span style="color: ${isHigh ? '#f59e0b' : '#3b82f6'};">
+                    ${isHigh ? '⚠️ 異常高' : '⚠️ 異常低'}: ${todayPred.anomaly.message}
+                </span>
+            `;
+            anomalyWarning.style.display = 'block';
+        } else {
+            anomalyWarning.style.display = 'none';
+        }
+    }
+    
     // v3.0.39: 更新 Bayesian 分解顯示
     updateBayesianBreakdown(todayPred);
     
@@ -9603,7 +9619,7 @@ function initAlgorithmContent() {
                     <div style="font-family: 'Fira Code', monospace; font-size: 0.72rem; color: var(--text-primary); line-height: 1.5;">
                         μ<sub>dow</sub> + Δ·e<sup>-0.1d</sup><br>
                         + effects<br>
-                        → [180,320]
+                        → ⚠️ 異常警告
                     </div>
                 </div>
             </div>
@@ -9735,8 +9751,8 @@ function initAlgorithmContent() {
                 </div>
             </div>
             
-            <div style="background: rgba(34, 197, 94, 0.08); padding: 10px; border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary);">
-                <strong style="color: #22c55e;">🛡️ 硬上限控制:</strong> clip(180, 320) · 歷史 95% CI: 198-310 · 避免超出合理範圍
+            <div style="background: rgba(245, 158, 11, 0.08); padding: 10px; border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary);">
+                <strong style="color: #f59e0b;">⚠️ 異常值警告:</strong> 預測值超出歷史範圍 (180-320) 時顯示警告 · 模型自由預測不再受限
             </div>
         </div>
         
