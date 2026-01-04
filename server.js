@@ -777,9 +777,16 @@ const apiHandlers = {
         }
     },
     
-    // v3.0.89: 簡單測試端點
-    'GET /api/test-route': async (req, res) => {
-        sendJson(res, { success: true, message: 'Route matching works!', version: MODEL_VERSION });
+    // v3.0.89: 列出所有可用路由
+    'GET /api/list-routes': async (req, res) => {
+        const routes = Object.keys(apiHandlers).sort();
+        sendJson(res, { 
+            success: true, 
+            version: MODEL_VERSION,
+            totalRoutes: routes.length,
+            routes: routes,
+            hasAccuracyHistory: routes.includes('GET /api/accuracy-history')
+        });
     },
 
     // v3.0.87: 準確度歷史（用於可靠度學習）
