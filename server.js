@@ -4330,7 +4330,9 @@ async function generateServerSidePredictions(source = 'auto') {
             let bayesianResult = null;
             
             if (daysAhead === 0) {
-                // 今天：使用 Pragmatic Bayesian 融合（v3.0.38）+ 加法效應改進（v3.0.50）
+                // ============================================================
+                // Day 0：XGBoost + Pragmatic Bayesian 融合
+                // ============================================================
                 try {
                     const { getPragmaticBayesian } = require('./modules/pragmatic-bayesian');
                     const bayesian = getPragmaticBayesian({
@@ -4340,15 +4342,14 @@ async function generateServerSidePredictions(source = 'auto') {
                     adjusted = bayesianResult.prediction;
                     predictionMethod = 'pragmatic_bayesian';
                     
-                    console.log(`🎯 Bayesian 融合: base=${basePrediction}, AI=${aiFactor.toFixed(2)} (w=${bayesianResult.weights.ai.toFixed(2)}), Weather=${weatherFactor.toFixed(2)} (w=${bayesianResult.weights.weather.toFixed(2)}) → ${adjusted}`);
+                    console.log(`🎯 Day 0 Bayesian: base=${basePrediction}, AI=${aiFactor.toFixed(2)}, Weather=${weatherFactor.toFixed(2)} → ${adjusted}`);
                 } catch (e) {
-                    // Fallback 使用加法效應模型（避免乘法疊加）
+                    // Fallback 使用加法效應模型
                     console.log(`⚠️ Bayesian 融合失敗，使用加法模型: ${e.message}`);
                     const targetMean = dowMeans[dow];
                     const xgboostDeviation = basePrediction - targetMean;
                     let value = targetMean + xgboostDeviation;
                     
-                    // AI 和天氣使用加法調整
                     if (aiFactor !== 1.0) {
                         value += (aiFactor - 1.0) * targetMean * 0.5;
                     }
@@ -4358,55 +4359,110 @@ async function generateServerSidePredictions(source = 'auto') {
                     adjusted = Math.round(value);
                 }
                 
-                // 應用硬上限（基於 Post-COVID 歷史範圍，今天允許稍高範圍）
-                const TODAY_MAX = 340; // 今天的上限稍高，因為有實時數據支撐
-                const originalAdjusted = adjusted;
+                // 應用硬上限（今天允許稍高範圍）
+                const TODAY_MAX = 340;
                 adjusted = Math.max(PREDICTION_MIN, Math.min(TODAY_MAX, adjusted));
-                if (adjusted !== originalAdjusted) {
-                    console.log(`📏 預測值限制: ${originalAdjusted} → ${adjusted} (範圍: ${PREDICTION_MIN}-${TODAY_MAX})`);
-                }
-            } else {
-                // 未來日期：使用加法效應模型（避免乘法疊加導致過高預測）
-                // v3.0.50: 改用加法效應，基於 Post-COVID 歷史數據校準
                 
-                // 基準值：目標日期的星期均值
+            } else if (daysAhead <= 7) {
+                // ============================================================
+                // Day 1-7：XGBoost 預測 + 均值回歸混合（v3.0.79）
+                // ============================================================
+                // 權重衰減公式：XGBoost 權重隨天數遞減，均值權重遞增
+                // weight = max(0.3, 1 - 0.1 * daysAhead)
+                // Day 1: 0.9, Day 2: 0.8, ..., Day 7: 0.3
+                const xgboostWeight = Math.max(0.3, 1.0 - 0.1 * daysAhead);
+                const meanWeight = 1.0 - xgboostWeight;
+                
                 const targetMean = dowMeans[dow];
                 
-                // 使用 HKT 時區計算今天的星期
+                // 嘗試獲取該日期的 XGBoost 預測
+                let xgboostPred = null;
+                try {
+                    const futureResult = await ensemblePredictor.predict(dateStr);
+                    if (futureResult && futureResult.prediction) {
+                        xgboostPred = futureResult.prediction;
+                    }
+                } catch (e) {
+                    // XGBoost 預測失敗，使用回退方法
+                }
+                
+                if (xgboostPred !== null) {
+                    // 混合 XGBoost 和均值
+                    let value = xgboostWeight * xgboostPred + meanWeight * targetMean;
+                    
+                    // 應用 AI 因素（加法調整）
+                    if (aiFactor !== 1.0) {
+                        value += (aiFactor - 1.0) * targetMean * 0.5;
+                    }
+                    
+                    // 應用天氣因素（加法調整）
+                    if (weatherFactor !== 1.0) {
+                        value += (weatherFactor - 1.0) * targetMean * 0.3;
+                    }
+                    
+                    // 應用月份效應
+                    value += (monthFactor - 1.0) * targetMean * 0.5;
+                    
+                    adjusted = Math.round(value);
+                    predictionMethod = `xgboost_hybrid_${Math.round(xgboostWeight * 100)}`;
+                    
+                    console.log(`📈 Day ${daysAhead}: XGBoost=${Math.round(xgboostPred)}, Mean=${targetMean}, ` +
+                        `Weight=${xgboostWeight.toFixed(1)} → ${adjusted}`);
+                } else {
+                    // XGBoost 不可用，使用偏差衰減方法
+                    const todayHK = new Date(today.getTime() + 8 * 60 * 60 * 1000);
+                    const todayDOW = todayHK.getUTCDay();
+                    const todayMean = dowMeans[todayDOW];
+                    const xgboostDeviation = basePrediction - todayMean;
+                    const decayFactor = Math.exp(-0.1 * daysAhead);
+                    
+                    let value = targetMean + xgboostDeviation * decayFactor;
+                    
+                    if (aiFactor !== 1.0) {
+                        value += (aiFactor - 1.0) * targetMean * 0.5;
+                    }
+                    if (weatherFactor !== 1.0) {
+                        value += (weatherFactor - 1.0) * targetMean * 0.3;
+                    }
+                    value += (monthFactor - 1.0) * targetMean * 0.5;
+                    
+                    adjusted = Math.round(value);
+                    predictionMethod = 'deviation_decay';
+                }
+                
+                adjusted = Math.max(PREDICTION_MIN, Math.min(PREDICTION_MAX, adjusted));
+                
+            } else {
+                // ============================================================
+                // Day 8-30：均值回歸 + 偏差衰減（遠期預測回歸穩定）
+                // ============================================================
+                const targetMean = dowMeans[dow];
                 const todayHK = new Date(today.getTime() + 8 * 60 * 60 * 1000);
                 const todayDOW = todayHK.getUTCDay();
                 const todayMean = dowMeans[todayDOW];
                 
-                // 計算 XGBoost 預測相對於今日均值的偏差（捕捉近期趨勢）
+                // XGBoost 偏差隨時間衰減（遠期預測回歸歷史均值）
                 const xgboostDeviation = basePrediction - todayMean;
-                
-                // 偏差隨時間衰減（遠期預測回歸到歷史均值）
                 const decayFactor = Math.exp(-0.1 * daysAhead);
                 const decayedDeviation = xgboostDeviation * decayFactor;
                 
-                // 基礎預測 = 目標日期星期均值 + 衰減後的趨勢偏差
                 let value = targetMean + decayedDeviation;
                 
-                // 月份效應：使用加法調整（±5%）
-                const monthAdjustment = (monthFactor - 1.0) * targetMean * 0.5;
-                value += monthAdjustment;
+                // 月份效應
+                value += (monthFactor - 1.0) * targetMean * 0.5;
                 
-                // AI 因素：使用加法調整（限制影響）
+                // AI 因素
                 if (aiFactor !== 1.0) {
-                    const aiAdjustment = (aiFactor - 1.0) * targetMean * 0.5;
-                    value += aiAdjustment;
+                    value += (aiFactor - 1.0) * targetMean * 0.5;
                 }
                 
-                // 天氣因素：使用加法調整（限制影響）
+                // 天氣因素
                 if (weatherFactor !== 1.0) {
-                    const weatherAdjustment = (weatherFactor - 1.0) * targetMean * 0.3;
-                    value += weatherAdjustment;
+                    value += (weatherFactor - 1.0) * targetMean * 0.3;
                 }
                 
-                // 應用上下限（基於 Post-COVID 歷史範圍）
-                value = Math.max(PREDICTION_MIN, Math.min(PREDICTION_MAX, value));
-                
-                adjusted = Math.round(value);
+                adjusted = Math.round(Math.max(PREDICTION_MIN, Math.min(PREDICTION_MAX, value)));
+                predictionMethod = 'mean_reversion';
             }
             
             // 置信區間：基於歷史標準差

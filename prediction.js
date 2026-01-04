@@ -9489,30 +9489,35 @@ function initAlgorithmContent() {
         <!-- ==================== 第一部分：核心公式概覽 ==================== -->
         <div class="algo-card" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(59, 130, 246, 0.08)); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid rgba(34, 197, 94, 0.25);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h4 style="margin: 0; color: #22c55e; font-size: 1rem;">🧠 NDH AED 預測算法 v3.0.76</h4>
-                <span style="font-size: 0.7rem; color: var(--text-tertiary); background: var(--bg-tertiary); padding: 2px 8px; border-radius: 4px;">加法效應模型</span>
+                <h4 style="margin: 0; color: #22c55e; font-size: 1rem;">🧠 NDH AED 預測算法 v3.0.79</h4>
+                <span style="font-size: 0.7rem; color: var(--text-tertiary); background: var(--bg-tertiary); padding: 2px 8px; border-radius: 4px;">XGBoost 混合模型</span>
             </div>
             
-            <!-- 兩種預測模式 -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                <div style="background: var(--bg-primary); padding: 12px; border-radius: 8px; border-left: 3px solid #8b5cf6;">
-                    <div style="font-size: 0.75rem; color: #8b5cf6; font-weight: 600; margin-bottom: 6px;">📅 今日預測 (Day 0)</div>
-                    <div style="font-family: 'Fira Code', monospace; font-size: 0.78rem; color: var(--text-primary); line-height: 1.6;">
-                        Final = Bayesian(<br>
+            <!-- 三種預測模式 -->
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px;">
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px; border-left: 3px solid #8b5cf6;">
+                    <div style="font-size: 0.72rem; color: #8b5cf6; font-weight: 600; margin-bottom: 6px;">📅 Day 0</div>
+                    <div style="font-family: 'Fira Code', monospace; font-size: 0.72rem; color: var(--text-primary); line-height: 1.5;">
+                        Bayesian(<br>
                         &nbsp;&nbsp;XGBoost,<br>
-                        &nbsp;&nbsp;AI因子,<br>
-                        &nbsp;&nbsp;天氣因子<br>
-                        ) → clip(180, 340)
+                        &nbsp;&nbsp;AI, Weather<br>
+                        ) → [180,340]
                     </div>
                 </div>
-                <div style="background: var(--bg-primary); padding: 12px; border-radius: 8px; border-left: 3px solid #3b82f6;">
-                    <div style="font-size: 0.75rem; color: #3b82f6; font-weight: 600; margin-bottom: 6px;">📆 未來預測 (Day 1-30)</div>
-                    <div style="font-family: 'Fira Code', monospace; font-size: 0.78rem; color: var(--text-primary); line-height: 1.6;">
-                        Final = μ<sub>dow</sub> + Δ·e<sup>-0.1d</sup><br>
-                        &nbsp;&nbsp;+ 月份效應<br>
-                        &nbsp;&nbsp;+ AI效應<br>
-                        &nbsp;&nbsp;+ 天氣效應<br>
-                        → clip(180, 320)
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px; border-left: 3px solid #22c55e;">
+                    <div style="font-size: 0.72rem; color: #22c55e; font-weight: 600; margin-bottom: 6px;">📆 Day 1-7</div>
+                    <div style="font-family: 'Fira Code', monospace; font-size: 0.72rem; color: var(--text-primary); line-height: 1.5;">
+                        w·XGBoost +<br>
+                        (1-w)·μ<sub>dow</sub><br>
+                        w = 0.9→0.3
+                    </div>
+                </div>
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px; border-left: 3px solid #3b82f6;">
+                    <div style="font-size: 0.72rem; color: #3b82f6; font-weight: 600; margin-bottom: 6px;">📆 Day 8-30</div>
+                    <div style="font-family: 'Fira Code', monospace; font-size: 0.72rem; color: var(--text-primary); line-height: 1.5;">
+                        μ<sub>dow</sub> + Δ·e<sup>-0.1d</sup><br>
+                        + effects<br>
+                        → [180,320]
                     </div>
                 </div>
             </div>
