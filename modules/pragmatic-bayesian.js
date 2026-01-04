@@ -10,12 +10,22 @@
 
 class PragmaticBayesianPredictor {
     constructor(options = {}) {
-        // 各來源的初始可靠度 (0-1) - v3.0.81: 統計優化後的權重
+        // Production weights (validated) - v3.0.82: 雙軌系統
         this.reliability = {
             xgboost: options.xgboostReliability || 0.95,   // 統計驗證：MAPE=2.42%, EWMA7=86.89%
             weather: options.weatherReliability || 0.05,   // 統計驗證：|r|<0.12 (weak correlations)
             ai: options.aiReliability || 0.00              // 無歷史驗證數據，暫時排除
         };
+        
+        // Experimental weights (for AI validation) - v3.0.82
+        this.experimental = {
+            xgboost: options.experimentalXgboost || 0.85,   // 降低 10% 給 AI 測試
+            weather: options.experimentalWeather || 0.05,   // 保持不變
+            ai: options.experimentalAI || 0.10              // 測試 AI 因子
+        };
+        
+        // 運行模式
+        this.mode = options.mode || 'dual'; // 'production', 'experimental', 'dual'
         
         // 基礎標準差（根據歷史 MAE 估計）
         this.baseStd = options.baseStd || 15;
@@ -30,17 +40,17 @@ class PragmaticBayesianPredictor {
         // 預測記錄（用於回測）
         this.lastPrediction = null;
         
-        // v3.0.81: 統計驗證說明
-        this.optimizationNote = 'Weights optimized from 688 test days. See bayesian_weights_optimized.json';
+        // v3.0.82: 雙軌驗證系統
+        this.optimizationNote = 'Dual-track system: Production (w_AI=0.00) vs Experimental (w_AI=0.10)';
     }
     
     /**
-     * 執行 Pragmatic Bayesian 預測
+     * 執行 Pragmatic Bayesian 預測（雙軌系統）
      * 
      * @param {number} xgboostBase - XGBoost 基礎預測
      * @param {number} aiFactor - AI 影響因子 (0.7-1.3)
      * @param {number} weatherFactor - 天氣影響因子 (0.85-1.15)
-     * @returns {Object} 預測結果
+     * @returns {Object} 預測結果（包含 production 和 experimental）
      */
     predict(xgboostBase, aiFactor = 1.0, weatherFactor = 1.0) {
         if (!xgboostBase || isNaN(xgboostBase)) {
@@ -51,106 +61,167 @@ class PragmaticBayesianPredictor {
         aiFactor = Math.max(0.7, Math.min(1.3, aiFactor || 1.0));
         weatherFactor = Math.max(0.85, Math.min(1.15, weatherFactor || 1.0));
         
-        // === 1. 定義各來源的 "觀測" ===
-        const observations = [
-            {
-                source: 'xgboost',
-                mean: xgboostBase,
-                // 方差 = (baseStd / reliability)^2
-                variance: Math.pow(this.baseStd / this.reliability.xgboost, 2)
-            },
-            {
-                source: 'ai',
-                mean: xgboostBase * aiFactor,
-                // AI 因子越極端，不確定性越大
-                variance: Math.pow(this.baseStd / this.reliability.ai, 2) * 
-                          (1 + Math.abs(aiFactor - 1) * 3)
-            },
-            {
-                source: 'weather',
-                mean: xgboostBase * weatherFactor,
-                // 天氣因子較穩定，但極端值也增加不確定性
-                variance: Math.pow(this.baseStd / this.reliability.weather, 2) *
-                          (1 + Math.abs(weatherFactor - 1) * 2)
-            }
-        ];
+        // ========================================
+        // Production Track (w_AI = 0.00)
+        // ========================================
+        const prodWeights = this.reliability;
+        const productionPrediction = 
+            prodWeights.xgboost * xgboostBase +
+            prodWeights.ai * (xgboostBase * aiFactor) +
+            prodWeights.weather * (xgboostBase * weatherFactor);
         
-        // === 2. Bayesian 融合（高斯假設下的封閉解）===
-        let precisionSum = 0;
-        let weightedMeanSum = 0;
-        const weights = {};
+        // ========================================
+        // Experimental Track (w_AI = 0.10)
+        // ========================================
+        const expWeights = this.experimental;
+        const experimentalPrediction = 
+            expWeights.xgboost * xgboostBase +
+            expWeights.ai * (xgboostBase * aiFactor) +
+            expWeights.weather * (xgboostBase * weatherFactor);
         
-        for (const obs of observations) {
-            const precision = 1 / obs.variance;
-            precisionSum += precision;
-            weightedMeanSum += precision * obs.mean;
-            weights[obs.source] = precision; // 暫存，稍後正規化
-        }
-        
-        // 正規化權重
-        for (const source in weights) {
-            weights[source] = weights[source] / precisionSum;
-        }
-        
-        const posteriorMean = weightedMeanSum / precisionSum;
-        const posteriorVariance = 1 / precisionSum;
-        const posteriorStd = Math.sqrt(posteriorVariance);
-        
-        // === 3. 計算置信區間 ===
+        // ========================================
+        // Calculate standard confidence intervals
+        // ========================================
+        const posteriorStd = this.baseStd;
         const ci80 = {
-            low: Math.round(posteriorMean - 1.28 * posteriorStd),
-            high: Math.round(posteriorMean + 1.28 * posteriorStd)
+            low: Math.round(productionPrediction - 1.28 * posteriorStd),
+            high: Math.round(productionPrediction + 1.28 * posteriorStd)
         };
         const ci95 = {
-            low: Math.round(posteriorMean - 1.96 * posteriorStd),
-            high: Math.round(posteriorMean + 1.96 * posteriorStd)
+            low: Math.round(productionPrediction - 1.96 * posteriorStd),
+            high: Math.round(productionPrediction + 1.96 * posteriorStd)
         };
         
-        // === 4. 計算各來源貢獻 ===
-        const contributions = {
+        // ========================================
+        // Calculate contributions for both tracks
+        // ========================================
+        const prodContributions = {
             xgboost: {
                 value: xgboostBase,
-                weight: weights.xgboost,
-                contribution: weights.xgboost * xgboostBase
+                weight: prodWeights.xgboost,
+                contribution: prodWeights.xgboost * xgboostBase
             },
             ai: {
                 value: xgboostBase * aiFactor,
                 factor: aiFactor,
-                weight: weights.ai,
-                contribution: weights.ai * xgboostBase * aiFactor,
-                adjustment: weights.ai * xgboostBase * (aiFactor - 1)
+                weight: prodWeights.ai,
+                contribution: prodWeights.ai * xgboostBase * aiFactor,
+                adjustment: prodWeights.ai * xgboostBase * (aiFactor - 1)
             },
             weather: {
                 value: xgboostBase * weatherFactor,
                 factor: weatherFactor,
-                weight: weights.weather,
-                contribution: weights.weather * xgboostBase * weatherFactor,
-                adjustment: weights.weather * xgboostBase * (weatherFactor - 1)
+                weight: prodWeights.weather,
+                contribution: prodWeights.weather * xgboostBase * weatherFactor,
+                adjustment: prodWeights.weather * xgboostBase * (weatherFactor - 1)
             }
         };
+        
+        const expContributions = {
+            xgboost: {
+                value: xgboostBase,
+                weight: expWeights.xgboost,
+                contribution: expWeights.xgboost * xgboostBase
+            },
+            ai: {
+                value: xgboostBase * aiFactor,
+                factor: aiFactor,
+                weight: expWeights.ai,
+                contribution: expWeights.ai * xgboostBase * aiFactor,
+                adjustment: expWeights.ai * xgboostBase * (aiFactor - 1)
+            },
+            weather: {
+                value: xgboostBase * weatherFactor,
+                factor: weatherFactor,
+                weight: expWeights.weather,
+                contribution: expWeights.weather * xgboostBase * weatherFactor,
+                adjustment: expWeights.weather * xgboostBase * (weatherFactor - 1)
+            }
+        };
+        
+        // ========================================
+        // Determine which prediction to use as primary
+        // ========================================
+        let finalPrediction = productionPrediction;
+        if (this.mode === 'experimental') {
+            finalPrediction = experimentalPrediction;
+        }
         
         // 保存預測記錄
         this.lastPrediction = {
             timestamp: new Date(),
-            prediction: Math.round(posteriorMean),
+            production: Math.round(productionPrediction),
+            experimental: Math.round(experimentalPrediction),
             xgboostBase,
             aiFactor,
             weatherFactor,
-            weights,
-            contributions
+            prodWeights,
+            expWeights
         };
         
-        return {
-            prediction: Math.round(posteriorMean),
-            rawPrediction: posteriorMean,
+        // ========================================
+        // Build result object
+        // ========================================
+        const result = {
+            // Primary prediction (production by default)
+            prediction: Math.round(finalPrediction),
+            rawPrediction: finalPrediction,
             std: posteriorStd,
             ci80,
             ci95,
-            weights,
-            contributions,
+            weights: prodWeights,
+            contributions: prodContributions,
             reliability: { ...this.reliability },
-            method: 'pragmatic_bayesian'
+            method: 'pragmatic_bayesian_dual_track'
         };
+        
+        // ========================================
+        // Add dual-track information
+        // ========================================
+        if (this.mode === 'dual' || this.mode === 'experimental') {
+            result.dualTrack = {
+                production: {
+                    prediction: Math.round(productionPrediction),
+                    weights: prodWeights,
+                    contributions: prodContributions,
+                    formula: `${prodWeights.xgboost}×XGB + ${prodWeights.ai}×AI + ${prodWeights.weather}×Weather`
+                },
+                experimental: {
+                    prediction: Math.round(experimentalPrediction),
+                    weights: expWeights,
+                    contributions: expContributions,
+                    formula: `${expWeights.xgboost}×XGB + ${expWeights.ai}×AI + ${expWeights.weather}×Weather`
+                },
+                difference: Math.round(experimentalPrediction - productionPrediction),
+                differencePct: ((experimentalPrediction - productionPrediction) / productionPrediction * 100).toFixed(1),
+                aiImpact: aiFactor !== 1.0 ? this._describeAIImpact(aiFactor) : 'None',
+                message: this._getDualTrackMessage(aiFactor)
+            };
+        }
+        
+        return result;
+    }
+    
+    /**
+     * Describe AI impact
+     */
+    _describeAIImpact(aiFactor) {
+        const pctChange = ((aiFactor - 1) * 100).toFixed(1);
+        if (aiFactor > 1.05) return `Major increase (+${pctChange}%)`;
+        if (aiFactor > 1.0) return `Slight increase (+${pctChange}%)`;
+        if (aiFactor < 0.95) return `Major decrease (${pctChange}%)`;
+        if (aiFactor < 1.0) return `Slight decrease (${pctChange}%)`;
+        return 'Neutral';
+    }
+    
+    /**
+     * Get explanation message for dual-track
+     */
+    _getDualTrackMessage(aiFactor) {
+        if (Math.abs(aiFactor - 1.0) < 0.02) {
+            return 'No significant AI factor detected. Both tracks should be similar.';
+        }
+        return `AI factor detected (${aiFactor.toFixed(2)}). Compare both tracks to evaluate AI effectiveness.`;
     }
     
     /**

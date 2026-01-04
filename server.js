@@ -3727,6 +3727,178 @@ const apiHandlers = {
         global.webhooks.splice(index, 1);
         console.log(`📡 Webhook 已刪除: ${id}`);
         sendJson(res, { success: true });
+    },
+    
+    // ============================================
+    // Dual-Track Prediction System API (v3.0.82)
+    // ============================================
+    
+    // Get dual-track summary
+    'GET /api/dual-track/summary': async (req, res) => {
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
+        
+        try {
+            const DualTrackPredictor = require('./modules/dual-track-predictor');
+            const dualTrack = new DualTrackPredictor(db.pool);
+            
+            // Get validation summary
+            const validation = await dualTrack.getValidationSummary();
+            
+            // Get today's prediction
+            const today = getHKTDate();
+            const query = `
+                SELECT 
+                    prediction_production,
+                    prediction_experimental,
+                    xgboost_base,
+                    ai_factor,
+                    weather_factor
+                FROM daily_predictions
+                WHERE prediction_date = $1
+                ORDER BY created_at DESC
+                LIMIT 1
+            `;
+            
+            const result = await db.pool.query(query, [today]);
+            
+            let todayPrediction = null;
+            if (result.rows.length > 0) {
+                const pred = result.rows[0];
+                todayPrediction = {
+                    date: today,
+                    xgboost_base: pred.xgboost_base,
+                    production: {
+                        prediction: Math.round(pred.prediction_production),
+                        weights: { w_base: 0.95, w_weather: 0.05, w_ai: 0.00 },
+                        ci80: { 
+                            low: Math.round(pred.prediction_production - 8), 
+                            high: Math.round(pred.prediction_production + 8) 
+                        }
+                    },
+                    experimental: {
+                        prediction: Math.round(pred.prediction_experimental),
+                        weights: { w_base: 0.85, w_weather: 0.05, w_ai: 0.10 }
+                    },
+                    aiImpact: pred.ai_factor !== 1.0 ? 
+                        `${((pred.ai_factor - 1) * 100).toFixed(1)}%` : 'None'
+                };
+            }
+            
+            sendJson(res, {
+                success: true,
+                today: todayPrediction,
+                validation: validation,
+                timestamp: new Date().toISOString()
+            });
+            
+        } catch (error) {
+            console.error('❌ Dual-track summary error:', error);
+            sendJson(res, { success: false, error: error.message }, 500);
+        }
+    },
+    
+    // Get validation history for chart
+    'GET /api/dual-track/history': async (req, res) => {
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
+        
+        try {
+            const query = `
+                SELECT 
+                    prediction_date,
+                    production_error,
+                    experimental_error
+                FROM daily_predictions
+                WHERE validation_date IS NOT NULL
+                  AND prediction_date >= CURRENT_DATE - INTERVAL '90 days'
+                ORDER BY prediction_date
+            `;
+            
+            const result = await db.pool.query(query);
+            
+            const dates = result.rows.map(r => r.prediction_date);
+            const productionErrors = result.rows.map(r => parseFloat(r.production_error));
+            const experimentalErrors = result.rows.map(r => parseFloat(r.experimental_error));
+            
+            sendJson(res, {
+                success: true,
+                dates,
+                productionErrors,
+                experimentalErrors
+            });
+            
+        } catch (error) {
+            console.error('❌ Validation history error:', error);
+            sendJson(res, { success: false, error: error.message }, 500);
+        }
+    },
+    
+    // Validate prediction when actual data arrives
+    'POST /api/dual-track/validate': async (req, res) => {
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
+        
+        try {
+            const data = await parseBody(req);
+            const { date, actualAttendance } = data;
+            
+            if (!date || !actualAttendance) {
+                return sendJson(res, { error: 'Missing date or actualAttendance' }, 400);
+            }
+            
+            const DualTrackPredictor = require('./modules/dual-track-predictor');
+            const dualTrack = new DualTrackPredictor(db.pool);
+            
+            const validationResult = await dualTrack.validatePrediction(date, actualAttendance);
+            
+            sendJson(res, {
+                success: true,
+                validation: validationResult
+            });
+            
+        } catch (error) {
+            console.error('❌ Validation error:', error);
+            sendJson(res, { success: false, error: error.message }, 500);
+        }
+    },
+    
+    // Trigger weight optimization
+    'POST /api/dual-track/optimize': async (req, res) => {
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
+        
+        try {
+            const { spawn } = require('child_process');
+            
+            // Run optimization script asynchronously
+            const process = spawn('python', ['python/optimize_bayesian_weights_adaptive.py']);
+            
+            let output = '';
+            let errorOutput = '';
+            
+            process.stdout.on('data', (data) => {
+                output += data.toString();
+            });
+            
+            process.stderr.on('data', (data) => {
+                errorOutput += data.toString();
+            });
+            
+            process.on('close', (code) => {
+                if (code === 0) {
+                    console.log('✅ Weight optimization completed:', output);
+                } else {
+                    console.error('❌ Weight optimization failed:', errorOutput);
+                }
+            });
+            
+            // Respond immediately (optimization runs in background)
+            sendJson(res, {
+                success: true,
+                message: 'Weight optimization triggered. Results will be available in ~30 seconds.'
+            });
+            
+        } catch (error) {
+            console.error('❌ Optimization trigger error:', error);
+            sendJson(res, { success: false, error: error.message }, 500);
+        }
     }
 };
 
