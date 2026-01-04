@@ -4,10 +4,10 @@
  * v3.0.85 - 移除硬上限，異常警告
  */
 
-const SW_VERSION = '3.0.88';
-const CACHE_NAME = 'ndh-aed-v3.0.88';
-const STATIC_CACHE = 'ndh-static-v3.0.88';
-const DYNAMIC_CACHE = 'ndh-dynamic-v3.0.88';
+const SW_VERSION = '3.0.89';
+const CACHE_NAME = 'ndh-aed-v3.0.89';
+const STATIC_CACHE = 'ndh-static-v3.0.89';
+const DYNAMIC_CACHE = 'ndh-dynamic-v3.0.89';
 
 // 靜態資源（始終快取）
 const STATIC_ASSETS = [
@@ -62,7 +62,22 @@ self.addEventListener('activate', (event) => {
                         })
                 );
             })
-            .then(() => {
+            .then(async () => {
+                // v3.0.88: 清理動態快取中可能被錯誤緩存的非 JSON API 響應
+                const cache = await caches.open(DYNAMIC_CACHE);
+                const requests = await cache.keys();
+                for (const request of requests) {
+                    if (request.url.includes('/api/')) {
+                        const response = await cache.match(request);
+                        if (response) {
+                            const contentType = response.headers.get('content-type') || '';
+                            if (!contentType.includes('application/json')) {
+                                console.log('[SW] 刪除非 JSON API 緩存:', request.url);
+                                await cache.delete(request);
+                            }
+                        }
+                    }
+                }
                 console.log('[SW] 已接管所有客戶端');
                 return self.clients.claim();
             })
@@ -148,17 +163,28 @@ async function cacheFirstStrategy(request) {
 async function networkFirstStrategy(request) {
     try {
         const response = await fetch(request);
-        // 只緩存 GET 請求（額外保護，避免 POST 到達這裡）
+        // 只緩存 GET 請求且是 JSON 響應（避免緩存 HTML 錯誤頁面）
         if (response.ok && request.method === 'GET') {
-            const cache = await caches.open(DYNAMIC_CACHE);
-            cache.put(request, response.clone());
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                const cache = await caches.open(DYNAMIC_CACHE);
+                cache.put(request, response.clone());
+            } else {
+                console.log('[SW] 跳過非 JSON 響應緩存:', request.url, contentType);
+            }
         }
         return response;
     } catch (error) {
         const cachedResponse = await caches.match(request);
         if (cachedResponse) {
-            console.log('[SW] 使用 API 快取:', request.url);
-            return cachedResponse;
+            // 確認緩存是 JSON 而不是 HTML
+            const contentType = cachedResponse.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                console.log('[SW] 使用 API 快取:', request.url);
+                return cachedResponse;
+            } else {
+                console.log('[SW] 跳過非 JSON 緩存:', request.url);
+            }
         }
         // 返回離線 JSON
         return new Response(
