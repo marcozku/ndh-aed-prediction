@@ -1201,11 +1201,15 @@ const MethodologyModal = {
             if (result.success && metrics) {
                 
                 // 更新方法論中的性能指標
+                const r2El = document.getElementById('methodology-r2');
                 const maeEl = document.getElementById('methodology-mae');
                 const mapeEl = document.getElementById('methodology-mape');
                 const trainDateEl = document.getElementById('methodology-train-date');
                 const dataCountEl = document.getElementById('methodology-data-count');
                 
+                if (r2El && metrics.r2 !== undefined && metrics.r2 !== null) {
+                    r2El.textContent = (metrics.r2 * 100).toFixed(1);
+                }
                 if (maeEl && metrics.mae !== undefined) {
                     maeEl.textContent = metrics.mae.toFixed(2);
                 }

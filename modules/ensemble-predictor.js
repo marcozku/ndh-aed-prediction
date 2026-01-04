@@ -156,34 +156,52 @@ class EnsemblePredictor {
      */
     async getModelStatusAsync() {
         const status = this.getModelStatus();
+        const fileMetrics = status.xgboost?.metrics || status.details?.xgboost?.metrics;
         
-        // 優先從數據庫讀取 metrics
+        // 優先從數據庫讀取 metrics，但比較日期選擇最新的
         try {
             const db = require('../database');
             const dbMetrics = await db.getModelMetrics('xgboost');
             
             if (dbMetrics && dbMetrics.mae !== null) {
-                const metrics = {
-                    mae: parseFloat(dbMetrics.mae),
-                    mape: parseFloat(dbMetrics.mape),
-                    rmse: parseFloat(dbMetrics.rmse),
-                    r2: dbMetrics.r2 ? parseFloat(dbMetrics.r2) : null,
-                    training_date: dbMetrics.training_date,
-                    data_count: dbMetrics.data_count,
-                    train_count: dbMetrics.train_count,
-                    test_count: dbMetrics.test_count,
-                    feature_count: dbMetrics.feature_count,
-                    ai_factors_count: dbMetrics.ai_factors_count
-                };
+                const dbDate = dbMetrics.training_date ? new Date(dbMetrics.training_date) : new Date(0);
+                const fileDate = fileMetrics?.training_date ? new Date(fileMetrics.training_date) : new Date(0);
                 
-                // 更新 status 中的 metrics
-                if (status.details && status.details.xgboost) {
-                    status.details.xgboost.metrics = metrics;
-                    status.details.xgboost.metricsSource = 'database';
-                }
-                if (status.xgboost) {
-                    status.xgboost.metrics = metrics;
-                    status.xgboost.metricsSource = 'database';
+                // 使用較新的數據源
+                const useDatabase = dbDate >= fileDate;
+                
+                if (useDatabase) {
+                    const metrics = {
+                        mae: parseFloat(dbMetrics.mae),
+                        mape: parseFloat(dbMetrics.mape),
+                        rmse: parseFloat(dbMetrics.rmse),
+                        r2: dbMetrics.r2 ? parseFloat(dbMetrics.r2) : null,
+                        training_date: dbMetrics.training_date,
+                        data_count: dbMetrics.data_count,
+                        train_count: dbMetrics.train_count,
+                        test_count: dbMetrics.test_count,
+                        feature_count: dbMetrics.feature_count,
+                        ai_factors_count: dbMetrics.ai_factors_count
+                    };
+                    
+                    // 更新 status 中的 metrics
+                    if (status.details && status.details.xgboost) {
+                        status.details.xgboost.metrics = metrics;
+                        status.details.xgboost.metricsSource = 'database';
+                    }
+                    if (status.xgboost) {
+                        status.xgboost.metrics = metrics;
+                        status.xgboost.metricsSource = 'database';
+                    }
+                } else {
+                    // 文件較新，保持 status 中的 file metrics
+                    console.log('📊 使用文件版本的 metrics (較新):', fileDate.toISOString());
+                    if (status.details && status.details.xgboost) {
+                        status.details.xgboost.metricsSource = 'file';
+                    }
+                    if (status.xgboost) {
+                        status.xgboost.metricsSource = 'file';
+                    }
                 }
             }
         } catch (e) {

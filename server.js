@@ -4757,11 +4757,49 @@ function scheduleAutoPredict() {
     console.log('⏰ 已設置伺服器端自動預測任務（每 30 分鐘執行一次）');
 }
 
+// v3.0.83: 同步數據庫 metrics 與文件（取較新者）
+async function syncModelMetricsFromFile() {
+    try {
+        const metricsPath = path.join(__dirname, 'python/models/xgboost_metrics.json');
+        if (!fs.existsSync(metricsPath)) return;
+        
+        const fileMetrics = JSON.parse(fs.readFileSync(metricsPath, 'utf8'));
+        const dbMetrics = await db.getModelMetrics('xgboost');
+        
+        const fileDate = fileMetrics.training_date ? new Date(fileMetrics.training_date) : new Date(0);
+        const dbDate = dbMetrics?.training_date ? new Date(dbMetrics.training_date) : new Date(0);
+        
+        if (fileDate > dbDate) {
+            console.log('📊 檢測到文件 metrics 較新，同步到數據庫...');
+            await db.saveModelMetrics('xgboost', {
+                mae: fileMetrics.mae,
+                rmse: fileMetrics.rmse,
+                mape: fileMetrics.mape,
+                r2: fileMetrics.r2,
+                training_date: fileMetrics.training_date,
+                data_count: fileMetrics.data_count,
+                train_count: fileMetrics.train_count,
+                test_count: fileMetrics.test_count,
+                feature_count: fileMetrics.feature_count,
+                ai_factors_count: fileMetrics.ai_factors_count || 0
+            });
+            console.log('✅ Metrics 已同步: MAE=' + fileMetrics.mae?.toFixed(2) + ', MAPE=' + fileMetrics.mape?.toFixed(2) + '%');
+        } else {
+            console.log('📊 數據庫 metrics 是最新的: MAE=' + dbMetrics?.mae?.toFixed(2) + ', MAPE=' + dbMetrics?.mape?.toFixed(2) + '%');
+        }
+    } catch (e) {
+        console.warn('⚠️ 同步 metrics 失敗:', e.message);
+    }
+}
+
 server.listen(PORT, async () => {
     console.log(`🏥 NDH AED 預測系統運行於 http://localhost:${PORT}`);
     console.log(`📊 預測模型版本 ${MODEL_VERSION}`);
     if (db && db.pool) {
         console.log(`🗄️ PostgreSQL 數據庫已連接`);
+        
+        // v3.0.83: 同步 metrics
+        await syncModelMetricsFromFile();
         
         // v2.9.90: 從數據庫載入自動預測統計
         await loadAutoPredictStatsFromDB();
