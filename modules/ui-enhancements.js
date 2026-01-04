@@ -413,13 +413,28 @@ const KeyboardManager = {
                     document.getElementById('today-section')?.scrollIntoView({ behavior: 'smooth' });
                     break;
                 case '2':
-                    document.getElementById('forecast-section')?.scrollIntoView({ behavior: 'smooth' });
+                    document.getElementById('factors-section')?.scrollIntoView({ behavior: 'smooth' });
                     break;
                 case '3':
-                    document.getElementById('charts-section')?.scrollIntoView({ behavior: 'smooth' });
+                    document.getElementById('forecast-section')?.scrollIntoView({ behavior: 'smooth' });
                     break;
                 case '4':
+                    document.getElementById('confidence-dashboard')?.scrollIntoView({ behavior: 'smooth' });
+                    break;
+                case '5':
+                    document.getElementById('charts-section')?.scrollIntoView({ behavior: 'smooth' });
+                    break;
+                case '6':
                     document.getElementById('model-training-section')?.scrollIntoView({ behavior: 'smooth' });
+                    break;
+                case '7':
+                    document.getElementById('timeline-section')?.scrollIntoView({ behavior: 'smooth' });
+                    break;
+                case '8':
+                    document.getElementById('algorithm-section')?.scrollIntoView({ behavior: 'smooth' });
+                    break;
+                case '9':
+                    document.getElementById('dual-track-section')?.scrollIntoView({ behavior: 'smooth' });
                     break;
             }
         });

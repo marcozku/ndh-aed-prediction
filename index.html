@@ -717,18 +717,28 @@
                 <h3 id="shortcuts-title" data-lang-key="shortcuts-title">⌨️ 鍵盤快捷鍵</h3>
                 <button class="modal-close" id="shortcuts-close" aria-label="關閉">&times;</button>
             </div>
-            <div class="shortcuts-grid">
+            <div class="shortcuts-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
                 <div class="shortcut-item"><kbd>R</kbd><span>重新載入頁面</span></div>
                 <div class="shortcut-item"><kbd>T</kbd><span>開始模型訓練</span></div>
                 <div class="shortcut-item"><kbd>D</kbd><span>切換深色/淺色模式</span></div>
                 <div class="shortcut-item"><kbd>Home</kbd><span>返回頁面頂部</span></div>
                 <div class="shortcut-item"><kbd>?</kbd><span>顯示此快捷鍵列表</span></div>
-                <div class="shortcut-item"><kbd>1</kbd><span>跳轉至「今日預測」</span></div>
-                <div class="shortcut-item"><kbd>2</kbd><span>跳轉至「7日預測」</span></div>
-                <div class="shortcut-item"><kbd>3</kbd><span>跳轉至「歷史趨勢」</span></div>
-                <div class="shortcut-item"><kbd>4</kbd><span>跳轉至「模型訓練」</span></div>
             </div>
-            <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-subtle); font-size: 0.8rem; color: var(--text-tertiary); text-align: center;">
+            <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-subtle);">
+                <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">📍 區塊導航</div>
+                <div class="shortcuts-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: 0.85rem;">
+                    <div class="shortcut-item"><kbd>1</kbd><span>今日預測</span></div>
+                    <div class="shortcut-item"><kbd>2</kbd><span>影響因素</span></div>
+                    <div class="shortcut-item"><kbd>3</kbd><span>7日預測</span></div>
+                    <div class="shortcut-item"><kbd>4</kbd><span>置信度</span></div>
+                    <div class="shortcut-item"><kbd>5</kbd><span>歷史趨勢</span></div>
+                    <div class="shortcut-item"><kbd>6</kbd><span>模型訓練</span></div>
+                    <div class="shortcut-item"><kbd>7</kbd><span>時間線</span></div>
+                    <div class="shortcut-item"><kbd>8</kbd><span>算法</span></div>
+                    <div class="shortcut-item"><kbd>9</kbd><span>雙軌預測</span></div>
+                </div>
+            </div>
+            <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-subtle); font-size: 0.75rem; color: var(--text-tertiary); text-align: center;">
                 v3.0.90 · 在輸入框內按鍵不會觸發快捷鍵
             </div>
         </div>
