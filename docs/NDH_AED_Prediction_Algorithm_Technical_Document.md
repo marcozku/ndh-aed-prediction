@@ -78,22 +78,22 @@ The system's predictive performance is evaluated using standard forecasting metr
 
 | Metric | Value | Description |
 |--------|-------|-------------|
-| MAE | 6.18 patients | Mean Absolute Error |
-| RMSE | 8.41 patients | Root Mean Square Error |
-| MAPE | 2.42% | Mean Absolute Percentage Error |
-| R² | 0.898 | Coefficient of Determination (89.8% variance explained) |
+| MAE | 4.53 patients | Mean Absolute Error |
+| RMSE | 6.11 patients | Root Mean Square Error |
+| MAPE | 1.81% | Mean Absolute Percentage Error |
+| R² | 0.948 | Coefficient of Determination (94.8% variance explained) |
 
 **Evaluation Methodology:**
-- Time series cross-validation (expanding window)
-- Training set: 2,750 observations
-- Test set: 688 observations (withheld from training)
+- Time series cross-validation (5-fold expanding window)
+- Training set: 3,241 observations
+- Test set: 811 observations (withheld from training)
 - Comparison against naive baseline (lag-1 forecast: MAE = 18.3)
-- Statistical significance: Model outperforms baseline by 66.2%
+- Statistical significance: Model outperforms baseline by 75.2%
 
 **Clinical Interpretation:**
-- **MAE = 6.18 patients:** Average prediction error of ±6 patients on a typical day (mean = 252.40), representing 2.45% deviation
-- **MAPE = 2.42%:** Relative error remains consistent across high and low volume days
-- **R² = 0.898:** Model explains 89.8% of variance in daily attendance, indicating strong predictive validity
+- **MAE = 4.53 patients:** Average prediction error of ±5 patients on a typical day (mean = 252.40), representing 1.79% deviation
+- **MAPE = 1.81%:** Relative error remains consistent across high and low volume days
+- **R² = 0.948:** Model explains 94.8% of variance in daily attendance, indicating excellent predictive validity
 
 ### 1.3 Algorithm Summary
 

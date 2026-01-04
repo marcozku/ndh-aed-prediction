@@ -945,8 +945,8 @@ const MethodologyModal = {
                     { version: '2.9.20', date: '2025-12-30', description: '基礎 XGBoost', metrics: { mae: 3.84, mape: 1.56, feature_count: 52 }, changes: ['300樹', '深度6'] },
                     { version: '2.9.52', date: '2026-01-02', description: '自動特徵優化', metrics: { mae: 4.73, mape: 1.87, r2: 0.933, feature_count: 25 }, changes: ['25特徵', 'RFE優化'] },
                     { version: '3.0.38', date: '2026-01-04', description: 'Bayesian 融合', metrics: { mae: 4.01, mape: 1.59, r2: 0.958, feature_count: 25 }, changes: ['多來源融合'] },
-                    { version: '3.0.75', date: '2026-01-04', description: 'RFE 特徵優化', metrics: { mae: 3.36, mape: 1.36, r2: 0.964, feature_count: 25 }, changes: ['EWMA7主導'] },
-                    { version: '3.0.76', date: '2026-01-04', description: 'Concept Drift', metrics: { mae: 6.18, mape: 2.42, r2: 0.898, feature_count: 25 }, changes: ['滑動窗口', '極端後處理'] }
+                    { version: '3.0.76', date: '2026-01-04', description: 'Concept Drift', metrics: { mae: 6.18, mape: 2.42, r2: 0.898, feature_count: 25 }, changes: ['滑動窗口', '極端後處理'] },
+                    { version: '3.0.83', date: '2026-01-05', description: 'Railway 自動訓練', metrics: { mae: 4.53, mape: 1.81, r2: 0.948, feature_count: 25 }, changes: ['4052天數據', 'MAE↓27%'] }
                 ];
                 this.renderTimeline(container, fallbackTimeline);
                 this.renderAccuracyChart(fallbackTimeline);
@@ -966,8 +966,8 @@ const MethodologyModal = {
             const fallbackTimeline = [
                 { version: '2.9.20', date: '2025-12-30', description: '基礎 XGBoost', metrics: { mae: 3.84, mape: 1.56, feature_count: 52 }, changes: ['300樹'] },
                 { version: '3.0.38', date: '2026-01-04', description: 'Bayesian 融合', metrics: { mae: 4.01, mape: 1.59, r2: 0.958, feature_count: 25 }, changes: ['多來源融合'] },
-                { version: '3.0.75', date: '2026-01-04', description: 'RFE 特徵優化', metrics: { mae: 3.36, mape: 1.36, r2: 0.964, feature_count: 25 }, changes: ['EWMA7主導'] },
-                { version: '3.0.76', date: '2026-01-04', description: 'Concept Drift', metrics: { mae: 6.18, mape: 2.42, r2: 0.898, feature_count: 25 }, changes: ['滑動窗口', '極端後處理'] }
+                { version: '3.0.76', date: '2026-01-04', description: 'Concept Drift', metrics: { mae: 6.18, mape: 2.42, r2: 0.898, feature_count: 25 }, changes: ['滑動窗口', '極端後處理'] },
+                { version: '3.0.83', date: '2026-01-05', description: 'Railway 自動訓練', metrics: { mae: 4.53, mape: 1.81, r2: 0.948, feature_count: 25 }, changes: ['4052天數據', 'MAE↓27%'] }
             ];
             this.renderTimeline(container, fallbackTimeline);
             this.renderAccuracyChart(fallbackTimeline);
@@ -1294,8 +1294,8 @@ const MainPageTimeline = {
                 { version: '2.9.20', date: '2025-12-30', description: '基礎 XGBoost', metrics: { mae: 3.84, mape: 1.56, feature_count: 52 }, changes: ['300樹', '深度6'] },
                 { version: '2.9.52', date: '2026-01-02', description: '自動特徵優化', metrics: { mae: 4.73, mape: 1.87, r2: 0.933, feature_count: 25 }, changes: ['25特徵', 'RFE優化'] },
                 { version: '3.0.38', date: '2026-01-04', description: 'Bayesian 融合', metrics: { mae: 4.01, mape: 1.59, r2: 0.958, feature_count: 25 }, changes: ['多來源融合'] },
-                { version: '3.0.75', date: '2026-01-04', description: 'RFE 特徵優化', metrics: { mae: 3.36, mape: 1.36, r2: 0.964, feature_count: 25 }, changes: ['EWMA7主導'] },
-                { version: '3.0.76', date: '2026-01-04', description: 'Concept Drift', metrics: { mae: 6.18, mape: 2.42, r2: 0.898, feature_count: 25 }, changes: ['滑動窗口', '極端後處理'] }
+                { version: '3.0.76', date: '2026-01-04', description: 'Concept Drift', metrics: { mae: 6.18, mape: 2.42, r2: 0.898, feature_count: 25 }, changes: ['滑動窗口', '極端後處理'] },
+                { version: '3.0.83', date: '2026-01-05', description: 'Railway 自動訓練', metrics: { mae: 4.53, mape: 1.81, r2: 0.948, feature_count: 25 }, changes: ['4052天數據', 'MAE↓27%'] }
             ];
         }
         

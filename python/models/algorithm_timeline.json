@@ -396,6 +396,29 @@
       },
       "research": "Concept Drift in Time Series (Gama et al., 2014)",
       "improvement": "解決 2020 COVID 後模式變化問題，提升近期預測準確性"
+    },
+    {
+      "version": "3.0.83",
+      "date": "2026-01-05",
+      "description": "Railway 自動訓練 + 數據擴充",
+      "changes": [
+        "新增數據至 4052 天",
+        "Railway 自動訓練優化",
+        "測試集 811 筆",
+        "交叉驗證 5-Fold"
+      ],
+      "metrics": {
+        "mae": 4.53,
+        "mape": 1.81,
+        "rmse": 6.11,
+        "r2": 0.948,
+        "adj_r2": 0.946,
+        "feature_count": 25,
+        "cv_mae": "13.49 ± 13.10"
+      },
+      "research": "持續模型監控與自動重訓練",
+      "key_features": ["EWMA7", "EWMA14", "25精選特徵"],
+      "improvement": "MAE↓27% (6.18→4.53), R²↑5.5% (89.8%→94.8%)"
     }
   ],
   "references": [
