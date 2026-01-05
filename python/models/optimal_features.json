@@ -1,56 +1,44 @@
 {
-  "version": "3.0.76",
-  "updated": "2026-01-04 HKT",
-  "optimization_method": "RFE (Recursive Feature Elimination)",
-  "optimal_n_features": 25,
+  "version": "3.0.95",
+  "updated": "2026-01-06 HKT",
+  "optimization_method": "Lag-First Design (Post Data Leakage Fix)",
+  "optimal_n_features": 15,
   "optimal_features": [
-    "Day_of_Week",
     "Attendance_Lag1",
-    "Attendance_Lag3",
-    "Attendance_Lag5",
     "Attendance_Lag7",
-    "Attendance_Lag30",
     "Attendance_Same_Weekday_Avg",
-    "Lag1_Diff",
-    "Lag7_Diff",
-    "Attendance_EWMA7",
-    "Attendance_Rolling14",
-    "Attendance_Std3",
-    "Attendance_Std7",
-    "Attendance_Min7",
-    "Attendance_Min90",
-    "Attendance_Median30",
-    "Attendance_Position7",
-    "Attendance_Position14",
-    "Attendance_Position30",
-    "Attendance_CV7",
+    "Day_of_Week",
     "DayOfWeek_Target_Mean",
+    "Attendance_Rolling7",
+    "Attendance_EWMA7",
+    "Attendance_Lag14",
+    "Attendance_Lag30",
     "Daily_Change",
     "Weekly_Change",
-    "Monthly_Change",
-    "Holiday_Factor"
+    "Is_Weekend",
+    "Holiday_Factor",
+    "Attendance_Std7",
+    "Month"
   ],
-  "method": "rfe",
+  "method": "lag-first",
   "metrics": {
-    "mae": 3.36,
-    "mape": 1.36,
-    "r2": 0.964
+    "mae": null,
+    "mape": null,
+    "r2": null,
+    "status": "awaiting_retraining"
   },
-  "note": "EWMA7 dominates (87%). Weather/AQHI excluded due to weak correlation (<0.12)",
+  "design_rationale": {
+    "primary": "Lag1 is the strongest predictor (naive baseline MAE=18.3)",
+    "secondary": "Lag7 captures weekly seasonality (same day last week)",
+    "tertiary": "EWMA7 as smoothed trend, but lower weight than before",
+    "exclusions": "Reduced feature count to prevent overfitting"
+  },
+  "note": "v3.0.94 RFE was based on data-leakage metrics. This version prioritizes Lag features.",
   "excluded_features": {
-    "reason": "Low importance / weak correlation with attendance",
-    "weather": ["AQHI_*", "Weather_*", "Pressure_*", "Humidity_*", "Rainfall_*"],
-    "analysis": "Weather affects attendance <3%, already captured implicitly by EWMA lag features"
+    "reason": "Overfitting risk / redundant with Lag features",
+    "removed": ["Position features", "CV features", "Multiple rolling windows", "Min/Max features"],
+    "weather": ["AQHI_*", "Weather_*"],
+    "analysis": "Simpler model with fewer features should generalize better"
   },
-  "feature_importance": [
-    {"feature": "Attendance_EWMA7", "importance": 0.8689},
-    {"feature": "Monthly_Change", "importance": 0.0282},
-    {"feature": "Daily_Change", "importance": 0.0232},
-    {"feature": "Attendance_Lag1", "importance": 0.0110},
-    {"feature": "Weekly_Change", "importance": 0.0078},
-    {"feature": "Attendance_Rolling7", "importance": 0.0048},
-    {"feature": "Attendance_Lag30", "importance": 0.0047},
-    {"feature": "Attendance_Position7", "importance": 0.0047},
-    {"feature": "Day_of_Week", "importance": 0.0045}
-  ]
+  "expected_improvement": "Lag1 as primary feature should beat naive baseline (MASE < 1)"
 }

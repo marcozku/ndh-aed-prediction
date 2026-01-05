@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.0.94';
+const MODEL_VERSION = '3.0.95';
 
 // ============================================
 // HKT 時間工具函數
@@ -3791,20 +3791,36 @@ const apiHandlers = {
                 }
                 
                 if (metrics && metrics.mae !== undefined && metrics.mape !== undefined) {
-                    // v3.0.94: 重新校準評分（基於真實性能，非 data leakage 指標）
-                    // MAE 評分：MAE < 15 = 100分，< 25 = 80分，< 35 = 60分，< 50 = 40分
-                    // 時間序列預測 MAE 20 (對於均值 250) = 8% 誤差，屬於合理範圍
-                    let maeScore;
-                    if (metrics.mae < 15) maeScore = 100;
-                    else if (metrics.mae < 20) maeScore = 90;
-                    else if (metrics.mae < 25) maeScore = 80;
-                    else if (metrics.mae < 30) maeScore = 70;
-                    else if (metrics.mae < 35) maeScore = 60;
-                    else if (metrics.mae < 40) maeScore = 50;
-                    else if (metrics.mae < 50) maeScore = 40;
-                    else maeScore = Math.max(0, 30 - (metrics.mae - 50));
+                    // v3.0.95: MASE-based Skill Score (研究標準)
+                    // MASE = Model_MAE / Naive_MAE (Hyndman & Koehler, 2006)
+                    // MASE < 1: 模型有技能 (優於 naive baseline)
+                    // MASE = 1: 模型等同 naive baseline
+                    // MASE > 1: 模型不如 naive baseline
                     
-                    // MAPE 評分：MAPE < 5% = 100分，< 8% = 85分，< 10% = 70分，< 15% = 50分
+                    const NAIVE_MAE = 18.3; // Lag-1 naive forecast MAE (經驗證)
+                    const mase = metrics.mae / NAIVE_MAE;
+                    
+                    // Skill Score = (1 - MASE) * 100，限制在 0-100
+                    // MASE 0.5 = 50% skill = 100分
+                    // MASE 0.8 = 20% skill = 80分
+                    // MASE 1.0 = 0% skill = 50分 (等同 baseline)
+                    // MASE 1.2 = -20% skill = 30分
+                    // MASE 1.5+ = 無技能 = 0分
+                    let skillScore;
+                    if (mase <= 0.5) {
+                        skillScore = 100;
+                    } else if (mase < 1.0) {
+                        // MASE 0.5-1.0 映射到 100-50 分
+                        skillScore = Math.round(100 - (mase - 0.5) * 100);
+                    } else if (mase < 1.5) {
+                        // MASE 1.0-1.5 映射到 50-0 分
+                        skillScore = Math.round(50 - (mase - 1.0) * 100);
+                    } else {
+                        skillScore = 0;
+                    }
+                    
+                    // MAPE 評分 (文獻標準: ED forecasting 5-15% acceptable)
+                    // Wargon et al. (2009), Sun et al. (2009)
                     let mapeScore;
                     if (metrics.mape < 5) mapeScore = 100;
                     else if (metrics.mape < 8) mapeScore = 85;
@@ -3813,17 +3829,14 @@ const apiHandlers = {
                     else if (metrics.mape < 15) mapeScore = 50;
                     else mapeScore = Math.max(0, 40 - (metrics.mape - 15) * 2);
                     
-                    // R² 評分：對於日變異預測，R² 可能較低也正常
-                    // R² 不作為主要評分指標，僅作參考
-                    const r2Score = metrics.r2 ? Math.max(0, Math.min(100, metrics.r2 * 100)) : null;
+                    // 綜合評分：Skill Score 60% + MAPE Score 40%
+                    // Skill Score 更重要因為它直接比較 baseline
+                    modelFit = Math.round(skillScore * 0.6 + mapeScore * 0.4);
                     
-                    // 綜合評分：以 MAE 和 MAPE 為主 (各 45%)，R² 為輔 (10%)
-                    // 如果沒有 R²，只用 MAE 和 MAPE
-                    if (r2Score !== null) {
-                        modelFit = Math.round(maeScore * 0.45 + mapeScore * 0.45 + r2Score * 0.1);
-                    } else {
-                        modelFit = Math.round((maeScore + mapeScore) / 2);
-                    }
+                    // 額外詳情
+                    details.mase = parseFloat(mase.toFixed(3));
+                    details.skillScore = skillScore;
+                    details.naiveMAE = NAIVE_MAE;
                     
                     details.mae = metrics.mae;
                     details.mape = metrics.mape;
