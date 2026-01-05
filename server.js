@@ -3791,16 +3791,36 @@ const apiHandlers = {
                 }
                 
                 if (metrics && metrics.mae !== undefined && metrics.mape !== undefined) {
-                    // MAE 評分：MAE < 5 = 100分，每增加1 -10分
-                    const maeScore = Math.max(0, Math.min(100, 100 - (metrics.mae - 5) * 10));
-                    // MAPE 評分：MAPE < 2% = 100分，每增加1% -20分
-                    const mapeScore = Math.max(0, Math.min(100, 100 - (metrics.mape - 2) * 20));
-                    // R² 評分：直接使用 R² * 100（v2.9.52 新增）
+                    // v3.0.94: 重新校準評分（基於真實性能，非 data leakage 指標）
+                    // MAE 評分：MAE < 15 = 100分，< 25 = 80分，< 35 = 60分，< 50 = 40分
+                    // 時間序列預測 MAE 20 (對於均值 250) = 8% 誤差，屬於合理範圍
+                    let maeScore;
+                    if (metrics.mae < 15) maeScore = 100;
+                    else if (metrics.mae < 20) maeScore = 90;
+                    else if (metrics.mae < 25) maeScore = 80;
+                    else if (metrics.mae < 30) maeScore = 70;
+                    else if (metrics.mae < 35) maeScore = 60;
+                    else if (metrics.mae < 40) maeScore = 50;
+                    else if (metrics.mae < 50) maeScore = 40;
+                    else maeScore = Math.max(0, 30 - (metrics.mae - 50));
+                    
+                    // MAPE 評分：MAPE < 5% = 100分，< 8% = 85分，< 10% = 70分，< 15% = 50分
+                    let mapeScore;
+                    if (metrics.mape < 5) mapeScore = 100;
+                    else if (metrics.mape < 8) mapeScore = 85;
+                    else if (metrics.mape < 10) mapeScore = 70;
+                    else if (metrics.mape < 12) mapeScore = 60;
+                    else if (metrics.mape < 15) mapeScore = 50;
+                    else mapeScore = Math.max(0, 40 - (metrics.mape - 15) * 2);
+                    
+                    // R² 評分：對於日變異預測，R² 可能較低也正常
+                    // R² 不作為主要評分指標，僅作參考
                     const r2Score = metrics.r2 ? Math.max(0, Math.min(100, metrics.r2 * 100)) : null;
                     
-                    // 綜合評分：如果有 R² 則使用加權平均 (MAE 30%, MAPE 30%, R² 40%)
+                    // 綜合評分：以 MAE 和 MAPE 為主 (各 45%)，R² 為輔 (10%)
+                    // 如果沒有 R²，只用 MAE 和 MAPE
                     if (r2Score !== null) {
-                        modelFit = Math.round(maeScore * 0.3 + mapeScore * 0.3 + r2Score * 0.4);
+                        modelFit = Math.round(maeScore * 0.45 + mapeScore * 0.45 + r2Score * 0.1);
                     } else {
                         modelFit = Math.round((maeScore + mapeScore) / 2);
                     }
