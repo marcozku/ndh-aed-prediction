@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.0.91';
+const MODEL_VERSION = '3.0.92';
 
 // ============================================
 // HKT 時間工具函數
@@ -4942,34 +4942,30 @@ async function generateServerSidePredictions(source = 'auto') {
                 anomaly = { type: 'high', message: `預測值 ${adjusted} 高於歷史範圍 (${NORMAL_MAX})` };
             }
             
-            // v3.0.87: 計算雙軌預測（簡化版）
-            // Production = 當前預測（已包含天氣，但可能不含 AI）
-            // Experimental = 當前預測（如果有 AI 因子則不同）
+            // v3.0.91: 雙軌預測（與主預測一致）
+            // Production = 主預測（不含 AI 因子）
+            // Experimental = 主預測（含 AI 因子）
+            // 這樣當 AI = 0 時，Production = Experimental = 主預測
+            
+            // adjusted 已經是最終預測（可能包含 AI）
+            // 我們需要計算 "不含 AI" 版本
+            
             let prodPrediction = adjusted;
             let expPrediction = adjusted;
             
-            if (daysAhead === 0) {
-                try {
-                    // Production: 不使用 AI 因子
-                    const targetMean = dowMeans[dow] || 247;
-                    const deviation = basePrediction - targetMean;
-                    
-                    // Production: 只用天氣
-                    let prodValue = targetMean + deviation;
-                    if (weatherFactor !== 1.0) {
-                        prodValue += (weatherFactor - 1.0) * targetMean * 0.3;
-                    }
-                    prodPrediction = Math.round(prodValue);
-                    
-                    // Experimental: 加入 AI
-                    let expValue = prodValue;
-                    if (aiFactor !== 1.0) {
-                        expValue += (aiFactor - 1.0) * targetMean * 0.5;
-                    }
-                    expPrediction = Math.round(expValue);
-                } catch (e) {
-                    console.warn('⚠️ 雙軌計算失敗:', e.message);
-                }
+            // 計算 AI 對預測的影響量
+            const targetMean = dowMeans[dow] || 247;
+            const aiImpact = aiFactor !== 1.0 ? (aiFactor - 1.0) * targetMean * 0.15 : 0;
+            
+            if (aiFactor !== 1.0) {
+                // Production = 主預測 - AI 影響（即不含 AI 的預測）
+                prodPrediction = Math.round(adjusted - aiImpact);
+                // Experimental = 主預測（已含 AI）
+                expPrediction = adjusted;
+            } else {
+                // AI = 1.0（無影響），兩者相同
+                prodPrediction = adjusted;
+                expPrediction = adjusted;
             }
             
             predictions.push({
