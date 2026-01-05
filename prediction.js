@@ -9960,58 +9960,102 @@ function loadAlgorithmDescription() {
     initAlgorithmContent();
 }
 
-// v3.0.85: 載入雙軌預測系統 (改進版)
+// v3.0.92: 載入雙軌預測系統 (使用平滑後數值)
 async function loadDualTrackSection() {
     const container = document.getElementById('dual-track-content');
     const loading = document.getElementById('dual-track-loading');
     if (!container) return;
     
     try {
-        const response = await fetch('/api/dual-track/summary');
-        const result = await response.json();
+        // v3.0.92: 同時獲取平滑預測和可靠度權重
+        const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Hong_Kong' }); // YYYY-MM-DD
+        
+        const [summaryResp, smoothResp, relResp] = await Promise.all([
+            fetch('/api/dual-track/summary'),
+            fetch(`/api/smoothing-methods?date=${today}`),
+            fetch('/api/reliability')
+        ]);
+        
+        const summaryResult = await summaryResp.json().catch(() => ({}));
+        const smoothResult = await smoothResp.json().catch(() => ({}));
+        const relResult = await relResp.json().catch(() => ({}));
         
         if (loading) loading.style.display = 'none';
         
-        // v3.0.85: 如果沒有雙軌數據，使用當前預測創建模擬對比
+        // 獲取可靠度權重
+        let reliability = { xgboost: 0.95, ai: 0.00, weather: 0.05 };
+        if (relResult.success && relResult.data) {
+            reliability = {
+                xgboost: parseFloat(relResult.data.xgboost_reliability) || 0.95,
+                ai: parseFloat(relResult.data.ai_reliability) || 0.00,
+                weather: parseFloat(relResult.data.weather_reliability) || 0.05
+            };
+        }
+        
+        // v3.0.92: 使用平滑後的預測值
+        let smoothedPrediction = null;
+        let aiFactorValue = 1.0; // 默認無 AI 影響
+        
+        if (smoothResult.success && smoothResult.recommended) {
+            smoothedPrediction = smoothResult.recommended.value;
+        }
+        
+        // 從 summary 獲取 AI 因子
+        if (summaryResult.today?.aiImpact && summaryResult.today.aiImpact !== 'None') {
+            const aiImpactStr = summaryResult.today.aiImpact.replace('%', '');
+            const aiImpact = parseFloat(aiImpactStr) / 100;
+            aiFactorValue = 1 + aiImpact;
+        }
+        
+        // 計算雙軌數值
         let prod, exp, validation;
         
-        if (!response.ok || !result.today) {
-            // 從 reliability API 獲取權重
-            let reliability = { xgboost: 0.95, ai: 0.00, weather: 0.05 };
-            try {
-                const relResp = await fetch('/api/reliability');
-                const relData = await relResp.json();
-                if (relData.success && relData.data) {
-                    reliability = {
-                        xgboost: parseFloat(relData.data.xgboost_reliability) || 0.95,
-                        ai: parseFloat(relData.data.ai_reliability) || 0.00,
-                        weather: parseFloat(relData.data.weather_reliability) || 0.05
-                    };
-                }
-            } catch (e) { /* use defaults */ }
+        if (smoothedPrediction !== null) {
+            // Production = 平滑預測（不含 AI）
+            // 因為當前主預測可能包含 AI，需要還原
+            const baseSmoothed = smoothedPrediction;
+            const prodPred = Math.round(baseSmoothed); // 綜合預測就是 Production（無 AI 時）
             
-            // 使用靜態模擬數據
+            // Experimental = 平滑預測 + AI 影響
+            // 如果 AI 有影響，計算含 AI 版本
+            let expPred = prodPred;
+            if (aiFactorValue !== 1.0) {
+                const aiImpact = (aiFactorValue - 1.0) * 247 * 0.15; // 使用均值計算 AI 影響
+                expPred = Math.round(baseSmoothed + aiImpact);
+            }
+            
             prod = {
-                prediction: '--',
-                weights: { w_base: reliability.xgboost, w_weather: reliability.weather, w_ai: reliability.ai }
+                prediction: prodPred,
+                weights: { w_base: reliability.xgboost, w_weather: reliability.weather, w_ai: 0 }
             };
             exp = {
-                prediction: '--',
-                weights: { w_base: 0.85, w_weather: 0.05, w_ai: 0.10 }
-            };
-            validation = {
-                samples: { total: 0 },
-                improvement: { percentage: 0 },
-                experimental: { win_rate: '--' },
-                production: { mae: '--' },
-                recommendation: '累積更多數據後才能進行驗證分析'
+                prediction: expPred,
+                weights: { w_base: Math.max(0.70, reliability.xgboost - 0.10), w_weather: reliability.weather, w_ai: Math.min(0.20, reliability.ai + 0.10) }
             };
         } else {
-            const data = result;
-            prod = data.today?.production || {};
-            exp = data.today?.experimental || {};
-            validation = data.validation || {};
+            // Fallback 到 summary API 數據
+            if (summaryResult.today) {
+                prod = summaryResult.today.production || {};
+                exp = summaryResult.today.experimental || {};
+            } else {
+                prod = {
+                    prediction: '--',
+                    weights: { w_base: reliability.xgboost, w_weather: reliability.weather, w_ai: 0 }
+                };
+                exp = {
+                    prediction: '--',
+                    weights: { w_base: 0.85, w_weather: 0.05, w_ai: 0.10 }
+                };
+            }
         }
+        
+        validation = summaryResult.validation || {
+            samples: { total: 0 },
+            improvement: { percentage: 0 },
+            experimental: { win_rate: '--' },
+            production: { mae: '--' },
+            recommendation: '累積更多數據後才能進行驗證分析'
+        };
         
         container.innerHTML = `
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
