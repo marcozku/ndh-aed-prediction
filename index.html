@@ -785,12 +785,12 @@
             </div>
             <div class="methodology-content">
                 <div class="methodology-section">
-                    <h4>🎯 核心算法 (v3.0.50)</h4>
+                    <h4>🎯 核心算法 (v3.0.97)</h4>
                     <div class="formula-box">
-                        <code>預測 = 星期均值 + 趨勢偏差 + 月份效應 + AI效應 + 天氣效應</code>
+                        <code>預測 = XGBoost(Lag特徵) + Bayesian融合 + 後處理</code>
                     </div>
                     <p style="font-size: 0.8em; color: var(--text-secondary); margin-top: 8px;">
-                        ✅ 加法效應模型 · ⚠️ 異常值警告 · 📊 Post-COVID 2023-2025 校準
+                        ✅ 3年滑動窗口 (排除COVID) · 🔬 MASE評分 · 📊 Evidence-Based
                     </p>
                 </div>
                 <div class="methodology-section">
@@ -883,7 +883,7 @@
     <!-- Pragmatic Bayesian 預測融合模組 (v3.0.38) -->
     <script src="modules/pragmatic-bayesian.js?v=2"></script>
     <!-- 原始預測邏輯（保留所有功能） -->
-    <script src="prediction.js?v=15"></script>
+    <script src="prediction.js?v=16"></script>
     <!-- 模組化包裝層 -->
     <script type="module" src="app.js?v=6"></script>
     

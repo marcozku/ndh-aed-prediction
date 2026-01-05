@@ -9620,7 +9620,7 @@ function initAlgorithmContent() {
         <!-- ==================== 第一部分：核心公式概覽 ==================== -->
         <div class="algo-card" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(59, 130, 246, 0.08)); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid rgba(34, 197, 94, 0.25);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h4 style="margin: 0; color: #22c55e; font-size: 1rem;">🧠 NDH AED 預測算法 v3.0.96</h4>
+                <h4 style="margin: 0; color: #22c55e; font-size: 1rem;">🧠 NDH AED 預測算法 v3.0.97</h4>
                 <span style="font-size: 0.7rem; color: var(--text-tertiary); background: var(--bg-tertiary); padding: 2px 8px; border-radius: 4px;">XGBoost 混合模型</span>
             </div>
             
@@ -9948,22 +9948,36 @@ function initAlgorithmContent() {
         
         <!-- ==================== 版本更新 ==================== -->
         <div style="padding: 14px; background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.05)); border-radius: 10px; border-left: 4px solid #22c55e;">
-            <div style="font-size: 0.82rem; color: #22c55e; font-weight: 600; margin-bottom: 8px;">🚀 v3.0.96 更新亮點</div>
+            <div style="font-size: 0.82rem; color: #22c55e; font-weight: 600; margin-bottom: 8px;">🚀 v3.0.97 更新亮點</div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; font-size: 0.72rem; color: var(--text-secondary);">
-                <div>📊 <strong style="color: #8b5cf6;">Concept Drift 解決方案</strong></div>
-                <div>⏱️ <strong>默認</strong>滑動窗口訓練 (近 2 年數據)</div>
-                <div>⚖️ <strong>默認</strong>時間衰減權重 (0.001)</div>
-                <div>🔬 MASE Skill Score 評分標準</div>
-                <div>📖 <strong style="color: #3b82f6;">研究基礎: Gama et al. (2014)</strong></div>
+                <div>📊 <strong style="color: #8b5cf6;">Evidence-Based 配置</strong></div>
+                <div>⏱️ <strong>3 年</strong>滑動窗口 (2023-2026)</div>
+                <div>⚖️ 時間衰減權重 (0.001)</div>
+                <div>🔬 MASE Skill Score 評分</div>
+                <div>📈 預期 MAE ~17 (↓12%)</div>
             </div>
             
-            <!-- v3.0.96 研究說明 -->
+            <!-- v3.0.97 CV 分析 -->
             <div style="background: rgba(139, 92, 246, 0.08); border-left: 3px solid #8b5cf6; padding: 10px; margin-top: 10px; border-radius: 0 8px 8px 0; font-size: 0.72rem;">
-                <div style="color: #8b5cf6; font-weight: 600; margin-bottom: 4px;">📚 研究基礎</div>
-                <div style="color: var(--text-secondary); line-height: 1.5;">
-                    COVID-19 造成結構性斷裂 (2020-2022)，CV 顯示此期間 MAE=44.91 vs 正常期 ~17。<br>
-                    基於 <a href="https://doi.org/10.1145/2523813" target="_blank" style="color: #3b82f6;">Gama et al. (2014)</a> 的 Concept Drift 研究，<br>
-                    v3.0.96 默認只使用近 2 年數據訓練，並應用時間衰減權重。
+                <div style="color: #8b5cf6; font-weight: 600; margin-bottom: 4px;">📊 CV 分析結果</div>
+                <div style="color: var(--text-secondary); line-height: 1.6;">
+                    <table style="width: 100%; font-size: 0.7rem; border-collapse: collapse;">
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 3px 0;"><strong>Fold 1 (Pre-COVID)</strong></td>
+                            <td style="text-align: right;">MAE ~17</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border-color); background: rgba(239, 68, 68, 0.1);">
+                            <td style="padding: 3px 0;"><strong>Fold 2 (COVID)</strong></td>
+                            <td style="text-align: right; color: #ef4444;">MAE 44.91 ⚠️</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 3px 0;"><strong>Fold 3 (Post-COVID)</strong></td>
+                            <td style="text-align: right;">MAE ~17</td>
+                        </tr>
+                    </table>
+                    <div style="margin-top: 6px; color: #22c55e;">
+                        ✓ v3.0.97 排除 COVID 數據，預期 MAE 從 19.38 降至 ~17
+                    </div>
                 </div>
             </div>
         </div>
