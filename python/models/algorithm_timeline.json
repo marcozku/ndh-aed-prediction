@@ -432,11 +432,13 @@
         "App 內算法說明增加警告框"
       ],
       "metrics": {
-        "mae": "待重訓練",
-        "mape": "待重訓練",
-        "r2": "待重訓練",
+        "mae": null,
+        "mape": null,
+        "r2": null,
         "feature_count": 25,
-        "note": "修復前 MAE=4.53 (理論) vs 29.00 (實際)，修復後預期差距縮小"
+        "status": "待重訓練",
+        "before_fix": "MAE=4.53 (理論) vs 29.00 (實際)",
+        "expected_after": "MAE≈10-15，理論與實際更接近"
       },
       "bug_found": {
         "issue": "EWMA 和 Change 特徵包含當天數據（目標變量）",
