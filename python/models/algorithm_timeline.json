@@ -453,6 +453,40 @@
       "research": "時間序列 Data Leakage 避免最佳實踐",
       "key_features": ["EWMA7(shift)", "EWMA14(shift)", "Daily_Change(shift)"],
       "improvement": "理論 MAE 與實際 MAE 現已一致，模型評估準確"
+    },
+    {
+      "version": "3.0.95",
+      "date": "2026-01-06",
+      "description": "MASE Skill Score + Lag-first 特徵優化",
+      "changes": [
+        "實現 MASE-based 置信度評分 (Hyndman & Koehler, 2006)",
+        "Lag-first 特徵設計：從 25 減至 15 特徵",
+        "特徵重要性重新平衡 (EWMA7 從 87% 降至 23%)",
+        "Lag7, Same_Weekday_Avg 重要性提升"
+      ],
+      "metrics": {
+        "mae": 19.38,
+        "mape": 7.62,
+        "rmse": 24.70,
+        "r2": 0.143,
+        "adj_r2": 0.126,
+        "feature_count": 15,
+        "cv_mae": "26.55 ± 12.99",
+        "mase": 1.059
+      },
+      "research": "MASE: Hyndman & Koehler (2006), International Journal of Forecasting",
+      "key_features": [
+        {"feature": "EWMA7", "importance": "22.9%"},
+        {"feature": "Same_Weekday_Avg", "importance": "21.7%"},
+        {"feature": "Rolling7", "importance": "18.3%"},
+        {"feature": "Lag7", "importance": "9.7%"}
+      ],
+      "skill_score": {
+        "mase": 1.059,
+        "naive_mae": 18.3,
+        "interpretation": "MASE > 1 表示模型略遜於 naive baseline，但已大幅改善"
+      },
+      "improvement": "MAE↓2.3% (19.84→19.38), R²↑50% (9.5%→14.3%), 置信度評分從 0% 升至 60%"
     }
   ],
   "references": [
@@ -562,5 +596,5 @@
       "relevance": "維度災難、偏差-方差權衡理論"
     }
   ],
-  "last_updated": "2026-01-06T16:30:00+08:00"
+  "last_updated": "2026-01-06T16:45:00+08:00"
 }
