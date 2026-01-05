@@ -9620,7 +9620,7 @@ function initAlgorithmContent() {
         <!-- ==================== 第一部分：核心公式概覽 ==================== -->
         <div class="algo-card" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(59, 130, 246, 0.08)); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid rgba(34, 197, 94, 0.25);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h4 style="margin: 0; color: #22c55e; font-size: 1rem;">🧠 NDH AED 預測算法 v3.0.93</h4>
+                <h4 style="margin: 0; color: #22c55e; font-size: 1rem;">🧠 NDH AED 預測算法 v3.0.94</h4>
                 <span style="font-size: 0.7rem; color: var(--text-tertiary); background: var(--bg-tertiary); padding: 2px 8px; border-radius: 4px;">XGBoost 混合模型</span>
             </div>
             
@@ -9690,14 +9690,15 @@ function initAlgorithmContent() {
                 </div>
             </div>
             
-            <!-- v3.0.93: Data Leakage Prevention -->
-            <div style="background: rgba(239, 68, 68, 0.1); padding: 10px; border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 10px; border: 1px solid rgba(239, 68, 68, 0.2);">
-                <strong style="color: #ef4444;">🔒 v3.0.93 Data Leakage 修正:</strong> 所有 EWMA 和 Change 特徵使用 <code style="background: rgba(0,0,0,0.1); padding: 2px 4px; border-radius: 3px;">shift(1)</code> 避免用「今天的數據預測今天」。<br>
+            <!-- v3.0.94: Data Leakage Fixed & Retrained -->
+            <div style="background: rgba(34, 197, 94, 0.1); padding: 10px; border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 10px; border: 1px solid rgba(34, 197, 94, 0.2);">
+                <strong style="color: #22c55e;">✅ v3.0.94 Data Leakage 修正完成:</strong> 所有 EWMA 和 Change 特徵使用 <code style="background: rgba(0,0,0,0.1); padding: 2px 4px; border-radius: 3px;">shift(1)</code> 避免用「今天的數據預測今天」。<br>
                 <span style="color: var(--text-tertiary);">EWMA<sub>t</sub> = α·A<sub>t-1</sub> + (1-α)·EWMA<sub>t-1</sub> (不包含今天)</span>
             </div>
             
             <div style="background: rgba(245, 158, 11, 0.1); padding: 10px; border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary);">
-                <strong style="color: #f59e0b;">📊 模型性能:</strong> MAE = 4.53 人 · MAPE = 1.81% · R² = 94.8% · 25 精選特徵 · 4,052 天數據
+                <strong style="color: #f59e0b;">📊 模型性能 (真實):</strong> MAE = 19.84 人 · MAPE = 7.79% · CV MAE = 26.45 ± 12.92 · 25 精選特徵 · 4,052 天數據<br>
+                <span style="color: var(--text-tertiary); font-size: 0.68rem;">📝 修正前虛假指標: MAE=4.53 (data leakage 導致) → 修正後真實: MAE=19.84</span>
             </div>
         </div>
         

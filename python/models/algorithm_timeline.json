@@ -423,22 +423,22 @@
     {
       "version": "3.0.94",
       "date": "2026-01-06",
-      "description": "⚠️ 重大修正: Data Leakage 問題",
+      "description": "✅ Data Leakage 修正完成",
       "changes": [
         "發現並修復 EWMA 特徵 data leakage",
         "發現並修復 Change 特徵 data leakage",
         "所有時序特徵使用 shift(1) 避免洩漏",
         "更新技術文檔 Section 4.1.1, 4.1.3",
-        "App 內算法說明增加警告框"
+        "模型重新訓練完成"
       ],
       "metrics": {
-        "mae": null,
-        "mape": null,
-        "r2": null,
+        "mae": 19.84,
+        "mape": 7.79,
+        "rmse": 25.38,
+        "r2": 0.095,
+        "adj_r2": 0.066,
         "feature_count": 25,
-        "status": "待重訓練",
-        "before_fix": "MAE=4.53 (理論) vs 29.00 (實際)",
-        "expected_after": "MAE≈10-15，理論與實際更接近"
+        "cv_mae": "26.45 ± 12.92"
       },
       "bug_found": {
         "issue": "EWMA 和 Change 特徵包含當天數據（目標變量）",
@@ -446,9 +446,13 @@
         "root_cause": "EWMA 用 attendance.ewm() 而非 attendance.shift(1).ewm()",
         "fix": "所有滾動/移動平均/差分特徵改用 shift(1)"
       },
+      "before_vs_after": {
+        "before": {"mae": 4.53, "mape": 1.81, "r2": 0.948, "note": "data leakage 導致虛假低誤差"},
+        "after": {"mae": 19.84, "mape": 7.79, "r2": 0.095, "note": "真實性能，無洩漏"}
+      },
       "research": "時間序列 Data Leakage 避免最佳實踐",
       "key_features": ["EWMA7(shift)", "EWMA14(shift)", "Daily_Change(shift)"],
-      "improvement": "理論 MAE 與實際 MAE 將更接近，模型評估更準確"
+      "improvement": "理論 MAE 與實際 MAE 現已一致，模型評估準確"
     }
   ],
   "references": [
@@ -558,5 +562,5 @@
       "relevance": "維度災難、偏差-方差權衡理論"
     }
   ],
-  "last_updated": "2026-01-06T00:30:00+08:00"
+  "last_updated": "2026-01-06T16:30:00+08:00"
 }

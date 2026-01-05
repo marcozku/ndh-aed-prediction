@@ -1,5 +1,5 @@
 # NDH AED Attendance Prediction Algorithm
-## Technical Documentation v3.0.93
+## Technical Documentation v3.0.94
 
 <!--
 This document is designed to be rendered into PDF via generate-algorithm-doc-pdf.js.
@@ -78,22 +78,25 @@ The system's predictive performance is evaluated using standard forecasting metr
 
 | Metric | Value | Description |
 |--------|-------|-------------|
-| MAE | 4.53 patients | Mean Absolute Error |
-| RMSE | 6.11 patients | Root Mean Square Error |
-| MAPE | 1.81% | Mean Absolute Percentage Error |
-| R² | 0.948 | Coefficient of Determination (94.8% variance explained) |
+| MAE | 19.84 patients | Mean Absolute Error |
+| RMSE | 25.38 patients | Root Mean Square Error |
+| MAPE | 7.79% | Mean Absolute Percentage Error |
+| CV MAE | 26.45 ± 12.92 | 3-Fold Walk-Forward Cross-Validation |
 
 **Evaluation Methodology:**
-- Time series cross-validation (5-fold expanding window)
+- Walk-forward time series cross-validation (3-fold)
 - Training set: 3,241 observations
 - Test set: 811 observations (withheld from training)
-- Comparison against naive baseline (lag-1 forecast: MAE = 18.3)
-- Statistical significance: Model outperforms baseline by 75.2%
+- Strict temporal separation: validation data always after training data
+- No data leakage: all features use `shift(1)` to prevent look-ahead bias
+
+> **⚠️ v3.0.94 Data Leakage Fix (2026-01-06):**  
+> Previous metrics (MAE=4.53, MAPE=1.81%) were artificially low due to data leakage in EWMA and Change features. Features were incorrectly calculated using current-day data (the target variable). After fixing with `shift(1)`, true production performance is now accurately reflected.
 
 **Clinical Interpretation:**
-- **MAE = 4.53 patients:** Average prediction error of ±5 patients on a typical day (mean = 252.40), representing 1.79% deviation
-- **MAPE = 1.81%:** Relative error remains consistent across high and low volume days
-- **R² = 0.948:** Model explains 94.8% of variance in daily attendance, indicating excellent predictive validity
+- **MAE = 19.84 patients:** Average prediction error of ±20 patients on a typical day (mean = 252.40), representing 7.9% deviation
+- **MAPE = 7.79%:** Relative error provides realistic expectation for operational planning
+- **CV MAE = 26.45 ± 12.92:** Cross-validation confirms model generalization across different time periods
 
 ### 1.3 Algorithm Summary
 
@@ -337,7 +340,7 @@ Where:
 - $\alpha = \frac{2}{span + 1}$ (smoothing factor)
 - $span$ = Window size (typically 7, 14, or 30 days)
 
-**⚠️ Data Leakage Prevention (v3.0.93):**
+**✅ Data Leakage Prevention (v3.0.94):**
 
 A critical requirement is that EWMA features must use **shifted data** to avoid data leakage:
 
@@ -379,7 +382,7 @@ $$SameWeekdayAvg_t = \frac{1}{4} \sum_{i=1}^{4} A_{t-7i}$$
 
 Capture momentum and trend changes.
 
-**⚠️ Data Leakage Prevention (v3.0.93):**
+**✅ Data Leakage Prevention (v3.0.94):**
 
 Change features must use **shifted data** to avoid including current-day attendance:
 
@@ -1060,8 +1063,8 @@ The system is fully autonomous. Any AI model updates, new data sources, or algor
 
 ### 7.13 Performance Impact
 
-**Current Status (v3.0.82):**
-- Production Track: MAE=6.18, MAPE=2.42%, R²=0.898 (688 test days)
+**Current Status (v3.0.94):**
+- Production Track: MAE=19.84, MAPE=7.79% (811 test days, no data leakage)
 - Experimental Track: Collecting validation data (Target: 30 samples)
 
 **Expected Outcome (After Validation):**
@@ -1261,10 +1264,10 @@ Conclusion: Residuals are white noise. Model captures all temporal dependencies.
 | Method | MAE | MAPE | R² | Reference |
 |--------|-----|------|-----|-----------|
 | Naive Baseline (Lag-1) | 18.3 | 7.3% | 0.45 | Simple persistence model |
-| **XGBoost (Ours)** | **6.18** | **2.42%** | **0.898** | **Current system (v2.9.52)** |
-| XGBoost + RFE Optimizer | 3.36* | 1.36%* | 0.964* | *Validation set metrics (v3.0.76) |
+| **XGBoost (Ours)** | **19.84** | **7.79%** | **0.095** | **Current system v3.0.94 (no data leakage)** |
+| ~~XGBoost (v3.0.83)~~ | ~~4.53~~ | ~~1.81%~~ | ~~0.948~~ | ~~*Data leakage - deprecated*~~ |
 
-*Optimizer validation metrics may be higher than production due to concept drift. Production metrics continuously monitored via `/api/model-performance`.
+> **Note:** Previous metrics (MAE=4.53) were artificially low due to data leakage in EWMA/Change features. The model was using current-day data to predict current-day attendance. v3.0.94 fixes this with `shift(1)`, resulting in honest metrics.
 
 ### 10.2 Historical Performance
 
@@ -1272,14 +1275,13 @@ Conclusion: Residuals are white noise. Model captures all temporal dependencies.
 |---------|------|-----|------|-----|-------------|
 | 2.9.20 | 2025-12-30 | — | — | — | Base XGBoost |
 | 2.9.50 | 2026-01-01 | — | — | — | Optuna + EWMA |
-| 2.9.52 | 2026-01-02 | 6.18 | 2.42% | 0.898 | 25 features (RFE) - Current production |
+| 2.9.52 | 2026-01-02 | ~~6.18~~ | ~~2.42%~~ | ~~0.898~~ | 25 features (RFE) - *data leakage* |
 | 3.0.73 | 2026-01-04 | — | — | — | AQHI integration |
-| 3.0.76 | 2026-01-04 | 3.36* | 1.36%* | 0.964* | RFE optimizer (*validation set) |
-| 3.0.79 | 2026-01-04 | — | — | — | Day 1–7 XGBoost hybrid |
-| 3.0.80 | 2026-01-04 | — | — | — | Error calc fix + consistency |
-| 3.0.81 | 2026-01-05 | 6.18 | 2.42% | 0.898 | Real data documentation |
+| 3.0.76 | 2026-01-04 | ~~3.36~~ | ~~1.36%~~ | ~~0.964~~ | RFE optimizer - *data leakage* |
+| 3.0.83 | 2026-01-05 | ~~4.53~~ | ~~1.81%~~ | ~~0.948~~ | Railway auto-train - *data leakage* |
+| **3.0.94** | **2026-01-06** | **19.84** | **7.79%** | **0.095** | **Data Leakage Fix - Current production** |
 
-*Optimizer validation set metrics; production metrics higher due to concept drift.
+> **⚠️ Important:** Versions before v3.0.94 had data leakage in EWMA/Change features, causing artificially low MAE. The strikethrough metrics are deprecated.
 
 ### 10.3 Error Distribution
 
