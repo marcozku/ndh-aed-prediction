@@ -672,7 +672,7 @@ $$\hat{y}_{fused} = w_{base} \cdot \hat{y}_{XGB} + w_{AI} \cdot (\hat{y}_{XGB} \
 
 | Factor | Neutral Value | Weight | Statistical Justification |
 |--------|---------------|--------|---------------------------|
-| Base (XGBoost) | - | **0.95** | XGBoost achieves MAPE=2.42%, EWMA7 dominates (86.89%), minimal adjustment needed |
+| Base (XGBoost) | - | **0.95** | XGBoost achieves MAPE=7.79% (v3.0.94), EWMA7 dominates, minimal adjustment needed |
 | Weather Factor | 1.0 | **0.05** | Weak correlations (\|r\|<0.12), weather already captured by EWMA, conservative adjustment for statistical significance |
 | AI Factor | 1.0 | **0.00** | No historical validation data available, excluded until sufficient data collected |
 
@@ -680,8 +680,8 @@ $$\hat{y}_{fused} = w_{base} \cdot \hat{y}_{XGB} + w_{AI} \cdot (\hat{y}_{XGB} \
 
 **Previous Weights (Deprecated):** $w_{base}=0.75$, $w_{AI}=0.15$, $w_{Weather}=0.10$ were arbitrary architectural decisions, not empirically validated. Replaced with statistically optimized values in v3.0.81.
 
-**Validation Data:**
-- Base Model: MAE=6.18, RMSE=8.41, MAPE=2.42%, R²=0.898 (n=688 test days)
+**Validation Data (v3.0.94 - No Data Leakage):**
+- Base Model: MAE=19.84, RMSE=25.38, MAPE=7.79% (n=811 test days)
 - Weather Correlations: Visibility r=+0.1196, Wind r=-0.1058, Rainfall r=-0.0626 (all |r|<0.12, weak)
 - AI Factor: No historical validation data (excluded from weight optimization)
 
@@ -774,7 +774,7 @@ The system generates **two parallel predictions** for every forecast:
 
 | Track | Purpose | Current Weights | Status |
 |-------|---------|-----------------|--------|
-| **Production** | Active clinical use | w_base=0.95, w_weather=0.05, w_AI=0.00 | Validated (688 test days, MAPE=2.42%) |
+| **Production** | Active clinical use | w_base=0.95, w_weather=0.05, w_AI=0.00 | Validated (811 test days, MAPE=7.79%) |
 | **Experimental** | AI factor validation | w_base=0.85, w_weather=0.05, w_AI=0.10 | Testing hypothesis |
 
 **Key Principle:**  
@@ -851,13 +851,13 @@ When actual attendance data arrives, the system automatically:
    - Win rate (% of days experimental was more accurate)
    - Improvement percentage
 
-**Example Output:**
+**Example Output (Hypothetical):**
 ```
 Optimization Date: 2026-02-15
 Samples: 45 validated predictions
-Production MAE: 6.18
-Experimental MAE: 5.85
-Improvement: +5.3% (-0.33 MAE)
+Production MAE: 19.84
+Experimental MAE: 18.50
+Improvement: +6.7% (-1.34 MAE)
 Win Rate: 62% (28/45 wins)
 T-statistic: -2.34
 P-value: 0.023
@@ -1235,20 +1235,21 @@ For $span = 7$: Half-life ≈ 3 days
 
 ## 10. Performance Evaluation
 
-### 10.1 Metrics
+### 10.1 Metrics (v3.0.94 - No Data Leakage)
 
 | Metric | Formula | Value |
 |--------|---------|-------|
-| MAE | $\frac{1}{n}\sum\|y_i - \hat{y}_i\|$ | 6.18 |
-| MAPE | $\frac{100}{n}\sum\|\frac{y_i - \hat{y}_i}{y_i}\|$ | 2.42% |
-| RMSE | $\sqrt{\frac{1}{n}\sum(y_i - \hat{y}_i)^2}$ | 8.41 |
-| R² | $1 - \frac{\sum(y_i - \hat{y}_i)^2}{\sum(y_i - \bar{y})^2}$ | 0.898 |
+| MAE | $\frac{1}{n}\sum\|y_i - \hat{y}_i\|$ | 19.84 |
+| MAPE | $\frac{100}{n}\sum\|\frac{y_i - \hat{y}_i}{y_i}\|$ | 7.79% |
+| RMSE | $\sqrt{\frac{1}{n}\sum(y_i - \hat{y}_i)^2}$ | 25.38 |
+| CV MAE | 3-Fold Walk-Forward | 26.45 ± 12.92 |
 
 **Statistical Significance Tests:**
 
 **H₀: MAE = Naive Forecast (lag-1)**  
 Naive forecast (predicting tomorrow = today) yields MAE = 18.3.  
-Conclusion: Our model significantly outperforms naive baseline.
+
+> ⚠️ **Current Status:** Model MAE (19.84) is slightly higher than naive baseline (18.3). This indicates the model requires optimization after data leakage fix. The EWMA features, while no longer leaking data, may need recalibration or the model may benefit from additional feature engineering.
 
 **H₀: Model residuals are normally distributed**  
 Conclusion: Fail to reject normality (validated using Shapiro-Wilk test on n=688 test set residuals).
@@ -1283,18 +1284,21 @@ Conclusion: Residuals are white noise. Model captures all temporal dependencies.
 
 > **⚠️ Important:** Versions before v3.0.94 had data leakage in EWMA/Change features, causing artificially low MAE. The strikethrough metrics are deprecated.
 
-### 10.3 Error Distribution
+### 10.3 Error Distribution (v3.0.94)
 
 ```
 Error Range    | Frequency | Cumulative
 ---------------+-----------+-----------
-0-5 patients   |   ~62%    |   ~62%
-5-10 patients  |   ~28%    |   ~90%
-10-15 patients |   ~7%     |   ~97%
->15 patients   |   ~3%     |   100.0%
+0-10 patients  |   ~30%    |   ~30%
+10-20 patients |   ~35%    |   ~65%
+20-30 patients |   ~20%    |   ~85%
+30-40 patients |   ~10%    |   ~95%
+>40 patients   |   ~5%     |   100.0%
 ```
 
-*Based on test set (n=688). MAE = 6.18 indicates majority of predictions within ±6 patients.*
+*Based on test set (n=811). MAE = 19.84 indicates typical prediction error of ±20 patients.*
+
+> **Note:** Error distribution reflects honest model performance after data leakage fix. Previous distribution (62% within ±5) was artificially optimistic.
 
 ---
 
@@ -1359,7 +1363,7 @@ Our final system uses:
 1. **Sliding window = 2 years:** Discard data older than 2023
 2. **Time decay within that window:** Even within 2023–2025, recent months matter more
 
-**Implementation:** Both techniques implemented in training pipeline (v3.0.76+). Current production model (v2.9.52) achieves MAE = 6.18 on test set.
+**Implementation:** Both techniques implemented in training pipeline (v3.0.76+). Current production model (v3.0.94) achieves MAE = 19.84 on test set (no data leakage).
 
 ---
 
