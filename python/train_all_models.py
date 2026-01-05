@@ -81,6 +81,16 @@ def run_training_script(script_name):
     env = os.environ.copy()
     env['PYTHONUNBUFFERED'] = '1'  # 確保子進程也不緩衝輸出
     
+    # v3.0.96: 滑動窗口訓練 (研究基礎: Gama et al., 2014 Concept Drift)
+    # COVID (2020-2021) 模式完全不同，只用近 2 年數據
+    # 設置為 0 則使用全部數據
+    if 'SLIDING_WINDOW_YEARS' not in env:
+        env['SLIDING_WINDOW_YEARS'] = '2'  # 默認使用最近 2 年數據
+    
+    # v3.0.96: 時間衰減權重 - 近期數據權重更高
+    if 'TIME_DECAY_RATE' not in env:
+        env['TIME_DECAY_RATE'] = '0.001'  # 推薦值
+    
     start_time = time.time()
     
     # 使用 Popen 實時輸出，而不是等待完成
