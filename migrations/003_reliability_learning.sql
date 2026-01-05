@@ -61,3 +61,4 @@ SELECT
 FROM reliability_history
 WHERE date >= CURRENT_DATE - INTERVAL '90 days';
 
+

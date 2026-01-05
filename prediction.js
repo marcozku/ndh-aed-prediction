@@ -10125,18 +10125,190 @@ async function loadDualTrackSection() {
     }
 }
 
+// v3.0.91: 渲染雙軌對比圖表
+function renderDualTrackChart(canvas, historyData) {
+    // 準備數據
+    const history = [...historyData].reverse(); // 按時間順序排列（複製避免修改原數據）
+    const labels = history.map(d => {
+        const date = new Date(d.date);
+        return `${date.getMonth() + 1}/${date.getDate()}`;
+    });
+    
+    const actualData = history.map(d => d.actual);
+    
+    // 檢查是否有雙軌數據
+    const hasDualTrackData = history.some(d => d.prediction_production !== null);
+    
+    // Production = 無 AI 的預測 (使用 xgboost_base 或 predicted)
+    const productionData = history.map(d => {
+        if (d.prediction_production !== null) return parseFloat(d.prediction_production);
+        if (d.xgboost_base !== null) return parseFloat(d.xgboost_base);
+        // 回退：使用 predicted 作為基準
+        return d.predicted;
+    });
+    
+    // Experimental = 含 AI 的預測 (使用 prediction_experimental 或 predicted)
+    const experimentalData = history.map(d => {
+        if (d.prediction_experimental !== null) return parseFloat(d.prediction_experimental);
+        // 回退：使用 predicted（已包含 AI 因素）
+        return d.predicted;
+    });
+    
+    console.log(`📊 雙軌圖表數據: ${history.length} 筆, 有雙軌數據: ${hasDualTrackData}`);
+    
+    // 銷毀舊圖表
+    safeDestroyChart(window.dualTrackChartInstance, 'dual-track-chart');
+    
+    const ctx = canvas.getContext('2d');
+    window.dualTrackChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: '實際值',
+                    data: actualData,
+                    borderColor: '#22c55e',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    borderWidth: 3,
+                    fill: false,
+                    tension: 0.3,
+                    pointRadius: 5,
+                    pointBackgroundColor: '#22c55e'
+                },
+                {
+                    label: 'Production (無 AI)',
+                    data: productionData,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.3,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#3b82f6',
+                    borderDash: [5, 5]
+                },
+                {
+                    label: 'Experimental (含 AI)',
+                    data: experimentalData,
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.3,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#f59e0b',
+                    borderDash: [2, 2]
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 15,
+                        font: { size: 11 }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.parsed.y} 人`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    grid: { color: 'rgba(128, 128, 128, 0.1)' },
+                    title: {
+                        display: true,
+                        text: '病人數',
+                        font: { size: 11 }
+                    }
+                },
+                x: {
+                    grid: { display: false },
+                    title: {
+                        display: true,
+                        text: '日期',
+                        font: { size: 11 }
+                    }
+                }
+            }
+        }
+    });
+    
+    // 更新標題反映數據狀態
+    const titleEl = canvas.parentElement.previousElementSibling;
+    if (titleEl && titleEl.tagName === 'H4') {
+        const statusNote = hasDualTrackData 
+            ? '' 
+            : '<span style="font-size: 0.7rem; color: var(--text-tertiary); font-weight: normal; margin-left: 8px;">(雙軌分離數據收集中)</span>';
+        titleEl.innerHTML = `📊 Production vs Experimental vs 實際 (過去 30 天)${statusNote}`;
+    }
+    
+    console.log(`✅ 雙軌對比圖表已載入 (有雙軌數據: ${hasDualTrackData})`);
+}
+
 // v3.0.87: 初始化雙軌對比圖表
 async function initDualTrackChart() {
     const canvas = document.getElementById('dual-track-chart');
     if (!canvas) return;
     
     try {
-        // 獲取準確度歷史數據
-        const url = `/api/accuracy-history?days=30&_=${Date.now()}`; // cache-bust（避免 edge 快取舊 HTML）
-        const response = await fetch(url, { cache: 'no-store' });
-        if (!response.ok) {
-            console.warn('⚠️ 無法獲取雙軌歷史數據:', response.status);
-            canvas.parentElement.innerHTML = '<div style="text-align: center; color: var(--text-tertiary); padding: 40px;">API 暫時無法連接</div>';
+        // 獲取準確度歷史數據（帶重試）
+        let response = null;
+        let retries = 3;
+        
+        while (retries > 0) {
+            try {
+                const url = `/api/accuracy-history?days=30&_=${Date.now()}`;
+                response = await fetch(url, { cache: 'no-store' });
+                if (response.ok) break;
+                console.warn(`⚠️ accuracy-history 返回 ${response.status}，重試中... (${retries - 1})`);
+            } catch (e) {
+                console.warn(`⚠️ accuracy-history 請求失敗:`, e.message);
+            }
+            retries--;
+            if (retries > 0) await new Promise(r => setTimeout(r, 1000)); // 等待 1 秒後重試
+        }
+        
+        // 如果主 API 失敗，嘗試 fallback 到 comparison API
+        if (!response || !response.ok) {
+            console.log('📊 嘗試 fallback 到 /api/comparison');
+            try {
+                const fallbackUrl = `/api/comparison?limit=30&_=${Date.now()}`;
+                const fallbackResp = await fetch(fallbackUrl, { cache: 'no-store' });
+                if (fallbackResp.ok) {
+                    const fallbackResult = await fallbackResp.json();
+                    if (fallbackResult.success && fallbackResult.data?.length > 0) {
+                        // 轉換 comparison 格式為 accuracy-history 格式
+                        const convertedHistory = fallbackResult.data.map(d => ({
+                            date: d.date,
+                            predicted: d.predicted,
+                            actual: d.actual,
+                            prediction_production: null,
+                            prediction_experimental: null,
+                            xgboost_base: null
+                        }));
+                        return renderDualTrackChart(canvas, convertedHistory);
+                    }
+                }
+            } catch (e) {
+                console.warn('⚠️ fallback comparison 也失敗:', e.message);
+            }
+            
+            canvas.parentElement.innerHTML = '<div style="text-align: center; color: var(--text-tertiary); padding: 40px;">API 暫時無法連接<br><small>請稍後重新整理</small></div>';
             return;
         }
         
@@ -10152,138 +10324,7 @@ async function initDualTrackChart() {
             return;
         }
         
-        // 準備數據
-        const history = result.history.reverse(); // 按時間順序排列
-        const labels = history.map(d => {
-            const date = new Date(d.date);
-            return `${date.getMonth() + 1}/${date.getDate()}`;
-        });
-        
-        const actualData = history.map(d => d.actual);
-        const predictedData = history.map(d => d.predicted);
-        
-        // 檢查是否有雙軌數據
-        const hasDualTrackData = history.some(d => d.prediction_production !== null);
-        
-        // Production = 無 AI 的預測 (使用 xgboost_base 或 predicted)
-        const productionData = history.map(d => {
-            if (d.prediction_production !== null) return parseFloat(d.prediction_production);
-            if (d.xgboost_base !== null) return parseFloat(d.xgboost_base);
-            // 回退：使用 predicted 作為基準
-            return d.predicted;
-        });
-        
-        // Experimental = 含 AI 的預測 (使用 prediction_experimental 或 predicted)
-        const experimentalData = history.map(d => {
-            if (d.prediction_experimental !== null) return parseFloat(d.prediction_experimental);
-            // 回退：使用 predicted（已包含 AI 因素）
-            return d.predicted;
-        });
-        
-        console.log(`📊 雙軌圖表數據: ${history.length} 筆, 有雙軌數據: ${hasDualTrackData}`);
-        
-        // 銷毀舊圖表
-        safeDestroyChart(window.dualTrackChartInstance, 'dual-track-chart');
-        
-        const ctx = canvas.getContext('2d');
-        window.dualTrackChartInstance = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: '實際值',
-                        data: actualData,
-                        borderColor: '#22c55e',
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        borderWidth: 3,
-                        fill: false,
-                        tension: 0.3,
-                        pointRadius: 5,
-                        pointBackgroundColor: '#22c55e'
-                    },
-                    {
-                        label: 'Production (無 AI)',
-                        data: productionData,
-                        borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        borderWidth: 2,
-                        fill: false,
-                        tension: 0.3,
-                        pointRadius: 3,
-                        pointBackgroundColor: '#3b82f6',
-                        borderDash: [5, 5]
-                    },
-                    {
-                        label: 'Experimental (含 AI)',
-                        data: experimentalData,
-                        borderColor: '#f59e0b',
-                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                        borderWidth: 2,
-                        fill: false,
-                        tension: 0.3,
-                        pointRadius: 3,
-                        pointBackgroundColor: '#f59e0b',
-                        borderDash: [2, 2]
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {
-                    intersect: false,
-                    mode: 'index'
-                },
-                plugins: {
-                    legend: {
-                        position: 'top',
-                        labels: {
-                            usePointStyle: true,
-                            padding: 15,
-                            font: { size: 11 }
-                        }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return `${context.dataset.label}: ${context.parsed.y} 人`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: false,
-                        grid: { color: 'rgba(128, 128, 128, 0.1)' },
-                        title: {
-                            display: true,
-                            text: '病人數',
-                            font: { size: 11 }
-                        }
-                    },
-                    x: {
-                        grid: { display: false },
-                        title: {
-                            display: true,
-                            text: '日期',
-                            font: { size: 11 }
-                        }
-                    }
-                }
-            }
-        });
-        
-        // 更新標題反映數據狀態
-        const titleEl = canvas.parentElement.previousElementSibling;
-        if (titleEl && titleEl.tagName === 'H4') {
-            const statusNote = hasDualTrackData 
-                ? '' 
-                : '<span style="font-size: 0.7rem; color: var(--text-tertiary); font-weight: normal; margin-left: 8px;">(雙軌分離數據收集中)</span>';
-            titleEl.innerHTML = `📊 Production vs Experimental vs 實際 (過去 30 天)${statusNote}`;
-        }
-        
-        console.log(`✅ 雙軌對比圖表已載入 (有雙軌數據: ${hasDualTrackData})`);
+        renderDualTrackChart(canvas, result.history);
     } catch (error) {
         console.warn('⚠️ 雙軌圖表載入失敗:', error.message);
         if (canvas && canvas.parentElement) {
