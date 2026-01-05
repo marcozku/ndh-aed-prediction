@@ -511,6 +511,31 @@
         "滑動窗口確保模型只學習近期相關模式"
       ],
       "expected_improvement": "排除 COVID 數據後，預計 MASE < 1 (優於 naive baseline)"
+    },
+    {
+      "version": "3.0.97",
+      "date": "2026-01-06",
+      "description": "3 年滑動窗口 (基於 CV 數據分析)",
+      "changes": [
+        "調整 SLIDING_WINDOW_YEARS 從 2 年改為 3 年",
+        "原因：2 年 (~730天) 可能不足學習完整季節性",
+        "3 年 (2023-2026) 完全 post-COVID + 充足數據",
+        "CV 分析：COVID 期 MAE=44.91 vs 正常期 MAE~17"
+      ],
+      "metrics": {
+        "mae": null,
+        "mape": null,
+        "r2": null,
+        "note": "等待重新訓練後更新"
+      },
+      "research": "基於 CV fold 分析的 evidence-based 決策",
+      "data_analysis": {
+        "fold_1_pre_covid": "MAE ~17",
+        "fold_2_covid": "MAE ~44.91",
+        "fold_3_post_covid": "MAE ~17",
+        "conclusion": "COVID 數據明顯拉高誤差"
+      },
+      "expected_improvement": "排除 COVID 後 MAE 應接近 17"
     }
   ],
   "references": [

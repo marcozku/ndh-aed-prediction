@@ -81,11 +81,11 @@ def run_training_script(script_name):
     env = os.environ.copy()
     env['PYTHONUNBUFFERED'] = '1'  # 確保子進程也不緩衝輸出
     
-    # v3.0.96: 滑動窗口訓練 (研究基礎: Gama et al., 2014 Concept Drift)
-    # COVID (2020-2021) 模式完全不同，只用近 2 年數據
-    # 設置為 0 則使用全部數據
+    # v3.0.97: 滑動窗口訓練 (研究基礎: Gama et al., 2014 Concept Drift)
+    # COVID (2020-2022) CV MAE=44.91 vs 正常期 MAE~17
+    # 3 年窗口 (2023-2026) = 完全 post-COVID + 足夠學習季節性
     if 'SLIDING_WINDOW_YEARS' not in env:
-        env['SLIDING_WINDOW_YEARS'] = '2'  # 默認使用最近 2 年數據
+        env['SLIDING_WINDOW_YEARS'] = '3'  # 默認使用最近 3 年數據 (post-COVID)
     
     # v3.0.96: 時間衰減權重 - 近期數據權重更高
     if 'TIME_DECAY_RATE' not in env:
