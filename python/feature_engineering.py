@@ -302,8 +302,10 @@ def create_comprehensive_features(df, ai_factors_dict=None):
     
     # ============ 指數加權移動平均 (EWMA) ============
     # 研究表明 EWMA 比簡單滾動平均更能捕捉趨勢
+    # v3.0.93 修正: 使用 shift(1) 避免 data leakage（不能用今天的值預測今天）
+    attendance_for_ewma = attendance.shift(1)  # 只用昨天及之前的數據
     for span in [7, 14, 30]:
-        new_cols[f'Attendance_EWMA{span}'] = attendance.ewm(span=span, min_periods=1).mean()
+        new_cols[f'Attendance_EWMA{span}'] = attendance_for_ewma.ewm(span=span, min_periods=1).mean()
     
     # 不填充 NaN - 讓 XGBoost 自行處理缺失值
     # XGBoost 原生支持缺失值處理，會自動學習最佳分割方向
@@ -402,9 +404,12 @@ def create_comprehensive_features(df, ai_factors_dict=None):
     df['YearMonth_Target_Mean'] = df['YearMonth_Target_Mean'].fillna(expanding_mean)
     
     # ============ 變化率 ============
-    df['Daily_Change'] = df['Attendance'].diff().fillna(0)
-    df['Weekly_Change'] = df['Attendance'].diff(7).fillna(0)
-    df['Monthly_Change'] = df['Attendance'].diff(30).fillna(0)
+    # v3.0.93 修正: 使用 shift(1) 後的數據計算變化率，避免 data leakage
+    # Daily_Change = 昨天 - 前天（而非 今天 - 昨天）
+    attendance_shifted = df['Attendance'].shift(1)
+    df['Daily_Change'] = attendance_shifted.diff().fillna(0)
+    df['Weekly_Change'] = attendance_shifted.diff(7).fillna(0)
+    df['Monthly_Change'] = attendance_shifted.diff(30).fillna(0)
     
     # 反碎片化 DataFrame
     df = df.copy()

@@ -1,5 +1,5 @@
 # NDH AED Attendance Prediction Algorithm
-## Technical Documentation v3.0.86
+## Technical Documentation v3.0.93
 
 <!--
 This document is designed to be rendered into PDF via generate-algorithm-doc-pdf.js.
@@ -12,8 +12,8 @@ HTML blocks below are intentional to achieve a clean, Apple-style, print-friendl
   <div class="cover-subtitle">Technical Documentation</div>
   <div class="cover-meta">
     <div class="cover-meta-row"><span class="k">Hospital</span><span class="v">North District Hospital • Emergency Department</span></div>
-    <div class="cover-meta-row"><span class="k">Document Version</span><span class="v">3.0.86</span></div>
-    <div class="cover-meta-row"><span class="k">Last Updated (HKT)</span><span class="v">06 Jan 2026 03:00 HKT</span></div>
+    <div class="cover-meta-row"><span class="k">Document Version</span><span class="v">3.0.93</span></div>
+    <div class="cover-meta-row"><span class="k">Last Updated (HKT)</span><span class="v">06 Jan 2026 00:30 HKT</span></div>
     <div class="cover-meta-row"><span class="k">Author</span><span class="v">Ma Tsz Kiu</span></div>
   </div>
 </div>
@@ -330,24 +330,34 @@ EWMA features capture short-to-medium term trends while down-weighting older obs
 
 **Formula:**
 
-$$EWMA_t = \alpha \cdot X_t + (1 - \alpha) \cdot EWMA_{t-1}$$
+$$EWMA_t = \alpha \cdot X_{t-1} + (1 - \alpha) \cdot EWMA_{t-1}$$
 
 Where:
-- $X_t$ = Attendance on day $t$
+- $X_{t-1}$ = Attendance on day $t-1$ (previous day, **not current day**)
 - $\alpha = \frac{2}{span + 1}$ (smoothing factor)
 - $span$ = Window size (typically 7, 14, or 30 days)
 
-**Properties:**
-- Recursive update: Only requires previous EWMA value and current observation
-- Exponential decay: Weights decline exponentially with age ($\propto (1-\alpha)^i$)
-- Half-life: $\frac{\ln(0.5)}{\ln(1-\alpha)} \approx \frac{span-1}{2}$
+**⚠️ Data Leakage Prevention (v3.0.93):**
 
-**Implementation:**
+A critical requirement is that EWMA features must use **shifted data** to avoid data leakage:
 
 ```python
-# EWMA with span of 7 days
-df['Attendance_EWMA7'] = df['Attendance'].ewm(span=7, min_periods=1).mean()
+# CORRECT: Use shift(1) to prevent data leakage
+attendance_shifted = df['Attendance'].shift(1)
+df['Attendance_EWMA7'] = attendance_shifted.ewm(span=7, min_periods=1).mean()
 ```
+
+**Why shift(1) is essential:**
+- Without shift, EWMA includes **today's attendance** (the target variable) in the feature
+- This causes artificially low training error (MAE ≈ 4.5) that doesn't generalize to production
+- With shift, EWMA only uses **yesterday and earlier**, which is available at prediction time
+- Production error more closely matches cross-validation estimates
+
+**Properties:**
+- Recursive update: Only requires previous EWMA value and previous observation
+- Exponential decay: Weights decline exponentially with age ($\propto (1-\alpha)^i$)
+- Half-life: $\frac{\ln(0.5)}{\ln(1-\alpha)} \approx \frac{span-1}{2}$
+- **No future data leakage:** Feature only uses information available at prediction time
 
 **Rationale:** Research demonstrates EWMA effectiveness for time series forecasting (Hyndman & Athanasopoulos, 2021; M4 Competition, Makridakis et al., 2020; Gardner, 2006). EWMA balances responsiveness to recent changes with noise reduction.
 
@@ -369,11 +379,24 @@ $$SameWeekdayAvg_t = \frac{1}{4} \sum_{i=1}^{4} A_{t-7i}$$
 
 Capture momentum and trend changes.
 
-| Feature | Formula | Importance |
-|---------|---------|------------|
-| Daily Change | $A_t - A_{t-1}$ | varies |
-| Weekly Change | $A_t - A_{t-7}$ | varies |
-| Monthly Change | $A_t - A_{t-30}$ | varies |
+**⚠️ Data Leakage Prevention (v3.0.93):**
+
+Change features must use **shifted data** to avoid including current-day attendance:
+
+```python
+# CORRECT: Calculate change on shifted data
+attendance_shifted = df['Attendance'].shift(1)
+df['Daily_Change'] = attendance_shifted.diff()   # Yesterday - Day before yesterday
+df['Weekly_Change'] = attendance_shifted.diff(7)  # Yesterday - 8 days ago
+```
+
+| Feature | Correct Formula | Description |
+|---------|-----------------|-------------|
+| Daily Change | $A_{t-1} - A_{t-2}$ | Change between yesterday and day before |
+| Weekly Change | $A_{t-1} - A_{t-8}$ | Change between yesterday and 8 days ago |
+| Monthly Change | $A_{t-1} - A_{t-31}$ | Change between yesterday and 31 days ago |
+
+**Why this matters:** Using $A_t - A_{t-1}$ would require knowing today's attendance to predict today's attendance—a data leakage issue that inflates training accuracy.
 
 #### 4.1.4 Rolling Statistics
 
