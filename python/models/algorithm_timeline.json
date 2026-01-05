@@ -487,6 +487,30 @@
         "interpretation": "MASE > 1 表示模型略遜於 naive baseline，但已大幅改善"
       },
       "improvement": "MAE↓2.3% (19.84→19.38), R²↑50% (9.5%→14.3%), 置信度評分從 0% 升至 60%"
+    },
+    {
+      "version": "3.0.96",
+      "date": "2026-01-06",
+      "description": "滑動窗口默認啟用 (研究基礎: Gama et al., 2014)",
+      "changes": [
+        "默認啟用 SLIDING_WINDOW_YEARS=2 (只用近 2 年數據)",
+        "默認啟用 TIME_DECAY_RATE=0.001 (近期數據權重更高)",
+        "排除 COVID 異常期 (2020-2022) 訓練數據",
+        "基於 Concept Drift 研究優化模型適應性"
+      ],
+      "metrics": {
+        "mae": null,
+        "mape": null,
+        "r2": null,
+        "note": "等待重新訓練後更新"
+      },
+      "research": "Gama et al. (2014) - A Survey on Concept Drift Adaptation, ACM Computing Surveys",
+      "rationale": [
+        "CV Fold 2 (COVID period 2019-2022) MAE=44.91 vs Fold 1,3 ~17",
+        "COVID 造成結構性斷裂，舊數據模式不再適用",
+        "滑動窗口確保模型只學習近期相關模式"
+      ],
+      "expected_improvement": "排除 COVID 數據後，預計 MASE < 1 (優於 naive baseline)"
     }
   ],
   "references": [

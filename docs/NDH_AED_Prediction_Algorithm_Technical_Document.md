@@ -1,5 +1,5 @@
 # NDH AED Attendance Prediction Algorithm
-## Technical Documentation v3.0.94
+## Technical Documentation v3.0.96
 
 <!--
 This document is designed to be rendered into PDF via generate-algorithm-doc-pdf.js.
@@ -1363,7 +1363,17 @@ Our final system uses:
 1. **Sliding window = 2 years:** Discard data older than 2023
 2. **Time decay within that window:** Even within 2023–2025, recent months matter more
 
-**Implementation:** Both techniques implemented in training pipeline (v3.0.76+). Current production model (v3.0.94) achieves MAE = 19.84 on test set (no data leakage).
+**Implementation:** Both techniques implemented in training pipeline (v3.0.76+). 
+
+> **⚠️ v3.0.96 Default Configuration (2026-01-06):**  
+> Starting from v3.0.96, sliding window (2 years) and time decay (0.001) are **enabled by default** in `train_all_models.py`. This follows research by Gama et al. (2014) showing concept drift adaptation significantly improves forecasting in non-stationary environments.
+
+**Research Basis (Gama et al., 2014):**
+- COVID-19 caused structural break in ED attendance patterns
+- Cross-validation Fold 2 (COVID period 2019-2022) had MAE = 44.91 vs Fold 1,3 ~17
+- Training only on post-COVID data improves predictions for current patterns
+
+Current production model (v3.0.96) uses `SLIDING_WINDOW_YEARS=2` and `TIME_DECAY_RATE=0.001` by default.
 
 ---
 
