@@ -1,0 +1,55 @@
+{
+  "timestamp": "2026-01-05T17:07:10.692669",
+  "experiments": [
+    {
+      "config": {
+        "name": "A: 全部數據 + 時間衰減",
+        "sliding_window": 0,
+        "time_decay": 0.001,
+        "description": "使用全部 10 年數據，近期數據權重更高"
+      },
+      "metrics": {
+        "success": false,
+        "error": "unsupported operand type(s) for +: 'NoneType' and 'NoneType'"
+      }
+    },
+    {
+      "config": {
+        "name": "B: 2 年滑動窗口",
+        "sliding_window": 2,
+        "time_decay": 0.001,
+        "description": "只用 2024-2026 數據，約 730 天"
+      },
+      "metrics": {
+        "success": false,
+        "error": "unsupported operand type(s) for +: 'NoneType' and 'NoneType'"
+      }
+    },
+    {
+      "config": {
+        "name": "C: 3 年滑動窗口",
+        "sliding_window": 3,
+        "time_decay": 0.001,
+        "description": "只用 2023-2026 數據，約 1095 天"
+      },
+      "metrics": {
+        "success": false,
+        "error": "unsupported operand type(s) for +: 'NoneType' and 'NoneType'"
+      }
+    },
+    {
+      "config": {
+        "name": "D: 4 年滑動窗口 (排除 COVID)",
+        "sliding_window": 4,
+        "time_decay": 0.001,
+        "description": "只用 2022-2026 數據，約 1460 天"
+      },
+      "metrics": {
+        "success": false,
+        "error": "unsupported operand type(s) for +: 'NoneType' and 'NoneType'"
+      }
+    }
+  ],
+  "best_config": null,
+  "best_mae": Infinity
+}

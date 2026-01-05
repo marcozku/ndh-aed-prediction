@@ -1,0 +1,16 @@
+﻿
+============================================================
+python : Traceback (most recent call last):
+位於 C:\Users\marco\AppData\Local\Temp\ps-script-502c940e-6ff2-4540-9c13-fc3f2c6456d3.ps1:7 字元:72
++ ... ; $env:SLIDING_WINDOW_YEARS="3"; python train_xgboost.py 2>&1 | Out-F ...
++                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Github\ndh-aed-prediction\python\train_xgboost.py", line 1147, in <module>
+    main()
+    ~~~~^^
+  File "C:\Github\ndh-aed-prediction\python\train_xgboost.py", line 709, in main
+    print("\U0001f3e5 NDH AED XGBoost 模型訓練系統")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'cp950' codec can't encode character '\U0001f3e5' in position 0: illegal multibyte sequence

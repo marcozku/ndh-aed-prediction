@@ -4,6 +4,17 @@ XGBoost 模型訓練腳本 v3.0.81
 新增: Optuna 超參數優化、特徵選擇優化（25特徵）、R² 指標
 v3.0.81: 訓練前自動更新動態 factors（從 Railway Database）
 """
+import sys
+import io
+
+# Fix Windows encoding for emoji/unicode output
+if sys.platform == 'win32':
+    try:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+    except:
+        pass
+
 import pandas as pd
 import numpy as np
 import xgboost as xgb
@@ -11,7 +22,6 @@ from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score as sklearn_r2_score
 import json
 import os
-import sys
 import datetime
 import time
 import subprocess
