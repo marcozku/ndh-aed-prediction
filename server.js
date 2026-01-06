@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.0.98';
+const MODEL_VERSION = '3.0.99';
 
 // ============================================
 // HKT 時間工具函數
@@ -803,21 +803,35 @@ const apiHandlers = {
             const days = parseInt(parsedUrl.query.days) || 30;
             console.log(`📊 查詢 ${days} 天的準確度歷史`);
             
+            // v3.0.99: 使用與 getComparisonData 相同的邏輯
+            // 優先使用 final_daily_predictions（平滑後的日終預測）
             const query = `
                 SELECT 
-                    dp.target_date as date,
-                    dp.predicted_count as predicted,
-                    ad.patient_count as actual,
+                    a.date::text as date,
+                    COALESCE(
+                        fdp.predicted_count,
+                        (SELECT predicted_count FROM daily_predictions 
+                         WHERE target_date = a.date 
+                         ORDER BY created_at DESC LIMIT 1)
+                    )::integer as predicted,
+                    a.patient_count::integer as actual,
                     dp.prediction_production,
                     dp.prediction_experimental,
                     dp.xgboost_base,
                     dp.ai_factor,
                     dp.weather_factor
-                FROM daily_predictions dp
-                INNER JOIN actual_data ad ON dp.target_date = ad.date
-                WHERE dp.target_date >= CURRENT_DATE - $1::interval
-                  AND dp.target_date < CURRENT_DATE
-                ORDER BY dp.target_date DESC
+                FROM actual_data a
+                LEFT JOIN final_daily_predictions fdp ON fdp.target_date = a.date
+                LEFT JOIN LATERAL (
+                    SELECT prediction_production, prediction_experimental, xgboost_base, ai_factor, weather_factor
+                    FROM daily_predictions
+                    WHERE target_date = a.date
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                ) dp ON true
+                WHERE a.date >= CURRENT_DATE - $1::interval
+                  AND a.date < CURRENT_DATE
+                ORDER BY a.date DESC
             `;
             
             const result = await db.pool.query(query, [`${days} days`]);

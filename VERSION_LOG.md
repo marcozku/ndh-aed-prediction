@@ -1,16 +1,30 @@
 # 版本更新日誌
 
+## v3.0.99 - 2026-01-06 19:35 HKT
+**🔧 修復雙軌圖表預測值不匹配問題（API 層）**
+
+### 修復
+- ✅ **修正 `/api/accuracy-history` API**：使用 `final_daily_predictions` 優先（平滑後的日終預測）
+- ✅ **與表格數據對齊**：圖表現在使用與準確度表格相同的數據來源
+- ✅ **圖表顯示邏輯**：Production/Experimental 使用平滑後的 `predicted` 值
+
+### 問題根因
+- 表格 `/api/comparison` → `getComparisonData()` → `final_daily_predictions.predicted_count` = **244**（正確）
+- 圖表 `/api/accuracy-history` → 直接使用 `daily_predictions.predicted_count` = **217**（錯誤）
+
+### 技術細節
+- 新 SQL 使用 `COALESCE(fdp.predicted_count, dp.predicted_count)` 優先取平滑值
+- `final_daily_predictions` 存儲每日平滑後的最終預測
+- `daily_predictions` 存儲每次 30 分鐘的即時預測
+
+---
+
 ## v3.0.98 - 2026-01-06 19:25 HKT
-**🔧 修復雙軌圖表預測值不匹配問題**
+**🔧 修復雙軌圖表預測值不匹配問題（前端）**
 
 ### 修復
 - ✅ **修正 Production Track 顯示邏輯**：使用平滑後的 `predicted` 值而非原始 `prediction_production`
 - ✅ **修正 Experimental Track 計算**：基於平滑預測 + AI 因子影響調整
-- ✅ **圖表數據對齊**：雙軌圖表的 Production vs Experimental 現在與準確度表格一致
-
-### 問題描述
-- 之前：圖表顯示 Production=217, Experimental=206（原始存儲值）
-- 之後：圖表顯示 Production=244, Experimental=244（平滑後的正確值）
 
 ### 技術細節
 - `prediction_production` 是即時預測存儲值

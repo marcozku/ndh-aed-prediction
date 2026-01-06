@@ -9954,10 +9954,10 @@ function initAlgorithmContent() {
         
         <!-- ==================== 版本更新 ==================== -->
         <div style="padding: 14px; background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.05)); border-radius: 10px; border-left: 4px solid #22c55e;">
-            <div style="font-size: 0.82rem; color: #22c55e; font-weight: 600; margin-bottom: 8px;">🚀 v3.0.98 更新亮點</div>
+            <div style="font-size: 0.82rem; color: #22c55e; font-weight: 600; margin-bottom: 8px;">🚀 v3.0.99 更新亮點</div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; font-size: 0.72rem; color: var(--text-secondary);">
-                <div>🔧 <strong style="color: #f59e0b;">修復雙軌圖表數據對齊</strong></div>
-                <div>📊 Production/Exp 使用平滑預測</div>
+                <div>🔧 <strong style="color: #f59e0b;">修復雙軌圖表 API 數據源</strong></div>
+                <div>📊 使用 final_daily_predictions</div>
                 <div>⏱️ <strong>3 年</strong>滑動窗口 (2023-2026)</div>
                 <div>🔬 MASE Skill Score 評分</div>
                 <div>📈 預期 MAE ~17 (↓12%)</div>
