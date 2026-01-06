@@ -58,6 +58,15 @@ import xgboost as xgb
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
+# Database
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    HAS_PSYCOPG2 = True
+except ImportError:
+    HAS_PSYCOPG2 = False
+    print("⚠️ psycopg2 not available, will use CSV files")
+
 # Set working directory
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 os.chdir(SCRIPT_DIR)
@@ -70,9 +79,45 @@ except ImportError:
     HAS_FEATURE_ENG = False
     print("⚠️ feature_engineering not available, using basic features")
 
-def load_data():
-    """Load all available attendance data"""
-    # Try to load from combined files
+def get_db_connection():
+    """連接到 Railway Production Database"""
+    if not HAS_PSYCOPG2:
+        return None
+    
+    password = os.environ.get('PGPASSWORD') or os.environ.get('DATABASE_PASSWORD') or 'nIdJPREHqkBdMgUifrazOsVlWbxsmDGq'
+    
+    return psycopg2.connect(
+        host=os.environ.get('PGHOST', 'tramway.proxy.rlwy.net'),
+        port=int(os.environ.get('PGPORT', '45703')),
+        user=os.environ.get('PGUSER', 'postgres'),
+        password=password,
+        database=os.environ.get('PGDATABASE', 'railway'),
+        sslmode='require'
+    )
+
+def load_data_from_db():
+    """Load attendance data from Railway database"""
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return None
+        
+        query = """
+            SELECT date as "Date", patient_count as "Attendance"
+            FROM actual_data
+            ORDER BY date ASC
+        """
+        df = pd.read_sql_query(query, conn)
+        conn.close()
+        
+        df['Date'] = pd.to_datetime(df['Date'])
+        return df
+    except Exception as e:
+        print(f"⚠️ Database connection failed: {e}")
+        return None
+
+def load_data_from_csv():
+    """Load all available attendance data from CSV files"""
     df1_path = os.path.join(SCRIPT_DIR, '..', 'ndh_attendance_extracted.csv')
     df2_path = os.path.join(SCRIPT_DIR, '..', 'NDH_AED_Attendance_2025-12-01_to_2025-12-21.csv')
     
@@ -89,13 +134,33 @@ def load_data():
         dfs.append(df2)
     
     if not dfs:
-        raise FileNotFoundError("No data files found!")
+        return None
     
     df = pd.concat(dfs).drop_duplicates(subset=['Date'])
     df['Date'] = pd.to_datetime(df['Date'])
     df = df.sort_values('Date').reset_index(drop=True)
     
     return df
+
+def load_data():
+    """Load attendance data (try database first, fallback to CSV)"""
+    # Try database first
+    print("   🔄 Attempting database connection...")
+    df = load_data_from_db()
+    
+    if df is not None and len(df) > 0:
+        print(f"   ✅ Loaded {len(df)} records from Railway database")
+        return df
+    
+    # Fallback to CSV
+    print("   🔄 Falling back to CSV files...")
+    df = load_data_from_csv()
+    
+    if df is not None and len(df) > 0:
+        print(f"   ✅ Loaded {len(df)} records from CSV files")
+        return df
+    
+    raise FileNotFoundError("No data available from database or CSV files!")
 
 def create_basic_features(df):
     """Create basic time-series features if feature_engineering is not available"""

@@ -1,0 +1,243 @@
+{
+  "timestamp": "2026-01-06T04:23:00.393198",
+  "total_data_points": 4052,
+  "date_range": "2014-12-01 to 2026-01-03",
+  "experiments": [
+    {
+      "name": "A: All Data (Baseline)",
+      "method": "none",
+      "description": "All data without any treatment",
+      "data_points": 4052,
+      "metrics": {
+        "mae": 17.529638290405273,
+        "rmse": 22.74963646902201,
+        "mape": 7.233769594956805,
+        "r2": 0.28613215684890747,
+        "mase": 0.6366090184305059,
+        "naive_mae": 27.5359565807327,
+        "train_size": 2949,
+        "test_size": 738,
+        "feature_count": 149
+      },
+      "elapsed": 1.0636930465698242
+    },
+    {
+      "name": "B: IQR Exclusion (Tukey)",
+      "method": "iqr",
+      "description": "Exclude values outside 1.5*IQR bounds",
+      "data_points": 4034,
+      "metrics": {
+        "mae": 17.87813949584961,
+        "rmse": 22.81273544399049,
+        "mape": 7.358634980688006,
+        "r2": 0.2834831476211548,
+        "mase": 0.6480726101803949,
+        "naive_mae": 27.58663028649386,
+        "train_size": 2935,
+        "test_size": 734,
+        "feature_count": 149
+      },
+      "elapsed": 0.9951143264770508
+    },
+    {
+      "name": "C: Z-Score Exclusion (|z|>3)",
+      "method": "zscore",
+      "description": "Exclude values with Z-score > 3",
+      "data_points": 4046,
+      "metrics": {
+        "mae": 17.871105194091797,
+        "rmse": 22.869686989720968,
+        "mape": 7.095941575069574,
+        "r2": 0.2795529365539551,
+        "mase": 0.6488645564033132,
+        "naive_mae": 27.54211956521739,
+        "train_size": 2944,
+        "test_size": 737,
+        "feature_count": 149
+      },
+      "elapsed": 0.9931697845458984
+    },
+    {
+      "name": "D: Modified Z-Score (MAD)",
+      "method": "modified_zscore",
+      "description": "Using Median Absolute Deviation, more robust",
+      "data_points": 4052,
+      "metrics": {
+        "mae": 17.529638290405273,
+        "rmse": 22.74963646902201,
+        "mape": 7.233769594956805,
+        "r2": 0.28613215684890747,
+        "mase": 0.6366090184305059,
+        "naive_mae": 27.5359565807327,
+        "train_size": 2949,
+        "test_size": 738,
+        "feature_count": 149
+      },
+      "elapsed": 1.0036697387695312
+    },
+    {
+      "name": "E: Winsorization (5-95%)",
+      "method": "winsorization",
+      "description": "Cap extremes at 5th and 95th percentile",
+      "data_points": 4052,
+      "metrics": {
+        "mae": 17.278017044067383,
+        "rmse": 21.92376400672695,
+        "mape": 7.014397992921355,
+        "r2": 0.316714346408844,
+        "mase": 0.633527291615804,
+        "naive_mae": 27.272727272727273,
+        "train_size": 2949,
+        "test_size": 738,
+        "feature_count": 149
+      },
+      "elapsed": 0.9603157043457031
+    },
+    {
+      "name": "F: COVID Period Exclusion",
+      "method": "covid_exclusion",
+      "description": "Exclude Feb 2020 - Jun 2022",
+      "data_points": 3171,
+      "metrics": {
+        "mae": 16.521411895751953,
+        "rmse": 21.420669043142873,
+        "mape": 6.763655454436723,
+        "r2": 0.3342880606651306,
+        "mase": 0.608529451350328,
+        "naive_mae": 27.149732620320854,
+        "train_size": 2244,
+        "test_size": 562,
+        "feature_count": 149
+      },
+      "elapsed": 0.8849387168884277
+    },
+    {
+      "name": "G: All Data + Time Decay (1yr)",
+      "method": "time_decay_1yr",
+      "description": "Exponential decay, half-life 1 year",
+      "data_points": 4052,
+      "metrics": {
+        "mae": 17.79694938659668,
+        "rmse": 23.052222631705575,
+        "mape": 7.192250571782102,
+        "r2": 0.2670159935951233,
+        "mase": 0.6463167289800804,
+        "naive_mae": 27.5359565807327,
+        "train_size": 2949,
+        "test_size": 738,
+        "feature_count": 149
+      },
+      "elapsed": 0.8911545276641846
+    },
+    {
+      "name": "H: All Data + Time Decay (2yr)",
+      "method": "time_decay_2yr",
+      "description": "Exponential decay, half-life 2 years",
+      "data_points": 4052,
+      "metrics": {
+        "mae": 17.40602684020996,
+        "rmse": 22.420257999184578,
+        "mape": 7.086312139719888,
+        "r2": 0.30665385723114014,
+        "mase": 0.6321199261473707,
+        "naive_mae": 27.5359565807327,
+        "train_size": 2949,
+        "test_size": 738,
+        "feature_count": 149
+      },
+      "elapsed": 0.9341473579406738
+    },
+    {
+      "name": "I: Sliding Window 2 Years",
+      "method": "sliding_2yr",
+      "description": "Only use most recent 2 years",
+      "data_points": 731,
+      "metrics": {
+        "mae": 24.232959747314453,
+        "rmse": 29.78095180366187,
+        "mape": 10.616156045514401,
+        "r2": -0.15853559970855713,
+        "mase": 0.8692904479380614,
+        "naive_mae": 27.876712328767123,
+        "train_size": 292,
+        "test_size": 74,
+        "feature_count": 149
+      },
+      "elapsed": 0.40622878074645996
+    },
+    {
+      "name": "J: Sliding Window 3 Years",
+      "method": "sliding_3yr",
+      "description": "Only use most recent 3 years",
+      "data_points": 1096,
+      "metrics": {
+        "mae": 19.657690048217773,
+        "rmse": 26.001295791027417,
+        "mape": 8.068602055221923,
+        "r2": 0.2058888077735901,
+        "mase": 0.6737142598684965,
+        "naive_mae": 29.17808219178082,
+        "train_size": 584,
+        "test_size": 147,
+        "feature_count": 149
+      },
+      "elapsed": 0.4833378791809082
+    },
+    {
+      "name": "K: Sliding Window 4 Years",
+      "method": "sliding_4yr",
+      "description": "Only use most recent 4 years",
+      "data_points": 1461,
+      "metrics": {
+        "mae": 18.118310928344727,
+        "rmse": 24.20701076376816,
+        "mape": 7.567203714893473,
+        "r2": 0.2516956925392151,
+        "mase": 0.6335478354315017,
+        "naive_mae": 28.598173515981735,
+        "train_size": 876,
+        "test_size": 220,
+        "feature_count": 149
+      },
+      "elapsed": 0.5790243148803711
+    },
+    {
+      "name": "L: IQR + Time Decay",
+      "method": "iqr_time_decay",
+      "description": "IQR exclusion + time decay weighting",
+      "data_points": 4034,
+      "metrics": {
+        "mae": 18.210098266601562,
+        "rmse": 23.440416485207766,
+        "mape": 7.561385052800953,
+        "r2": 0.24351149797439575,
+        "mase": 0.6601059309341252,
+        "naive_mae": 27.58663028649386,
+        "train_size": 2935,
+        "test_size": 734,
+        "feature_count": 149
+      },
+      "elapsed": 0.8950612545013428
+    },
+    {
+      "name": "M: COVID Exclusion + Time Decay",
+      "method": "covid_time_decay",
+      "description": "Exclude COVID + time decay weighting",
+      "data_points": 3171,
+      "metrics": {
+        "mae": 16.7327823638916,
+        "rmse": 21.98208651801614,
+        "mape": 6.879280479824821,
+        "r2": 0.29893529415130615,
+        "mase": 0.616314812300124,
+        "naive_mae": 27.149732620320854,
+        "train_size": 2244,
+        "test_size": 562,
+        "feature_count": 149
+      },
+      "elapsed": 0.6998777389526367
+    }
+  ],
+  "best_method": "F: COVID Period Exclusion",
+  "best_mae": 16.521411895751953
+}
