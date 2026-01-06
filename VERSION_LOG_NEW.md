@@ -1,53 +1,51 @@
 # VERSION_LOG.md
 
-## v3.0.99 - 2026-01-07 01:40 HKT
+## v3.0.99 - 2026-01-07 01:50 HKT
 
-### 🌐 Major Update: 真正的網絡新聞搜尋功能
+### 🌐 Major Update: 真正的網絡新聞搜尋功能 + 事實核查
 
-**AI 現在可以搜尋互聯網獲取實時新聞和突發事件！**
+**AI 現在可以搜尋互聯網獲取實時新聞和突發事件！所有新聞都經過事實核查！**
 
 #### 新功能：
+| 功能 | 說明 | 配額 |
+|------|------|------|
+| **Google News RSS** | 搜尋 Google 新聞 | ♾️ 無限制 |
+| **NewsData.io API** | 新聞數據 API | 200/天 |
+| **GNews API** | 全球新聞 API | 100/天 |
+| **官方 RSS 源** | 政府新聞公報、衛生防護中心 | ♾️ 無限制 |
+
+#### 事實核查機制：
 | 功能 | 說明 |
 |------|------|
-| **Google News RSS** | 搜尋 Google 新聞，自動處理重定向 |
-| **官方 RSS 源** | 香港政府新聞公報、衛生防護中心 |
-| **NewsData.io** | 可選，需設置 `NEWSDATA_API_KEY` |
-| **GNews API** | 可選，需設置 `GNEWS_API_KEY` |
+| **可信來源識別** | 20+ 官方/主流媒體來源白名單 |
+| **來源標記** | 🏛️ 官方 / ✅ 主流媒體 / ⚠️ 待核實 |
+| **評分系統** | 自動評估新聞可信度 (0-100) |
+| **優先排序** | 可信來源優先顯示 |
 
-#### 技術改進：
-1. ✅ **新增 `modules/web-search.js`**
-   - 真正的 HTTP 請求搜尋互聯網新聞
-   - 支持 302 重定向處理
-   - RSS XML 解析器
-   - 文章去重和相關性排序
+#### 可信來源列表：
+- **官方**：info.gov.hk, ha.org.hk, chp.gov.hk, dh.gov.hk
+- **主流媒體**：rthk.hk, scmp.com, hk01.com, mingpao.com, singtao.com, on.cc 等 20+ 來源
 
-2. ✅ **更新 `ai-service.js`**
-   - 整合網絡搜尋模組
-   - AI 分析時包含實時新聞
-   - 回退機制：搜尋失敗時使用 AI 模擬
+#### 測試結果 (2026-01-07):
+| 指標 | 數值 |
+|------|------|
+| 總找到 | 280 篇 |
+| 去重後 | 249 篇 |
+| 最近7天 | 178 篇 |
+| 可信來源 | 178 篇 (100%) |
 
-3. ✅ **搜尋結果範例**
-   - 「公院急症室加價後人潮不減 北區候診11小時」
-   - 「急症室輪候時間｜全港18區醫院等候時間實時更新」
-   - 「質疑醫管局以加價賀年有否必要」
+#### 實時新聞範例：
+- 「公立醫院新收費｜醫管局指元旦急症室求診人數減少」
+- 「公立醫院急症室新收費運作暢順」
+- 「公立醫院加價後人流未減 廣華輪候時間8小時 北區醫院達11小時」
 
-#### API 配置（可選）：
-```bash
-# 環境變量設置（可選，不設置也能運作）
-NEWSDATA_API_KEY=your_key  # 200 請求/天
-GNEWS_API_KEY=your_key     # 100 請求/天
-```
-
-#### 搜尋來源優先級：
-1. Google News RSS（免費無限制）✅ 已啟用
-2. 香港政府新聞公報 RSS ✅ 已啟用
-3. 衛生防護中心 RSS ✅ 已啟用
-4. NewsData.io（需 API Key）
-5. GNews API（需 API Key）
+#### API 金鑰配置：
+- GNews API: `f415214818826f8d6cafe177f1227263` (100/天)
+- NewsData.io: `pub_bf59cab04cf04d6ca98136fc944fed85` (200/天)
 
 #### Files Changed:
-- `modules/web-search.js` (NEW)
-- `ai-service.js` (UPDATED)
+- `modules/web-search.js` (NEW - 網絡搜尋 + 事實核查)
+- `ai-service.js` (UPDATED - 整合網絡搜尋)
 - `package.json` (UPDATED)
 - `VERSION_LOG_NEW.md` (UPDATED)
 

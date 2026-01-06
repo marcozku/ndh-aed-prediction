@@ -10,21 +10,22 @@ const http = require('http');
 // 新聞搜尋 API 配置
 // ============================================
 
-// 多個免費新聞 API（按優先級排序）
+// 多個新聞 API（按優先級排序）
 const NEWS_APIS = {
-    // NewsData.io - 免費 200 請求/天
+    // NewsData.io - 200 請求/天，每請求 10 篇文章
     newsdata: {
         name: 'NewsData.io',
         enabled: true,
-        apiKey: process.env.NEWSDATA_API_KEY || null,
+        apiKey: process.env.NEWSDATA_API_KEY || 'pub_bf59cab04cf04d6ca98136fc944fed85',
         baseUrl: 'https://newsdata.io/api/1/news',
-        freeQuota: 200
+        freeQuota: 200,
+        articlesPerCredit: 10
     },
-    // GNews API - 免費 100 請求/天
+    // GNews API - 100 請求/天
     gnews: {
         name: 'GNews',
         enabled: true,
-        apiKey: process.env.GNEWS_API_KEY || null,
+        apiKey: process.env.GNEWS_API_KEY || 'f415214818826f8d6cafe177f1227263',
         baseUrl: 'https://gnews.io/api/v4/search',
         freeQuota: 100
     },
@@ -36,6 +37,75 @@ const NEWS_APIS = {
         freeQuota: Infinity
     }
 };
+
+// 可信新聞來源列表（用於事實核查）
+const TRUSTED_NEWS_SOURCES = [
+    // 官方來源
+    'info.gov.hk',           // 香港政府新聞公報
+    'ha.org.hk',             // 醫院管理局
+    'chp.gov.hk',            // 衛生防護中心
+    'dh.gov.hk',             // 衛生署
+    'news.gov.hk',           // 政府新聞網
+    
+    // 主流媒體
+    'rthk.hk',               // 香港電台
+    'scmp.com',              // 南華早報
+    'hk01.com',              // 香港01
+    'mingpao.com',           // 明報
+    'singtao.com',           // 星島日報
+    'orientaldaily.on.cc',   // 東方日報
+    'on.cc',                 // 東網
+    'hkej.com',              // 信報
+    'thestandard.com.hk',    // 英文虎報
+    'bastillepost.com',      // 巴士的報
+    'am730.com.hk',          // AM730
+    'hket.com',              // 經濟日報
+    'wenweipo.com',          // 文匯報
+    'takungpao.com.hk',      // 大公報
+    
+    // 通訊社
+    'hkcna.hk',              // 中國新聞社香港分社
+    'reuters.com',           // 路透社
+    'afp.com',               // 法新社
+];
+
+// API 使用計數器（每日重置）
+let apiUsageCounters = {
+    newsdata: { date: null, count: 0 },
+    gnews: { date: null, count: 0 }
+};
+
+// 獲取今天的日期字符串
+function getTodayStr() {
+    return new Date().toISOString().split('T')[0];
+}
+
+// 檢查並重置 API 計數器
+function checkAndResetApiCounters() {
+    const today = getTodayStr();
+    Object.keys(apiUsageCounters).forEach(api => {
+        if (apiUsageCounters[api].date !== today) {
+            apiUsageCounters[api].date = today;
+            apiUsageCounters[api].count = 0;
+        }
+    });
+}
+
+// 記錄 API 使用
+function recordApiUsage(api) {
+    checkAndResetApiCounters();
+    if (apiUsageCounters[api]) {
+        apiUsageCounters[api].count++;
+    }
+}
+
+// 檢查 API 是否還有配額
+function hasApiQuota(api) {
+    checkAndResetApiCounters();
+    const config = NEWS_APIS[api];
+    if (!config) return false;
+    return apiUsageCounters[api].count < config.freeQuota;
+}
 
 // 搜尋關鍵詞配置
 const SEARCH_KEYWORDS = {
@@ -226,23 +296,39 @@ function parseRssXml(xmlString) {
 /**
  * 使用 NewsData.io API 搜尋新聞
  */
-async function searchNewsDataIo(query, apiKey) {
-    if (!apiKey) {
+async function searchNewsDataIo(query, apiKey = null) {
+    const key = apiKey || NEWS_APIS.newsdata.apiKey;
+    
+    if (!key) {
         console.log('⏭️ [NewsData.io] 未設置 API Key，跳過');
+        return [];
+    }
+
+    // 檢查配額
+    if (!hasApiQuota('newsdata')) {
+        console.log('⏭️ [NewsData.io] 今日配額已用完，跳過');
         return [];
     }
 
     try {
         const encodedQuery = encodeURIComponent(query);
-        const url = `https://newsdata.io/api/1/news?apikey=${apiKey}&q=${encodedQuery}&language=zh&country=hk`;
+        // 搜尋香港相關新聞
+        const url = `https://newsdata.io/api/1/news?apikey=${key}&q=${encodedQuery}&language=zh&country=hk`;
         
         console.log(`🔍 [NewsData.io] 搜尋: ${query}`);
+        recordApiUsage('newsdata');
         
-        const response = await httpGet(url);
+        const response = await httpGet(url, { timeout: 15000 });
+        
+        if (response.statusCode !== 200) {
+            console.warn(`⚠️ [NewsData.io] HTTP ${response.statusCode}`);
+            return [];
+        }
+        
         const data = JSON.parse(response.data);
 
         if (data.status !== 'success') {
-            console.warn(`⚠️ [NewsData.io] API 錯誤:`, data.message);
+            console.warn(`⚠️ [NewsData.io] API 錯誤:`, data.message || data.results?.message);
             return [];
         }
 
@@ -251,9 +337,12 @@ async function searchNewsDataIo(query, apiKey) {
             url: article.link,
             publishedAt: article.pubDate,
             description: article.description || '',
-            newsSource: article.source_id,
+            newsSource: article.source_id || article.source_name,
             source: 'NewsData.io',
-            searchQuery: query
+            searchQuery: query,
+            // 事實核查標記
+            isTrustedSource: isTrustedNewsSource(article.link || ''),
+            category: article.category ? article.category.join(', ') : ''
         }));
 
         console.log(`✅ [NewsData.io] 找到 ${articles.length} 篇文章`);
@@ -271,34 +360,69 @@ async function searchNewsDataIo(query, apiKey) {
 /**
  * 使用 GNews API 搜尋新聞
  */
-async function searchGNews(query, apiKey) {
-    if (!apiKey) {
+async function searchGNews(query, apiKey = null) {
+    const key = apiKey || NEWS_APIS.gnews.apiKey;
+    
+    if (!key) {
         console.log('⏭️ [GNews] 未設置 API Key，跳過');
         return [];
     }
 
+    // 檢查配額
+    if (!hasApiQuota('gnews')) {
+        console.log('⏭️ [GNews] 今日配額已用完，跳過');
+        return [];
+    }
+
     try {
-        const encodedQuery = encodeURIComponent(query);
-        const url = `https://gnews.io/api/v4/search?q=${encodedQuery}&lang=zh&country=hk&token=${apiKey}`;
+        // 記錄 API 使用（每次搜尋只計一次）
+        recordApiUsage('gnews');
+        
+        // 嘗試多種查詢方式
+        const queries = [
+            query,
+            query + ' Hong Kong',
+            query.replace(/[\u4e00-\u9fa5]/g, '') || 'Hong Kong hospital' // 如果全中文，用英文查詢
+        ];
         
         console.log(`🔍 [GNews] 搜尋: ${query}`);
         
-        const response = await httpGet(url);
-        const data = JSON.parse(response.data);
-
-        if (data.errors) {
-            console.warn(`⚠️ [GNews] API 錯誤:`, data.errors);
+        let allArticles = [];
+        for (const q of queries) {
+            if (!q.trim()) continue;
+            const encodedQuery = encodeURIComponent(q.trim());
+            const url = `https://gnews.io/api/v4/search?q=${encodedQuery}&max=10&sortby=publishedAt&token=${key}`;
+            
+            try {
+                const response = await httpGet(url, { timeout: 10000 });
+                if (response.statusCode === 200) {
+                    const data = JSON.parse(response.data);
+                    if (data.articles && data.articles.length > 0) {
+                        allArticles = data.articles;
+                        break; // 找到結果就停止
+                    }
+                }
+            } catch (e) {
+                continue;
+            }
+        }
+        
+        if (allArticles.length === 0) {
+            console.log(`⚠️ [GNews] 未找到相關文章`);
             return [];
         }
 
-        const articles = (data.articles || []).map(article => ({
+        const articles = allArticles.map(article => ({
             title: article.title,
             url: article.url,
             publishedAt: article.publishedAt,
             description: article.description || '',
             newsSource: article.source?.name || 'Unknown',
+            sourceUrl: article.source?.url || '',
             source: 'GNews',
-            searchQuery: query
+            searchQuery: query,
+            isTrustedSource: isTrustedNewsSource(article.url || article.source?.url || ''),
+            image: article.image || null
         }));
 
         console.log(`✅ [GNews] 找到 ${articles.length} 篇文章`);
@@ -307,6 +431,64 @@ async function searchGNews(query, apiKey) {
         console.error(`❌ [GNews] 搜尋失敗:`, error.message);
         return [];
     }
+}
+
+/**
+ * 檢查新聞來源是否可信
+ */
+function isTrustedNewsSource(url) {
+    if (!url) return false;
+    const lowerUrl = url.toLowerCase();
+    return TRUSTED_NEWS_SOURCES.some(source => lowerUrl.includes(source.toLowerCase()));
+}
+
+/**
+ * 對文章進行事實核查評分
+ */
+function factCheckArticle(article) {
+    let score = 0;
+    let flags = [];
+    
+    // 1. 來源可信度
+    if (article.isTrustedSource) {
+        score += 30;
+        flags.push('✅ 可信來源');
+    } else {
+        flags.push('⚠️ 非主流來源');
+    }
+    
+    // 2. 有明確發布時間
+    if (article.publishedAt) {
+        score += 20;
+        // 檢查是否是最近的新聞
+        const pubDate = new Date(article.publishedAt);
+        const daysDiff = (Date.now() - pubDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysDiff <= 7) {
+            score += 10;
+            flags.push('✅ 最近7天發布');
+        }
+    } else {
+        flags.push('⚠️ 無發布時間');
+    }
+    
+    // 3. 有完整描述
+    if (article.description && article.description.length > 50) {
+        score += 20;
+    }
+    
+    // 4. 有有效 URL
+    if (article.url && (article.url.startsWith('http://') || article.url.startsWith('https://'))) {
+        score += 20;
+        flags.push('✅ 有來源連結');
+    }
+    
+    return {
+        score,
+        maxScore: 100,
+        percentage: score,
+        flags,
+        isReliable: score >= 50
+    };
 }
 
 // ============================================
@@ -361,7 +543,7 @@ async function fetchOfficialRssFeeds() {
 
 /**
  * 執行綜合新聞搜尋
- * 同時使用多個來源搜尋相關新聞
+ * 同時使用多個來源搜尋相關新聞，並進行事實核查
  */
 async function searchAllNewsSourcesWise(queries) {
     console.log('🌐 開始網絡新聞搜尋...');
@@ -373,51 +555,72 @@ async function searchAllNewsSourcesWise(queries) {
         queries: queries,
         sources: [],
         articles: [],
-        errors: []
+        trustedArticles: [],
+        errors: [],
+        apiUsage: {}
     };
 
     // 1. Google News RSS 搜尋（免費無限制，最可靠）
     for (const query of queries) {
         try {
             const articles = await searchGoogleNewsRss(query);
+            // 標記來源可信度
+            articles.forEach(a => {
+                a.isTrustedSource = isTrustedNewsSource(a.url || '');
+            });
             allArticles.push(...articles);
-            searchResults.sources.push('Google News RSS');
+            if (articles.length > 0) {
+                searchResults.sources.push('Google News RSS');
+            }
         } catch (error) {
             searchResults.errors.push({ source: 'Google News RSS', error: error.message });
         }
     }
 
-    // 2. 嘗試 NewsData.io（如果有 API Key）
-    if (NEWS_APIS.newsdata.apiKey) {
-        for (const query of queries.slice(0, 2)) { // 限制查詢數量以節省配額
+    // 2. 使用 GNews API（100 請求/天）- 只用 2 個查詢
+    if (NEWS_APIS.gnews.apiKey && hasApiQuota('gnews')) {
+        const gnewsQueries = queries.slice(0, 2);
+        for (const query of gnewsQueries) {
             try {
-                const articles = await searchNewsDataIo(query, NEWS_APIS.newsdata.apiKey);
+                const articles = await searchGNews(query);
                 allArticles.push(...articles);
-                searchResults.sources.push('NewsData.io');
-            } catch (error) {
-                searchResults.errors.push({ source: 'NewsData.io', error: error.message });
-            }
-        }
-    }
-
-    // 3. 嘗試 GNews（如果有 API Key）
-    if (NEWS_APIS.gnews.apiKey) {
-        for (const query of queries.slice(0, 2)) {
-            try {
-                const articles = await searchGNews(query, NEWS_APIS.gnews.apiKey);
-                allArticles.push(...articles);
-                searchResults.sources.push('GNews');
+                if (articles.length > 0) {
+                    searchResults.sources.push('GNews');
+                }
             } catch (error) {
                 searchResults.errors.push({ source: 'GNews', error: error.message });
             }
         }
     }
 
-    // 4. 獲取官方 RSS 源
+    // 3. 使用 NewsData.io API（200 請求/天）- 只用 2 個查詢
+    if (NEWS_APIS.newsdata.apiKey && hasApiQuota('newsdata')) {
+        const newsdataQueries = queries.slice(0, 2);
+        for (const query of newsdataQueries) {
+            try {
+                const articles = await searchNewsDataIo(query);
+                allArticles.push(...articles);
+                if (articles.length > 0) {
+                    searchResults.sources.push('NewsData.io');
+                }
+            } catch (error) {
+                searchResults.errors.push({ source: 'NewsData.io', error: error.message });
+            }
+        }
+    }
+
+    // 4. 獲取官方 RSS 源（最可信）
     try {
         const officialArticles = await fetchOfficialRssFeeds();
+        // 官方來源全部標記為可信
+        officialArticles.forEach(a => {
+            a.isTrustedSource = true;
+            a.isOfficial = true;
+        });
         allArticles.push(...officialArticles);
-        searchResults.sources.push('Official RSS');
+        if (officialArticles.length > 0) {
+            searchResults.sources.push('Official RSS');
+        }
     } catch (error) {
         searchResults.errors.push({ source: 'Official RSS', error: error.message });
     }
@@ -428,15 +631,33 @@ async function searchAllNewsSourcesWise(queries) {
     // 過濾最近 7 天的新聞
     const recentArticles = filterRecentArticles(uniqueArticles, 7);
     
+    // 對每篇文章進行事實核查評分
+    recentArticles.forEach(article => {
+        article.factCheck = factCheckArticle(article);
+    });
+    
     // 按相關性和時間排序
     const sortedArticles = sortArticlesByRelevance(recentArticles, queries);
+    
+    // 分離可信和不可信文章
+    const trustedArticles = sortedArticles.filter(a => a.factCheck?.isReliable || a.isTrustedSource);
+    const untrustedArticles = sortedArticles.filter(a => !a.factCheck?.isReliable && !a.isTrustedSource);
 
-    searchResults.articles = sortedArticles.slice(0, 50); // 最多返回 50 篇
+    // 優先返回可信來源的文章
+    const finalArticles = [...trustedArticles, ...untrustedArticles].slice(0, 50);
+
+    searchResults.articles = finalArticles;
+    searchResults.trustedArticles = trustedArticles.slice(0, 30);
     searchResults.totalFound = allArticles.length;
     searchResults.uniqueCount = uniqueArticles.length;
     searchResults.recentCount = recentArticles.length;
+    searchResults.trustedCount = trustedArticles.length;
+    searchResults.apiUsage = {
+        gnews: apiUsageCounters.gnews,
+        newsdata: apiUsageCounters.newsdata
+    };
     
-    console.log(`✅ 網絡搜尋完成: 總共 ${allArticles.length} 篇 → 去重後 ${uniqueArticles.length} 篇 → 最近7天 ${recentArticles.length} 篇`);
+    console.log(`✅ 網絡搜尋完成: 總共 ${allArticles.length} 篇 → 去重後 ${uniqueArticles.length} 篇 → 最近7天 ${recentArticles.length} 篇 → 可信來源 ${trustedArticles.length} 篇`);
     
     return searchResults;
 }
@@ -589,33 +810,56 @@ async function searchHealthPolicyNews() {
 
 /**
  * 將搜尋結果格式化為 AI 可分析的文本
+ * 優先顯示可信來源的新聞
  */
 function formatSearchResultsForAI(searchResults) {
     if (!searchResults || !searchResults.articles || searchResults.articles.length === 0) {
         return `**網絡搜尋結果**：未找到相關新聞。\n搜尋時間：${new Date().toISOString()}`;
     }
 
-    let formatted = `**🌐 網絡新聞搜尋結果**\n`;
+    let formatted = `**🌐 網絡新聞搜尋結果（已事實核查）**\n`;
     formatted += `搜尋時間：${searchResults.timestamp}\n`;
     formatted += `搜尋來源：${[...new Set(searchResults.sources)].join(', ')}\n`;
-    formatted += `找到文章：${searchResults.articles.length} 篇（最近 7 天）\n\n`;
+    formatted += `找到文章：${searchResults.articles.length} 篇（最近 7 天）\n`;
+    formatted += `可信來源：${searchResults.trustedCount || 0} 篇\n\n`;
     
-    formatted += `**📰 相關新聞列表：**\n\n`;
+    // 先顯示可信來源的新聞
+    const trustedArticles = searchResults.articles.filter(a => a.isTrustedSource || a.isOfficial);
+    const otherArticles = searchResults.articles.filter(a => !a.isTrustedSource && !a.isOfficial);
     
-    searchResults.articles.slice(0, 20).forEach((article, index) => {
-        formatted += `${index + 1}. **${article.title}**\n`;
-        formatted += `   - 來源：${article.newsSource || article.source}\n`;
-        if (article.publishedAt) {
-            formatted += `   - 發布時間：${article.publishedAt}\n`;
-        }
-        if (article.description) {
-            formatted += `   - 摘要：${article.description.substring(0, 200)}...\n`;
-        }
-        if (article.url) {
-            formatted += `   - 連結：${article.url}\n`;
-        }
-        formatted += '\n';
-    });
+    if (trustedArticles.length > 0) {
+        formatted += `**✅ 可信來源新聞（官方/主流媒體）：**\n\n`;
+        trustedArticles.slice(0, 15).forEach((article, index) => {
+            const trustBadge = article.isOfficial ? '🏛️ 官方' : '✅ 主流媒體';
+            formatted += `${index + 1}. **${article.title}** [${trustBadge}]\n`;
+            formatted += `   - 來源：${article.newsSource || article.source}\n`;
+            if (article.publishedAt) {
+                formatted += `   - 發布時間：${article.publishedAt}\n`;
+            }
+            if (article.description) {
+                formatted += `   - 摘要：${article.description.substring(0, 200)}...\n`;
+            }
+            if (article.url) {
+                formatted += `   - 連結：${article.url}\n`;
+            }
+            formatted += '\n';
+        });
+    }
+    
+    if (otherArticles.length > 0) {
+        formatted += `\n**📰 其他新聞來源（請謹慎核實）：**\n\n`;
+        otherArticles.slice(0, 10).forEach((article, index) => {
+            formatted += `${index + 1}. **${article.title}** [⚠️ 待核實]\n`;
+            formatted += `   - 來源：${article.newsSource || article.source}\n`;
+            if (article.publishedAt) {
+                formatted += `   - 發布時間：${article.publishedAt}\n`;
+            }
+            if (article.url) {
+                formatted += `   - 連結：${article.url}\n`;
+            }
+            formatted += '\n';
+        });
+    }
 
     if (searchResults.errors && searchResults.errors.length > 0) {
         formatted += `\n**⚠️ 搜尋錯誤：**\n`;
@@ -623,6 +867,11 @@ function formatSearchResultsForAI(searchResults) {
             formatted += `- ${err.source}: ${err.error}\n`;
         });
     }
+    
+    formatted += `\n**📊 事實核查說明：**\n`;
+    formatted += `- ✅ 可信來源：官方網站（政府、醫管局）和主流媒體\n`;
+    formatted += `- ⚠️ 待核實：其他來源，請交叉驗證後再引用\n`;
+    formatted += `- 分析時請優先參考可信來源的資訊\n`;
 
     return formatted;
 }
@@ -644,11 +893,19 @@ module.exports = {
     searchEmergencyNews,
     searchHealthPolicyNews,
     
+    // 事實核查
+    isTrustedNewsSource,
+    factCheckArticle,
+    
     // 工具函數
     formatSearchResultsForAI,
     
     // 配置
     NEWS_APIS,
     SEARCH_KEYWORDS,
-    OFFICIAL_RSS_FEEDS
+    OFFICIAL_RSS_FEEDS,
+    TRUSTED_NEWS_SOURCES,
+    
+    // API 使用統計
+    getApiUsage: () => apiUsageCounters
 };
