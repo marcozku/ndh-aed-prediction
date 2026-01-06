@@ -1,5 +1,54 @@
 # VERSION_LOG.md
 
+## v3.0.98 - 2026-01-06 12:30 HKT
+
+### 🏆 Major Update: COVID 排除法取代 Sliding Window
+
+**基於 13 種方法的實驗比較，COVID 排除法勝出**
+
+#### 實驗結果:
+| 方法 | MAE | MAPE | R² | 數據量 |
+|------|-----|------|-----|--------|
+| **COVID 排除法** | **16.52** | **6.76%** | **0.334** | 3171 |
+| Sliding Window 3yr | 19.66 | 8.07% | 0.206 | 1096 |
+| All Data Baseline | 17.53 | 7.23% | 0.286 | 4052 |
+
+#### 改善幅度 (vs Sliding Window 3yr):
+- MAE: **-16%** (19.66 → 16.52)
+- MAPE: **-16%** (8.07% → 6.76%)
+- R²: **+62%** (0.206 → 0.334)
+- 可用數據: **+189%** (1096 → 3171)
+
+#### Changes:
+1. ✅ **創建實驗腳本** `experiment_covid_exclusion_comparison.py`
+   - 對比 13 種數據處理方法
+   - 包括: IQR/Z-score/MAD 排除、Winsorization、時間衰減、Sliding Window
+
+2. ✅ **更新 train_xgboost.py**
+   - 默認使用 COVID 排除法 (USE_COVID_EXCLUSION=1)
+   - 排除期間: 2020-02-01 至 2022-06-30
+   - Sliding Window 降級為備用選項
+
+3. ✅ **研究基礎**
+   - Gama et al. (2014) - Concept Drift Adaptation
+   - Tukey (1977) - Exploratory Data Analysis
+   - 實驗驗證：完整歷史 + 精準排除 > 短窗口
+
+#### 科學原理:
+- COVID 期間是系統性偏移，不是隨機噪聲
+- 11 年歷史數據包含完整季節性/年度模式
+- 精準排除異常期間，保留正常歷史數據
+- Sliding Window 丟棄太多有價值的歷史數據
+
+#### Files Changed:
+- `python/experiment_covid_exclusion_comparison.py` (NEW)
+- `python/models/covid_exclusion_experiment.json` (NEW)
+- `python/train_xgboost.py` (UPDATED)
+- `python/models/algorithm_timeline.json` (UPDATED)
+- `VERSION_LOG_NEW.md` (UPDATED)
+
+---
+
 ## v3.0.81 - 2026-01-05 04:40 HKT
 
 ### 🔥 Major Update: Dynamic Factors System

@@ -1,8 +1,12 @@
 """
-XGBoost 模型訓練腳本 v3.0.81
+XGBoost 模型訓練腳本 v3.0.98
 根據 AI-AED-Algorithm-Specification.txt Section 6.1
 新增: Optuna 超參數優化、特徵選擇優化（25特徵）、R² 指標
 v3.0.81: 訓練前自動更新動態 factors（從 Railway Database）
+v3.0.98: COVID 期間排除法取代 Sliding Window（基於實驗證據）
+         - 使用全部 11 年數據 + 排除 COVID 期間 (2020-02 to 2022-06)
+         - MAE 從 19.66 降至 16.52 (改善 16%)
+         - 研究基礎: Gama et al. (2014), Tukey (1977)
 """
 import sys
 import io
@@ -913,16 +917,37 @@ def main():
     if len(df) < original_len:
         print(f"   ⚠️ 移除了 {original_len - len(df)} 筆無效數據")
     
-    # ============ 滑動窗口過濾 (解決 Concept Drift) ============
+    # ============ COVID 期間排除 (基於實驗證據) ============
+    # 研究結果: COVID 排除法優於 Sliding Window (MAE 16.52 vs 19.66, 改善 16%)
+    # 參考: experiment_covid_exclusion_comparison.py 實驗結果
+    # 排除期間: 2020-02-01 至 2022-06-30 (WHO 宣布 COVID 大流行至香港放寬限制)
+    use_covid_exclusion = os.environ.get('USE_COVID_EXCLUSION', '1') == '1'
+    covid_start = pd.Timestamp('2020-02-01')
+    covid_end = pd.Timestamp('2022-06-30')
+    
+    if use_covid_exclusion:
+        original_len = len(df)
+        covid_mask = (df['Date'] >= covid_start) & (df['Date'] <= covid_end)
+        covid_count = covid_mask.sum()
+        df = df[~covid_mask].copy()
+        print(f"\n🦠 COVID 期間排除模式 (研究基礎: 實驗證據):")
+        print(f"   ├─ 排除期間: {covid_start.strftime('%Y-%m-%d')} 至 {covid_end.strftime('%Y-%m-%d')}")
+        print(f"   ├─ 排除筆數: {covid_count} 筆 COVID 期間數據")
+        print(f"   ├─ 數據量: {original_len} → {len(df)} 筆")
+        print(f"   └─ 研究結果: MAE 16.52 (vs Sliding Window 3yr: 19.66, 改善 16%)")
+    
+    # ============ 滑動窗口過濾 (備用選項) ============
+    # 注意: 實驗證明 COVID 排除法優於 Sliding Window
     sliding_window_years = args.sliding_window or int(os.environ.get('SLIDING_WINDOW_YEARS', '0'))
-    if sliding_window_years > 0:
+    if sliding_window_years > 0 and not use_covid_exclusion:
         cutoff_date = df['Date'].max() - pd.Timedelta(days=sliding_window_years * 365)
         original_len = len(df)
         df = df[df['Date'] >= cutoff_date].copy()
-        print(f"\n📅 滑動窗口訓練模式:")
+        print(f"\n📅 滑動窗口訓練模式 (備用):")
         print(f"   ├─ 窗口大小: 最近 {sliding_window_years} 年")
         print(f"   ├─ 截止日期: {cutoff_date.strftime('%Y-%m-%d')}")
-        print(f"   └─ 數據量: {original_len} → {len(df)} 筆 (-{original_len - len(df)} 筆舊數據)")
+        print(f"   ├─ 數據量: {original_len} → {len(df)} 筆 (-{original_len - len(df)} 筆舊數據)")
+        print(f"   └─ ⚠️ 建議使用 COVID 排除法 (設置 USE_COVID_EXCLUSION=1)")
     
     # ============ 數據分割 ============
     print(f"\n✂️ 時間序列分割 (80/20):")

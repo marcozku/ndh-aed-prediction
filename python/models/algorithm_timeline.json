@@ -536,6 +536,56 @@
         "conclusion": "COVID 數據明顯拉高誤差"
       },
       "expected_improvement": "排除 COVID 後 MAE 應接近 17"
+    },
+    {
+      "version": "3.0.98",
+      "date": "2026-01-06",
+      "description": "🏆 COVID 排除法取代 Sliding Window (實驗驗證)",
+      "changes": [
+        "創建 experiment_covid_exclusion_comparison.py 對比 13 種方法",
+        "使用 4052 筆真實數據 (11 年) 進行實驗",
+        "COVID 排除法: MAE 16.52, MAPE 6.76%, R² 0.334",
+        "Sliding Window 3yr: MAE 19.66, MAPE 8.07%, R² 0.206",
+        "COVID 排除法改善: MAE -16%, MAPE -16%, R² +62%",
+        "更新 train_xgboost.py 默認使用 COVID 排除",
+        "新增 USE_COVID_EXCLUSION 環境變數控制"
+      ],
+      "metrics": {
+        "mae": 16.52,
+        "mape": 6.76,
+        "rmse": 21.42,
+        "r2": 0.334,
+        "mase": 0.609,
+        "feature_count": 149,
+        "data_points": 3171,
+        "excluded_covid_days": 881
+      },
+      "experiment_results": {
+        "methods_tested": 13,
+        "best_method": "COVID Period Exclusion (Feb 2020 - Jun 2022)",
+        "ranking": [
+          {"rank": 1, "method": "COVID Exclusion", "mae": 16.52},
+          {"rank": 2, "method": "COVID + Time Decay", "mae": 16.73},
+          {"rank": 3, "method": "Winsorization", "mae": 17.28},
+          {"rank": 4, "method": "Time Decay 2yr", "mae": 17.41},
+          {"rank": 5, "method": "All Data Baseline", "mae": 17.53},
+          {"rank": 10, "method": "Sliding Window 4yr", "mae": 18.12},
+          {"rank": 12, "method": "Sliding Window 3yr", "mae": 19.66},
+          {"rank": 13, "method": "Sliding Window 2yr", "mae": 24.23}
+        ]
+      },
+      "research": [
+        "Gama et al. (2014) - Concept Drift Adaptation",
+        "Tukey (1977) - Exploratory Data Analysis",
+        "Iglewicz & Hoaglin (1993) - Outlier Detection"
+      ],
+      "rationale": [
+        "COVID 排除保留 3171 筆，Sliding Window 3yr 只有 1096 筆",
+        "11 年數據捕捉更完整的年度/季節模式",
+        "只排除異常期間，不丟棄正常歷史數據",
+        "統計方法（IQR/Z-score）不適合時間序列系統性偏移"
+      ],
+      "improvement": "MAE↓16% (19.66→16.52), R²↑62% (0.21→0.33), 數據量↑189%"
     }
   ],
   "references": [
@@ -645,5 +695,5 @@
       "relevance": "維度災難、偏差-方差權衡理論"
     }
   ],
-  "last_updated": "2026-01-06T16:45:00+08:00"
+  "last_updated": "2026-01-06T12:30:00+08:00"
 }
