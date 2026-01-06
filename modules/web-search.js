@@ -21,11 +21,11 @@ const NEWS_APIS = {
         freeQuota: 200,
         articlesPerCredit: 10
     },
-    // GNews API - 100 請求/天
+    // GNews API - 已停用（對中文/香港新聞支援較差）
     gnews: {
         name: 'GNews',
-        enabled: true,
-        apiKey: process.env.GNEWS_API_KEY || 'f415214818826f8d6cafe177f1227263',
+        enabled: false,  // 停用：中文查詢返回結果很少
+        apiKey: process.env.GNEWS_API_KEY || null,
         baseUrl: 'https://gnews.io/api/v4/search',
         freeQuota: 100
     },
@@ -577,21 +577,8 @@ async function searchAllNewsSourcesWise(queries) {
         }
     }
 
-    // 2. 使用 GNews API（100 請求/天）- 只用 2 個查詢
-    if (NEWS_APIS.gnews.apiKey && hasApiQuota('gnews')) {
-        const gnewsQueries = queries.slice(0, 2);
-        for (const query of gnewsQueries) {
-            try {
-                const articles = await searchGNews(query);
-                allArticles.push(...articles);
-                if (articles.length > 0) {
-                    searchResults.sources.push('GNews');
-                }
-            } catch (error) {
-                searchResults.errors.push({ source: 'GNews', error: error.message });
-            }
-        }
-    }
+    // 2. GNews API 已停用（對中文/香港新聞支援較差）
+    // if (NEWS_APIS.gnews.enabled && NEWS_APIS.gnews.apiKey && hasApiQuota('gnews')) { ... }
 
     // 3. 使用 NewsData.io API（200 請求/天）- 只用 2 個查詢
     if (NEWS_APIS.newsdata.apiKey && hasApiQuota('newsdata')) {

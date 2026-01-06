@@ -11,8 +11,9 @@
 |------|------|------|
 | **Google News RSS** | 搜尋 Google 新聞 | ♾️ 無限制 |
 | **NewsData.io API** | 新聞數據 API | 200/天 |
-| **GNews API** | 全球新聞 API | 100/天 |
 | **官方 RSS 源** | 政府新聞公報、衛生防護中心 | ♾️ 無限制 |
+
+> 注：GNews API 已停用（對中文/香港新聞支援較差）
 
 #### 事實核查機制：
 | 功能 | 說明 |
@@ -40,8 +41,7 @@
 - 「公立醫院加價後人流未減 廣華輪候時間8小時 北區醫院達11小時」
 
 #### API 金鑰配置：
-- GNews API: `f415214818826f8d6cafe177f1227263` (100/天)
-- NewsData.io: `pub_bf59cab04cf04d6ca98136fc944fed85` (200/天)
+- NewsData.io: `pub_bf59cab04cf04d6ca98136fc944fed85` (200/天，10篇/請求)
 
 #### Files Changed:
 - `modules/web-search.js` (NEW - 網絡搜尋 + 事實核查)
