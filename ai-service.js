@@ -1,11 +1,25 @@
 /**
  * AI 服務模組
  * 支持多種 AI 模型，用於搜索和分析可能影響北區醫院病人數量的因素
+ * 
+ * v3.0.99: 新增真正的網絡新聞搜尋功能
+ * - 整合 Google News RSS（免費無限制）
+ * - 支援 NewsData.io 和 GNews API（需設置環境變量）
+ * - 自動搜尋香港政府新聞公報和衛生防護中心 RSS
  */
 
 const https = require('https');
 const http = require('http');
 let chineseConv = null;
+
+// 載入網絡搜尋模組
+let webSearch = null;
+try {
+    webSearch = require('./modules/web-search.js');
+    console.log('✅ 網絡搜尋模組已載入');
+} catch (e) {
+    console.warn('⚠️ 網絡搜尋模組載入失敗，將使用 AI 模擬搜尋:', e.message);
+}
 
 // 嘗試載入 chinese-conv（如果已安裝）
 try {
@@ -666,29 +680,60 @@ ${facts}
 }
 
 /**
- * 搜索相關新聞和政策（使用 web search）
+ * 搜索相關新聞和政策（使用真正的網絡搜尋）
+ * 
+ * 功能更新：
+ * - 使用 Google News RSS 進行真正的互聯網搜尋
+ * - 支援 NewsData.io 和 GNews API（如有 API Key）
+ * - 自動獲取香港政府新聞公報和衛生防護中心 RSS
  */
 async function searchNewsAndPolicies() {
     const today = getHKDateStr();
     const searchQueries = [
-        `香港 北區醫院 急症室 政策 ${today}`,
-        `醫院管理局 急症室 政策 公告 ${today}`,
-        `衛生署 急症室 政策 ${today}`,
-        `北區醫院 急症室 服務調整 ${today}`,
-        `香港 急症室 收費 政策 ${today}`
+        '香港 北區醫院 急症室',
+        '醫院管理局 急症室 政策',
+        '衛生署 急症室',
+        '香港 急症室 收費',
+        '醫管局 公告'
     ];
     
-    const searchResults = [];
+    console.log('🌐 開始真正的網絡新聞搜尋...');
     
-    // 注意：這裡使用 AI 來模擬搜索結果，因為實際的 web search API 需要額外配置
-    // 在實際部署時，可以整合 Google News API、Bing News API 或其他新聞 API
-    console.log('🔍 準備搜索新聞和政策資訊...');
+    // 如果網絡搜尋模組可用，執行真正的搜尋
+    if (webSearch) {
+        try {
+            console.log('🔍 使用網絡搜尋模組搜尋新聞...');
+            
+            // 執行綜合新聞搜尋
+            const searchResults = await webSearch.searchAllNewsSourcesWise(searchQueries);
+            
+            // 格式化搜尋結果供 AI 分析
+            const formattedResults = webSearch.formatSearchResultsForAI(searchResults);
+            
+            console.log(`✅ 網絡搜尋完成，找到 ${searchResults.articles?.length || 0} 篇相關新聞`);
+            
+            return {
+                queries: searchQueries,
+                sources: POLICY_MONITORING_SOURCES,
+                date: today,
+                realSearchResults: searchResults,
+                formattedNews: formattedResults,
+                isRealSearch: true
+            };
+        } catch (error) {
+            console.error('❌ 網絡搜尋失敗，回退到 AI 模擬搜尋:', error.message);
+            // 繼續使用 AI 模擬搜尋
+        }
+    } else {
+        console.log('⚠️ 網絡搜尋模組未載入，使用 AI 模擬搜尋');
+    }
     
-    // 返回搜索查詢，讓 AI 基於這些查詢來分析
+    // 回退：返回搜索查詢，讓 AI 基於這些查詢來分析
     return {
         queries: searchQueries,
         sources: POLICY_MONITORING_SOURCES,
-        date: today
+        date: today,
+        isRealSearch: false
     };
 }
 
@@ -752,8 +797,12 @@ async function searchRelevantNewsAndEvents() {
 3. **新聞和媒體報導**（⚠️ 重要 - 必須重點檢查）：
    - 關於北區醫院急症室的新聞
    - 醫療政策相關新聞報導
-   - 請基於以下搜索查詢來分析：
-     ${newsSearchData.queries.map((q, i) => `${i + 1}. ${q}`).join('\n     ')}
+${newsSearchData.isRealSearch && newsSearchData.formattedNews ? 
+`**🌐 以下是從互聯網實時搜尋到的新聞（請仔細分析這些真實新聞）：**
+
+${newsSearchData.formattedNews}` 
+: `   - 請基於以下搜索查詢來分析：
+     ${newsSearchData.queries.map((q, i) => (i + 1) + '. ' + q).join('\n     ')}`}
 
 4. **突發公共衛生事件**（僅限突發事件，不包括季節性流感）：
    - 新型傳染病爆發（非季節性流感）
@@ -1158,10 +1207,14 @@ module.exports = {
     callAI,
     searchRelevantNewsAndEvents,
     analyzeDateRangeFactors,
+    searchNewsAndPolicies,
     getUsageStats,
     getAvailableModel,
     getCurrentModel,
     getModelTier,
-    MODEL_CONFIG
+    MODEL_CONFIG,
+    // 網絡搜尋模組（如已載入）
+    webSearch: webSearch,
+    isWebSearchEnabled: !!webSearch
 };
 

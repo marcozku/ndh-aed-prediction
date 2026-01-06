@@ -1,5 +1,58 @@
 # VERSION_LOG.md
 
+## v3.0.99 - 2026-01-07 01:40 HKT
+
+### 🌐 Major Update: 真正的網絡新聞搜尋功能
+
+**AI 現在可以搜尋互聯網獲取實時新聞和突發事件！**
+
+#### 新功能：
+| 功能 | 說明 |
+|------|------|
+| **Google News RSS** | 搜尋 Google 新聞，自動處理重定向 |
+| **官方 RSS 源** | 香港政府新聞公報、衛生防護中心 |
+| **NewsData.io** | 可選，需設置 `NEWSDATA_API_KEY` |
+| **GNews API** | 可選，需設置 `GNEWS_API_KEY` |
+
+#### 技術改進：
+1. ✅ **新增 `modules/web-search.js`**
+   - 真正的 HTTP 請求搜尋互聯網新聞
+   - 支持 302 重定向處理
+   - RSS XML 解析器
+   - 文章去重和相關性排序
+
+2. ✅ **更新 `ai-service.js`**
+   - 整合網絡搜尋模組
+   - AI 分析時包含實時新聞
+   - 回退機制：搜尋失敗時使用 AI 模擬
+
+3. ✅ **搜尋結果範例**
+   - 「公院急症室加價後人潮不減 北區候診11小時」
+   - 「急症室輪候時間｜全港18區醫院等候時間實時更新」
+   - 「質疑醫管局以加價賀年有否必要」
+
+#### API 配置（可選）：
+```bash
+# 環境變量設置（可選，不設置也能運作）
+NEWSDATA_API_KEY=your_key  # 200 請求/天
+GNEWS_API_KEY=your_key     # 100 請求/天
+```
+
+#### 搜尋來源優先級：
+1. Google News RSS（免費無限制）✅ 已啟用
+2. 香港政府新聞公報 RSS ✅ 已啟用
+3. 衛生防護中心 RSS ✅ 已啟用
+4. NewsData.io（需 API Key）
+5. GNews API（需 API Key）
+
+#### Files Changed:
+- `modules/web-search.js` (NEW)
+- `ai-service.js` (UPDATED)
+- `package.json` (UPDATED)
+- `VERSION_LOG_NEW.md` (UPDATED)
+
+---
+
 ## v3.0.98 - 2026-01-06 20:35 HKT
 
 ### 🏆 Major Update: COVID 排除法取代 Sliding Window
