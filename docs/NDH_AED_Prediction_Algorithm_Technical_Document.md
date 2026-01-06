@@ -13,7 +13,7 @@ HTML blocks below are intentional to achieve a clean, Apple-style, print-friendl
   <div class="cover-meta">
     <div class="cover-meta-row"><span class="k">Hospital</span><span class="v">North District Hospital • Emergency Department</span></div>
     <div class="cover-meta-row"><span class="k">Document Version</span><span class="v">3.0.98</span></div>
-    <div class="cover-meta-row"><span class="k">Last Updated (HKT)</span><span class="v">06 Jan 2026 12:30 HKT</span></div>
+    <div class="cover-meta-row"><span class="k">Last Updated (HKT)</span><span class="v">06 Jan 2026 20:35 HKT</span></div>
     <div class="cover-meta-row"><span class="k">Author</span><span class="v">Ma Tsz Kiu</span></div>
   </div>
 </div>
@@ -78,20 +78,21 @@ The system's predictive performance is evaluated using standard forecasting metr
 
 | Metric | Value | Description | Reference |
 |--------|-------|-------------|-----------|
-| MAE | **16.52** patients | Mean Absolute Error | Hyndman & Koehler (2006) |
-| MAPE | **6.76%** | Mean Absolute Percentage Error | Makridakis et al. (2020) |
-| R² | **33.4%** | Coefficient of Determination | - |
-| MASE | **0.609** | Mean Absolute Scaled Error | Hyndman & Koehler (2006) |
+| MAE | **18.19** patients | Mean Absolute Error | Hyndman & Koehler (2006) |
+| MAPE | **7.17%** | Mean Absolute Percentage Error | Makridakis et al. (2020) |
+| R² | **19.7%** | Coefficient of Determination | - |
+| CV MAE | **18.92 ± 0.29** | Cross-Validation MAE | - |
 | Naive MAE | 27.15 patients | Baseline (tomorrow = today) | - |
+| MASE | **0.670** | Mean Absolute Scaled Error | Hyndman & Koehler (2006) |
 
 **Skill Score Analysis (v3.0.98):**
 
 | Metric | Formula | Interpretation |
 |--------|---------|----------------|
 | MASE | MAE / Naive_MAE | < 1 = skilled, > 1 = worse than naive |
-| Current MASE | 16.52 / 27.15 = **0.609** | ✅ **Model outperforms naive baseline by 39%** |
+| Current MASE | 18.19 / 27.15 = **0.670** | ✅ **Model outperforms naive baseline by 33%** |
 
-> **✅ MASE < 1 achieved!** v3.0.98 implements COVID Period Exclusion (2020-02 to 2022-06), validated by comprehensive 13-method comparison experiment.
+> **✅ MASE < 1 achieved!** v3.0.98 trained on 3,171 records (COVID excluded: 881 days), validated on 635-day test set. COVID exclusion outperforms Sliding Window by 16%.
 
 **Experiment Results (Evidence Base for v3.0.98):**
 

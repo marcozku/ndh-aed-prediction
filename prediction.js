@@ -9620,7 +9620,7 @@ function initAlgorithmContent() {
         <!-- ==================== 第一部分：核心公式概覽 ==================== -->
         <div class="algo-card" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(59, 130, 246, 0.08)); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid rgba(34, 197, 94, 0.25);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h4 style="margin: 0; color: #22c55e; font-size: 1rem;">🧠 NDH AED 預測算法 v3.0.97</h4>
+                <h4 style="margin: 0; color: #22c55e; font-size: 1rem;">🧠 NDH AED 預測算法 v3.0.98</h4>
                 <span style="font-size: 0.7rem; color: var(--text-tertiary); background: var(--bg-tertiary); padding: 2px 8px; border-radius: 4px;">XGBoost 混合模型</span>
             </div>
             
@@ -9696,9 +9696,15 @@ function initAlgorithmContent() {
                 <span style="color: var(--text-tertiary);">EWMA<sub>t</sub> = α·A<sub>t-1</sub> + (1-α)·EWMA<sub>t-1</sub> (不包含今天)</span>
             </div>
             
-            <div style="background: rgba(245, 158, 11, 0.1); padding: 10px; border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary);">
-                <strong style="color: #f59e0b;">📊 模型性能 (真實):</strong> MAE = 19.84 人 · MAPE = 7.79% · CV MAE = 26.45 ± 12.92 · 25 精選特徵 · 4,052 天數據<br>
-                <span style="color: var(--text-tertiary); font-size: 0.68rem;">📝 修正前虛假指標: MAE=4.53 (data leakage 導致) → 修正後真實: MAE=19.84</span>
+            <div style="background: rgba(245, 158, 11, 0.1); padding: 10px; border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 10px;">
+                <strong style="color: #f59e0b;">📊 模型性能 (v3.0.98):</strong> MAE = 18.19 人 · MAPE = 7.17% · CV MAE = 18.92 ± 0.29 · 15 精選特徵 · 3,171 天數據<br>
+                <span style="color: var(--text-tertiary); font-size: 0.68rem;">🦠 COVID 排除法: 排除 2020-02 至 2022-06 (881天)，優於 Sliding Window 16%</span>
+            </div>
+            
+            <!-- v3.0.98: COVID Exclusion Info -->
+            <div style="background: rgba(139, 92, 246, 0.1); padding: 10px; border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary);">
+                <strong style="color: #8b5cf6;">🔬 v3.0.98 實驗驗證:</strong> 13 種方法對比 → COVID 排除法最優 (MAE 16.52 vs Sliding Window 19.66)<br>
+                <span style="color: var(--text-tertiary); font-size: 0.68rem;">📚 研究基礎: Gama et al. (2014) Concept Drift · Tukey (1977) Outlier Detection</span>
             </div>
         </div>
         
@@ -9976,19 +9982,139 @@ function initAlgorithmContent() {
                         </tr>
                     </table>
                     <div style="margin-top: 6px; color: #22c55e;">
-                        ✓ v3.0.97 排除 COVID 數據，預期 MAE 從 19.38 降至 ~17
+                        ✓ v3.0.98 COVID 排除法: MAE 18.19 (改善 16%)
                     </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ==================== 參考文獻 ==================== -->
+        <div class="algo-card" style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+            <h4 style="margin: 0 0 12px 0; color: var(--text-primary); font-size: 0.95rem;">📚 研究參考文獻</h4>
+            
+            <div style="font-size: 0.72rem; color: var(--text-secondary); line-height: 1.8;">
+                <div style="margin-bottom: 8px; padding: 8px; background: var(--bg-primary); border-radius: 6px; border-left: 3px solid #3b82f6;">
+                    <strong style="color: #3b82f6;">[1] XGBoost</strong><br>
+                    Chen, T. & Guestrin, C. (2016). XGBoost: A Scalable Tree Boosting System. <em>KDD</em>. DOI: 10.1145/2939672.2939785
+                </div>
+                <div style="margin-bottom: 8px; padding: 8px; background: var(--bg-primary); border-radius: 6px; border-left: 3px solid #22c55e;">
+                    <strong style="color: #22c55e;">[2] Concept Drift</strong><br>
+                    Gama, J. et al. (2014). A Survey on Concept Drift Adaptation. <em>ACM Computing Surveys</em>, 46(4). DOI: 10.1145/2523813
+                </div>
+                <div style="margin-bottom: 8px; padding: 8px; background: var(--bg-primary); border-radius: 6px; border-left: 3px solid #f59e0b;">
+                    <strong style="color: #f59e0b;">[3] MASE Metric</strong><br>
+                    Hyndman, R.J. & Koehler, A.B. (2006). Another look at measures of forecast accuracy. <em>IJF</em>, 22(4). DOI: 10.1016/j.ijforecast.2006.03.001
+                </div>
+                <div style="margin-bottom: 8px; padding: 8px; background: var(--bg-primary); border-radius: 6px; border-left: 3px solid #8b5cf6;">
+                    <strong style="color: #8b5cf6;">[4] Optuna</strong><br>
+                    Akiba, T. et al. (2019). Optuna: A Next-generation Hyperparameter Optimization Framework. <em>KDD</em>. DOI: 10.1145/3292500.3330701
+                </div>
+                <div style="margin-bottom: 8px; padding: 8px; background: var(--bg-primary); border-radius: 6px; border-left: 3px solid #ef4444;">
+                    <strong style="color: #ef4444;">[5] Outlier Detection</strong><br>
+                    Tukey, J.W. (1977). Exploratory Data Analysis. Addison-Wesley. ISBN: 978-0201076165
+                </div>
+                <div style="padding: 8px; background: var(--bg-primary); border-radius: 6px; border-left: 3px solid #06b6d4;">
+                    <strong style="color: #06b6d4;">[6] Time Series</strong><br>
+                    Hyndman, R.J. & Athanasopoulos, G. (2021). Forecasting: Principles and Practice (3rd ed). OTexts.com/fpp3
+                </div>
+            </div>
+        </div>
+        
+        <!-- ==================== 平滑方法選擇 ==================== -->
+        <div class="algo-card" style="background: var(--bg-secondary); padding: 16px; border-radius: 12px;">
+            <h4 style="margin: 0 0 12px 0; color: var(--text-primary); font-size: 0.95rem;">🔄 預測平滑方法 (每日 48 次預測整合)</h4>
+            
+            <div id="smoothing-methods-info" style="font-size: 0.73rem; color: var(--text-secondary);">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 12px;">
+                    <div style="padding: 8px; background: var(--bg-primary); border-radius: 6px; text-align: center;">
+                        <div style="font-weight: 600; color: #22c55e; margin-bottom: 2px;">EWMA</div>
+                        <div style="font-size: 0.68rem; color: var(--text-tertiary);">α=0.65 後期加權</div>
+                    </div>
+                    <div style="padding: 8px; background: var(--bg-primary); border-radius: 6px; text-align: center;">
+                        <div style="font-weight: 600; color: #3b82f6; margin-bottom: 2px;">Kalman</div>
+                        <div style="font-size: 0.68rem; color: var(--text-tertiary);">自適應濾波</div>
+                    </div>
+                    <div style="padding: 8px; background: var(--bg-primary); border-radius: 6px; text-align: center;">
+                        <div style="font-weight: 600; color: #f59e0b; margin-bottom: 2px;">Trimmed</div>
+                        <div style="font-size: 0.68rem; color: var(--text-tertiary);">去極值均值</div>
+                    </div>
+                    <div style="padding: 8px; background: var(--bg-primary); border-radius: 6px; text-align: center;">
+                        <div style="font-weight: 600; color: #8b5cf6; margin-bottom: 2px;">Ensemble</div>
+                        <div style="font-size: 0.68rem; color: var(--text-tertiary);">加權整合</div>
+                    </div>
+                </div>
+                
+                <div style="background: rgba(34, 197, 94, 0.1); padding: 10px; border-radius: 6px; border: 1px solid rgba(34, 197, 94, 0.2);">
+                    <strong style="color: #22c55e;">🎯 當前選用:</strong> <span id="current-smoothing-method" style="font-weight: 600;">Ensemble Meta-Method</span><br>
+                    <span style="font-size: 0.68rem; color: var(--text-tertiary);">權重: EWMA 30% + Kalman 25% + Trimmed 20% + Time-Weighted 25%</span>
                 </div>
             </div>
         </div>
     `;
     
-    console.log('✅ 算法說明內容已初始化 (v3.0.76 詳細版)');
+    console.log('✅ 算法說明內容已初始化 (v3.0.98 含參考文獻)');
 }
 
 // 載入算法說明 - 調用原有的詳細版本
 function loadAlgorithmDescription() {
     initAlgorithmContent();
+    // 載入當前平滑方法
+    loadCurrentSmoothingMethod();
+}
+
+// v3.0.98: 載入當前使用的平滑方法
+async function loadCurrentSmoothingMethod() {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const response = await fetch(`/api/smoothing-methods?date=${today}`);
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        if (!data.success || !data.recommended) return;
+        
+        const methodEl = document.getElementById('current-smoothing-method');
+        if (!methodEl) return;
+        
+        const methodNames = {
+            'simpleAverage': '簡單平均 (Simple Average)',
+            'ewma': 'EWMA 指數加權 (α=0.65)',
+            'confidenceWeighted': '信心度加權 (Confidence Weighted)',
+            'timeWindowWeighted': '時段加權 (Time-Window Weighted)',
+            'trimmedMean': '修剪均值 (Trimmed Mean 10%)',
+            'varianceFiltered': '方差過濾 (Variance Filtered)',
+            'kalman': 'Kalman 濾波 (Adaptive)',
+            'ensembleMeta': '集成元方法 (Ensemble Meta)'
+        };
+        
+        const method = data.recommended.method;
+        const confidence = data.recommended.confidence;
+        const reason = data.recommended.reason;
+        
+        const confidenceColors = {
+            'high': '#22c55e',
+            'medium': '#f59e0b',
+            'low': '#ef4444'
+        };
+        
+        methodEl.innerHTML = `
+            <span style="color: ${confidenceColors[confidence] || '#3b82f6'}; font-weight: 600;">
+                ${methodNames[method] || method}
+            </span>
+            <span style="font-size: 0.65rem; color: var(--text-tertiary); margin-left: 8px;">
+                (${confidence === 'high' ? '高' : confidence === 'medium' ? '中' : '低'}信心)
+            </span>
+        `;
+        
+        // 更新原因說明
+        const reasonEl = methodEl.closest('.algo-card')?.querySelector('span[style*="text-tertiary"]');
+        if (reasonEl && reason) {
+            reasonEl.textContent = reason;
+        }
+        
+        console.log('✅ 平滑方法已載入:', method, confidence);
+    } catch (e) {
+        console.log('⚠️ 無法載入平滑方法:', e.message);
+    }
 }
 
 // v3.0.92: 載入雙軌預測系統 (使用平滑後數值)

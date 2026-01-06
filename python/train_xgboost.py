@@ -118,18 +118,29 @@ def load_data_from_db():
         from dotenv import load_dotenv
         load_dotenv()
         
+        # 使用環境變數或 Railway 默認值
+        password = os.getenv('PGPASSWORD') or os.getenv('DATABASE_PASSWORD') or 'nIdJPREHqkBdMgUifrazOsVlWbxsmDGq'
+        host = os.getenv('PGHOST') or 'tramway.proxy.rlwy.net'
+        port = int(os.getenv('PGPORT') or '45703')
+        user = os.getenv('PGUSER') or 'postgres'
+        database = os.getenv('PGDATABASE') or 'railway'
+        
+        print(f"   📡 連接資料庫: {host}:{port}/{database}")
+        
         conn = psycopg2.connect(
-            host=os.getenv('PGHOST') or os.getenv('DATABASE_URL', '').split('@')[1].split('/')[0] if '@' in os.getenv('DATABASE_URL', '') else None,
-            database=os.getenv('PGDATABASE') or os.getenv('DATABASE_URL', '').split('/')[-1] if '/' in os.getenv('DATABASE_URL', '') else None,
-            user=os.getenv('PGUSER') or os.getenv('DATABASE_URL', '').split('://')[1].split(':')[0] if '://' in os.getenv('DATABASE_URL', '') else None,
-            password=os.getenv('PGPASSWORD') or os.getenv('DATABASE_URL', '').split('@')[0].split(':')[-1] if '@' in os.getenv('DATABASE_URL', '') else None,
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            database=database,
+            sslmode='require'
         )
         
-        # 使用 SQLAlchemy 創建連接以避免警告
+        # 使用 SQLAlchemy 創建連接（直接使用已知的連接參數）
         from sqlalchemy import create_engine
-        # 從 psycopg2 連接獲取連接字符串
-        dsn = conn.get_dsn_parameters()
-        connection_string = f"postgresql://{dsn.get('user')}:{dsn.get('password', '')}@{dsn.get('host')}:{dsn.get('port', 5432)}/{dsn.get('dbname')}"
+        from urllib.parse import quote_plus
+        # 使用 quote_plus 確保密碼中的特殊字符被正確編碼
+        connection_string = f"postgresql://{user}:{quote_plus(password)}@{host}:{port}/{database}?sslmode=require"
         engine = create_engine(connection_string)
         
         query = """

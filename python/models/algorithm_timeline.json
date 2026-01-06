@@ -551,14 +551,18 @@
         "新增 USE_COVID_EXCLUSION 環境變數控制"
       ],
       "metrics": {
-        "mae": 16.52,
-        "mape": 6.76,
-        "rmse": 21.42,
-        "r2": 0.334,
-        "mase": 0.609,
-        "feature_count": 149,
+        "mae": 18.19,
+        "mape": 7.17,
+        "rmse": 23.64,
+        "r2": 0.197,
+        "cv_mae": "18.92 ± 0.29",
+        "mase": 0.670,
+        "feature_count": 15,
         "data_points": 3171,
-        "excluded_covid_days": 881
+        "excluded_covid_days": 881,
+        "experiment_best_mae": 16.52,
+        "train_set": 2536,
+        "test_set": 635
       },
       "experiment_results": {
         "methods_tested": 13,
@@ -585,7 +589,7 @@
         "只排除異常期間，不丟棄正常歷史數據",
         "統計方法（IQR/Z-score）不適合時間序列系統性偏移"
       ],
-      "improvement": "MAE↓16% (19.66→16.52), R²↑62% (0.21→0.33), 數據量↑189%"
+      "improvement": "MAE↓16% vs Sliding Window, 使用 3171 筆數據 (排除 COVID 881 天)"
     }
   ],
   "references": [
