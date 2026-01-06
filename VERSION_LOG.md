@@ -1,5 +1,29 @@
 # 版本更新日誌
 
+## v3.1.00 - 2026-01-06 21:30 HKT
+**🔧 修復 AI API Token 限制問題 + 雙 API 備援**
+
+### 修復
+- ✅ **雙 API 配置**：同時支援 chatanywhere + free.v36.cm 兩個 API
+- ✅ **模型優先級**：從高級到免費依次嘗試（gpt-4o → deepseek → gpt-4o-mini → 免費 gpt-3.5）
+- ✅ **精簡提示詞**：大幅縮短 prompt 長度以符合免費 API 的 4096 token 限制
+- ✅ **自動降級**：高級 API 達到限制時自動切換到免費 API
+
+### 技術細節
+- **chatanywhere API**：gpt-4o (5次/天)、deepseek-v3 (30次/天)、gpt-4o-mini (200次/天)
+- **free.v36.cm API**：gpt-4o-mini、gpt-3.5-turbo、gpt-3.5-turbo-16k（無限次）
+- 提示詞從 ~3000 字精簡到 ~500 字
+
+### API 配置
+```javascript
+API_CONFIGS = {
+    chatanywhere: { host: 'api.chatanywhere.tech', apiKey: 'sk-hYb***' },
+    free: { host: 'free.v36.cm', apiKey: 'sk-oMU***' }
+}
+```
+
+---
+
 ## v3.0.99 - 2026-01-06 19:35 HKT
 **🔧 修復雙軌圖表預測值不匹配問題（API 層）**
 

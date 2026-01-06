@@ -133,37 +133,55 @@ function convertObjectToTraditional(obj) {
     return obj;
 }
 
-const API_KEY = 'sk-oMUhVLfAHc6w0IA12bD2Aa5b538f4c6aB0E4971531D64732';
-
-// API 轉發主機配置
-// 使用 free.v36.cm 免費 API（無需代理，直接可用）
-const API_HOSTS = {
-    primary: 'free.v36.cm',   // 免費 API（支援 gpt-4o-mini, gpt-3.5-turbo 系列）
-    fallback: 'free.v36.cm'   // 備用（同主機）
+// 多 API 配置（從高級到免費）
+const API_CONFIGS = {
+    chatanywhere: {
+        host: 'api.chatanywhere.tech',
+        fallbackHost: 'api.chatanywhere.org',
+        apiKey: 'sk-hYb2t30UZbEPjt3QXVwBU4wXLvUzxBVL4DiLgbDWhKYIiFQW',
+        maxTokens: 2000
+    },
+    free: {
+        host: 'free.v36.cm',
+        fallbackHost: 'free.v36.cm',
+        apiKey: 'sk-oMUhVLfAHc6w0IA12bD2Aa5b538f4c6aB0E4971531D64732',
+        maxTokens: 1500  // 免費 API token 限制較嚴
+    }
 };
 
-let currentAPIHost = API_HOSTS.primary;
+// 當前使用的 API（會自動切換）
+let currentAPIConfig = 'chatanywhere';
+let currentAPIHost = API_CONFIGS.chatanywhere.host;
 
-// 模型配置和使用限制
-// 使用 free.v36.cm 免費 API 支援的模型（token 限制 4096）
+// 模型配置（從高級到免費，依次嘗試）
 const MODEL_CONFIG = {
-    // 免費模型 - gpt-4o-mini（最佳免費選擇）
+    // 高級模型（chatanywhere API）- 一天5次
     premium: {
-        models: ['gpt-4o-mini'],
-        dailyLimit: 1000,
-        defaultModel: 'gpt-4o-mini'
+        models: ['gpt-4o', 'gpt-4.1'],
+        dailyLimit: 5,
+        defaultModel: 'gpt-4o',
+        api: 'chatanywhere'
     },
-    // 免費模型 - gpt-3.5-turbo 系列
+    // 中級模型（chatanywhere API）- 一天30次
     standard: {
-        models: ['gpt-3.5-turbo', 'gpt-3.5-turbo-0125', 'gpt-3.5-turbo-1106'],
-        dailyLimit: 1000,
-        defaultModel: 'gpt-3.5-turbo'
+        models: ['deepseek-v3', 'deepseek-r1'],
+        dailyLimit: 30,
+        defaultModel: 'deepseek-v3',
+        api: 'chatanywhere'
     },
-    // 免費模型 - gpt-3.5-turbo-16k（較長上下文）
+    // 基礎模型（chatanywhere API）- 一天200次
     basic: {
-        models: ['gpt-3.5-turbo-16k'],
-        dailyLimit: 1000,
-        defaultModel: 'gpt-3.5-turbo-16k'
+        models: ['gpt-4o-mini'],
+        dailyLimit: 200,
+        defaultModel: 'gpt-4o-mini',
+        api: 'chatanywhere'
+    },
+    // 免費模型（free.v36.cm API）- 無限制
+    free: {
+        models: ['gpt-4o-mini', 'gpt-3.5-turbo', 'gpt-3.5-turbo-16k'],
+        dailyLimit: 9999,
+        defaultModel: 'gpt-4o-mini',
+        api: 'free'
     }
 };
 
@@ -171,7 +189,8 @@ const MODEL_CONFIG = {
 let usageCounters = {
     premium: { date: null, count: 0 },
     standard: { date: null, count: 0 },
-    basic: { date: null, count: 0 }
+    basic: { date: null, count: 0 },
+    free: { date: null, count: 0 }
 };
 
 // 獲取香港時間的日期字符串
@@ -197,7 +216,7 @@ function checkAndResetCounters() {
     });
 }
 
-// 獲取可用模型（優先使用高級模型）
+// 獲取可用模型（優先使用高級模型，最後用免費模型）
 function getAvailableModel(tier = 'premium') {
     checkAndResetCounters();
     const config = MODEL_CONFIG[tier];
@@ -205,51 +224,63 @@ function getAvailableModel(tier = 'premium') {
         // 如果層級不存在，嘗試下一層級
         if (tier === 'premium') return getAvailableModel('standard');
         if (tier === 'standard') return getAvailableModel('basic');
-        return MODEL_CONFIG.basic.defaultModel;
+        if (tier === 'basic') return getAvailableModel('free');
+        return MODEL_CONFIG.free.defaultModel;
     }
     
     if (usageCounters[tier].count >= config.dailyLimit) {
         // 如果當前層級已用完，嘗試下一層級
         if (tier === 'premium') return getAvailableModel('standard');
         if (tier === 'standard') return getAvailableModel('basic');
-        // 基礎層級也用完了
+        if (tier === 'basic') return getAvailableModel('free');
+        // 免費層級也用完了（不太可能）
         return null;
     }
     
     return config.defaultModel;
 }
 
-// 獲取所有可用模型列表（按優先級排序，從高級到低級）
+// 獲取所有可用模型列表（按優先級排序，從高級到免費）
 function getAllAvailableModels(excludeModels = []) {
     checkAndResetCounters();
     const models = [];
     
-    // 高級模型（優先級 1）
+    // 高級模型（優先級 1）- chatanywhere API
     const premiumConfig = MODEL_CONFIG.premium;
     if (usageCounters.premium.count < premiumConfig.dailyLimit) {
         premiumConfig.models.forEach(model => {
-            if (!excludeModels.includes(model)) {
-                models.push({ model, tier: 'premium', priority: 1 });
+            if (!excludeModels.includes(model + '_premium')) {
+                models.push({ model, tier: 'premium', priority: 1, api: 'chatanywhere' });
             }
         });
     }
     
-    // 中級模型（優先級 2）
+    // 中級模型（優先級 2）- chatanywhere API
     const standardConfig = MODEL_CONFIG.standard;
     if (usageCounters.standard.count < standardConfig.dailyLimit) {
         standardConfig.models.forEach(model => {
-            if (!excludeModels.includes(model)) {
-                models.push({ model, tier: 'standard', priority: 2 });
+            if (!excludeModels.includes(model + '_standard')) {
+                models.push({ model, tier: 'standard', priority: 2, api: 'chatanywhere' });
             }
         });
     }
     
-    // 基礎模型（優先級 3）
+    // 基礎模型（優先級 3）- chatanywhere API
     const basicConfig = MODEL_CONFIG.basic;
     if (usageCounters.basic.count < basicConfig.dailyLimit) {
         basicConfig.models.forEach(model => {
-            if (!excludeModels.includes(model)) {
-                models.push({ model, tier: 'basic', priority: 3 });
+            if (!excludeModels.includes(model + '_basic')) {
+                models.push({ model, tier: 'basic', priority: 3, api: 'chatanywhere' });
+            }
+        });
+    }
+    
+    // 免費模型（優先級 4）- free.v36.cm API
+    const freeConfig = MODEL_CONFIG.free;
+    if (usageCounters.free.count < freeConfig.dailyLimit) {
+        freeConfig.models.forEach(model => {
+            if (!excludeModels.includes(model + '_free')) {
+                models.push({ model, tier: 'free', priority: 4, api: 'free' });
             }
         });
     }
@@ -259,7 +290,6 @@ function getAllAvailableModels(excludeModels = []) {
         if (a.priority !== b.priority) {
             return a.priority - b.priority;
         }
-        // 如果優先級相同，保持原始順序
         return 0;
     });
     
@@ -298,8 +328,13 @@ function getModelTier(model) {
 
 /**
  * 調用單個 AI 模型
+ * @param {string} prompt - 提示詞
+ * @param {string} model - 模型名稱
+ * @param {number} temperature - 溫度
+ * @param {boolean} skipUsageRecord - 是否跳過使用記錄
+ * @param {string} apiConfigName - 使用的 API 配置（chatanywhere 或 free）
  */
-async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord = false) {
+async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord = false, apiConfigName = 'chatanywhere') {
     return new Promise((resolve, reject) => {
         try {
             const tier = getModelTier(model);
@@ -307,8 +342,13 @@ async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord
                 recordUsage(tier);
             }
             
-            // 使用當前選定的 API 主機
-            const apiUrl = `https://${currentAPIHost}/v1/chat/completions`;
+            // 根據 API 配置選擇主機和 API Key
+            const apiConfig = API_CONFIGS[apiConfigName] || API_CONFIGS.chatanywhere;
+            const apiHost = apiConfig.host;
+            const apiKey = apiConfig.apiKey;
+            const maxTokens = apiConfig.maxTokens;
+            
+            const apiUrl = `https://${apiHost}/v1/chat/completions`;
             const url = new URL(apiUrl);
             const postData = JSON.stringify({
                 model: model,
@@ -323,7 +363,7 @@ async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord
                     }
                 ],
                 temperature: temperature,
-                max_tokens: 1500
+                max_tokens: maxTokens
             });
             
             const options = {
@@ -333,7 +373,7 @@ async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${API_KEY}`,
+                    'Authorization': `Bearer ${apiKey}`,
                     'Content-Length': Buffer.byteLength(postData)
                 }
             };
@@ -351,11 +391,12 @@ async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord
                         console.error('響應內容:', data.substring(0, 500));
                         
                         // 如果主機失敗且還有備用主機，嘗試切換
-                        if (res.statusCode >= 500 && currentAPIHost === API_HOSTS.primary) {
-                            console.warn(`⚠️ 主 API 主機 ${currentAPIHost} 返回錯誤，切換到備用主機...`);
-                            currentAPIHost = API_HOSTS.fallback;
-                            // 遞歸重試（但只重試一次）
-                            return callSingleModel(prompt, model, temperature, skipUsageRecord).then(resolve).catch(reject);
+                        if (res.statusCode >= 500 && apiHost === apiConfig.host && apiConfig.fallbackHost !== apiConfig.host) {
+                            console.warn(`⚠️ 主 API 主機 ${apiHost} 返回錯誤，切換到備用主機...`);
+                            // 遞歸重試使用備用主機
+                            const fallbackConfig = { ...apiConfig, host: apiConfig.fallbackHost };
+                            API_CONFIGS[apiConfigName] = fallbackConfig;
+                            return callSingleModel(prompt, model, temperature, skipUsageRecord, apiConfigName).then(resolve).catch(reject);
                         }
                         
                         // 嘗試解析錯誤訊息
@@ -404,16 +445,7 @@ async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord
                         
                         console.log(`📝 AI 回應長度: ${content.length} 字符`);
                         
-                        // 成功後，如果使用的是備用主機，嘗試切換回主主機（下次使用）
-                        if (currentAPIHost === API_HOSTS.fallback) {
-                            console.log(`✅ 備用主機 ${currentAPIHost} 工作正常，下次將嘗試主主機`);
-                            // 延遲切換回主主機，避免頻繁切換
-                            setTimeout(() => {
-                                if (currentAPIHost === API_HOSTS.fallback) {
-                                    currentAPIHost = API_HOSTS.primary;
-                                }
-                            }, 60000); // 1分鐘後切換回主主機
-                        }
+                        console.log(`✅ API ${apiConfigName} (${apiHost}) 調用成功`);
                         resolve(jsonData.choices[0].message.content);
                     } catch (parseError) {
                         console.error(`❌ 解析 AI 響應失敗 (${model}):`, parseError);
@@ -424,13 +456,13 @@ async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord
             });
             
             req.on('error', (error) => {
-                console.error(`❌ AI API 請求失敗 (${currentAPIHost}, ${model}):`, error.message);
+                console.error(`❌ AI API 請求失敗 (${apiConfigName}/${apiHost}, ${model}):`, error.message);
                 // 如果是主主機失敗，嘗試切換到備用主機
-                if (currentAPIHost === API_HOSTS.primary) {
-                    console.warn(`⚠️ 主 API 主機 ${currentAPIHost} 連接失敗，切換到備用主機...`);
-                    currentAPIHost = API_HOSTS.fallback;
-                    // 遞歸重試（但只重試一次）
-                    return callSingleModel(prompt, model, temperature, skipUsageRecord).then(resolve).catch(reject);
+                if (apiHost === apiConfig.host && apiConfig.fallbackHost !== apiConfig.host) {
+                    console.warn(`⚠️ 主 API 主機 ${apiHost} 連接失敗，切換到備用主機...`);
+                    const fallbackConfig = { ...apiConfig, host: apiConfig.fallbackHost };
+                    API_CONFIGS[apiConfigName] = fallbackConfig;
+                    return callSingleModel(prompt, model, temperature, skipUsageRecord, apiConfigName).then(resolve).catch(reject);
                 }
                 reject(error);
             });
@@ -454,12 +486,12 @@ async function callAI(prompt, model = null, temperature = 0.7) {
     
     console.log('🚀 開始調用 AI API，將依次嘗試所有可用模型...');
     
-    // 如果指定了模型，先嘗試指定的模型
+    // 如果指定了模型，先嘗試指定的模型（默認使用 chatanywhere API）
     if (model) {
-        triedModels.push(model);
+        triedModels.push(model + '_specified');
         try {
-            console.log(`🤖 [1/?] 嘗試使用指定模型: ${model}`);
-            const result = await callSingleModel(prompt, model, temperature, false);
+            console.log(`🤖 [1/?] 嘗試使用指定模型: ${model} (chatanywhere)`);
+            const result = await callSingleModel(prompt, model, temperature, false, 'chatanywhere');
             console.log(`✅ 模型 ${model} 調用成功`);
             return result;
         } catch (error) {
@@ -492,25 +524,28 @@ async function callAI(prompt, model = null, temperature = 0.7) {
     let lastError = null;
     let attemptCount = triedModels.length;
     
-    for (const { model: modelName, tier } of availableModels) {
+    for (const { model: modelName, tier, api } of availableModels) {
+        // 使用 modelName + tier 作為唯一標識符
+        const modelKey = modelName + '_' + tier;
+        
         // 檢查是否已經嘗試過
-        if (triedModels.includes(modelName)) {
+        if (triedModels.includes(modelKey)) {
             continue;
         }
         
-        triedModels.push(modelName);
+        triedModels.push(modelKey);
         attemptCount++;
         
         try {
-            console.log(`🤖 [${attemptCount}/${totalModels}] 嘗試使用模型: ${modelName} (${tier})`);
-            const result = await callSingleModel(prompt, modelName, temperature, false);
-            console.log(`✅ 模型 ${modelName} (${tier}) 調用成功！`);
+            console.log(`🤖 [${attemptCount}/${totalModels}] 嘗試使用模型: ${modelName} (${tier}/${api})`);
+            const result = await callSingleModel(prompt, modelName, temperature, false, api);
+            console.log(`✅ 模型 ${modelName} (${tier}/${api}) 調用成功！`);
             console.log(`📊 總共嘗試了 ${attemptCount} 個模型，最終成功使用: ${modelName}`);
             return result;
         } catch (error) {
             lastError = error;
-            errors.push({ model: modelName, tier, error: error.message });
-            console.warn(`⚠️ 模型 ${modelName} (${tier}) 失敗: ${error.message}`);
+            errors.push({ model: modelName, tier, api, error: error.message });
+            console.warn(`⚠️ 模型 ${modelName} (${tier}/${api}) 失敗: ${error.message}`);
             
             // 檢查是否為使用次數限制錯誤
             if (isRateLimitError(error.message)) {
@@ -716,156 +751,26 @@ async function searchRelevantNewsAndEvents() {
     // 獲取新聞和政策搜索結果
     const newsSearchData = await searchNewsAndPolicies();
     
-    const prompt = `**🆔 分析請求 ID：${requestId}**
-**⏰ 當前時間：${formattedHKTime}（${currentDayName}）**
+    // 精簡版提示詞（適用於免費 API token 限制）
+    const prompt = `日期：${today}（${currentDayName}）
 
-請針對【今天 ${today}】以及未來 7 天，分析可能影響香港北區醫院急症室病人數量的具體因素：
+分析今天及未來7天影響香港北區醫院急症室人數的因素：
 
-**📅 當前日期上下文：**
-- 日期：${today}（${currentDayName}）
-- 香港時間：${formattedHKTime}
-- 這是 ${hkNow.getMonth() + 1} 月最後一週（年末）
-- 請考慮距離今天最近的公眾假期和特殊日期
+已知政策：2026-01-01起急症室收費由180元增至400元（醫管局）
 
-1. **健康政策變化**（⚠️ 重要 - 必須重點檢查）：
-   - 醫院管理局（HA）最新政策公告
-   - 急症室收費政策變更
-   - 急症室分流政策調整
-   - 衛生署最新醫療政策
+請分析：
+1. 政策變更（急症室收費/分流）
+2. 突發公衛事件（非季節性流感）
+3. 大型活動（馬拉松/演唱會）
+4. 醫院服務變更
 
-2. **醫院當局公告**（⚠️ 重要 - 必須重點檢查）：
-   - 醫院管理局官方公告
-   - 北區醫院服務調整通知
-   - 急症室運作模式變更
+不要分析（系統已處理）：天氣、假期、流感季、週末效應
 
-3. **新聞和媒體報導**（⚠️ 重要 - 必須重點檢查）：
-   - 關於北區醫院急症室的新聞
-   - 醫療政策相關新聞報導
 ${newsSearchData.isRealSearch && newsSearchData.formattedNews ? 
-`**🌐 以下是從互聯網實時搜尋到的新聞（請仔細分析這些真實新聞）：**
+`新聞：${newsSearchData.formattedNews.substring(0, 500)}` : ''}
 
-${newsSearchData.formattedNews}` 
-: `   - 請基於以下搜索查詢來分析：
-     ${newsSearchData.queries.map((q, i) => (i + 1) + '. ' + q).join('\n     ')}`}
-
-4. **突發公共衛生事件**（僅限突發事件，不包括季節性流感）：
-   - 新型傳染病爆發（非季節性流感）
-   - 食物中毒群組事件
-   - 特別傳染病警報
-
-5. **社會事件**：
-   - 大型活動或集會（影響交通或人流）
-   - 重大交通事故或意外
-   - 特別社會事件
-
-6. **其他非常規因素**：
-   - 醫院設施維修或臨時關閉
-   - 附近醫院服務變更（導致轉介增加）
-   - 其他無法由系統自動計算的因素
-
-**🚫 請勿分析以下因素（系統已自動計算，避免重複）：**
-- ❌ **天氣因素**：溫度、濕度、降雨、天氣警告（已由香港天文台數據自動計算）
-- ❌ **公眾假期**：聖誕節、元旦、農曆新年等（已在 HK_PUBLIC_HOLIDAYS 中設定）
-- ❌ **季節性流感**：冬季/夏季流感高峰（已由 fluSeasonFactor 自動處理）
-- ❌ **週末效應**：週六日人流模式（已由 dowFactors 自動計算）
-- ❌ **月份效應**：各月份的平均人流差異（已由 monthFactors 自動計算）
-
-**⚠️ 特別重要：請優先檢查以下官方來源的最新政策變更：**
-- 醫院管理局網站：https://www.ha.org.hk
-- 衛生署網站：https://www.dh.gov.hk
-- 衛生防護中心：https://www.chp.gov.hk
-
-${getVerifiedPolicyFactsPrompt()}
-
-**🎯 具體要求：**
-基於當前日期 ${today}（${formattedHKTime}），請列出【具體會影響今天和未來 7 天】的因素。每個因素必須：
-1. 指明具體受影響的日期（affectedDays）
-2. 給出具體的影響因子（impactFactor）
-3. 說明為什麼這個因素會在這些日期生效
-
-**🚨 重要規則 - 區分真實因素與捏造資訊 🚨**
-
-**✅ 允許且鼓勵報告的因素（系統無法自動計算的）：**
-1. **突發公共衛生事件**：新型傳染病爆發、食物中毒群組（非季節性流感）- 來源：衛生防護中心公告
-2. **重大社會事件**：大型活動、重大交通事故等
-3. **醫院服務變更**：臨時關閉、設施維修、轉介變化
-4. **政策變更**：急症室收費調整、分流政策變化（必須有官方來源）
-5. **大型體育/文娛活動**：馬拉松、演唱會、球賽、煙花匯演等 - 可能增加創傷/中暑個案
-6. **學校日曆事件**：開學日（傳染病+5-10%）、考試季（壓力相關）、學校假期
-7. **傳染病/食物中毒爆發**：衛生防護中心公布的群組爆發
-
-**🚫 請勿報告以下因素（系統已自動計算）：**
-- 天氣（溫度/濕度/降雨/警告）→ 由 Weather Factor 處理
-- 空氣質素（AQHI）→ 由 XGBoost AQHI 特徵處理
-- 公眾假期 → 由 HK_PUBLIC_HOLIDAYS 處理  
-- 季節性流感高峰 → 由 fluSeasonFactor 處理
-- 週末效應 → 由 dowFactors 處理
-
-**🚫 嚴格禁止捏造的內容：**
-1. **醫院內部政策**：不要編造「快速分流通道」、「夜間通道」、「特別安排」等
-2. **北區醫院特定措施**：除非有官方公告，不要假設任何特殊安排
-3. **未經證實的政策變更**：只能引用已驗證的政策事實（如上方提供的急症室收費政策）
-4. **虛假的官方公告**：不要編造政府或醫管局的公告
-
-**📋 來源要求：**
-- 政策變更：必須提供真實的 sourceUrl
-- 突發事件：必須說明事件來源（新聞報導、官方公告等）
-- 如有不確定，標註 "unverified": true
-
-**⚠️ 重要提示**：
-- 只報告系統無法自動計算的因素
-- 不要報告天氣、假期、季節性流感、週末效應（這些已由系統處理）
-- 如果沒有特別事件，可以返回空的 factors 數組
-
-**⚠️ 極其重要的語言要求（最高優先級）：**
-
-你必須只使用繁體中文（Traditional Chinese / 正體中文）進行回應，絕對不能使用簡體中文（Simplified Chinese / 簡體中文）。
-
-**嚴格禁止的簡體字（必須使用繁體）：**
-- 实际 → 實際
-- 预测 → 預測
-- 影响 → 影響
-- 说明 → 說明
-- 描述 → 描述
-- 总结 → 總結
-- 天气 → 天氣
-- 温度 → 溫度
-- 湿度 → 濕度
-
-**所有文字、描述、分析、JSON 字段值都必須是繁體中文。生成回應前請確認沒有任何簡體中文字符。**
-
-請以 JSON 格式返回分析結果（所有文字必須是繁體中文）：
-{
-  "factors": [
-    {
-      "type": "健康政策/醫院當局公告/突發公衛/社會事件/服務變更/體育文娛活動/學校日曆/傳染病爆發",
-      "description": "因素描述（如果是政策變更，請詳細說明政策內容和影響）",
-      "impact": "增加/減少/無影響",
-      "impactFactor": 1.05,  // 影響因子（1.0 = 無影響，>1.0 = 增加，<1.0 = 減少）
-      "confidence": "高/中/低",
-      "affectedDays": ["2025-01-XX", "2025-01-YY"],  // 受影響的日期
-      "reasoning": "分析理由（如果是政策變更，請說明政策如何影響求診人數）",
-      "source": "來源（如：醫院管理局、衛生署、新聞媒體等）",
-      "sourceUrl": "來源網址（必須提供官方公告連結）",
-      "unverified": false  // 如果資訊未經核實則設為 true
-    }
-  ],
-  // 注意：請勿包含天氣/假期/季節性流感/週末效應，這些已由系統自動計算
-  "policyChanges": [
-    {
-      "type": "健康政策/醫院當局公告",
-      "description": "政策變更詳細描述",
-      "announcementDate": "2025-01-XX",
-      "effectiveDate": "2025-01-YY",
-      "impact": "增加/減少/無影響",
-      "impactFactor": 1.05,
-      "reasoning": "政策如何影響急症室求診人數",
-      "source": "政策來源",
-      "sourceUrl": "來源網址（必須提供）"
-    }
-  ],
-  "summary": "總結說明（特別強調是否有政策變更）"
-}`;
+JSON格式回應（繁體中文）：
+{"factors":[{"type":"類型","description":"描述","impactFactor":1.05,"affectedDays":["${today}"],"source":"來源"}],"summary":"總結"}`;
 
     try {
         console.log('🤖 調用 AI 分析服務（將自動嘗試所有可用模型）...');
@@ -956,98 +861,16 @@ async function analyzeDateRangeFactors(startDate, endDate, weatherData = null) {
     // 獲取新聞和政策搜索結果
     const newsSearchData = await searchNewsAndPolicies();
     
-    const prompt = `請分析 ${startDate} 至 ${endDate} 期間，可能影響香港北區醫院急症室病人數量的因素。
+    // 精簡版提示詞
+    const prompt = `分析 ${startDate} 至 ${endDate} 期間影響香港北區醫院急症室人數的因素。
 
-${weatherData ? `當前天氣狀況：
-- 溫度: ${weatherData.temperature}°C
-- 濕度: ${weatherData.humidity}%
-- 降雨: ${weatherData.rainfall}mm
-` : ''}
+已知：2026-01-01起急症室收費180→400元
 
-請考慮（按重要性排序）：
+請分析：政策變更、突發公衛事件、大型活動、醫院服務變更
+不要分析（系統已處理）：天氣、假期、流感季、週末效應
 
-1. **健康政策變化**（⚠️ 最高優先級）：
-   - 醫院管理局（HA）在該期間的政策公告
-   - 急症室收費或分流政策變更
-   - 醫療服務政策調整
-   - 衛生署最新醫療政策
-   - 急症室服務時間或範圍調整
-
-2. **醫院當局公告**（⚠️ 最高優先級）：
-   - 醫院管理局官方公告
-   - 北區醫院服務調整通知
-   - 急症室運作模式變更
-   - 醫療資源配置變更
-
-3. **新聞和媒體報導**（⚠️ 重要）：
-   - 關於北區醫院急症室的新聞
-   - 醫療政策相關新聞報導
-   - 請基於以下搜索查詢來分析：
-     ${newsSearchData.queries.map((q, i) => `${i + 1}. ${q}`).join('\n     ')}
-
-4. 突發公共衛生事件（非季節性流感）
-5. 重大社會事件
-6. 其他無法由系統自動計算的因素
-
-**🚫 請勿分析以下因素（系統已自動計算，避免重複）：**
-- ❌ **天氣因素**：溫度、濕度、降雨、天氣警告（已由 Weather Factor 處理）
-- ❌ **公眾假期**：聖誕節、元旦、農曆新年等（已由 HK_PUBLIC_HOLIDAYS 處理）
-- ❌ **季節性流感**：冬季/夏季流感高峰（已由 fluSeasonFactor 處理）
-- ❌ **週末效應**：週六日人流模式（已由 dowFactors 處理）
-
-${getVerifiedPolicyFactsPrompt()}
-
-**🚨 重要規則 🚨**
-
-**✅ 允許報告**：突發公衛事件、政策變更、重大社會事件、醫院服務變更
-**🚫 禁止報告**：天氣、假期、季節性流感、週末效應（系統已處理）
-**🚫 禁止編造**：醫院內部政策、分流通道、特殊安排等（除非有官方來源）
-
-**⚠️ 極其重要的語言要求（最高優先級）：**
-
-你必須只使用繁體中文（Traditional Chinese / 正體中文）進行回應，絕對不能使用簡體中文（Simplified Chinese / 簡體中文）。
-
-**嚴格禁止的簡體字（必須使用繁體）：**
-- 实际 → 實際
-- 预测 → 預測
-- 影响 → 影響
-- 说明 → 說明
-- 描述 → 描述
-- 总结 → 總結
-- 天气 → 天氣
-- 温度 → 溫度
-- 湿度 → 濕度
-
-**所有文字、描述、分析、JSON 字段值都必須是繁體中文。生成回應前請確認沒有任何簡體中文字符。**
-
-請以 JSON 格式返回（所有文字必須是繁體中文）：
-{
-  "factors": [
-    {
-      "date": "YYYY-MM-DD",
-      "type": "健康政策/醫院當局公告/新聞報導/突發公衛/社會事件/服務變更",
-      "description": "因素描述（如果是政策變更，請詳細說明）",
-      "impactFactor": 1.05,
-      "confidence": "高/中/低",
-      "reasoning": "分析理由（如果是政策變更，請說明政策如何影響求診人數）",
-      "source": "來源（必須是真實官方來源）",
-      "sourceUrl": "來源網址（必須是真實可訪問的 URL，如無法提供則不要包含該因素）"
-    }
-  ],
-  // 注意：請勿包含天氣/假期/季節性流感/週末效應，這些已由系統自動計算
-  "policyChanges": [
-    {
-      "date": "YYYY-MM-DD",
-      "type": "健康政策/醫院當局公告",
-      "description": "政策變更詳細描述",
-      "impactFactor": 1.05,
-      "reasoning": "政策如何影響急症室求診人數",
-      "source": "政策來源（必須是真實官方來源）",
-      "sourceUrl": "來源網址（必須是真實可訪問的 URL）"
-    }
-  ],
-  "overallImpact": "整體影響評估（如無確實影響因素，請說明「暫無已知影響因素」）"
-}`;
+JSON格式回應（繁體中文）：
+{"factors":[{"date":"日期","type":"類型","description":"描述","impactFactor":1.05,"source":"來源"}],"overallImpact":"總結"}`;
 
     try {
         const response = await callAI(prompt, null, 0.5);
@@ -1107,24 +930,29 @@ function getUsageStats() {
         premium: {
             used: usageCounters.premium.count,
             limit: MODEL_CONFIG.premium.dailyLimit,
-            remaining: MODEL_CONFIG.premium.dailyLimit - usageCounters.premium.count
+            remaining: MODEL_CONFIG.premium.dailyLimit - usageCounters.premium.count,
+            api: 'chatanywhere'
         },
         standard: {
             used: usageCounters.standard.count,
             limit: MODEL_CONFIG.standard.dailyLimit,
-            remaining: MODEL_CONFIG.standard.dailyLimit - usageCounters.standard.count
+            remaining: MODEL_CONFIG.standard.dailyLimit - usageCounters.standard.count,
+            api: 'chatanywhere'
         },
         basic: {
             used: usageCounters.basic.count,
             limit: MODEL_CONFIG.basic.dailyLimit,
-            remaining: MODEL_CONFIG.basic.dailyLimit - usageCounters.basic.count
+            remaining: MODEL_CONFIG.basic.dailyLimit - usageCounters.basic.count,
+            api: 'chatanywhere'
+        },
+        free: {
+            used: usageCounters.free.count,
+            limit: MODEL_CONFIG.free.dailyLimit,
+            remaining: MODEL_CONFIG.free.dailyLimit - usageCounters.free.count,
+            api: 'free.v36.cm'
         },
         date: getHKDateStr(),
-        apiHost: currentAPIHost,
-        apiHosts: {
-            primary: API_HOSTS.primary,
-            fallback: API_HOSTS.fallback
-        }
+        apiConfigs: API_CONFIGS
     };
 }
 
