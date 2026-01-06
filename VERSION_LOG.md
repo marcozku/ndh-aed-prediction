@@ -1,5 +1,24 @@
 # 版本更新日誌
 
+## v3.0.98 - 2026-01-06 19:25 HKT
+**🔧 修復雙軌圖表預測值不匹配問題**
+
+### 修復
+- ✅ **修正 Production Track 顯示邏輯**：使用平滑後的 `predicted` 值而非原始 `prediction_production`
+- ✅ **修正 Experimental Track 計算**：基於平滑預測 + AI 因子影響調整
+- ✅ **圖表數據對齊**：雙軌圖表的 Production vs Experimental 現在與準確度表格一致
+
+### 問題描述
+- 之前：圖表顯示 Production=217, Experimental=206（原始存儲值）
+- 之後：圖表顯示 Production=244, Experimental=244（平滑後的正確值）
+
+### 技術細節
+- `prediction_production` 是即時預測存儲值
+- `predicted` 是經過 EWMA/Ensemble 平滑後的日終預測
+- 當 w_ai=0 時，Production = Experimental = 平滑預測
+
+---
+
 ## v3.0.87 - 2026-01-06 03:30 HKT
 **🔬 雙軌系統實際數據存儲**
 

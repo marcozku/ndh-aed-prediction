@@ -9954,11 +9954,11 @@ function initAlgorithmContent() {
         
         <!-- ==================== 版本更新 ==================== -->
         <div style="padding: 14px; background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.05)); border-radius: 10px; border-left: 4px solid #22c55e;">
-            <div style="font-size: 0.82rem; color: #22c55e; font-weight: 600; margin-bottom: 8px;">🚀 v3.0.97 更新亮點</div>
+            <div style="font-size: 0.82rem; color: #22c55e; font-weight: 600; margin-bottom: 8px;">🚀 v3.0.98 更新亮點</div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; font-size: 0.72rem; color: var(--text-secondary);">
-                <div>📊 <strong style="color: #8b5cf6;">Evidence-Based 配置</strong></div>
+                <div>🔧 <strong style="color: #f59e0b;">修復雙軌圖表數據對齊</strong></div>
+                <div>📊 Production/Exp 使用平滑預測</div>
                 <div>⏱️ <strong>3 年</strong>滑動窗口 (2023-2026)</div>
-                <div>⚖️ 時間衰減權重 (0.001)</div>
                 <div>🔬 MASE Skill Score 評分</div>
                 <div>📈 預期 MAE ~17 (↓12%)</div>
             </div>
@@ -10340,18 +10340,24 @@ function renderDualTrackChart(canvas, historyData) {
     // 檢查是否有雙軌數據
     const hasDualTrackData = history.some(d => d.prediction_production !== null);
     
-    // Production = 無 AI 的預測 (使用 xgboost_base 或 predicted)
+    // v3.0.98: 修正雙軌預測顯示邏輯
+    // Production = 平滑後的預測值 (predicted)，因為 w_ai = 0 時 Production = 主預測
+    // Experimental = 平滑後的預測值 + AI 影響調整
     const productionData = history.map(d => {
-        if (d.prediction_production !== null) return parseFloat(d.prediction_production);
-        if (d.xgboost_base !== null) return parseFloat(d.xgboost_base);
-        // 回退：使用 predicted 作為基準
+        // 優先使用平滑後的 predicted 值（這是正確的日終預測）
         return d.predicted;
     });
     
-    // Experimental = 含 AI 的預測 (使用 prediction_experimental 或 predicted)
+    // Experimental = 平滑預測 + AI 因子影響
     const experimentalData = history.map(d => {
-        if (d.prediction_experimental !== null) return parseFloat(d.prediction_experimental);
-        // 回退：使用 predicted（已包含 AI 因素）
+        // 如果有 AI 因子，計算 AI 對預測的影響
+        const aiFactor = parseFloat(d.ai_factor) || 1.0;
+        if (aiFactor !== 1.0 && d.predicted) {
+            // AI 影響 = 平均病人數 × (AI因子 - 1) × 實驗權重
+            const aiImpact = 247 * (aiFactor - 1.0) * 0.10; // w_ai = 0.10 for experimental
+            return Math.round(d.predicted + aiImpact);
+        }
+        // 無 AI 影響時，Experimental = Production = 平滑預測
         return d.predicted;
     });
     
