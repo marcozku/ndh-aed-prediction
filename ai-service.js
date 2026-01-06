@@ -133,36 +133,37 @@ function convertObjectToTraditional(obj) {
     return obj;
 }
 
-const API_KEY = 'sk-hYb2t30UZbEPjt3QXVwBU4wXLvUzxBVL4DiLgbDWhKYIiFQW';
+const API_KEY = 'sk-oMUhVLfAHc6w0IA12bD2Aa5b538f4c6aB0E4971531D64732';
 
 // API 轉發主機配置
-// 優先使用國內中轉（延遲更低），失敗時自動切換到國外主機
+// 使用 free.v36.cm 免費 API（無需代理，直接可用）
 const API_HOSTS = {
-    primary: 'api.chatanywhere.tech',   // 國內中轉，延遲更低
-    fallback: 'api.chatanywhere.org'   // 國外使用
+    primary: 'free.v36.cm',   // 免費 API（支援 gpt-4o-mini, gpt-3.5-turbo 系列）
+    fallback: 'free.v36.cm'   // 備用（同主機）
 };
 
 let currentAPIHost = API_HOSTS.primary;
 
 // 模型配置和使用限制
+// 使用 free.v36.cm 免費 API 支援的模型（token 限制 4096）
 const MODEL_CONFIG = {
-    // 高級模型 - 一天5次
+    // 免費模型 - gpt-4o-mini（最佳免費選擇）
     premium: {
-        models: ['gpt-5.1', 'gpt-5', 'gpt-4o', 'gpt-4.1'],
-        dailyLimit: 5,
-        defaultModel: 'gpt-4o'
-    },
-    // 中級模型 - 一天30次
-    standard: {
-        models: ['deepseek-r1', 'deepseek-v3', 'deepseek-v3-2-exp'],
-        dailyLimit: 30,
-        defaultModel: 'deepseek-v3'
-    },
-    // 基礎模型 - 一天200次
-    basic: {
-        models: ['gpt-4o-mini', 'gpt-3.5-turbo', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-5-mini', 'gpt-5-nano'],
-        dailyLimit: 200,
+        models: ['gpt-4o-mini'],
+        dailyLimit: 1000,
         defaultModel: 'gpt-4o-mini'
+    },
+    // 免費模型 - gpt-3.5-turbo 系列
+    standard: {
+        models: ['gpt-3.5-turbo', 'gpt-3.5-turbo-0125', 'gpt-3.5-turbo-1106'],
+        dailyLimit: 1000,
+        defaultModel: 'gpt-3.5-turbo'
+    },
+    // 免費模型 - gpt-3.5-turbo-16k（較長上下文）
+    basic: {
+        models: ['gpt-3.5-turbo-16k'],
+        dailyLimit: 1000,
+        defaultModel: 'gpt-3.5-turbo-16k'
     }
 };
 
@@ -314,72 +315,15 @@ async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord
                 messages: [
                     {
                         role: 'system',
-                        content: `你是一個專業的醫療數據分析助手，專門分析可能影響香港北區醫院急症室病人數量的各種因素。
-
-**極其嚴格的要求 - 必須遵守：**
-
-1. **語言要求（最高優先級）**：
-   - 你必須只使用繁體中文（Traditional Chinese / 正體中文）進行回應
-   - 絕對不能使用簡體中文（Simplified Chinese / 簡體中文）
-   - 絕對不能使用簡體字，包括：实际、预测、分析、影响、因素、说明、描述、理由、总结 等
-   - 必須使用繁體字：實際、預測、分析、影響、因素、說明、描述、理由、總結 等
-
-2. **適用範圍**：
-   - 所有描述性文字
-   - JSON 中的所有字段值（type, description, reasoning, summary 等）
-   - 所有分析理由和說明
-   - 任何輸出的文本內容
-   - 數字和標點符號後的文字
-
-3. **違規後果**：
-   - 如果使用簡體中文，系統將無法正確顯示內容
-   - 這是一個硬性要求，沒有任何例外
-   - 請在生成任何文字前，先確認使用的是繁體中文
-
-4. **常見簡體字對照（必須使用繁體）**：
-   - 实际 → 實際
-   - 预测 → 預測
-   - 分析 → 分析（相同）
-   - 影响 → 影響
-   - 因素 → 因素（相同）
-   - 说明 → 說明
-   - 描述 → 描述（相同）
-   - 理由 → 理由（相同）
-   - 总结 → 總結
-   - 天气 → 天氣
-   - 温度 → 溫度
-   - 湿度 → 濕度
-   - 降雨 → 降雨（相同）
-
-請務必確保所有輸出都是繁體中文，沒有任何簡體中文。`
+                        content: '你是香港北區醫院急症室分析助手。只用繁體中文回應。'
                     },
                     {
                         role: 'user',
-                        content: prompt + `\n\n**極其重要的語言要求（必須遵守）：**
-
-⚠️ 你必須只使用繁體中文（Traditional Chinese / 正體中文）回應，絕對不能使用簡體中文（Simplified Chinese / 簡體中文）。
-
-**嚴格禁止使用簡體字，包括但不限於：**
-- 实际、预测、影响、说明、描述、总结
-- 天气、温度、湿度、降雨
-- 任何簡體中文字符
-
-**必須使用繁體字：**
-- 實際、預測、影響、說明、描述、總結
-- 天氣、溫度、濕度、降雨
-- 所有文字都必須是繁體中文
-
-**檢查清單（生成回應前必須確認）：**
-1. ✅ 所有文字都是繁體中文
-2. ✅ JSON 中的所有字段值都是繁體中文
-3. ✅ 沒有任何簡體中文字符
-4. ✅ 所有描述、分析、理由都是繁體中文
-
-如果發現任何簡體中文，請立即轉換為繁體中文後再輸出。`
+                        content: prompt
                     }
                 ],
                 temperature: temperature,
-                max_tokens: 2000
+                max_tokens: 1500
             });
             
             const options = {
