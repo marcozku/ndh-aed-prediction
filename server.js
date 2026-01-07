@@ -861,6 +861,7 @@ const apiHandlers = {
             console.log(`📊 查詢 ${days} 天的準確度歷史（包含待驗證預測）`);
             
             // v3.0.98: 使用 FULL OUTER JOIN 合併實際數據和預測數據
+            // v3.0.99: 增加 intraday_predictions 以包含今日即時預測
             // 這樣可以顯示：1) 有實際數據的歷史 2) 有預測但尚無實際數據的日期
             const query = `
                 WITH date_range AS (
@@ -889,12 +890,22 @@ const apiHandlers = {
                     FROM final_daily_predictions
                     WHERE target_date >= CURRENT_DATE - $1::interval
                       AND target_date <= CURRENT_DATE
+                ),
+                intraday AS (
+                    SELECT DISTINCT ON (target_date)
+                        target_date,
+                        predicted_count
+                    FROM intraday_predictions
+                    WHERE target_date >= CURRENT_DATE - $1::interval
+                      AND target_date <= CURRENT_DATE
+                    ORDER BY target_date, created_at DESC
                 )
                 SELECT 
                     dr.date::text as date,
                     COALESCE(
                         fp.predicted_count,
-                        p.predicted_count
+                        p.predicted_count,
+                        i.predicted_count
                     )::integer as predicted,
                     a.patient_count::integer as actual,
                     p.prediction_production,
@@ -906,7 +917,8 @@ const apiHandlers = {
                 LEFT JOIN actual_data a ON a.date = dr.date
                 LEFT JOIN predictions p ON p.target_date = dr.date
                 LEFT JOIN final_predictions fp ON fp.target_date = dr.date
-                WHERE (a.patient_count IS NOT NULL OR p.predicted_count IS NOT NULL OR fp.predicted_count IS NOT NULL)
+                LEFT JOIN intraday i ON i.target_date = dr.date
+                WHERE (a.patient_count IS NOT NULL OR p.predicted_count IS NOT NULL OR fp.predicted_count IS NOT NULL OR i.predicted_count IS NOT NULL)
                 ORDER BY dr.date DESC
             `;
             
