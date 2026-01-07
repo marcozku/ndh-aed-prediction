@@ -157,16 +157,16 @@ let currentAPIHost = API_CONFIGS.chatanywhere.host;
 const MODEL_CONFIG = {
     // 高級模型（chatanywhere API）- 一天5次
     premium: {
-        models: ['gpt-4o', 'gpt-4.1'],
+        models: ['gpt-4.1', 'gpt-4o'],
         dailyLimit: 5,
-        defaultModel: 'gpt-4o',
+        defaultModel: 'gpt-4.1',
         api: 'chatanywhere'
     },
     // 中級模型（chatanywhere API）- 一天30次
     standard: {
-        models: ['deepseek-v3', 'deepseek-r1'],
+        models: ['deepseek-r1', 'deepseek-v3'],
         dailyLimit: 30,
-        defaultModel: 'deepseek-v3',
+        defaultModel: 'deepseek-r1',
         api: 'chatanywhere'
     },
     // 基礎模型（chatanywhere API）- 一天200次
