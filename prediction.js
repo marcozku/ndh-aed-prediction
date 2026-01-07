@@ -3457,8 +3457,8 @@ async function initComparisonChart() {
         }
         
         updateLoadingProgress('comparison', 20);
-        // 從數據庫獲取比較數據
-        const comparisonData = await fetchComparisonData(100);
+        // 從數據庫獲取比較數據（首次載入時刷新最近 7 天的 final_daily_predictions）
+        const comparisonData = await fetchComparisonData(100, true);
         
         if (comparisonData.length === 0) {
             console.warn('⚠️ 沒有比較數據');
@@ -4362,8 +4362,8 @@ async function initVolatilityChart(targetDate = null) {
         const hkNow = new Date(now.getTime() + hkOffset);
         const todayStr = targetDate || hkNow.toISOString().split('T')[0];
         
-        // 獲取 intraday 預測數據
-        const response = await fetch(`/api/intraday-predictions?days=7`);
+        // 獲取 intraday 預測數據（刷新 final_daily_predictions 確保數據一致）
+        const response = await fetch(`/api/intraday-predictions?days=7&refresh=true`);
         if (!response.ok) throw new Error('API 錯誤');
         const result = await response.json();
         
@@ -7200,9 +7200,10 @@ async function fetchHistoricalData(startDate = null, endDate = null) {
 }
 
 // 從數據庫獲取比較數據（實際vs預測）
-async function fetchComparisonData(limit = 100) {
+// v3.1.02: 添加 refresh 參數，用於刷新最近 7 天的 final_daily_predictions
+async function fetchComparisonData(limit = 100, refresh = false) {
     try {
-        const url = `/api/comparison?limit=${limit}`;
+        const url = `/api/comparison?limit=${limit}${refresh ? '&refresh=true' : ''}`;
         const response = await fetch(url);
         const data = await response.json();
         

@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.1.02';
+const MODEL_VERSION = '3.1.03';
 
 // ============================================
 // HKT 時間工具函數
@@ -615,11 +615,38 @@ const apiHandlers = {
         
         try {
             const parsedUrl = url.parse(req.url, true);
-            const { date, start, end, days } = parsedUrl.query;
+            const { date, start, end, days, refresh } = parsedUrl.query;
             
             // 獲取香港時間的今天日期
             const hk = getHKTime();
             const todayStr = hk.dateStr;
+            
+            // v3.1.03: 刷新 final_daily_predictions（確保數據一致）
+            if (refresh === 'true') {
+                const numDays = parseInt(days) || 7;
+                const [year, month, day] = todayStr.split('-').map(Number);
+                const startDate = new Date(year, month - 1, day);
+                startDate.setDate(startDate.getDate() - numDays + 1);
+                const startStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+                
+                console.log(`🔄 刷新 ${startStr} 到 ${todayStr} 的 final_daily_predictions...`);
+                const datesResult = await db.pool.query(`
+                    SELECT DISTINCT target_date 
+                    FROM daily_predictions 
+                    WHERE target_date >= $1 AND target_date <= $2
+                    ORDER BY target_date
+                `, [startStr, todayStr]);
+                
+                for (const row of datesResult.rows) {
+                    const dateStr = row.target_date.toISOString().split('T')[0];
+                    try {
+                        await db.calculateFinalDailyPrediction(dateStr);
+                    } catch (err) {
+                        // 忽略計算錯誤
+                    }
+                }
+                console.log(`✅ 刷新完成（${datesResult.rows.length} 個日期）`);
+            }
             
             let data = [];
             
@@ -770,6 +797,35 @@ const apiHandlers = {
         try {
             const parsedUrl = url.parse(req.url, true);
             const limit = parseInt(parsedUrl.query.limit) || 100;
+            const refresh = parsedUrl.query.refresh === 'true';
+            
+            // v3.1.02: 自動刷新最近7天的 final_daily_predictions（確保數據一致）
+            if (refresh) {
+                const hk = getHKTime();
+                const endDate = hk.dateStr;
+                const startDateObj = new Date(hk.dateStr);
+                startDateObj.setDate(startDateObj.getDate() - 7);
+                const startDate = startDateObj.toISOString().split('T')[0];
+                
+                console.log(`🔄 刷新 ${startDate} 到 ${endDate} 的 final_daily_predictions...`);
+                const datesResult = await db.pool.query(`
+                    SELECT DISTINCT target_date 
+                    FROM daily_predictions 
+                    WHERE target_date >= $1 AND target_date <= $2
+                    ORDER BY target_date
+                `, [startDate, endDate]);
+                
+                for (const row of datesResult.rows) {
+                    const dateStr = row.target_date.toISOString().split('T')[0];
+                    try {
+                        await db.calculateFinalDailyPrediction(dateStr);
+                    } catch (err) {
+                        // 忽略計算錯誤
+                    }
+                }
+                console.log(`✅ 刷新完成（${datesResult.rows.length} 個日期）`);
+            }
+            
             const data = await db.getComparisonData(limit);
             console.log(`📊 比較數據查詢結果: ${data.length} 筆數據`);
             sendJson(res, { success: true, data });

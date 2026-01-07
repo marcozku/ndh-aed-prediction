@@ -1,5 +1,20 @@
 # 版本更新日誌
 
+## v3.1.03 - 2026-01-08 02:35 HKT
+**🔧 自動刷新 final_daily_predictions 確保數據一致**
+
+### 改進
+- ✅ **自動刷新**：載入比較圖表時自動重新計算最近 7 天的 `final_daily_predictions`
+- ✅ **API 增強**：`/api/comparison?refresh=true` 支援強制刷新
+- ✅ **數據一致性**：確保趨勢圖和比較表始終使用最新的平滑預測值
+
+### 技術細節
+- 比較圖表初始化時調用 `fetchComparisonData(100, true)`
+- API 在返回數據前重新計算最近 7 天的 `calculateFinalDailyPrediction`
+- 解決因預測持續更新而導致的 `final_daily_predictions` 過時問題
+
+---
+
 ## v3.1.02 - 2026-01-08 02:30 HKT
 **🐛 徹底修復趨勢圖與比較表預測值不匹配問題**
 
