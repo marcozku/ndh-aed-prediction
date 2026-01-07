@@ -898,7 +898,7 @@ const apiHandlers = {
                     FROM intraday_predictions
                     WHERE target_date >= CURRENT_DATE - $1::interval
                       AND target_date <= CURRENT_DATE
-                    ORDER BY target_date, created_at DESC
+                    ORDER BY target_date, prediction_time DESC
                 )
                 SELECT 
                     dr.date::text as date,
