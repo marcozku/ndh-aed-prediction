@@ -164,8 +164,22 @@ class EnsemblePredictor {
             const dbMetrics = await db.getModelMetrics('xgboost');
             
             if (dbMetrics && dbMetrics.mae !== null) {
-                const dbDate = dbMetrics.training_date ? new Date(dbMetrics.training_date) : new Date(0);
-                const fileDate = fileMetrics?.training_date ? new Date(fileMetrics.training_date) : new Date(0);
+                // 安全地解析日期，處理無效日期
+                let dbDate = new Date(0);
+                if (dbMetrics.training_date) {
+                    const parsedDbDate = new Date(dbMetrics.training_date);
+                    if (!isNaN(parsedDbDate.getTime())) {
+                        dbDate = parsedDbDate;
+                    }
+                }
+                
+                let fileDate = new Date(0);
+                if (fileMetrics?.training_date) {
+                    const parsedFileDate = new Date(fileMetrics.training_date);
+                    if (!isNaN(parsedFileDate.getTime())) {
+                        fileDate = parsedFileDate;
+                    }
+                }
                 
                 // 使用較新的數據源
                 const useDatabase = dbDate >= fileDate;
