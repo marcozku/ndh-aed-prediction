@@ -1,5 +1,25 @@
 # 版本更新日誌
 
+## v3.1.01 - 2026-01-08 02:26 HKT
+**🐛 修復趨勢圖預測值與比較表不匹配問題**
+
+### 問題
+- 趨勢頁面「集成方法」線顯示的預測值與比較表「預測」欄位不一致
+- 趨勢圖使用本地計算的簡化公式（EWMA 30% + 簡單平均 40% + 修剪平均 30%）
+- 比較表使用數據庫 `final_daily_predictions.predicted_count`（完整平滑算法）
+
+### 修復
+- ✅ 歷史日期優先使用 API 返回的 `finalPredicted`（來自 `final_daily_predictions`）
+- ✅ 僅在 `finalPredicted` 不存在時才使用本地計算作為回退
+- ✅ 趨勢圖與比較表現在顯示相同的預測值
+
+### 技術細節
+- API `/api/intraday-predictions` 已經返回 `finalPredicted` 欄位
+- 前端 `prediction.js` 原本忽略此值，改為本地計算
+- 修正後使用 `targetData.finalPredicted` 作為歷史日期的預測值
+
+---
+
 ## v3.1.00 - 2026-01-06 21:30 HKT
 **🔧 修復 AI API Token 限制問題 + 雙 API 備援**
 

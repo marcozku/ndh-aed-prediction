@@ -4531,21 +4531,28 @@ async function initVolatilityChart(targetDate = null) {
             const currentMethodEl = document.getElementById('smoothing-method');
             methodLabel = currentMethodEl?.textContent || '集成方法';
         } else {
-            // 歷史日期：根據該日的預測數據計算平滑值
-            const predictionValues = predictions.map(p => p.y).filter(v => v != null && !isNaN(v));
-            if (predictionValues.length > 0) {
-                // 使用集成方法計算：EWMA 30% + 簡單平均 40% + 修剪平均 30%
-                const simpleAvg = predictionValues.reduce((a, b) => a + b, 0) / predictionValues.length;
-                const alpha = 0.65;
-                let ewma = predictionValues[0];
-                for (let i = 1; i < predictionValues.length; i++) {
-                    ewma = alpha * predictionValues[i] + (1 - alpha) * ewma;
+            // 歷史日期：優先使用數據庫中的 finalPredicted（與比較表一致）
+            // v3.0.102: 修復比較圖表與趨勢圖預測值不匹配問題
+            if (targetData.finalPredicted != null) {
+                calculatedSmoothed = parseInt(targetData.finalPredicted);
+                methodLabel = '最終預測';  // 表示來自 final_daily_predictions
+            } else {
+                // 回退：根據該日的預測數據計算平滑值（僅當沒有 finalPredicted 時）
+                const predictionValues = predictions.map(p => p.y).filter(v => v != null && !isNaN(v));
+                if (predictionValues.length > 0) {
+                    // 使用集成方法計算：EWMA 30% + 簡單平均 40% + 修剪平均 30%
+                    const simpleAvg = predictionValues.reduce((a, b) => a + b, 0) / predictionValues.length;
+                    const alpha = 0.65;
+                    let ewma = predictionValues[0];
+                    for (let i = 1; i < predictionValues.length; i++) {
+                        ewma = alpha * predictionValues[i] + (1 - alpha) * ewma;
+                    }
+                    const sorted = [...predictionValues].sort((a, b) => a - b);
+                    const trimCount = Math.floor(sorted.length * 0.1);
+                    const trimmed = sorted.slice(trimCount, sorted.length - trimCount || 1);
+                    const trimmedAvg = trimmed.length > 0 ? trimmed.reduce((a, b) => a + b, 0) / trimmed.length : simpleAvg;
+                    calculatedSmoothed = Math.round(ewma * 0.3 + simpleAvg * 0.4 + trimmedAvg * 0.3);
                 }
-                const sorted = [...predictionValues].sort((a, b) => a - b);
-                const trimCount = Math.floor(sorted.length * 0.1);
-                const trimmed = sorted.slice(trimCount, sorted.length - trimCount || 1);
-                const trimmedAvg = trimmed.length > 0 ? trimmed.reduce((a, b) => a + b, 0) / trimmed.length : simpleAvg;
-                calculatedSmoothed = Math.round(ewma * 0.3 + simpleAvg * 0.4 + trimmedAvg * 0.3);
             }
         }
         
