@@ -659,6 +659,168 @@ ${facts}
 }
 
 /**
+ * 自動事實核查：檢查 AI 生成的因素是否與已驗證事實匹配
+ * @param {Object} factor - AI 生成的因素對象
+ * @returns {Object} - 包含驗證結果的對象 {isVerified, matchedFact, reason}
+ */
+function factCheckFactor(factor) {
+    if (!factor || typeof factor !== 'object') {
+        return { isVerified: false, matchedFact: null, reason: '無效的因素對象' };
+    }
+    
+    const factorType = String(factor.type || '').toLowerCase();
+    const factorDescription = String(factor.description || '').toLowerCase();
+    const factorSource = String(factor.source || '').toLowerCase();
+    const factorSourceUrl = String(factor.sourceUrl || '').toLowerCase();
+    
+    // 檢查是否為政策相關因素
+    const isPolicyRelated = factorType.includes('政策') || 
+                           factorType.includes('policy') ||
+                           factorDescription.includes('政策') ||
+                           factorDescription.includes('收費') ||
+                           factorDescription.includes('分流') ||
+                           factorDescription.includes('急症室');
+    
+    // 如果與政策無關，檢查是否有可信來源
+    if (!isPolicyRelated) {
+        // 檢查來源是否為官方或可信來源
+        const trustedSources = [
+            'ha.org.hk', '醫管局', '醫院管理局',
+            'dh.gov.hk', 'chp.gov.hk', '衛生署', '衛生防護中心',
+            'info.gov.hk', '政府', 'gov.hk'
+        ];
+        
+        const hasTrustedSource = trustedSources.some(source => 
+            factorSource.includes(source) || 
+            factorSourceUrl.includes(source)
+        );
+        
+        if (hasTrustedSource) {
+            return { 
+                isVerified: true, 
+                matchedFact: null, 
+                reason: '來源為官方或可信機構' 
+            };
+        }
+        
+        // 如果有來源 URL 但未標記為未驗證，保持原狀態
+        if (factorSourceUrl && factorSourceUrl.startsWith('http')) {
+            return { 
+                isVerified: factor.unverified !== true, 
+                matchedFact: null, 
+                reason: '有來源連結，依 AI 標記' 
+            };
+        }
+        
+        // 無來源或來源不明確，標記為未驗證
+        if (!factorSource && !factorSourceUrl) {
+            return { 
+                isVerified: false, 
+                matchedFact: null, 
+                reason: '無來源資訊' 
+            };
+        }
+    }
+    
+    // 對於政策相關因素，檢查是否匹配已驗證事實
+    for (const [key, verifiedFact] of Object.entries(VERIFIED_POLICY_FACTS)) {
+        const factTitle = verifiedFact.title.toLowerCase();
+        const factDescription = verifiedFact.description.toLowerCase();
+        
+        // 檢查標題或描述是否匹配
+        const titleMatch = factorDescription.includes(factTitle) || 
+                          factorType.includes(factTitle.split(' ')[0]);
+        const descMatch = factorDescription.includes('急症室') && 
+                         (factorDescription.includes('收費') || 
+                          factorDescription.includes('400') ||
+                          factorDescription.includes('180'));
+        
+        // 檢查日期是否匹配
+        const factDate = verifiedFact.effectiveDate;
+        const hasMatchingDate = factor.affectedDays && 
+            factor.affectedDays.some(date => date.startsWith(factDate.substring(0, 7))); // 匹配年月
+        
+        // 檢查來源是否匹配
+        const sourceMatch = verifiedFact.sources.some(source => 
+            factorSourceUrl.includes(source) || 
+            factorSource.includes(source)
+        );
+        
+        if (titleMatch || (descMatch && hasMatchingDate) || sourceMatch) {
+            // 匹配已驗證事實，標記為已驗證並更新來源
+            return { 
+                isVerified: true, 
+                matchedFact: key, 
+                reason: `匹配已驗證事實：${verifiedFact.title}`,
+                verifiedSource: verifiedFact.sources[0],
+                verifiedDescription: verifiedFact.description
+            };
+        }
+    }
+    
+    // 政策相關但未匹配已驗證事實
+    if (isPolicyRelated) {
+        return { 
+            isVerified: false, 
+            matchedFact: null, 
+            reason: '政策相關但未匹配已驗證事實，需要人工核查' 
+        };
+    }
+    
+    // 其他情況，保持 AI 的標記或標記為未驗證
+    return { 
+        isVerified: factor.unverified !== true && (factorSource || factorSourceUrl), 
+        matchedFact: null, 
+        reason: '依來源和 AI 標記判斷' 
+    };
+}
+
+/**
+ * 對所有 AI 生成的因素進行自動事實核查
+ * @param {Object} result - AI 分析結果
+ * @returns {Object} - 添加了驗證標記的結果
+ */
+function factCheckAllFactors(result) {
+    if (!result || !result.factors || !Array.isArray(result.factors)) {
+        return result;
+    }
+    
+    let verifiedCount = 0;
+    let unverifiedCount = 0;
+    
+    result.factors = result.factors.map(factor => {
+        const factCheck = factCheckFactor(factor);
+        
+        if (factCheck.isVerified) {
+            verifiedCount++;
+            factor.verified = true;
+            factor.unverified = false;
+            
+            // 如果匹配了已驗證事實，更新來源資訊
+            if (factCheck.matchedFact && factCheck.verifiedSource) {
+                if (!factor.sourceUrl) {
+                    factor.sourceUrl = factCheck.verifiedSource;
+                }
+                if (!factor.source || factor.source === '內部通告' || factor.source === '未知') {
+                    factor.source = '已驗證政策事實';
+                }
+            }
+        } else {
+            unverifiedCount++;
+            factor.verified = false;
+            factor.unverified = true;
+            factor.verificationReason = factCheck.reason;
+        }
+        
+        return factor;
+    });
+    
+    console.log(`✅ 事實核查完成：${verifiedCount} 個已驗證，${unverifiedCount} 個未驗證`);
+    
+    return result;
+}
+
+/**
  * 搜索相關新聞和政策（使用真正的網絡搜尋）
  * 
  * 功能更新：
@@ -751,12 +913,15 @@ async function searchRelevantNewsAndEvents() {
     // 獲取新聞和政策搜索結果
     const newsSearchData = await searchNewsAndPolicies();
     
+    // 獲取已驗證的政策事實提示
+    const verifiedFactsPrompt = getVerifiedPolicyFactsPrompt();
+    
     // 精簡版提示詞（適用於免費 API token 限制）
     const prompt = `日期：${today}（${currentDayName}）
 
 分析今天及未來7天影響香港北區醫院急症室人數的因素：
 
-已知政策：2026-01-01起急症室收費由180元增至400元（醫管局）
+${verifiedFactsPrompt}
 
 請分析：
 1. 政策變更（急症室收費/分流）
@@ -770,7 +935,9 @@ ${newsSearchData.isRealSearch && newsSearchData.formattedNews ?
 `新聞：${newsSearchData.formattedNews.substring(0, 500)}` : ''}
 
 JSON格式回應（繁體中文）：
-{"factors":[{"type":"類型","description":"描述","impactFactor":1.05,"affectedDays":["${today}"],"source":"來源"}],"summary":"總結"}`;
+{"factors":[{"type":"類型","description":"描述","impactFactor":1.05,"affectedDays":["${today}"],"source":"來源","sourceUrl":"來源URL（如有）","unverified":false}],"summary":"總結"}
+
+重要：如果資訊無法從已驗證事實或新聞來源確認，請設置 "unverified": true`;
 
     try {
         console.log('🤖 調用 AI 分析服務（將自動嘗試所有可用模型）...');
@@ -835,6 +1002,9 @@ JSON格式回應（繁體中文）：
         // 轉換結果中的所有字符串為繁體中文
         result = convertObjectToTraditional(result);
         
+        // 對所有因素進行自動事實核查
+        result = factCheckAllFactors(result);
+        
         console.log(`✅ AI 分析完成，找到 ${result.factors ? result.factors.length : 0} 個影響因素`);
         return result;
     } catch (error) {
@@ -861,16 +1031,21 @@ async function analyzeDateRangeFactors(startDate, endDate, weatherData = null) {
     // 獲取新聞和政策搜索結果
     const newsSearchData = await searchNewsAndPolicies();
     
+    // 獲取已驗證的政策事實提示
+    const verifiedFactsPrompt = getVerifiedPolicyFactsPrompt();
+    
     // 精簡版提示詞
     const prompt = `分析 ${startDate} 至 ${endDate} 期間影響香港北區醫院急症室人數的因素。
 
-已知：2026-01-01起急症室收費180→400元
+${verifiedFactsPrompt}
 
 請分析：政策變更、突發公衛事件、大型活動、醫院服務變更
 不要分析（系統已處理）：天氣、假期、流感季、週末效應
 
 JSON格式回應（繁體中文）：
-{"factors":[{"date":"日期","type":"類型","description":"描述","impactFactor":1.05,"source":"來源"}],"overallImpact":"總結"}`;
+{"factors":[{"date":"日期","type":"類型","description":"描述","impactFactor":1.05,"source":"來源","sourceUrl":"來源URL（如有）","unverified":false}],"overallImpact":"總結"}
+
+重要：如果資訊無法從已驗證事實或新聞來源確認，請設置 "unverified": true`;
 
     try {
         const response = await callAI(prompt, null, 0.5);
@@ -909,6 +1084,9 @@ JSON格式回應（繁體中文）：
         
         // 轉換結果中的所有字符串為繁體中文
         result = convertObjectToTraditional(result);
+        
+        // 對所有因素進行自動事實核查
+        result = factCheckAllFactors(result);
         
         return result;
     } catch (error) {

@@ -8149,7 +8149,13 @@ function updateRealtimeFactors(aiAnalysisData = null) {
                 <div class="factor-source">
                     <span class="source-label">📚 來源：</span>
                     ${factor.sourceUrl ? `<a href="${escapeHtml(factor.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="source-link">${escapeHtml(factor.source || factor.sourceUrl)}</a>` : `<span class="source-text">${escapeHtml(factor.source)}</span>`}
-                    ${factor.unverified ? '<span class="source-unverified">⚠️ 未驗證</span>' : ''}
+                    ${factor.verified ? '<span class="source-verified">✅ 已驗證</span>' : factor.unverified ? '<span class="source-unverified">⚠️ 未驗證</span>' : ''}
+                </div>
+                ` : ''}
+                ${factor.unverified && factor.verificationReason ? `
+                <div class="factor-verification-reason">
+                    <span class="verification-reason-label">驗證說明：</span>
+                    <span class="verification-reason-text">${escapeHtml(factor.verificationReason)}</span>
                 </div>
                 ` : ''}
             </div>
