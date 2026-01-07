@@ -849,6 +849,7 @@ const apiHandlers = {
     },
 
     // v3.0.87: 準確度歷史（用於可靠度學習）
+    // v3.0.98: 改進查詢以包含尚未有實際數據的預測（實時顯示）
     'GET /api/accuracy-history': async (req, res) => {
         console.log('📊 accuracy-history API 被調用');
         if (!db || !db.pool) {
@@ -857,41 +858,60 @@ const apiHandlers = {
         try {
             const parsedUrl = url.parse(req.url, true);
             const days = parseInt(parsedUrl.query.days) || 30;
-            console.log(`📊 查詢 ${days} 天的準確度歷史`);
+            console.log(`📊 查詢 ${days} 天的準確度歷史（包含待驗證預測）`);
             
-            // v3.0.99: 使用與 getComparisonData 相同的邏輯
-            // 優先使用 final_daily_predictions（平滑後的日終預測）
+            // v3.0.98: 使用 FULL OUTER JOIN 合併實際數據和預測數據
+            // 這樣可以顯示：1) 有實際數據的歷史 2) 有預測但尚無實際數據的日期
             const query = `
+                WITH date_range AS (
+                    SELECT generate_series(
+                        (CURRENT_DATE - $1::interval)::date,
+                        CURRENT_DATE,
+                        '1 day'::interval
+                    )::date AS date
+                ),
+                predictions AS (
+                    SELECT DISTINCT ON (target_date)
+                        target_date,
+                        predicted_count,
+                        prediction_production,
+                        prediction_experimental,
+                        xgboost_base,
+                        ai_factor,
+                        weather_factor
+                    FROM daily_predictions
+                    WHERE target_date >= CURRENT_DATE - $1::interval
+                      AND target_date <= CURRENT_DATE
+                    ORDER BY target_date, created_at DESC
+                ),
+                final_predictions AS (
+                    SELECT target_date, predicted_count
+                    FROM final_daily_predictions
+                    WHERE target_date >= CURRENT_DATE - $1::interval
+                      AND target_date <= CURRENT_DATE
+                )
                 SELECT 
-                    a.date::text as date,
+                    dr.date::text as date,
                     COALESCE(
-                        fdp.predicted_count,
-                        (SELECT predicted_count FROM daily_predictions 
-                         WHERE target_date = a.date 
-                         ORDER BY created_at DESC LIMIT 1)
+                        fp.predicted_count,
+                        p.predicted_count
                     )::integer as predicted,
                     a.patient_count::integer as actual,
-                    dp.prediction_production,
-                    dp.prediction_experimental,
-                    dp.xgboost_base,
-                    dp.ai_factor,
-                    dp.weather_factor
-                FROM actual_data a
-                LEFT JOIN final_daily_predictions fdp ON fdp.target_date = a.date
-                LEFT JOIN LATERAL (
-                    SELECT prediction_production, prediction_experimental, xgboost_base, ai_factor, weather_factor
-                    FROM daily_predictions
-                    WHERE target_date = a.date
-                    ORDER BY created_at DESC
-                    LIMIT 1
-                ) dp ON true
-                WHERE a.date >= CURRENT_DATE - $1::interval
-                  AND a.date < CURRENT_DATE
-                ORDER BY a.date DESC
+                    p.prediction_production,
+                    p.prediction_experimental,
+                    p.xgboost_base,
+                    p.ai_factor,
+                    p.weather_factor
+                FROM date_range dr
+                LEFT JOIN actual_data a ON a.date = dr.date
+                LEFT JOIN predictions p ON p.target_date = dr.date
+                LEFT JOIN final_predictions fp ON fp.target_date = dr.date
+                WHERE (a.patient_count IS NOT NULL OR p.predicted_count IS NOT NULL OR fp.predicted_count IS NOT NULL)
+                ORDER BY dr.date DESC
             `;
             
             const result = await db.pool.query(query, [`${days} days`]);
-            console.log(`📊 查詢返回 ${result.rows.length} 筆數據`);
+            console.log(`📊 查詢返回 ${result.rows.length} 筆數據（包含 ${result.rows.filter(r => r.actual === null).length} 筆待驗證）`);
             
             sendJson(res, {
                 success: true,

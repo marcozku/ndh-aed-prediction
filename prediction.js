@@ -10339,6 +10339,7 @@ async function loadDualTrackSection() {
 }
 
 // v3.0.91: 渲染雙軌對比圖表
+// v3.0.98: 支持顯示待驗證的預測數據（實時更新）
 function renderDualTrackChart(canvas, historyData) {
     // 準備數據
     const history = [...historyData].reverse(); // 按時間順序排列（複製避免修改原數據）
@@ -10351,6 +10352,9 @@ function renderDualTrackChart(canvas, historyData) {
     
     // 檢查是否有雙軌數據
     const hasDualTrackData = history.some(d => d.prediction_production !== null);
+    
+    // v3.0.98: 統計待驗證的預測數量
+    const pendingCount = history.filter(d => d.actual === null && d.predicted !== null).length;
     
     // v3.0.98: 修正雙軌預測顯示邏輯
     // Production = 平滑後的預測值 (predicted)，因為 w_ai = 0 時 Production = 主預測
@@ -10373,7 +10377,7 @@ function renderDualTrackChart(canvas, historyData) {
         return d.predicted;
     });
     
-    console.log(`📊 雙軌圖表數據: ${history.length} 筆, 有雙軌數據: ${hasDualTrackData}`);
+    console.log(`📊 雙軌圖表數據: ${history.length} 筆, 有雙軌數據: ${hasDualTrackData}, 待驗證: ${pendingCount}`);
     
     // 銷毀舊圖表
     safeDestroyChart(window.dualTrackChartInstance, 'dual-track-chart');
@@ -10440,7 +10444,19 @@ function renderDualTrackChart(canvas, historyData) {
                 tooltip: {
                     callbacks: {
                         label: function(context) {
-                            return `${context.dataset.label}: ${context.parsed.y} 人`;
+                            const value = context.parsed.y;
+                            if (value === null || value === undefined) {
+                                return `${context.dataset.label}: 待驗證`;
+                            }
+                            return `${context.dataset.label}: ${value} 人`;
+                        },
+                        afterBody: function(tooltipItems) {
+                            // v3.0.98: 顯示待驗證狀態
+                            const dataIndex = tooltipItems[0]?.dataIndex;
+                            if (dataIndex !== undefined && history[dataIndex]?.actual === null) {
+                                return ['', '⏳ 實際數據待驗證'];
+                            }
+                            return [];
                         }
                     }
                 }
@@ -10470,13 +10486,16 @@ function renderDualTrackChart(canvas, historyData) {
     // 更新標題反映數據狀態
     const titleEl = canvas.parentElement.previousElementSibling;
     if (titleEl && titleEl.tagName === 'H4') {
-        const statusNote = hasDualTrackData 
-            ? '' 
-            : '<span style="font-size: 0.7rem; color: var(--text-tertiary); font-weight: normal; margin-left: 8px;">(雙軌分離數據收集中)</span>';
+        let statusNote = '';
+        if (pendingCount > 0) {
+            statusNote = `<span style="font-size: 0.7rem; color: #f59e0b; font-weight: normal; margin-left: 8px;">(${pendingCount} 筆待驗證)</span>`;
+        } else if (!hasDualTrackData) {
+            statusNote = '<span style="font-size: 0.7rem; color: var(--text-tertiary); font-weight: normal; margin-left: 8px;">(雙軌分離數據收集中)</span>';
+        }
         titleEl.innerHTML = `📊 Production vs Experimental vs 實際 (過去 30 天)${statusNote}`;
     }
     
-    console.log(`✅ 雙軌對比圖表已載入 (有雙軌數據: ${hasDualTrackData})`);
+    console.log(`✅ 雙軌對比圖表已載入 (有雙軌數據: ${hasDualTrackData}, 待驗證: ${pendingCount})`);
 }
 
 // v3.0.87: 初始化雙軌對比圖表
