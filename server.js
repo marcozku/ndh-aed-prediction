@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.1.03';
+const MODEL_VERSION = '3.1.04';
 
 // ============================================
 // HKT 時間工具函數
@@ -862,12 +862,16 @@ const apiHandlers = {
             
             // v3.0.98: 使用 FULL OUTER JOIN 合併實際數據和預測數據
             // v3.0.99: 增加 intraday_predictions 以包含今日即時預測
+            // v3.1.04: 使用 HKT 時區確保日期範圍正確
             // 這樣可以顯示：1) 有實際數據的歷史 2) 有預測但尚無實際數據的日期
             const query = `
-                WITH date_range AS (
+                WITH hkt_today AS (
+                    SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Hong_Kong')::date AS today
+                ),
+                date_range AS (
                     SELECT generate_series(
-                        (CURRENT_DATE - $1::interval)::date,
-                        CURRENT_DATE,
+                        ((SELECT today FROM hkt_today) - $1::interval)::date,
+                        (SELECT today FROM hkt_today),
                         '1 day'::interval
                     )::date AS date
                 ),
@@ -881,23 +885,23 @@ const apiHandlers = {
                         ai_factor,
                         weather_factor
                     FROM daily_predictions
-                    WHERE target_date >= CURRENT_DATE - $1::interval
-                      AND target_date <= CURRENT_DATE
+                    WHERE target_date >= (SELECT today FROM hkt_today) - $1::interval
+                      AND target_date <= (SELECT today FROM hkt_today)
                     ORDER BY target_date, created_at DESC
                 ),
                 final_predictions AS (
                     SELECT target_date, predicted_count
                     FROM final_daily_predictions
-                    WHERE target_date >= CURRENT_DATE - $1::interval
-                      AND target_date <= CURRENT_DATE
+                    WHERE target_date >= (SELECT today FROM hkt_today) - $1::interval
+                      AND target_date <= (SELECT today FROM hkt_today)
                 ),
                 intraday AS (
                     SELECT DISTINCT ON (target_date)
                         target_date,
                         predicted_count
                     FROM intraday_predictions
-                    WHERE target_date >= CURRENT_DATE - $1::interval
-                      AND target_date <= CURRENT_DATE
+                    WHERE target_date >= (SELECT today FROM hkt_today) - $1::interval
+                      AND target_date <= (SELECT today FROM hkt_today)
                     ORDER BY target_date, prediction_time DESC
                 )
                 SELECT 
