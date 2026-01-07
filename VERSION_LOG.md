@@ -1,22 +1,36 @@
 # 版本更新日誌
 
-## v3.1.01 - 2026-01-08 02:26 HKT
-**🐛 修復趨勢圖預測值與比較表不匹配問題**
+## v3.1.02 - 2026-01-08 02:30 HKT
+**🐛 徹底修復趨勢圖與比較表預測值不匹配問題**
 
 ### 問題
-- 趨勢頁面「集成方法」線顯示的預測值與比較表「預測」欄位不一致
-- 趨勢圖使用本地計算的簡化公式（EWMA 30% + 簡單平均 40% + 修剪平均 30%）
-- 比較表使用數據庫 `final_daily_predictions.predicted_count`（完整平滑算法）
+- v3.1.01 僅修復歷史日期，今日預測仍不一致
+- 今日預測使用 `/api/smoothing-methods` 實時計算值
+- 比較表使用 `final_daily_predictions.predicted_count`（數據庫存儲值）
 
 ### 修復
-- ✅ 歷史日期優先使用 API 返回的 `finalPredicted`（來自 `final_daily_predictions`）
-- ✅ 僅在 `finalPredicted` 不存在時才使用本地計算作為回退
-- ✅ 趨勢圖與比較表現在顯示相同的預測值
+- ✅ **統一數據源**：今日和歷史日期都優先使用 `finalPredicted`
+- ✅ **確保一致性**：趨勢圖「最終預測」線與比較表「預測」欄位使用相同數據
+- ✅ **保留回退機制**：僅在 `finalPredicted` 不存在時才使用其他計算方式
 
 ### 技術細節
-- API `/api/intraday-predictions` 已經返回 `finalPredicted` 欄位
-- 前端 `prediction.js` 原本忽略此值，改為本地計算
-- 修正後使用 `targetData.finalPredicted` 作為歷史日期的預測值
+```javascript
+// v3.1.02: 統一使用 finalPredicted（來自 final_daily_predictions）
+if (targetData.finalPredicted != null) {
+    calculatedSmoothed = parseInt(targetData.finalPredicted);
+    methodLabel = '最終預測';
+}
+// 回退機制：今日用 #today-predicted，歷史用本地計算
+```
+
+---
+
+## v3.1.01 - 2026-01-08 02:26 HKT
+**🐛 修復趨勢圖預測值與比較表不匹配問題（部分）**
+
+### 修復
+- ✅ 歷史日期優先使用 API 返回的 `finalPredicted`
+- ⚠️ 今日預測仍使用不同數據源（已在 v3.1.02 修復）
 
 ---
 

@@ -4498,8 +4498,15 @@ async function initVolatilityChart(targetDate = null) {
         let calculatedSmoothed = null;
         let methodLabel = '集成方法';
         
+        // v3.1.02: 統一使用 finalPredicted（來自 final_daily_predictions）確保與比較表一致
+        // 無論今日還是歷史日期，都優先使用數據庫中的 final_daily_predictions 值
+        if (targetData.finalPredicted != null) {
+            calculatedSmoothed = parseInt(targetData.finalPredicted);
+            methodLabel = '最終預測';
+        }
+        
         if (isToday) {
-            // 今日：顯示實時預測點 + 使用主預測區的平滑值
+            // 今日：顯示實時預測點
             const realtimeEl = document.getElementById('realtime-predicted');
             const realtimeValue = realtimeEl ? parseInt(realtimeEl.textContent) : null;
             if (realtimeValue && !isNaN(realtimeValue)) {
@@ -4525,19 +4532,16 @@ async function initVolatilityChart(targetDate = null) {
                 });
             }
             
-            // 從主預測區獲取已計算的平滑值
-            const mainPredictedEl = document.getElementById('today-predicted');
-            calculatedSmoothed = mainPredictedEl ? parseInt(mainPredictedEl.textContent) : null;
-            const currentMethodEl = document.getElementById('smoothing-method');
-            methodLabel = currentMethodEl?.textContent || '集成方法';
+            // 如果沒有 finalPredicted，回退到主預測區的平滑值
+            if (calculatedSmoothed == null) {
+                const mainPredictedEl = document.getElementById('today-predicted');
+                calculatedSmoothed = mainPredictedEl ? parseInt(mainPredictedEl.textContent) : null;
+                const currentMethodEl = document.getElementById('smoothing-method');
+                methodLabel = currentMethodEl?.textContent || '集成方法';
+            }
         } else {
-            // 歷史日期：優先使用數據庫中的 finalPredicted（與比較表一致）
-            // v3.0.102: 修復比較圖表與趨勢圖預測值不匹配問題
-            if (targetData.finalPredicted != null) {
-                calculatedSmoothed = parseInt(targetData.finalPredicted);
-                methodLabel = '最終預測';  // 表示來自 final_daily_predictions
-            } else {
-                // 回退：根據該日的預測數據計算平滑值（僅當沒有 finalPredicted 時）
+            // 歷史日期：如果沒有 finalPredicted，回退到本地計算
+            if (calculatedSmoothed == null) {
                 const predictionValues = predictions.map(p => p.y).filter(v => v != null && !isNaN(v));
                 if (predictionValues.length > 0) {
                     // 使用集成方法計算：EWMA 30% + 簡單平均 40% + 修剪平均 30%
