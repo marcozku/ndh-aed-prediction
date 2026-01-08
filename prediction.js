@@ -10371,21 +10371,23 @@ function renderDualTrackChart(canvas, historyData) {
     // v3.0.98: 統計待驗證的預測數量
     const pendingCount = history.filter(d => d.actual === null && d.predicted !== null).length;
     
-    // v3.0.98: 修正雙軌預測顯示邏輯
-    // Production = 平滑後的預測值 (predicted)，因為 w_ai = 0 時 Production = 主預測
-    // Experimental = 平滑後的預測值 + AI 影響調整
+    // v3.1.05: 修正雙軌預測顯示邏輯（與卡片顯示一致）
+    // Production = final_daily_predictions 的值（平滑後的預測值）
+    // Experimental = Production + AI 影響調整
     const productionData = history.map(d => {
-        // 優先使用平滑後的 predicted 值（這是正確的日終預測）
+        // 使用 predicted 值（來自 final_daily_predictions，與綜合預測一致）
         return d.predicted;
     });
     
-    // Experimental = 平滑預測 + AI 因子影響
+    // Experimental = Production + AI 因子影響
+    // v3.1.05: 使用與 /api/dual-track/summary 相同的計算邏輯
     const experimentalData = history.map(d => {
-        // 如果有 AI 因子，計算 AI 對預測的影響
         const aiFactor = parseFloat(d.ai_factor) || 1.0;
         if (aiFactor !== 1.0 && d.predicted) {
-            // AI 影響 = 平均病人數 × (AI因子 - 1) × 實驗權重
-            const aiImpact = 247 * (aiFactor - 1.0) * 0.10; // w_ai = 0.10 for experimental
+            // 使用 xgboost_base 作為基礎值（如果存在），否則使用 predicted
+            const baseForExp = parseFloat(d.xgboost_base) || d.predicted;
+            // AI 影響 = (aiFactor - 1.0) * base * w_ai (0.10)
+            const aiImpact = (aiFactor - 1.0) * baseForExp * 0.10;
             return Math.round(d.predicted + aiImpact);
         }
         // 無 AI 影響時，Experimental = Production = 平滑預測
