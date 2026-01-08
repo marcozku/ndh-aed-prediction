@@ -3357,6 +3357,87 @@ const apiHandlers = {
                 return sendJson(res, { error: '需要提供 date 參數' }, 400);
             }
             
+            // v3.1.05: 優先使用 final_daily_predictions 的值（與預測波動分析一致）
+            const finalPredResult = await db.pool.query(
+                'SELECT * FROM final_daily_predictions WHERE target_date = $1',
+                [targetDate]
+            );
+            
+            if (finalPredResult.rows.length > 0) {
+                const finalPred = finalPredResult.rows[0];
+                const smoothingDetails = finalPred.smoothing_details || {};
+                const allMethods = smoothingDetails.allMethods || {};
+                const recommended = smoothingDetails.recommended || {
+                    value: finalPred.predicted_count,
+                    method: finalPred.smoothing_method || 'ensembleMeta',
+                    reason: '來自 final_daily_predictions'
+                };
+                
+                // 構建完整的結果結構（與實時計算格式一致）
+                const results = {
+                    simpleAverage: { value: allMethods.simpleAverage || finalPred.predicted_count },
+                    ewma: { value: allMethods.ewma || finalPred.predicted_count },
+                    confidenceWeighted: { value: allMethods.confidenceWeighted || finalPred.predicted_count },
+                    timeWindowWeighted: { value: allMethods.timeWindowWeighted || finalPred.predicted_count },
+                    trimmedMean: { value: allMethods.trimmedMean || finalPred.predicted_count },
+                    varianceFiltered: { value: allMethods.varianceFiltered || finalPred.predicted_count },
+                    kalman: { value: allMethods.kalman || finalPred.predicted_count },
+                    ensembleMeta: { value: allMethods.ensembleMeta || finalPred.predicted_count },
+                    stability: {
+                        cv: finalPred.stability_cv || 0.1,
+                        confidenceLevel: finalPred.stability_level || 'medium'
+                    },
+                    smoothedCI: {
+                        ci80: {
+                            low: finalPred.ci80_low,
+                            high: finalPred.ci80_high
+                        },
+                        ci95: {
+                            low: finalPred.ci95_low,
+                            high: finalPred.ci95_high
+                        }
+                    },
+                    rawStats: smoothingDetails.rawStats || {}
+                };
+                
+                // v3.0.38: 使用 OptimalDailyPredictionSelector 選擇最佳每日預測
+                let optimalResult = null;
+                try {
+                    const predictions = await db.getDailyPredictions(targetDate);
+                    if (predictions.length > 0) {
+                        const { getOptimalSelector } = require('./modules/pragmatic-bayesian');
+                        const selector = getOptimalSelector();
+                        optimalResult = selector.selectBest(predictions);
+                    }
+                } catch (e) {
+                    console.log('⚠️ OptimalDailyPredictionSelector 不可用:', e.message);
+                }
+                
+                sendJson(res, {
+                    success: true,
+                    targetDate: targetDate,
+                    predictionCount: finalPred.prediction_count || 0,
+                    methods: {
+                        simpleAverage: results.simpleAverage,
+                        ewma: results.ewma,
+                        confidenceWeighted: results.confidenceWeighted,
+                        timeWindowWeighted: results.timeWindowWeighted,
+                        trimmedMean: results.trimmedMean,
+                        varianceFiltered: results.varianceFiltered,
+                        kalman: results.kalman,
+                        ensembleMeta: results.ensembleMeta
+                    },
+                    stability: results.stability,
+                    smoothedCI: results.smoothedCI,
+                    rawStats: results.rawStats,
+                    recommended: recommended,
+                    optimal: optimalResult,
+                    source: 'final_daily_predictions' // 標記數據來源
+                });
+                return;
+            }
+            
+            // 如果沒有 final_daily_predictions，回退到實時計算
             // 獲取該日所有預測
             const predictions = await db.getDailyPredictions(targetDate);
             
