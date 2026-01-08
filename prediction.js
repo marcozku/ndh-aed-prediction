@@ -10371,26 +10371,28 @@ function renderDualTrackChart(canvas, historyData) {
     // v3.0.98: 統計待驗證的預測數量
     const pendingCount = history.filter(d => d.actual === null && d.predicted !== null).length;
     
-    // v3.1.05: 修正雙軌預測顯示邏輯（與卡片顯示一致）
+    // v3.1.05: 使用 API 返回的計算好的值（確保與卡片顯示完全一致）
     // Production = final_daily_predictions 的值（平滑後的預測值）
-    // Experimental = Production + AI 影響調整
+    // Experimental = API 計算好的值（與 /api/dual-track/summary 一致）
     const productionData = history.map(d => {
         // 使用 predicted 值（來自 final_daily_predictions，與綜合預測一致）
         return d.predicted;
     });
     
-    // Experimental = Production + AI 因子影響
-    // v3.1.05: 使用與 /api/dual-track/summary 相同的計算邏輯
+    // v3.1.05: 優先使用 API 返回的 experimental_predicted（已在服務器端計算好）
+    // 如果不存在，回退到前端計算（向後兼容）
     const experimentalData = history.map(d => {
+        // 優先使用服務器端計算的值
+        if (d.experimental_predicted != null && d.experimental_predicted !== undefined) {
+            return parseInt(d.experimental_predicted);
+        }
+        // Fallback: 前端計算（向後兼容）
         const aiFactor = parseFloat(d.ai_factor) || 1.0;
         if (aiFactor !== 1.0 && d.predicted) {
-            // 使用 xgboost_base 作為基礎值（如果存在），否則使用 predicted
             const baseForExp = parseFloat(d.xgboost_base) || d.predicted;
-            // AI 影響 = (aiFactor - 1.0) * base * w_ai (0.10)
             const aiImpact = (aiFactor - 1.0) * baseForExp * 0.10;
             return Math.round(d.predicted + aiImpact);
         }
-        // 無 AI 影響時，Experimental = Production = 平滑預測
         return d.predicted;
     });
     

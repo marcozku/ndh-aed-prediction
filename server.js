@@ -916,7 +916,20 @@ const apiHandlers = {
                     p.prediction_experimental,
                     p.xgboost_base,
                     p.ai_factor,
-                    p.weather_factor
+                    p.weather_factor,
+                    -- v3.1.05: 計算 Experimental 值（與 /api/dual-track/summary 一致）
+                    CASE 
+                        WHEN fp.predicted_count IS NOT NULL AND p.ai_factor IS NOT NULL AND p.ai_factor != 1.0 THEN
+                            -- 使用 final_daily_predictions 的值作為 Production，計算 Experimental
+                            fp.predicted_count + ROUND((p.ai_factor - 1.0) * COALESCE(p.xgboost_base, fp.predicted_count) * 0.10)
+                        WHEN fp.predicted_count IS NOT NULL THEN
+                            -- 無 AI 影響時，Experimental = Production
+                            fp.predicted_count
+                        WHEN p.prediction_experimental IS NOT NULL THEN
+                            -- Fallback: 使用 daily_predictions 中的值
+                            p.prediction_experimental
+                        ELSE NULL
+                    END::integer as experimental_predicted
                 FROM date_range dr
                 LEFT JOIN actual_data a ON a.date = dr.date
                 LEFT JOIN predictions p ON p.target_date = dr.date
