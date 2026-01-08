@@ -10167,7 +10167,7 @@ async function loadDualTrackSection() {
             };
         }
         
-        // v3.0.92: 使用平滑後的預測值
+        // v3.1.05: 優先使用 final_daily_predictions 的值（與綜合預測一致）
         let smoothedPrediction = null;
         let aiFactorValue = 1.0; // 默認無 AI 影響
         
@@ -10185,9 +10185,20 @@ async function loadDualTrackSection() {
         // 計算雙軌數值
         let prod, exp, validation;
         
-        if (smoothedPrediction !== null) {
+        // v3.1.05: 優先使用 summary API 中的雙軌預測值（來自數據庫，已同步）
+        if (summaryResult.today?.production?.prediction && summaryResult.today?.experimental?.prediction) {
+            // 使用數據庫中保存的雙軌預測值（已與 final_daily_predictions 同步）
+            prod = {
+                prediction: summaryResult.today.production.prediction,
+                weights: summaryResult.today.production.weights || { w_base: reliability.xgboost, w_weather: reliability.weather, w_ai: 0 }
+            };
+            exp = {
+                prediction: summaryResult.today.experimental.prediction,
+                weights: summaryResult.today.experimental.weights || { w_base: Math.max(0.70, reliability.xgboost - 0.10), w_weather: reliability.weather, w_ai: Math.min(0.20, reliability.ai + 0.10) }
+            };
+        } else if (smoothedPrediction !== null) {
+            // Fallback: 使用平滑預測值計算
             // Production = 平滑預測（不含 AI）
-            // 因為當前主預測可能包含 AI，需要還原
             const baseSmoothed = smoothedPrediction;
             const prodPred = Math.round(baseSmoothed); // 綜合預測就是 Production（無 AI 時）
             
@@ -10195,7 +10206,10 @@ async function loadDualTrackSection() {
             // 如果 AI 有影響，計算含 AI 版本
             let expPred = prodPred;
             if (aiFactorValue !== 1.0) {
-                const aiImpact = (aiFactorValue - 1.0) * 247 * 0.15; // 使用均值計算 AI 影響
+                // v3.1.05: 使用更準確的 AI 影響計算（基於實際 XGBoost 基礎值）
+                // 如果 summary 有 xgboost_base，使用它；否則使用平滑值作為基礎
+                const xgbBase = summaryResult.today?.xgboost_base || baseSmoothed;
+                const aiImpact = (aiFactorValue - 1.0) * xgbBase * 0.10; // w_ai = 0.10 for experimental
                 expPred = Math.round(baseSmoothed + aiImpact);
             }
             
@@ -10208,20 +10222,15 @@ async function loadDualTrackSection() {
                 weights: { w_base: Math.max(0.70, reliability.xgboost - 0.10), w_weather: reliability.weather, w_ai: Math.min(0.20, reliability.ai + 0.10) }
             };
         } else {
-            // Fallback 到 summary API 數據
-            if (summaryResult.today) {
-                prod = summaryResult.today.production || {};
-                exp = summaryResult.today.experimental || {};
-            } else {
-                prod = {
-                    prediction: '--',
-                    weights: { w_base: reliability.xgboost, w_weather: reliability.weather, w_ai: 0 }
-                };
-                exp = {
-                    prediction: '--',
-                    weights: { w_base: 0.85, w_weather: 0.05, w_ai: 0.10 }
-                };
-            }
+            // 最後回退
+            prod = {
+                prediction: '--',
+                weights: { w_base: reliability.xgboost, w_weather: reliability.weather, w_ai: 0 }
+            };
+            exp = {
+                prediction: '--',
+                weights: { w_base: 0.85, w_weather: 0.05, w_ai: 0.10 }
+            };
         }
         
         validation = summaryResult.validation || {
