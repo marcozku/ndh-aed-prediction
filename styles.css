@@ -3105,6 +3105,13 @@ section h2 {
     position: relative !important; /* 確保 z-index 生效 */
 }
 
+/* v3.1.05: 增加未來7天預測趨勢圖表高度，讓用戶更好地看到值差異 */
+#forecast-chart-container {
+    height: min(50vh, 500px) !important; /* 增加高度：50vh 或最大 500px */
+    min-height: min(42vh, 420px) !important; /* 增加最小高度：42vh 或最大 420px */
+    max-height: min(55vh, 550px) !important; /* 限制最大高度，確保不超過容器 */
+}
+
 /* 確保對比圖的 canvas 不會超出容器 */
 #comparison-chart-container canvas {
     width: 100% !important;
