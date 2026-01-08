@@ -1,5 +1,30 @@
 # 版本更新日誌
 
+## v3.1.06 - 2026-01-08 16:31 HKT
+**🔧 修復實驗性軌道卡片與圖表值不同步問題**
+
+### 問題
+- Experimental Track 卡片顯示的值來自 `/api/dual-track/summary`
+- 圖表中的 Experimental 值來自 `/api/accuracy-history` 歷史數據
+- 兩者可能不一致，導致卡片和圖表顯示不同的值
+
+### 修復
+- ✅ **同步今天的值**：圖表渲染時使用卡片傳入的 today experimental 值
+- ✅ **確保一致性**：卡片和圖表中的今天數據點現在完全同步
+- ✅ **實時更新**：當卡片值更新時，圖表也會同步更新
+
+### 技術細節
+- 修改 `loadDualTrackSection()` 將今天的 experimental 值傳遞給 `initDualTrackChart()`
+- 修改 `initDualTrackChart()` 接受可選的 `todayExperimental` 參數
+- 修改 `renderDualTrackChart()` 在渲染前更新今天的 `experimental_predicted` 值
+- 確保圖表中的今天數據點與卡片顯示的值完全一致
+
+### 影響範圍
+- ✅ 雙軌系統的 Experimental Track 卡片
+- ✅ 雙軌對比圖表中的 Experimental (含 AI) 線
+
+---
+
 ## v3.1.05 - 2026-01-08 15:50 HKT
 **🔧 修復綜合預測與預測波動分析最終預測不同步問題**
 

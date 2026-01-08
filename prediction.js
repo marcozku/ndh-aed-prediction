@@ -10336,8 +10336,8 @@ async function loadDualTrackSection() {
             </div>
         `;
         
-        // 初始化雙軌對比圖表
-        await initDualTrackChart();
+        // 初始化雙軌對比圖表（傳入今天的 experimental 值以確保同步）
+        await initDualTrackChart(exp.prediction);
         
         console.log('✅ 雙軌預測系統已載入');
     } catch (error) {
@@ -10355,9 +10355,22 @@ async function loadDualTrackSection() {
 
 // v3.0.91: 渲染雙軌對比圖表
 // v3.0.98: 支持顯示待驗證的預測數據（實時更新）
-function renderDualTrackChart(canvas, historyData) {
+// v3.1.06: 支持傳入今天的 experimental 值以確保與卡片同步
+function renderDualTrackChart(canvas, historyData, todayExperimental = null) {
     // 準備數據
     const history = [...historyData].reverse(); // 按時間順序排列（複製避免修改原數據）
+    
+    // v3.1.06: 如果傳入了今天的 experimental 值，更新今天的數據點
+    if (todayExperimental !== null && todayExperimental !== undefined && todayExperimental !== '--') {
+        const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Hong_Kong' }); // YYYY-MM-DD
+        const todayIndex = history.findIndex(d => d.date === today || d.date === today + 'T00:00:00.000Z');
+        if (todayIndex !== -1) {
+            // 更新今天的 experimental_predicted 值，確保與卡片顯示一致
+            history[todayIndex].experimental_predicted = parseInt(todayExperimental);
+            console.log(`🔄 同步今天的 Experimental 值: ${todayExperimental} (卡片 → 圖表)`);
+        }
+    }
+    
     const labels = history.map(d => {
         const date = new Date(d.date);
         return `${date.getMonth() + 1}/${date.getDate()}`;
@@ -10380,9 +10393,10 @@ function renderDualTrackChart(canvas, historyData) {
     });
     
     // v3.1.05: 優先使用 API 返回的 experimental_predicted（已在服務器端計算好）
+    // v3.1.06: 如果傳入了今天的值，已在上方更新，這裡直接使用
     // 如果不存在，回退到前端計算（向後兼容）
     const experimentalData = history.map(d => {
-        // 優先使用服務器端計算的值
+        // 優先使用服務器端計算的值（或已更新的今天值）
         if (d.experimental_predicted != null && d.experimental_predicted !== undefined) {
             return parseInt(d.experimental_predicted);
         }
@@ -10518,7 +10532,8 @@ function renderDualTrackChart(canvas, historyData) {
 }
 
 // v3.0.87: 初始化雙軌對比圖表
-async function initDualTrackChart() {
+// v3.1.06: 支持傳入今天的 experimental 值以確保與卡片同步
+async function initDualTrackChart(todayExperimental = null) {
     const canvas = document.getElementById('dual-track-chart');
     if (!canvas) return;
     
@@ -10558,7 +10573,7 @@ async function initDualTrackChart() {
                             prediction_experimental: null,
                             xgboost_base: null
                         }));
-                        return renderDualTrackChart(canvas, convertedHistory);
+                        return renderDualTrackChart(canvas, convertedHistory, todayExperimental);
                     }
                 }
             } catch (e) {
@@ -10581,7 +10596,7 @@ async function initDualTrackChart() {
             return;
         }
         
-        renderDualTrackChart(canvas, result.history);
+        renderDualTrackChart(canvas, result.history, todayExperimental);
     } catch (error) {
         console.warn('⚠️ 雙軌圖表載入失敗:', error.message);
         if (canvas && canvas.parentElement) {
