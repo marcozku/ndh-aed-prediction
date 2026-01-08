@@ -4183,9 +4183,89 @@ const apiHandlers = {
             
             // Get today's prediction
             const today = getHKTDate();
-            let result;
             
+            // v3.1.05: 優先使用 final_daily_predictions 的值（與綜合預測一致）
+            const finalPredResult = await db.pool.query(
+                'SELECT * FROM final_daily_predictions WHERE target_date = $1',
+                [today]
+            );
+            
+            // 獲取 daily_predictions 中的 AI 因子和 XGBoost 基礎值
+            let aiFactor = 1.0;
+            let xgbBase = null;
+            let weatherFactor = 1.0;
             if (hasColumns) {
+                const dailyPredResult = await db.pool.query(`
+                    SELECT xgboost_base, ai_factor, weather_factor
+                    FROM daily_predictions
+                    WHERE target_date = $1
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                `, [today]);
+                if (dailyPredResult.rows.length > 0) {
+                    xgbBase = parseFloat(dailyPredResult.rows[0].xgboost_base);
+                    aiFactor = parseFloat(dailyPredResult.rows[0].ai_factor) || 1.0;
+                    weatherFactor = parseFloat(dailyPredResult.rows[0].weather_factor) || 1.0;
+                }
+            }
+            
+            // 獲取當前可靠度權重
+            let reliability = { xgboost_reliability: 0.95, ai_reliability: 0.00, weather_reliability: 0.05 };
+            try {
+                const relState = await db.getReliabilityState();
+                if (relState) reliability = relState;
+            } catch (e) {}
+            
+            let todayPrediction = null;
+            
+            if (finalPredResult.rows.length > 0) {
+                // v3.1.05: 使用 final_daily_predictions 的值作為 Production（與綜合預測一致）
+                const finalPred = finalPredResult.rows[0];
+                const prodPred = parseInt(finalPred.predicted_count);
+                
+                // 計算 Experimental：基於 Production + AI 影響
+                // 如果沒有 xgbBase，使用 prodPred 作為基礎
+                const baseForExp = xgbBase || prodPred;
+                let expPred = prodPred;
+                if (aiFactor !== 1.0) {
+                    // Experimental = Production + AI 影響
+                    // AI 影響 = (aiFactor - 1.0) * base * w_ai (0.10)
+                    const aiImpact = (aiFactor - 1.0) * baseForExp * 0.10;
+                    expPred = Math.round(prodPred + aiImpact);
+                }
+                
+                todayPrediction = {
+                    date: today,
+                    xgboost_base: xgbBase ? Math.round(xgbBase) : prodPred,
+                    production: {
+                        prediction: prodPred,
+                        weights: { 
+                            w_base: parseFloat(reliability.xgboost_reliability) || 0.95, 
+                            w_weather: parseFloat(reliability.weather_reliability) || 0.05, 
+                            w_ai: 0.00 
+                        },
+                        ci80: { 
+                            low: parseInt(finalPred.ci80_low) || Math.round(prodPred - 8), 
+                            high: parseInt(finalPred.ci80_high) || Math.round(prodPred + 8) 
+                        }
+                    },
+                    experimental: {
+                        prediction: expPred,
+                        weights: { 
+                            w_base: Math.max(0.70, parseFloat(reliability.xgboost_reliability) - 0.10), 
+                            w_weather: parseFloat(reliability.weather_reliability) || 0.05, 
+                            w_ai: Math.min(0.20, parseFloat(reliability.ai_reliability) + 0.10) 
+                        },
+                        ci80: { 
+                            low: Math.round(expPred - 8), 
+                            high: Math.round(expPred + 8) 
+                        }
+                    },
+                    aiImpact: aiFactor !== 1.0 ? 
+                        `${((aiFactor - 1) * 100).toFixed(1)}%` : 'None'
+                };
+            } else if (hasColumns) {
+                // Fallback: 使用 daily_predictions 的值
                 const query = `
                     SELECT 
                         target_date,
@@ -4202,69 +4282,46 @@ const apiHandlers = {
                     ORDER BY created_at DESC
                     LIMIT 1
                 `;
-                result = await db.pool.query(query, [today]);
-            } else {
-                // 只查詢基本欄位
-                const query = `
-                    SELECT 
-                        target_date,
-                        predicted_count,
-                        ci80_low,
-                        ci80_high
-                    FROM daily_predictions
-                    WHERE target_date = $1
-                    ORDER BY created_at DESC
-                    LIMIT 1
-                `;
-                result = await db.pool.query(query, [today]);
-            }
-            
-            let todayPrediction = null;
-            if (result.rows.length > 0 && result.rows[0].prediction_production !== null) {
-                const pred = result.rows[0];
-                const prodPred = parseFloat(pred.prediction_production);
-                const expPred = parseFloat(pred.prediction_experimental);
-                const xgbBase = parseFloat(pred.xgboost_base);
-                const aiFactor = parseFloat(pred.ai_factor) || 1.0;
-                const weatherFactor = parseFloat(pred.weather_factor) || 1.0;
+                const result = await db.pool.query(query, [today]);
                 
-                // 獲取當前可靠度權重
-                let reliability = { xgboost_reliability: 0.95, ai_reliability: 0.00, weather_reliability: 0.05 };
-                try {
-                    const relState = await db.getReliabilityState();
-                    if (relState) reliability = relState;
-                } catch (e) {}
-                
-                todayPrediction = {
-                    date: today,
-                    xgboost_base: Math.round(xgbBase),
-                    production: {
-                        prediction: Math.round(prodPred),
-                        weights: { 
-                            w_base: parseFloat(reliability.xgboost_reliability) || 0.95, 
-                            w_weather: parseFloat(reliability.weather_reliability) || 0.05, 
-                            w_ai: 0.00 
+                if (result.rows.length > 0 && result.rows[0].prediction_production !== null) {
+                    const pred = result.rows[0];
+                    const prodPred = parseFloat(pred.prediction_production);
+                    const expPred = parseFloat(pred.prediction_experimental);
+                    const xgbBase = parseFloat(pred.xgboost_base);
+                    const aiFactor = parseFloat(pred.ai_factor) || 1.0;
+                    
+                    todayPrediction = {
+                        date: today,
+                        xgboost_base: Math.round(xgbBase),
+                        production: {
+                            prediction: Math.round(prodPred),
+                            weights: { 
+                                w_base: parseFloat(reliability.xgboost_reliability) || 0.95, 
+                                w_weather: parseFloat(reliability.weather_reliability) || 0.05, 
+                                w_ai: 0.00 
+                            },
+                            ci80: { 
+                                low: pred.ci80_low || Math.round(prodPred - 8), 
+                                high: pred.ci80_high || Math.round(prodPred + 8) 
+                            }
                         },
-                        ci80: { 
-                            low: pred.ci80_low || Math.round(prodPred - 8), 
-                            high: pred.ci80_high || Math.round(prodPred + 8) 
-                        }
-                    },
-                    experimental: {
-                        prediction: Math.round(expPred),
-                        weights: { 
-                            w_base: Math.max(0.70, parseFloat(reliability.xgboost_reliability) - 0.10), 
-                            w_weather: parseFloat(reliability.weather_reliability) || 0.05, 
-                            w_ai: Math.min(0.20, parseFloat(reliability.ai_reliability) + 0.10) 
+                        experimental: {
+                            prediction: Math.round(expPred),
+                            weights: { 
+                                w_base: Math.max(0.70, parseFloat(reliability.xgboost_reliability) - 0.10), 
+                                w_weather: parseFloat(reliability.weather_reliability) || 0.05, 
+                                w_ai: Math.min(0.20, parseFloat(reliability.ai_reliability) + 0.10) 
+                            },
+                            ci80: { 
+                                low: Math.round(expPred - 8), 
+                                high: Math.round(expPred + 8) 
+                            }
                         },
-                        ci80: { 
-                            low: Math.round(expPred - 8), 
-                            high: Math.round(expPred + 8) 
-                        }
-                    },
-                    aiImpact: aiFactor !== 1.0 ? 
-                        `${((aiFactor - 1) * 100).toFixed(1)}%` : 'None'
-                };
+                        aiImpact: aiFactor !== 1.0 ? 
+                            `${((aiFactor - 1) * 100).toFixed(1)}%` : 'None'
+                    };
+                }
             }
             
             // 計算驗證統計
