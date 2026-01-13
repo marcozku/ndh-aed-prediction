@@ -133,18 +133,21 @@ function convertObjectToTraditional(obj) {
     return obj;
 }
 
+// 載入環境變數
+require('dotenv').config();
+
 // 多 API 配置（從高級到免費）
 const API_CONFIGS = {
     chatanywhere: {
         host: 'api.chatanywhere.tech',
         fallbackHost: 'api.chatanywhere.org',
-        apiKey: 'sk-hYb2t30UZbEPjt3QXVwBU4wXLvUzxBVL4DiLgbDWhKYIiFQW',
+        apiKey: process.env.CHATANYWHERE_API_KEY || 'sk-hYb2t30UZbEPjt3QXVwBU4wXLvUzxBVL4DiLgbDWhKYIiFQW',
         maxTokens: 2000
     },
     free: {
         host: 'free.v36.cm',
         fallbackHost: 'free.v36.cm',
-        apiKey: 'sk-oMUhVLfAHc6w0IA12bD2Aa5b538f4c6aB0E4971531D64732',
+        apiKey: process.env.FREE_API_KEY || 'sk-oMUhVLfAHc6w0IA12bD2Aa5b538f4c6aB0E4971531D64732',
         maxTokens: 1500  // 免費 API token 限制較嚴
     }
 };

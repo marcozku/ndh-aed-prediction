@@ -540,7 +540,9 @@ const ConfidenceDashboard = {
             this.setGauge('model', modelFit);
             this.setGauge('accuracy', recentAccuracy);
             this.setGauge('overall', overall);
-        } catch (e) {}
+        } catch (error) {
+            console.error('[ConfidenceDashboard] Error updating dashboard:', error.message);
+        }
     },
     
     updateDetails(details) {
@@ -1933,7 +1935,9 @@ export function initUIEnhancements() {
         try {
             UpdateTimeManager.update();
             ConfidenceDashboard.update();
-        } catch (e) {}
+        } catch (error) {
+            console.error('[UI-Enhancements] Error in periodic update:', error.message);
+        }
     }, 60000);
     
     // 暴露模組到全局，讓 prediction.js 可以訪問

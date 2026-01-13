@@ -11118,7 +11118,9 @@ async function forceRefreshAI() {
                 const predictor = new NDHAttendancePredictor();
                 // AI 強制刷新後重新計算預測
                 await updateUI(predictor, true);
-            } catch (e) {}
+            } catch (error) {
+                console.error('[Prediction] Error in fallback UI update:', error.message);
+            }
         }
         
         // 🔄 觸發後端預測更新並刷新自動預測狀態 (v2.9.84)
