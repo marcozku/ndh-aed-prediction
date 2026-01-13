@@ -440,14 +440,20 @@ body::before {
     padding-left: clamp(8px, 2vw, 24px);
     padding-right: clamp(8px, 2vw, 24px);
     padding-bottom: clamp(12px, 2vw, 24px);
-    /* 為 iPhone Dynamic Island 留出空間 */
-    padding-top: max(clamp(12px, 2vw, 24px), calc(env(safe-area-inset-top, 0px) + 12px));
+    /* 桌面版保留 padding-top，手機版移除以避免白色空間 */
+    padding-top: 0;
     position: relative;
     box-sizing: border-box;
     overflow-x: hidden;
-    overflow-x: hidden;
     z-index: 1;
     min-height: 100vh;
+}
+
+/* 桌面版恢復 padding-top */
+@media (min-width: 769px) {
+    .app-container {
+        padding-top: max(clamp(12px, 2vw, 24px), calc(env(safe-area-inset-top, 0px) + 12px));
+    }
 }
 
 .prediction-container {
