@@ -1,6 +1,6 @@
 """
 訓練 XGBoost 模型的主腳本
-只訓練 XGBoost 模型
+v3.2.01: 使用 opt10 模型（最佳 10 特徵 + Optuna 優化，MAE: 2.85）
 """
 import subprocess
 import sys
@@ -181,12 +181,12 @@ def main():
     os.makedirs(models_dir, exist_ok=True)
     print(f"📁 模型目錄: {models_dir}")
     
-    print("🚀 開始訓練 XGBoost 模型...")
-    print("只訓練 XGBoost 模型")
+    print("🚀 開始訓練 XGBoost opt10 模型...")
+    print("v3.2.01: 最佳 10 特徵 + Optuna 優化 (預期 MAE: 2.85)")
     print("預計需要 5-10 分鐘（取決於數據量和硬件）\n")
     
     scripts = [
-        'train_xgboost.py'
+        'train_opt10_model.py'  # v3.2.01: 使用 opt10 模型 (最佳 10 特徵 + Optuna 優化)
     ]
     
     results = {}
@@ -235,7 +235,8 @@ def main():
     print("📁 模型文件檢查:")
     print(f"{'='*60}")
     model_files = {
-        'XGBoost': ['xgboost_model.json', 'xgboost_features.json', 'xgboost_metrics.json']
+        'XGBoost opt10': ['xgboost_opt10_model.json', 'xgboost_opt10_features.json', 'xgboost_opt10_metrics.json'],  # v3.2.01: opt10 模型文件
+        'XGBoost (legacy)': ['xgboost_model.json', 'xgboost_features.json', 'xgboost_metrics.json']  # 舊模型，僅作備份
     }
     
     all_files_exist = True
@@ -285,7 +286,7 @@ def main():
         print(f"✅ 所有模型文件完整")
         print(f"⏱️  總訓練時間: {total_elapsed_minutes:.2f} 分鐘")
         print(f"📦 總文件大小: {format_file_size(total_file_size)}")
-        print(f"\n💡 現在可以使用 ensemble_predict.py 進行預測（XGBoost 模型）")
+        print(f"\n💡 現在可以使用 ensemble_predict.py 進行預測（XGBoost opt10 模型，MAE: 2.85）")
         print(f"{'='*60}\n")
         sys.exit(0)
     else:
