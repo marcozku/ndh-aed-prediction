@@ -1,5 +1,6 @@
 /**
  * XGBoost 預測器模組
+ * v3.2.00: 支持最佳 10 特徵模型 (opt10) 和標準 XGBoost 模型
  * 調用 Python XGBoost 預測腳本
  */
 const { spawn } = require('child_process');
@@ -10,21 +11,60 @@ class EnsemblePredictor {
     constructor() {
         this.pythonScript = path.join(__dirname, '../python/predict.py');
         this.modelsDir = path.join(__dirname, '../python/models');
+        // v3.2.00: 優先使用最佳 10 特徵模型
+        this.preferredModel = 'opt10'; // 'opt10' or 'xgboost'
     }
 
     /**
      * 檢查模型是否已訓練
+     * v3.2.00: 優先檢查 opt10 模型，然後檢查標準 xgboost 模型
      */
     isModelAvailable() {
+        // 優先使用最佳 10 特徵模型
+        if (this.isOpt10ModelAvailable()) {
+            this.preferredModel = 'opt10';
+            return true;
+        }
+        // 回退到標準 XGBoost 模型
+        this.preferredModel = 'xgboost';
+        return this.isStandardModelAvailable();
+    }
+
+    /**
+     * 檢查最佳 10 特徵模型是否可用
+     */
+    isOpt10ModelAvailable() {
         const requiredFiles = [
-            'xgboost_model.json',
-            'xgboost_features.json'
+            'xgboost_opt10_model.json',
+            'xgboost_opt10_features.json'
         ];
-        
+
         return requiredFiles.every(file => {
             const filePath = path.join(this.modelsDir, file);
             return fs.existsSync(filePath);
         });
+    }
+
+    /**
+     * 檢查標準 XGBoost 模型是否可用
+     */
+    isStandardModelAvailable() {
+        const requiredFiles = [
+            'xgboost_model.json',
+            'xgboost_features.json'
+        ];
+
+        return requiredFiles.every(file => {
+            const filePath = path.join(this.modelsDir, file);
+            return fs.existsSync(filePath);
+        });
+    }
+
+    /**
+     * 獲取當前使用的模型類型
+     */
+    getCurrentModel() {
+        return this.preferredModel;
     }
 
     /**
@@ -81,26 +121,32 @@ class EnsemblePredictor {
 
     /**
      * 獲取模型狀態（詳細版本）- 同步版本，從文件讀取
+     * v3.2.00: 支持檢查 opt10 和 xgboost 模型
      */
     getModelStatus() {
         const modelFiles = {
+            opt10: {
+                model: 'xgboost_opt10_model.json',
+                features: 'xgboost_opt10_features.json',
+                metrics: 'xgboost_opt10_metrics.json'
+            },
             xgboost: {
                 model: 'xgboost_model.json',
                 features: 'xgboost_features.json',
                 metrics: 'xgboost_metrics.json'
             }
         };
-        
+
         const models = {};
         const modelDetails = {};
-        
+
         for (const [modelKey, files] of Object.entries(modelFiles)) {
             const modelFile = files.model;
             const modelPath = path.join(this.modelsDir, modelFile);
             const exists = fs.existsSync(modelPath);
-            
+
             models[modelKey] = exists;
-            
+
             // 獲取詳細信息
             modelDetails[modelKey] = {
                 exists: exists,
@@ -109,7 +155,7 @@ class EnsemblePredictor {
                 lastModified: exists ? fs.statSync(modelPath).mtime : null,
                 requiredFiles: {}
             };
-            
+
             // 檢查所有必需文件
             for (const [fileKey, fileName] of Object.entries(files)) {
                 const filePath = path.join(this.modelsDir, fileName);
@@ -119,7 +165,7 @@ class EnsemblePredictor {
                     path: filePath
                 };
             }
-            
+
             // 讀取 metrics 文件內容（如果存在）- 用於快速檢查
             const metricsPath = path.join(this.modelsDir, files.metrics);
             if (fs.existsSync(metricsPath)) {
@@ -134,16 +180,19 @@ class EnsemblePredictor {
             }
         }
 
+        // 確定當前使用的模型
+        const currentModel = this.isOpt10ModelAvailable() ? 'opt10' : 'xgboost';
+
         return {
             available: this.isModelAvailable(),
+            currentModel: currentModel,
             models: models,
             modelsDir: this.modelsDir,
             details: modelDetails,
-            // 為了向後兼容，在頂層也添加 xgboost metrics
-            xgboost: modelDetails.xgboost ? {
-                ...modelDetails.xgboost,
-                metrics: modelDetails.xgboost.metrics || null
-            } : null,
+            // v3.2.00: 優先返回當前使用模型的 metrics
+            opt10: modelDetails.opt10 || null,
+            xgboost: modelDetails.xgboost || null,
+            current: modelDetails[currentModel] || null,
             // 檢查目錄是否存在
             modelsDirExists: fs.existsSync(this.modelsDir),
             // 列出目錄中的所有文件

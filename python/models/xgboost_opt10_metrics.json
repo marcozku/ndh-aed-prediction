@@ -1,0 +1,38 @@
+{
+  "version": "3.2.00",
+  "model_name": "xgboost_opt10",
+  "features": [
+    "Attendance_EWMA7",
+    "Daily_Change",
+    "Attendance_EWMA14",
+    "Weekly_Change",
+    "Day_of_Week",
+    "Attendance_Lag7",
+    "Attendance_Lag1",
+    "Is_Weekend",
+    "DayOfWeek_sin",
+    "DayOfWeek_cos"
+  ],
+  "n_features": 10,
+  "mae": 3.144871711730957,
+  "rmse": 4.619110481534838,
+  "mape": 1.2816893377105978,
+  "r2": 0.9707081913948059,
+  "improvement_vs_baseline": "+83.8%",
+  "baseline_mae": 15.73,
+  "training_date": "2026-01-18 01:23:18",
+  "train_size": 2987,
+  "test_size": 747,
+  "feature_importance": {
+    "Attendance_EWMA7": 0.0,
+    "Daily_Change": 0.0,
+    "Attendance_EWMA14": 0.0,
+    "Weekly_Change": 0.0,
+    "Day_of_Week": 0.0,
+    "Attendance_Lag7": 0.0,
+    "Attendance_Lag1": 0.0,
+    "Is_Weekend": 0.0,
+    "DayOfWeek_sin": 0.0,
+    "DayOfWeek_cos": 0.0
+  }
+}
