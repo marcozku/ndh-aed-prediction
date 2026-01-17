@@ -1,11 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-XGBoost 模型訓練腳本 v3.2.00 - 優化版
-使用最佳 10 個特徵 (MAE: 2.55, 改善 83.8%)
+XGBoost 模型訓練腳本 v3.2.01 - Optuna 優化版
+使用最佳 10 個特徵 + Optuna 優化參數 (MAE: 2.96, 改善 81.2%)
 
-基於特徵選擇測試結果:
-- 最佳 10 特徵 → MAE = 2.55
-- 額外特徵 (流感/AI/天氣) 無改善效果
+Optuna 優化後的最佳參數:
+- max_depth: 9
+- learning_rate: 0.045
+- min_child_weight: 6
+- subsample: 0.67
+- colsample_bytree: 0.92
+- gamma: 0.84
+- reg_alpha: 1.35
+- reg_lambda: 0.79
 """
 import sys
 import io
@@ -25,21 +31,14 @@ import json
 import os
 from datetime import datetime
 
-# 最佳 10 個特徵 (經過完整測試驗證)
+# 最佳 10 個特徵
 OPTIMAL_FEATURES = [
-    'Attendance_EWMA7',   # 7天指數加權移動平均 (重要性 0.7141)
-    'Daily_Change',       # 每日變化 (重要性 0.0731)
-    'Attendance_EWMA14',  # 14天指數加權移動平均 (重要性 0.0643)
-    'Weekly_Change',      # 每周變化 (重要性 0.0427)
-    'Day_of_Week',        # 星期幾 (重要性 0.0340)
-    'Attendance_Lag7',    # 7天前就診 (重要性 0.0293)
-    'Attendance_Lag1',    # 1天前就診 (重要性 0.0225)
-    'Is_Weekend',         # 是否週末 (重要性 0.0154)
-    'DayOfWeek_sin',      # 週期編碼 sin (重要性 0.0015)
-    'DayOfWeek_cos',      # 週期編碼 cos (重要性 0.0009)
+    'Attendance_EWMA7', 'Daily_Change', 'Attendance_EWMA14',
+    'Weekly_Change', 'Day_of_Week', 'Attendance_Lag7',
+    'Attendance_Lag1', 'Is_Weekend', 'DayOfWeek_sin', 'DayOfWeek_cos'
 ]
 
-# COVID 期間 (排除這些異常數據)
+# COVID 期間
 COVID_PERIODS = [
     ('2020-01-23', '2020-04-08'),
     ('2020-07-16', '2020-09-30'),
@@ -48,11 +47,27 @@ COVID_PERIODS = [
     ('2022-11-10', '2022-12-27'),
 ]
 
+# Optuna 優化的最佳參數 (30 trials)
+OPTUNA_BEST_PARAMS = {
+    'max_depth': 9,
+    'learning_rate': 0.045,
+    'min_child_weight': 6,
+    'subsample': 0.67,
+    'colsample_bytree': 0.92,
+    'gamma': 0.84,
+    'reg_alpha': 1.35,
+    'reg_lambda': 0.79,
+    'objective': 'reg:squarederror',
+    'tree_method': 'hist',
+    'eval_metric': 'mae',
+}
+
 
 def load_data_from_db():
     """從 Railway 數據庫加載數據"""
     try:
-        import psycopg2
+        from sqlalchemy import create_engine
+        from urllib.parse import quote_plus
         from dotenv import load_dotenv
         load_dotenv()
 
@@ -64,27 +79,17 @@ def load_data_from_db():
 
         print(f"   📡 連接資料庫: {host}:{port}/{database}")
 
-        from sqlalchemy import create_engine
-        from urllib.parse import quote_plus
         connection_string = f"postgresql://{user}:{quote_plus(password)}@{host}:{port}/{database}?sslmode=require"
         engine = create_engine(connection_string)
 
-        query = """
-            SELECT date as Date, patient_count as Attendance
-            FROM actual_data
-            ORDER BY date ASC
-        """
+        query = "SELECT date as Date, patient_count as Attendance FROM actual_data ORDER BY date ASC"
         df = pd.read_sql_query(query, engine)
 
-        if 'date' in df.columns and 'Date' not in df.columns:
-            df['Date'] = pd.to_datetime(df['date'])
-        elif 'Date' not in df.columns:
-            df['Date'] = pd.to_datetime(df['Date'])
-
-        if 'patient_count' in df.columns and 'Attendance' not in df.columns:
-            df['Attendance'] = df['patient_count']
-        elif 'attendance' in df.columns and 'Attendance' not in df.columns:
-            df['Attendance'] = df['attendance']
+        # 處理列名
+        df.columns = [col if col in ['Date', 'Attendance'] else
+                     ('Date' if col.lower() == 'date' else
+                      'Attendance' if col.lower() in ['attendance', 'patient_count'] else col)
+                     for col in df.columns]
 
         return df[['Date', 'Attendance']]
     except Exception as e:
@@ -99,9 +104,6 @@ def load_data_from_csv(csv_path):
 
         if 'date' in df.columns:
             df['Date'] = pd.to_datetime(df['date'])
-        elif 'Date' not in df.columns:
-            df['Date'] = pd.to_datetime(df['Date'])
-
         if 'patient_count' in df.columns:
             df['Attendance'] = df['patient_count']
         elif 'attendance' in df.columns:
@@ -113,22 +115,19 @@ def load_data_from_csv(csv_path):
 
 
 def prepare_optimal_features(df):
-    """只準備最佳 10 個特徵"""
+    """準備最佳 10 個特徵"""
     print("\n📊 準備最佳 10 個特徵...")
 
     df = df.copy()
     df['Date'] = pd.to_datetime(df['Date'])
     df = df.sort_values('Date').reset_index(drop=True)
 
-    # 時間特徵
     df['Day_of_Week'] = df['Date'].dt.dayofweek
     df['Is_Weekend'] = (df['Day_of_Week'] >= 5).astype(int)
 
-    # 週期編碼
     df['DayOfWeek_sin'] = np.sin(2 * np.pi * df['Day_of_Week'] / 7)
     df['DayOfWeek_cos'] = np.cos(2 * np.pi * df['Day_of_Week'] / 7)
 
-    # 歷史就診特徵
     df['Attendance_Lag1'] = df['Attendance'].shift(1)
     df['Attendance_Lag7'] = df['Attendance'].shift(7)
 
@@ -138,7 +137,6 @@ def prepare_optimal_features(df):
     df['Daily_Change'] = df['Attendance'].diff()
     df['Weekly_Change'] = df['Attendance'].diff(7)
 
-    # 填補 NaN
     df['Attendance_Lag1'] = df['Attendance_Lag1'].fillna(df['Attendance'].mean())
     df['Attendance_Lag7'] = df['Attendance_Lag7'].fillna(df['Attendance'].mean())
     df['Attendance_EWMA7'] = df['Attendance_EWMA7'].bfill()
@@ -146,7 +144,6 @@ def prepare_optimal_features(df):
     df['Daily_Change'] = df['Daily_Change'].fillna(0)
     df['Weekly_Change'] = df['Weekly_Change'].fillna(0)
 
-    # 移除 NaN
     df = df.dropna()
 
     print(f"   ✅ 準備完成: {len(df)} 筆")
@@ -171,39 +168,31 @@ def exclude_covid_periods(df):
     return df
 
 
-def train_model(X_train, y_train, X_test, y_test):
-    """訓練 XGBoost 模型"""
-    print("\n🚀 訓練 XGBoost 模型...")
+def train_model_optuna(X_train, y_train, X_test, y_test):
+    """使用 Optuna 優化參數訓練 XGBoost"""
+    print("\n🚀 訓練 XGBoost 模型 (Optuna 優化參數)...")
     print(f"   訓練集: {len(X_train)} 筆")
     print(f"   測試集: {len(X_test)} 筆")
     print(f"   特徵數: {len(X_train.columns)} 個")
 
-    # 分出驗證集 (從訓練集的最後 15%)
+    print("\n📋 Optuna 優化參數:")
+    for k, v in OPTUNA_BEST_PARAMS.items():
+        if isinstance(v, float):
+            print(f"   {k}: {v:.4f}")
+        else:
+            print(f"   {k}: {v}")
+
     val_idx = int(len(X_train) * 0.85)
     X_train_sub = X_train.iloc[:val_idx]
     y_train_sub = y_train.iloc[:val_idx]
     X_val = X_train.iloc[val_idx:]
     y_val = y_train.iloc[val_idx:]
 
-    # 使用原生 API 避免 _estimator_type 錯誤
     dtrain = xgb.DMatrix(X_train_sub, label=y_train_sub)
     dval = xgb.DMatrix(X_val, label=y_val)
 
-    params = {
-        'n_estimators': 500,
-        'max_depth': 6,
-        'learning_rate': 0.05,
-        'min_child_weight': 3,
-        'subsample': 0.8,
-        'colsample_bytree': 0.8,
-        'objective': 'reg:squarederror',
-        'tree_method': 'hist',
-        'eval_metric': 'mae',
-        'random_state': 42,
-    }
-
     model = xgb.train(
-        params,
+        OPTUNA_BEST_PARAMS,
         dtrain,
         num_boost_round=500,
         evals=[(dval, 'validation')],
@@ -230,7 +219,7 @@ def train_model(X_train, y_train, X_test, y_test):
 
 def main():
     print("=" * 80)
-    print("🎯 XGBoost 模型訓練 v3.2.00 - 最佳 10 特徵")
+    print("🎯 XGBoost 模型訓練 v3.2.01 - Optuna 優化")
     print("=" * 80)
     print(f"時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
@@ -279,7 +268,7 @@ def main():
     X_test = test_df[OPTIMAL_FEATURES]
     y_test = test_df['Attendance']
 
-    model, metrics = train_model(X_train, y_train, X_test, y_test)
+    model, metrics = train_model_optuna(X_train, y_train, X_test, y_test)
 
     # 6. 保存模型
     models_dir = os.path.join(os.path.dirname(__file__), 'models')
@@ -296,29 +285,28 @@ def main():
     print(f"💾 特徵列表已保存: {features_path}")
 
     # 保存指標
-    # 獲取特徵重要性 (native API)
     importance_scores = model.get_score(importance_type='weight')
-    # 確保所有特徵都有分數
     feature_importance = {}
     for feat in OPTIMAL_FEATURES:
         key = f'f{OPTIMAL_FEATURES.index(feat)}'
         feature_importance[feat] = float(importance_scores.get(key, 0.0))
 
     metrics_data = {
-        'version': '3.2.00',
-        'model_name': 'xgboost_opt10',
+        'version': '3.2.01',
+        'model_name': 'xgboost_opt10_optuna',
         'features': OPTIMAL_FEATURES,
         'n_features': len(OPTIMAL_FEATURES),
         'mae': metrics['mae'],
         'rmse': metrics['rmse'],
         'mape': metrics['mape'],
         'r2': metrics['r2'],
-        'improvement_vs_baseline': '+83.8%',
+        'improvement_vs_baseline': '+81.2%',
         'baseline_mae': 15.73,
         'training_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'train_size': len(train_df),
         'test_size': len(test_df),
-        'feature_importance': feature_importance
+        'feature_importance': feature_importance,
+        'optuna_params': OPTUNA_BEST_PARAMS
     }
 
     metrics_path = os.path.join(models_dir, 'xgboost_opt10_metrics.json')

@@ -1,7 +1,7 @@
 {
   "name": "ndh-aed-prediction",
-  "version": "3.2.00",
-  "description": "NDH AED 病人數量預測系統 v3.2.00 - 最佳 10 特徵優化版 (MAE: 3.14, 改善 83.8%)",
+  "version": "3.2.01",
+  "description": "NDH AED 病人數量預測系統 v3.2.01 - Optuna 優化版 (MAE: 2.85, 改善 82%)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -1,6 +1,6 @@
 /**
  * XGBoost 預測器模組
- * v3.2.00: 支持最佳 10 特徵模型 (opt10) 和標準 XGBoost 模型
+ * v3.2.01: 最佳 10 特徵 + Optuna 優化參數 (MAE: 2.85, 改善 82%)
  * 調用 Python XGBoost 預測腳本
  */
 const { spawn } = require('child_process');

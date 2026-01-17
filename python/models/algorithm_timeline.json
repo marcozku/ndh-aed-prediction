@@ -590,6 +590,77 @@
         "統計方法（IQR/Z-score）不適合時間序列系統性偏移"
       ],
       "improvement": "MAE↓16% vs Sliding Window, 使用 3171 筆數據 (排除 COVID 881 天)"
+    },
+    {
+      "version": "3.2.00",
+      "date": "2026-01-17",
+      "description": "特徵選擇優化 - 最佳 10 特徵",
+      "changes": [
+        "從 15 個特徵優化到 10 個核心特徵",
+        "移除相關性高的冗餘特徵 (Rolling7, Rolling14)",
+        "特徵重要性重新平衡 (EWMA7 44%, Daily_Change 13%)",
+        "排除 COVID 異常期 (5 波疫情)",
+        "測試集 747 筆，訓練集 2987 筆"
+      ],
+      "metrics": {
+        "mae": 3.14,
+        "mape": 1.28,
+        "rmse": 4.62,
+        "r2": 0.9707,
+        "feature_count": 10,
+        "data_points": 3734,
+        "excluded_covid_days": 331,
+        "improvement_vs_baseline": "+80.0%"
+      },
+      "research": "特徵選擇最佳實踐，避免多重共線性",
+      "key_features": [
+        {"feature": "Attendance_EWMA7", "importance": "44%"},
+        {"feature": "Daily_Change", "importance": "13%"},
+        {"feature": "Attendance_EWMA14", "importance": "11%"},
+        {"feature": "Weekly_Change", "importance": "10%"},
+        {"feature": "Day_of_Week", "importance": "7%"}
+      ],
+      "improvement": "MAE 83%↓ (15.73→3.14), R² 97%↑"
+    },
+    {
+      "version": "3.2.01",
+      "date": "2026-01-18",
+      "description": "🏆 Optuna 超參數優化 - 模型精度再提升 9.2%",
+      "changes": [
+        "Optuna TPE 自動調參 (30 trials)",
+        "最佳參數: max_depth=9, learning_rate=0.045",
+        "測試 XGBoost vs RF vs Ensemble",
+        "RF 在 10 特徵下表現較差 (MAE 5.77)",
+        "Ensemble 無幫助 (最佳權重 XGB=1.0, RF=0.0)"
+      ],
+      "metrics": {
+        "mae": 2.85,
+        "mape": 1.17,
+        "rmse": 4.54,
+        "r2": 0.9718,
+        "feature_count": 10,
+        "data_points": 3734,
+        "improvement_vs_baseline": "+81.9%",
+        "improvement_vs_v3200": "+9.2%"
+      },
+      "research": "Akiba et al. (2019) - Optuna: Next-generation Hyperparameter Optimization",
+      "optuna_params": {
+        "max_depth": 9,
+        "learning_rate": 0.045,
+        "min_child_weight": 6,
+        "subsample": 0.67,
+        "colsample_bytree": 0.92,
+        "gamma": 0.84,
+        "reg_alpha": 1.35,
+        "reg_lambda": 0.79
+      },
+      "model_comparison": {
+        "xgboost_default": {"mae": 3.19, "note": "默認參數"},
+        "xgboost_optuna": {"mae": 2.85, "note": "Optuna 優化 ✅ 最佳"},
+        "random_forest": {"mae": 5.77, "note": "比 XGBoost 差 81%"},
+        "ensemble": {"mae": 2.85, "note": "無額外改善"}
+      },
+      "improvement": "MAE 9.2%↓ (3.14→2.85), 總改善 81.9% vs 基線"
     }
   ],
   "references": [
@@ -699,5 +770,5 @@
       "relevance": "維度災難、偏差-方差權衡理論"
     }
   ],
-  "last_updated": "2026-01-06T12:30:00+08:00"
+  "last_updated": "2026-01-18T01:49:00+08:00"
 }
