@@ -220,7 +220,9 @@ def train_model_optuna(X_train, y_train, X_test, y_test):
             if epoch % 10 == 0 or epoch == 0:
                 for data, metric in evals_log.items():
                     for metric_name, metric_value in metric.items():
-                        print(f"   [{epoch:3d}] {data}-{metric_name}: {metric_value:.4f}", flush=True)
+                        # metric_value 是 list，取最後一個值
+                        value = metric_value[-1] if isinstance(metric_value, list) else metric_value
+                        print(f"   [{epoch:3d}] {data}-{metric_name}: {float(value):.4f}", flush=True)
             return False
 
     model = xgb.train(
