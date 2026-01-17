@@ -9094,13 +9094,20 @@ function updateLiveTrainingLog() {
         // 檢查用戶是否在底部（允許 50px 的誤差）
         const isAtBottom = liveLog.scrollHeight - liveLog.scrollTop - liveLog.clientHeight < 50;
 
+        // 保存當前滾動位置（相對於總高度的比例）
+        const scrollRatio = liveLog.scrollTop / liveLog.scrollHeight;
+
         // 只顯示最後 200 行
         const displayLogs = sseRealtimeLogs.slice(-200);
         liveLog.textContent = displayLogs.join('\n');
 
-        // 只在用戶原本就在底部時才自動滾動
+        // 根據之前的狀態決定滾動行為
         if (isAtBottom) {
+            // 如果原本在底部，滾動到新的底部
             liveLog.scrollTop = liveLog.scrollHeight;
+        } else {
+            // 如果用戶向上滾動閱讀，保持相對位置
+            liveLog.scrollTop = scrollRatio * liveLog.scrollHeight;
         }
     }
 }
