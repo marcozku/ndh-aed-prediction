@@ -9091,10 +9091,17 @@ function stopTrainingSSE() {
 function updateLiveTrainingLog() {
     const liveLog = document.getElementById('live-training-log');
     if (liveLog && sseRealtimeLogs.length > 0) {
+        // 檢查用戶是否在底部（允許 50px 的誤差）
+        const isAtBottom = liveLog.scrollHeight - liveLog.scrollTop - liveLog.clientHeight < 50;
+
         // 只顯示最後 200 行
         const displayLogs = sseRealtimeLogs.slice(-200);
         liveLog.textContent = displayLogs.join('\n');
-        liveLog.scrollTop = liveLog.scrollHeight;
+
+        // 只在用戶原本就在底部時才自動滾動
+        if (isAtBottom) {
+            liveLog.scrollTop = liveLog.scrollHeight;
+        }
     }
 }
 
@@ -9416,11 +9423,18 @@ function renderTrainingStatus(data) {
     }
     
     container.innerHTML = html;
-    
-    // 自動滾動到訓練日誌底部
+
+    // 自動滾動到訓練日誌底部（僅當內容剛更新時）
     const liveLog = document.getElementById('live-training-log');
     if (liveLog) {
-        liveLog.scrollTop = liveLog.scrollHeight;
+        // 使用 setTimeout 確保 DOM 更新後再滾動
+        setTimeout(() => {
+            // 只在剛打開日誌時自動滾動（檢查是否接近底部）
+            const isAtBottom = liveLog.scrollHeight - liveLog.scrollTop - liveLog.clientHeight < 100;
+            if (isAtBottom || liveLog.scrollTop === 0) {
+                liveLog.scrollTop = liveLog.scrollHeight;
+            }
+        }, 0);
     }
 }
 
