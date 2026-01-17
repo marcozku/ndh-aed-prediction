@@ -3954,10 +3954,11 @@ const apiHandlers = {
                 }
             }
             
-            // 2. 模型擬合度：優先從數據庫讀取（持久化），否則從文件讀取
+            // 2. 訓練指標：從數據庫或文件讀取（模型的「潛力」）
+            let trainingMetrics = null;
             try {
                 let metrics = null;
-                
+
                 // 優先從數據庫讀取（持久化的指標）
                 if (db && db.pool) {
                     try {
@@ -3977,113 +3978,139 @@ const apiHandlers = {
                         console.warn('從數據庫讀取模型指標失敗:', dbErr.message);
                     }
                 }
-                
+
                 // 如果數據庫沒有，從文件讀取（向後兼容）
                 if (!metrics) {
                     const fs = require('fs');
                     const path = require('path');
                     const metricsPath = path.join(__dirname, 'python/models/xgboost_metrics.json');
-                    
+
                     if (fs.existsSync(metricsPath)) {
                         metrics = JSON.parse(fs.readFileSync(metricsPath, 'utf8'));
                         details.metricsSource = 'file';
                     }
                 }
-                
+
                 if (metrics && metrics.mae !== undefined && metrics.mape !== undefined) {
-                    // v3.0.95: MASE-based Skill Score (研究標準)
-                    // MASE = Model_MAE / Naive_MAE (Hyndman & Koehler, 2006)
-                    // MASE < 1: 模型有技能 (優於 naive baseline)
-                    // MASE = 1: 模型等同 naive baseline
-                    // MASE > 1: 模型不如 naive baseline
-                    
-                    const NAIVE_MAE = 18.3; // Lag-1 naive forecast MAE (經驗證)
-                    const mase = metrics.mae / NAIVE_MAE;
-                    
-                    // Skill Score = (1 - MASE) * 100，限制在 0-100
-                    // MASE 0.5 = 50% skill = 100分
-                    // MASE 0.8 = 20% skill = 80分
-                    // MASE 1.0 = 0% skill = 50分 (等同 baseline)
-                    // MASE 1.2 = -20% skill = 30分
-                    // MASE 1.5+ = 無技能 = 0分
-                    let skillScore;
-                    if (mase <= 0.5) {
-                        skillScore = 100;
-                    } else if (mase < 1.0) {
-                        // MASE 0.5-1.0 映射到 100-50 分
-                        skillScore = Math.round(100 - (mase - 0.5) * 100);
-                    } else if (mase < 1.5) {
-                        // MASE 1.0-1.5 映射到 50-0 分
-                        skillScore = Math.round(50 - (mase - 1.0) * 100);
-                    } else {
-                        skillScore = 0;
-                    }
-                    
-                    // MAPE 評分 (文獻標準: ED forecasting 5-15% acceptable)
-                    // Wargon et al. (2009), Sun et al. (2009)
-                    let mapeScore;
-                    if (metrics.mape < 5) mapeScore = 100;
-                    else if (metrics.mape < 8) mapeScore = 85;
-                    else if (metrics.mape < 10) mapeScore = 70;
-                    else if (metrics.mape < 12) mapeScore = 60;
-                    else if (metrics.mape < 15) mapeScore = 50;
-                    else mapeScore = Math.max(0, 40 - (metrics.mape - 15) * 2);
-                    
-                    // 綜合評分：Skill Score 60% + MAPE Score 40%
-                    // Skill Score 更重要因為它直接比較 baseline
-                    modelFit = Math.round(skillScore * 0.6 + mapeScore * 0.4);
-                    
-                    // 額外詳情
-                    details.mase = parseFloat(mase.toFixed(3));
-                    details.skillScore = skillScore;
-                    details.naiveMAE = NAIVE_MAE;
-                    
-                    details.mae = metrics.mae;
-                    details.mape = metrics.mape;
-                    details.rmse = metrics.rmse;
-                    details.r2 = metrics.r2 || null;
-                    details.adj_r2 = metrics.adj_r2 || null;
+                    trainingMetrics = metrics;
+                    details.trainingMAE = metrics.mae;
+                    details.trainingMAPE = metrics.mape;
+                    details.trainingRMSE = metrics.rmse;
+                    details.trainingR2 = metrics.r2 || null;
                     details.trainingDate = metrics.training_date;
                     details.featureCount = metrics.feature_count;
                 } else {
-                    modelFit = 0;
                     details.modelExists = false;
                     details.metricsSource = 'none';
                 }
             } catch (e) {
-                console.warn('模型指標讀取失敗:', e.message);
-                modelFit = 0; // 沒有指標時顯示 0%，而不是默認值
+                console.warn('訓練指標讀取失敗:', e.message);
                 details.modelExists = false;
             }
-            
-            // 3. 近期準確度：基於最近7天的預測 vs 實際對比
+
+            // 3. 實時誤差：基於最近實際預測 vs 實際數據
+            let liveMAE = null;
+            let liveMAPE = null;
+            let liveRMSE = null;
+
             if (db && db.pool) {
                 try {
-                    const accuracyResult = await db.pool.query(`
-                        SELECT AVG(accuracy) as avg_accuracy, COUNT(*) as count
-                        FROM (
-                            SELECT 100 - ABS(dp.predicted_count - ad.patient_count) * 100.0 / NULLIF(ad.patient_count, 0) as accuracy
-                            FROM daily_predictions dp
-                            JOIN actual_data ad ON dp.target_date = ad.date
-                            WHERE dp.target_date >= CURRENT_DATE - INTERVAL '14 days'
-                            AND ad.patient_count IS NOT NULL
-                        ) sub
-                        WHERE accuracy IS NOT NULL
+                    const errorResult = await db.pool.query(`
+                        SELECT
+                            AVG(ABS(dp.predicted_count - ad.patient_count)) as mae,
+                            AVG(ABS(dp.predicted_count - ad.patient_count) * 100.0 / NULLIF(ad.patient_count, 0)) as mape,
+                            STDDEV(dp.predicted_count - ad.patient_count) as rmse,
+                            COUNT(*) as count,
+                            MIN(dp.target_date) as from_date,
+                            MAX(dp.target_date) as to_date
+                        FROM daily_predictions dp
+                        JOIN actual_data ad ON dp.target_date = ad.date
+                        WHERE dp.target_date >= CURRENT_DATE - INTERVAL '14 days'
+                        AND ad.patient_count IS NOT NULL
                     `);
-                    
-                    if (accuracyResult.rows[0].avg_accuracy) {
-                        recentAccuracy = Math.round(Math.min(100, Math.max(0, accuracyResult.rows[0].avg_accuracy)));
-                        details.recentComparisonCount = parseInt(accuracyResult.rows[0].count);
-                    } else {
-                        // 沒有對比數據，使用模型 MAPE 估算
-                        recentAccuracy = details.mape ? Math.round(100 - details.mape) : 85;
-                        details.recentComparisonCount = 0;
+
+                    if (errorResult.rows[0].count > 0) {
+                        liveMAE = parseFloat(errorResult.rows[0].mae);
+                        liveMAPE = parseFloat(errorResult.rows[0].mape);
+                        liveRMSE = parseFloat(errorResult.rows[0].rmse) || null;
+                        details.liveMAE = liveMAE;
+                        details.liveMAPE = liveMAPE;
+                        details.liveRMSE = liveRMSE;
+                        details.liveComparisonCount = parseInt(errorResult.rows[0].count);
+                        details.liveFromDate = errorResult.rows[0].from_date;
+                        details.liveToDate = errorResult.rows[0].to_date;
                     }
                 } catch (e) {
-                    console.warn('準確度計算失敗:', e.message);
-                    recentAccuracy = 85;
+                    console.warn('實時誤差計算失敗:', e.message);
                 }
             }
+
+            // 4. 模型擬合度：優先使用實時誤差，否則使用訓練指標
+            if (liveMAE !== null && liveMAPE !== null) {
+                // 使用實時誤差計算
+                const NAIVE_MAE = 18.3;
+                const mase = liveMAE / NAIVE_MAE;
+
+                let skillScore;
+                if (mase <= 0.5) {
+                    skillScore = 100;
+                } else if (mase < 1.0) {
+                    skillScore = Math.round(100 - (mase - 0.5) * 100);
+                } else if (mase < 1.5) {
+                    skillScore = Math.round(50 - (mase - 1.0) * 100);
+                } else {
+                    skillScore = 0;
+                }
+
+                let mapeScore;
+                if (liveMAPE < 5) mapeScore = 100;
+                else if (liveMAPE < 8) mapeScore = 85;
+                else if (liveMAPE < 10) mapeScore = 70;
+                else if (liveMAPE < 12) mapeScore = 60;
+                else if (liveMAPE < 15) mapeScore = 50;
+                else mapeScore = Math.max(0, 40 - (liveMAPE - 15) * 2);
+
+                modelFit = Math.round(skillScore * 0.6 + mapeScore * 0.4);
+                details.fitSource = 'live';
+                details.mase = parseFloat(mase.toFixed(3));
+                details.skillScore = skillScore;
+                details.naiveMAE = NAIVE_MAE;
+            } else if (trainingMetrics) {
+                // 回退到訓練指標
+                const NAIVE_MAE = 18.3;
+                const mase = trainingMetrics.mae / NAIVE_MAE;
+
+                let skillScore;
+                if (mase <= 0.5) {
+                    skillScore = 100;
+                } else if (mase < 1.0) {
+                    skillScore = Math.round(100 - (mase - 0.5) * 100);
+                } else if (mase < 1.5) {
+                    skillScore = Math.round(50 - (mase - 1.0) * 100);
+                } else {
+                    skillScore = 0;
+                }
+
+                let mapeScore;
+                if (trainingMetrics.mape < 5) mapeScore = 100;
+                else if (trainingMetrics.mape < 8) mapeScore = 85;
+                else if (trainingMetrics.mape < 10) mapeScore = 70;
+                else if (trainingMetrics.mape < 12) mapeScore = 60;
+                else if (trainingMetrics.mape < 15) mapeScore = 50;
+                else mapeScore = Math.max(0, 40 - (trainingMetrics.mape - 15) * 2);
+
+                modelFit = Math.round(skillScore * 0.6 + mapeScore * 0.4);
+                details.fitSource = 'training';
+                details.mase = parseFloat(mase.toFixed(3));
+                details.skillScore = skillScore;
+                details.naiveMAE = NAIVE_MAE;
+            } else {
+                modelFit = 0;
+                details.fitSource = 'none';
+            }
+
+            // 5. 近期準確度（保留向後兼容）
+            recentAccuracy = liveMAPE !== null ? Math.round(100 - liveMAPE) : (trainingMetrics ? Math.round(100 - trainingMetrics.mape) : 85);
             
             // 計算綜合置信度
             const overall = Math.round((dataQuality + modelFit + recentAccuracy) / 3);

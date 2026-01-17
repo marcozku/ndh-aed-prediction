@@ -547,16 +547,46 @@ const ConfidenceDashboard = {
     
     updateDetails(details) {
         if (!details) return;
-        
-        // 可以在這裡更新額外的詳細資訊面板
-        // 例如：顯示 MAE、數據量等
+
         const detailsEl = document.getElementById('confidence-details');
-        if (detailsEl && details) {
+        if (detailsEl) {
+            // 混合顯示：訓練指標 + 實時誤差
+            let maeDisplay, mapeDisplay, sourceInfo;
+
+            if (details.liveMAE !== undefined && details.liveMAE !== null) {
+                // 有實時誤差
+                maeDisplay = `<span class="live-metric">${details.liveMAE?.toFixed(2) || '--'}</span>`;
+                mapeDisplay = `<span class="live-metric">${details.liveMAPE?.toFixed(2) || '--'}%</span>`;
+                sourceInfo = `<div class="confidence-source">📡 實時誤差（最近 ${details.liveComparisonCount || 0} 天）</div>`;
+            } else if (details.trainingMAE !== undefined) {
+                // 只有訓練指標
+                maeDisplay = details.trainingMAE?.toFixed(2) || '--';
+                mapeDisplay = details.trainingMAPE?.toFixed(2) + '%' || '--';
+                sourceInfo = `<div class="confidence-source training">🎓 訓練指標（測試集性能）</div>`;
+            } else {
+                maeDisplay = '--';
+                mapeDisplay = '--';
+                sourceInfo = '';
+            }
+
             detailsEl.innerHTML = `
-                <div class="confidence-detail-item">📊 數據量: ${details.dataCount || '--'} 筆</div>
-                <div class="confidence-detail-item">📅 最新數據: ${details.latestDate || '--'}</div>
-                <div class="confidence-detail-item">🎯 MAE: ${details.mae?.toFixed(2) || '--'} 人</div>
-                <div class="confidence-detail-item">📈 MAPE: ${details.mape?.toFixed(2) || '--'}%</div>
+                <div class="confidence-detail-section">
+                    <div class="confidence-section-title">實時誤差</div>
+                    <div class="confidence-detail-item">🎯 MAE: ${maeDisplay} 人</div>
+                    <div class="confidence-detail-item">📈 MAPE: ${mapeDisplay}</div>
+                    ${details.liveFromDate && details.liveToDate ? `<div class="confidence-detail-dates">${details.liveFromDate} ~ ${details.liveToDate}</div>` : ''}
+                </div>
+                <div class="confidence-detail-section">
+                    <div class="confidence-section-title">訓練指標（模型潛力）</div>
+                    <div class="confidence-detail-item">🎯 MAE: ${details.trainingMAE?.toFixed(2) || '--'} 人</div>
+                    <div class="confidence-detail-item">📈 MAPE: ${(details.trainingMAPE?.toFixed(2) || '--')}%</div>
+                    ${details.trainingDate ? `<div class="confidence-detail-dates">訓練日期: ${details.trainingDate}</div>` : ''}
+                </div>
+                <div class="confidence-detail-section">
+                    <div class="confidence-section-title">數據品質</div>
+                    <div class="confidence-detail-item">📊 數據量: ${details.dataCount || '--'} 筆</div>
+                    <div class="confidence-detail-item">📅 最新: ${details.latestDate || '--'}</div>
+                </div>
             `;
         }
     },

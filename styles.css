@@ -7424,3 +7424,55 @@ html, body {
     }
 }
 
+/* ============================================
+   Confidence Details Styles (Hybrid Display)
+   ============================================ */
+.confidence-detail-section {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-light, rgba(0,0,0,0.08));
+}
+
+.confidence-detail-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.confidence-section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary, #666);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+
+.confidence-detail-item {
+    font-size: 0.875rem;
+    padding: 3px 0;
+    color: var(--text-primary, #1a1a1a);
+}
+
+.confidence-detail-dates {
+    font-size: 0.75rem;
+    color: var(--text-tertiary, #999);
+    margin-top: 4px;
+}
+
+/* 實時指標高亮 */
+.live-metric {
+    color: var(--accent-primary, #3b82f6);
+    font-weight: 600;
+}
+
+/* 資料來源標籤 */
+.confidence-source {
+    font-size: 0.75rem;
+    color: var(--success-color, #10b981);
+    margin-top: 4px;
+}
+
+.confidence-source.training {
+    color: var(--warning-color, #f59e0b);
+}
+
