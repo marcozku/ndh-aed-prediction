@@ -661,6 +661,63 @@
         "ensemble": {"mae": 2.85, "note": "無額外改善"}
       },
       "improvement": "MAE 9.2%↓ (3.14→2.85), 總改善 81.9% vs 基線"
+    },
+    {
+      "version": "4.0.00",
+      "date": "2026-01-18",
+      "description": "📚 自動學習系統 - 持續優化天氣與 AI 因素影響",
+      "changes": [
+        "持續學習引擎: 每日自動從真實數據學習",
+        "異常檢測系統: 自動檢測和分類預測異常",
+        "天氣預報整合: 使用 HKO 9 天預報調整預測",
+        "動態影響參數: 天氣影響參數每日更新",
+        "學習調度器: 每日/每週自動學習任務"
+      ],
+      "metrics": {
+        "mae": 2.85,
+        "mape": 1.17,
+        "rmse": 4.54,
+        "r2": 0.9718,
+        "feature_count": 10,
+        "note": "預期持續改善，隨數據累積優化天氣/AI 因素"
+      },
+      "new_components": {
+        "python_scripts": [
+          "continuous_learner.py",
+          "anomaly_detector.py",
+          "weather_impact_learner.py",
+          "forecast_predictor.py"
+        ],
+        "node_modules": [
+          "learning-scheduler.js"
+        ],
+        "database_tables": [
+          "learning_records",
+          "weather_impact_parameters",
+          "weather_combination_impacts",
+          "ai_event_learning",
+          "weather_forecast_cache",
+          "anomaly_events",
+          "weather_history"
+        ],
+        "api_endpoints": [
+          "/api/learning/summary",
+          "/api/learning/weather-impacts",
+          "/api/learning/anomalies",
+          "/api/learning/ai-events",
+          "/api/learning/combinations",
+          "/api/learning/update",
+          "/api/learning/forecast-prediction",
+          "/api/learning/scheduler-status",
+          "/api/learning/scheduler-run"
+        ]
+      },
+      "learning_schedule": {
+        "daily": "00:30 HKT - 每日學習 (記錄預測誤差、分析異常)",
+        "weekly": "周一 01:00 HKT - 每週學習 (訓練影響模型、更新參數)",
+        "forecast": "每 6 小時 - 緩存天氣預報"
+      },
+      "improvement": "天氣影響從靜態→動態，異常自動檢測，天氣預報整合"
     }
   ],
   "references": [
@@ -770,5 +827,5 @@
       "relevance": "維度災難、偏差-方差權衡理論"
     }
   ],
-  "last_updated": "2026-01-18T01:49:00+08:00"
+  "last_updated": "2026-01-18T16:30:00+08:00"
 }

@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '3.1.05';
+const MODEL_VERSION = '4.0.00';
 
 // ============================================
 // HKT 時間工具函數
@@ -4486,6 +4486,303 @@ const apiHandlers = {
             console.error('❌ Optimization trigger error:', error);
             sendJson(res, { success: false, error: error.message }, 500);
         }
+    },
+
+    // ============================================================
+    // v4.0.00: Continuous Learning System API Endpoints
+    // ============================================================
+
+    // 獲取學習系統摘要
+    'GET /api/learning/summary': async (req, res) => {
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
+
+        try {
+            const result = await db.pool.query(`
+                SELECT * FROM learning_system_status
+            `);
+
+            // 獲取當前天氣影響
+            const weatherImpacts = await db.pool.query(`
+                SELECT * FROM current_weather_impacts
+                ORDER BY ABS(parameter_value) DESC
+                LIMIT 10
+            `);
+
+            // 獲取最近的異常
+            const recentAnomalies = await db.pool.query(`
+                SELECT
+                    date,
+                    actual_attendance,
+                    final_prediction,
+                    prediction_error,
+                    is_very_cold,
+                    is_heavy_rain,
+                    ai_event_type
+                FROM learning_records
+                WHERE is_anomaly = TRUE
+                ORDER BY date DESC
+                LIMIT 10
+            `);
+
+            sendJson(res, {
+                success: true,
+                status: result.rows[0] || {},
+                weatherImpacts: weatherImpacts.rows,
+                recentAnomalies: recentAnomalies.rows
+            });
+        } catch (error) {
+            console.error('❌ Learning summary error:', error);
+            sendJson(res, { success: false, error: error.message }, 500);
+        }
+    },
+
+    // 獲取當前天氣影響參數
+    'GET /api/learning/weather-impacts': async (req, res) => {
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
+
+        try {
+            const result = await db.pool.query(`
+                SELECT * FROM current_weather_impacts
+                ORDER BY ABS(parameter_value) DESC
+            `);
+
+            sendJson(res, {
+                success: true,
+                impacts: result.rows,
+                updatedAt: result.rows.length > 0 ? result.rows[0].last_updated : null
+            });
+        } catch (error) {
+            console.error('❌ Weather impacts error:', error);
+            sendJson(res, { success: false, error: error.message }, 500);
+        }
+    },
+
+    // 獲取異常列表
+    'GET /api/learning/anomalies': async (req, res) => {
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
+
+        try {
+            const limit = parseInt(req.query.limit) || 30;
+            const offset = parseInt(req.query.offset) || 0;
+
+            const result = await db.pool.query(`
+                SELECT
+                    date,
+                    actual_attendance,
+                    final_prediction,
+                    prediction_error,
+                    error_pct,
+                    is_very_cold,
+                    is_very_hot,
+                    is_heavy_rain,
+                    is_strong_wind,
+                    ai_event_type,
+                    ai_factor
+                FROM learning_records
+                WHERE is_anomaly = TRUE
+                ORDER BY date DESC
+                LIMIT $1 OFFSET $2
+            `, [limit, offset]);
+
+            // 獲取總數
+            const countResult = await db.pool.query(`
+                SELECT COUNT(*) FROM learning_records WHERE is_anomaly = TRUE
+            `);
+
+            sendJson(res, {
+                success: true,
+                anomalies: result.rows,
+                total: parseInt(countResult.rows[0].count),
+                limit,
+                offset
+            });
+        } catch (error) {
+            console.error('❌ Anomalies error:', error);
+            sendJson(res, { success: false, error: error.message }, 500);
+        }
+    },
+
+    // 獲取 AI 事件學習摘要
+    'GET /api/learning/ai-events': async (req, res) => {
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
+
+        try {
+            const result = await db.pool.query(`
+                SELECT * FROM ai_learning_summary
+                ORDER BY total_occurrences DESC
+            `);
+
+            sendJson(res, {
+                success: true,
+                events: result.rows
+            });
+        } catch (error) {
+            console.error('❌ AI events error:', error);
+            sendJson(res, { success: false, error: error.message }, 500);
+        }
+    },
+
+    // 獲取天氣組合影響
+    'GET /api/learning/combinations': async (req, res) => {
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
+
+        try {
+            const result = await db.pool.query(`
+                SELECT
+                    conditions_json->>'condition' as condition_name,
+                    sample_count,
+                    mean_attendance,
+                    baseline_mean,
+                    impact_factor,
+                    impact_absolute,
+                    t_statistic,
+                    is_significant
+                FROM weather_combination_impacts
+                WHERE sample_count >= 5
+                ORDER BY ABS(impact_absolute) DESC
+            `);
+
+            sendJson(res, {
+                success: true,
+                combinations: result.rows
+            });
+        } catch (error) {
+            console.error('❌ Combinations error:', error);
+            sendJson(res, { success: false, error: error.message }, 500);
+        }
+    },
+
+    // 觸發手動學習更新
+    'POST /api/learning/update': async (req, res) => {
+        const { spawn } = require('child_process');
+
+        try {
+            const { type = 'daily' } = req.body;
+
+            let script;
+            if (type === 'daily') {
+                script = 'continuous_learner.py';
+            } else if (type === 'weekly') {
+                script = 'weather_impact_learner.py';
+            } else if (type === 'anomaly') {
+                script = 'anomaly_detector.py';
+            } else {
+                return sendJson(res, { success: false, error: 'Invalid type. Use: daily, weekly, or anomaly' }, 400);
+            }
+
+            const python = spawn('python', [`python/${script}`]);
+
+            let output = '';
+            python.stdout.on('data', (data) => {
+                output += data.toString();
+            });
+
+            python.on('close', (code) => {
+                if (code === 0) {
+                    console.log(`✅ Learning update (${type}) complete:`, output);
+                } else {
+                    console.error(`❌ Learning update (${type}) failed (code ${code})`);
+                }
+            });
+
+            sendJson(res, {
+                success: true,
+                message: `${type} learning update triggered`,
+                script
+            });
+
+        } catch (error) {
+            console.error('❌ Learning update error:', error);
+            sendJson(res, { success: false, error: error.message }, 500);
+        }
+    },
+
+    // 獲取天氣預報預測
+    'GET /api/learning/forecast-prediction': async (req, res) => {
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
+
+        try {
+            const { date } = req.query;
+            const targetDate = date || new Date().toISOString().split('T')[0];
+
+            // 從緩存獲取預報
+            const result = await db.pool.query(`
+                SELECT
+                    forecast_date,
+                    temp_min_forecast,
+                    temp_max_forecast,
+                    rain_prob_forecast,
+                    weather_desc,
+                    predicted_impact_absolute,
+                    confidence_level
+                FROM weather_forecast_cache
+                WHERE forecast_date = $1
+                ORDER BY fetch_date DESC
+                LIMIT 1
+            `, [targetDate]);
+
+            if (result.rows.length === 0) {
+                return sendJson(res, {
+                    success: true,
+                    message: 'No forecast data available',
+                    date: targetDate
+                });
+            }
+
+            sendJson(res, {
+                success: true,
+                forecast: result.rows[0],
+                date: targetDate
+            });
+
+        } catch (error) {
+            console.error('❌ Forecast prediction error:', error);
+            sendJson(res, { success: false, error: error.message }, 500);
+        }
+    },
+
+    // 獲取學習調度器狀態
+    'GET /api/learning/scheduler-status': async (req, res) => {
+        const { getScheduler } = require('./modules/learning-scheduler');
+
+        try {
+            const scheduler = getScheduler();
+            sendJson(res, {
+                success: true,
+                ...scheduler.getStatus()
+            });
+        } catch (error) {
+            sendJson(res, { success: false, error: error.message }, 500);
+        }
+    },
+
+    // 手動觸發調度器任務
+    'POST /api/learning/scheduler-run': async (req, res) => {
+        const { getScheduler } = require('./modules/learning-scheduler');
+
+        try {
+            const { task = 'daily' } = req.body;
+            const scheduler = getScheduler();
+
+            if (task === 'daily') {
+                scheduler.runDailyLearning();
+            } else if (task === 'weekly') {
+                scheduler.runWeeklyLearning();
+            } else if (task === 'forecast') {
+                await scheduler.cacheWeatherForecast();
+            } else {
+                return sendJson(res, { success: false, error: 'Invalid task. Use: daily, weekly, or forecast' }, 400);
+            }
+
+            sendJson(res, {
+                success: true,
+                message: `Scheduler task '${task}' triggered`
+            });
+
+        } catch (error) {
+            console.error('❌ Scheduler run error:', error);
+            sendJson(res, { success: false, error: error.message }, 500);
+        }
     }
 };
 
@@ -5418,17 +5715,27 @@ server.listen(PORT, async () => {
     console.log(`📊 預測模型版本 ${MODEL_VERSION}`);
     if (db && db.pool) {
         console.log(`🗄️ PostgreSQL 數據庫已連接`);
-        
+
         // v3.0.83: 同步 metrics
         await syncModelMetricsFromFile();
-        
+
         // v2.9.90: 從數據庫載入自動預測統計
         await loadAutoPredictStatsFromDB();
-        
+
         // 啟動定時任務
         scheduleDailyFinalPrediction();
         scheduleDailyStatsReset(); // 每日 00:00 重置自動預測統計
         scheduleAutoPredict(); // 每 30 分鐘自動預測（使用 XGBoost）
+
+        // v4.0.00: 啟動學習調度器
+        try {
+            const { getScheduler } = require('./modules/learning-scheduler');
+            const learningScheduler = getScheduler();
+            learningScheduler.start();
+            console.log(`📚 Learning Scheduler started`);
+        } catch (e) {
+            console.log(`⚠️ Learning Scheduler not available: ${e.message}`);
+        }
     } else {
         console.log(`⚠️ 數據庫未配置 (設置 DATABASE_URL 或 PGHOST/PGUSER/PGPASSWORD/PGDATABASE 環境變數以啟用)`);
     }

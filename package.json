@@ -1,7 +1,7 @@
 {
   "name": "ndh-aed-prediction",
-  "version": "3.2.01",
-  "description": "NDH AED 病人數量預測系統 v3.2.01 - Optuna 優化版 (MAE: 2.85, 改善 82%)",
+  "version": "4.0.00",
+  "description": "NDH AED 病人數量預測系統 v4.0.00 - 自動學習系統 (Continuous Learning System)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -16,7 +16,7 @@
     "healthcare",
     "hong-kong"
   ],
-  "author": "",
+  "author": "Ma Tsz Kiu",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"

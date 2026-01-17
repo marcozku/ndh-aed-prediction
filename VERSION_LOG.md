@@ -1,5 +1,67 @@
 # 版本更新日誌
 
+## v4.0.00 - 2026-01-18 16:30 HKT
+**📚 自動學習系統 - 持續優化天氣與 AI 因素影響**
+
+### 重大功能
+- ✅ **持續學習引擎**: 每日自動從真實數據學習天氣和 AI 因素影響
+- ✅ **異常檢測系統**: 自動檢測和分類預測異常事件
+- ✅ **天氣預報整合**: 使用 HKO 9 天預報調整未來預測
+- ✅ **動態影響參數**: 天氣影響參數每日更新，不再依賴靜態 JSON
+
+### 數據庫更新
+- 新增 `learning_records` 表 - 記錄每天的學習數據
+- 新增 `weather_impact_parameters` 表 - 動態天氣影響參數
+- 新增 `weather_combination_impacts` 表 - 天氣條件組合影響
+- 新增 `ai_event_learning` 表 - AI 事件模式學習
+- 新增 `weather_forecast_cache` 表 - 天氣預報緩存
+- 新增 `anomaly_events` 表 - 異常事件追蹤
+- 新增 `weather_history` 表 - 天氣歷史數據
+
+### 新增 Python 腳本
+- `python/continuous_learner.py` - 每日學習引擎
+- `python/anomaly_detector.py` - 異常檢測器
+- `python/weather_impact_learner.py` - 天氣影響學習模型
+- `python/forecast_predictor.py` - 天氣預報預測整合
+
+### 新增 Node.js 模組
+- `modules/learning-scheduler.js` - 學習任務調度器
+
+### 新增 API 端點
+- `GET /api/learning/summary` - 學習系統摘要
+- `GET /api/learning/weather-impacts` - 當前天氣影響參數
+- `GET /api/learning/anomalies` - 異常事件列表
+- `GET /api/learning/ai-events` - AI 事件學習摘要
+- `GET /api/learning/combinations` - 天氣組合影響
+- `POST /api/learning/update` - 手動觸發學習更新
+- `GET /api/learning/forecast-prediction` - 天氣預報預測
+- `GET /api/learning/scheduler-status` - 調度器狀態
+- `POST /api/learning/scheduler-run` - 手動觸發調度任務
+
+### 學習循環
+```
+每天 00:30 HKT:
+1. 獲取昨日實際數據
+2. 計算預測誤差
+3. 分析天氣條件
+4. 分析 AI 因素
+5. 檢測異常
+6. 更新學習記錄
+
+每週一 01:00 HKT:
+1. 訓練天氣影響模型
+2. 更新條件組合影響
+3. 更新 AI 事件學習
+```
+
+### 預期效果
+- 天氣影響參數從靜態 → 動態更新
+- 異常事件自動檢測和分類
+- 天氣預報自動整合到預測
+- AI 因素自動驗證和啟用
+
+---
+
 ## v3.2.01 - 2026-01-18 01:49 HKT
 **🚀 Optuna 超參數優化 - 模型精度再提升 9.2%**
 
