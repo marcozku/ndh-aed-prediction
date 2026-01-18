@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '4.0.00';
+const MODEL_VERSION = '4.0.01';
 
 // ============================================
 // HKT 時間工具函數
@@ -4628,7 +4628,8 @@ const apiHandlers = {
                     is_heavy_rain,
                     is_strong_wind,
                     ai_event_type,
-                    ai_factor
+                    ai_factor,
+                    COALESCE(ai_event_type, '未知')::text as anomaly_type
                 FROM learning_records
                 WHERE is_anomaly = TRUE
                 ORDER BY date DESC
@@ -4642,13 +4643,13 @@ const apiHandlers = {
 
             sendJson(res, {
                 success: true,
-                data: { anomalies: result.rows, total: parseInt(countResult.rows[0].count), limit, offset }
+                data: { anomalies: result.rows, total: parseInt(countResult.rows[0].count, 10), limit, offset }
             });
         } catch (error) {
             console.error('❌ Anomalies error:', error);
-            // 如果表不存在，返回 404
-            if (error.code === '42P01' || error.message.includes('does not exist')) {
-                return sendJson(res, { success: true, data: { anomalies: [], total: 0, limit, offset } }, 200);
+            // 表/欄不存在或 relation 不存在時降級返回空
+            if (error.code === '42P01' || error.code === '42703' || /does not exist|relation.*does not exist/i.test(String(error.message || ''))) {
+                return sendJson(res, { success: true, data: { anomalies: [], total: 0, limit: parseInt(req.query.limit) || 30, offset: parseInt(req.query.offset) || 0 } }, 200);
             }
             sendJson(res, { success: false, error: error.message }, 500);
         }

@@ -270,15 +270,19 @@ const Learning = {
         if (impacts.length === 0) {
             impactsHTML = '<div class="empty-state">暫無天氣影響數據</div>';
         } else {
-            impactsHTML = impacts.map(p => `
+            impactsHTML = impacts.map(p => {
+                const num = (p.parameter_value != null && p.parameter_value !== '') ? Number(p.parameter_value) : NaN;
+                const disp = Number.isFinite(num) ? `${num > 0 ? '+' : ''}${num.toFixed(2)}` : '-';
+                return `
                 <div class="impact-item">
                     <span class="impact-name">${this.formatParameterName(p.parameter_name)}</span>
-                    <span class="impact-value ${p.parameter_value > 0 ? 'positive' : p.parameter_value < 0 ? 'negative' : ''}">
-                        ${p.parameter_value > 0 ? '+' : ''}${p.parameter_value.toFixed(2)}
+                    <span class="impact-value ${num > 0 ? 'positive' : num < 0 ? 'negative' : ''}">
+                        ${disp}
                     </span>
-                    <span class="impact-samples">n=${p.sample_count}</span>
+                    <span class="impact-samples">n=${p.sample_count ?? '-'}</span>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
 
         return `
@@ -307,7 +311,7 @@ const Learning = {
                 <div class="anomaly-item">
                     <span class="anomaly-date">${a.date}</span>
                     <span class="anomaly-type">${a.anomaly_type || '未知'}</span>
-                    <span class="anomaly-error">${a.prediction_error?.toFixed(1) || '-'} 人</span>
+                    <span class="anomaly-error">${(a.prediction_error != null && a.prediction_error !== '') ? Number(a.prediction_error).toFixed(1) : '-'} 人</span>
                 </div>
             `).join('');
         }
@@ -337,8 +341,8 @@ const Learning = {
             eventsHTML = events.map(e => `
                 <div class="ai-event-item">
                     <span class="ai-event-name">${e.ai_event || '未知'}</span>
-                    <span class="ai-event-impact ${e.avg_impact > 0 ? 'positive' : e.avg_impact < 0 ? 'negative' : ''}">
-                        ${e.avg_impact > 0 ? '+' : ''}${(e.avg_impact || 0).toFixed(1)}
+                    <span class="ai-event-impact ${Number(e.avg_impact || 0) > 0 ? 'positive' : Number(e.avg_impact || 0) < 0 ? 'negative' : ''}">
+                        ${Number(e.avg_impact || 0) > 0 ? '+' : ''}${Number(e.avg_impact || 0).toFixed(1)}
                     </span>
                     <span class="ai-event-count">${e.event_count || 0} 次</span>
                 </div>

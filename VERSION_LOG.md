@@ -1,5 +1,14 @@
 # 版本更新日誌
 
+## v4.0.01 - 2026-01-19 HKT
+**🩹 學習模組與 anomalies API 修復**
+
+### 修復
+- **learning.js `parameter_value.toFixed is not a function`**: `parameter_value`、`prediction_error`、`avg_impact` 從 DB 可能為字串，改為 `Number()` 再 toFixed，並處理 null/空字串
+- **GET /api/learning/anomalies 500**: 表/欄不存在時 (`42P01`、`42703`、`does not exist`) 降級返回 200 + 空陣列，避免 500；新增 `anomaly_type` 別名供前端顯示
+
+---
+
 ## v4.0.00 - 2026-01-18 16:30 HKT
 **📚 自動學習系統 - 持續優化天氣與 AI 因素影響**
 
