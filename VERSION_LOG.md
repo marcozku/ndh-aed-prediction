@@ -1,5 +1,14 @@
 # 版本更新日誌
 
+## v4.0.03 - 2026-01-19 HKT
+**📈 天氣影響：is_low_humidity、is_high_pressure、is_rain_day 改為可學習**
+
+### 變更
+- **weather_impact_learner.py**: 將 `is_low_humidity`、`is_high_pressure`、`is_rain_day` 納入 `binary_features`，係數由 LinearRegression 從 `learning_records` 學習後寫回 `weather_impact_parameters`
+- 導出規則：`humidity_pct < 50` → is_low_humidity；`pressure_hpa > 1020` → is_high_pressure；`rainfall_mm > 0` → is_rain_day（learning_records 無該三欄，在 prepare_features 中由連續變量導出）
+
+---
+
 ## v4.0.02 - 2026-01-19 HKT
 **🩹 學習 / ai-factors-cache 502 防護與降級**
 
@@ -8,6 +17,7 @@
 - **sendJson**: 若 `res.headersSent` 已為 true 則直接 return，避免重複寫入
 - **GET /api/ai-factors-cache**: 表 `ai_factors_cache` 不存在時 (42P01)` 降級回傳 `{ success: true, data: { last_update_time:0, factors_cache:{}, ... } }`
 - **learning.js**: 502/503 時顯示「學習服務暫時不可用」取代「HTTP 502」
+- **`spawn python ENOENT` 導致進程崩潰**: Railway 無 `python` 只有 `python3`。`POST /api/learning/update`、`learning-scheduler.runPythonScript` 改為 `process.env.PYTHON || 'python3'`；`POST /api/learning/update` 的 spawn 補上 `python.on('error', ...)` 避免未處理 error 崩潰
 
 ### 文檔
 - **EXECUTE_ON_RAILWAY.md**: 新增 migration 004 執行說明，供學習 API 使用

@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '4.0.02';
+const MODEL_VERSION = '4.0.03';
 
 // ============================================
 // HKT 時間工具函數
@@ -4663,12 +4663,15 @@ const apiHandlers = {
             }
 
             const scriptPath = path.join(__dirname, 'python', script);
-            const python = spawn('python', [scriptPath], { cwd: __dirname });
+            const py = process.env.PYTHON || 'python3';
+            const python = spawn(py, [scriptPath], { cwd: __dirname });
+
+            python.on('error', (err) => {
+                console.error(`❌ Learning update spawn error: ${err.message}`);
+            });
 
             let output = '';
-            python.stdout.on('data', (data) => {
-                output += data.toString();
-            });
+            python.stdout.on('data', (data) => { output += data.toString(); });
 
             python.on('close', (code) => {
                 if (code === 0) {

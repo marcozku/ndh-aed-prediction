@@ -68,10 +68,25 @@ def prepare_features(df):
     # 2. 二元特徵
     binary_features = [
         'is_very_cold', 'is_very_hot',
-        'is_heavy_rain', 'is_strong_wind'
+        'is_heavy_rain', 'is_strong_wind',
+        'is_low_humidity', 'is_high_pressure', 'is_rain_day'
     ]
 
-    # 3. 交互特徵
+    # 3. 從連續變量導出 (learning_records 無此欄位；依 004 註釋: humidity<50, pressure>1020, rain>0)
+    if 'humidity_pct' in df.columns:
+        df['is_low_humidity'] = (df['humidity_pct'] < 50).fillna(False).astype(int)
+    else:
+        df['is_low_humidity'] = 0
+    if 'pressure_hpa' in df.columns:
+        df['is_high_pressure'] = (df['pressure_hpa'] > 1020).fillna(False).astype(int)
+    else:
+        df['is_high_pressure'] = 0
+    if 'rainfall_mm' in df.columns:
+        df['is_rain_day'] = (df['rainfall_mm'] > 0).fillna(False).astype(int)
+    else:
+        df['is_rain_day'] = 0
+
+    # 4. 交互特徵
     df['cold_rain'] = df['is_very_cold'] & df['is_heavy_rain']
     df['hot_rain'] = df['is_very_hot'] & df['is_heavy_rain']
 
