@@ -1,5 +1,23 @@
 # 版本更新日誌
 
+## v4.0.05 - 2026-01-19 HKT
+**🩹 自動學習系統：修復 node-cron 依賴缺失**
+
+### 修復
+- **package.json**: 添加 `node-cron@^3.0.3` 依賴
+- **調度器無法啟動**: 修復因缺少 node-cron 導致 LearningScheduler.start() 無法創建定時任務的問題
+- **learning-scheduler.js**: 優化 Python spawn 錯誤處理順序，將 `error` 事件移到 `stdout` 之前
+
+### 影響
+- 每日學習任務 (00:30 HKT) 現可正常執行
+- 每週學習任務 (週一 01:00 HKT) 現可正常執行
+- 天氣預報緩存任務 (每 6 小時) 現可正常執行
+
+### 文檔
+- **CONTINUOUS_LEARNING_QUICK_START.md**: 將實施狀態從「🚧 待實現」更新為「✅ 已部署」
+
+---
+
 ## v4.0.04 - 2026-01-19 HKT
 **🩹 學習 UI：調度器狀態、最後更新／上次執行**
 
