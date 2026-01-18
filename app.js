@@ -21,6 +21,7 @@ import { API } from './modules/api.js';
 import { DateTime } from './modules/datetime.js';
 import { Status } from './modules/status.js';
 import { Weather } from './modules/weather.js';
+import { Learning } from './modules/learning.js';
 import { initUIEnhancements, AlertManager, Toast } from './modules/ui-enhancements.js';
 
 // 註冊 Service Worker (改進 iOS Safari PWA 更新)
@@ -99,7 +100,10 @@ class App {
             
             // 初始化天氣
             await Weather.init();
-            
+
+            // 初始化學習系統
+            await Learning.init();
+
             this.initialized = true;
             console.log('✅ NDH AED 預測系統模組化組件就緒');
         } catch (error) {
