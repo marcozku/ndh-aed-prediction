@@ -104,7 +104,7 @@ class LearningScheduler {
 
         console.log('='.repeat(60));
         console.log('🔄 Running Daily Learning...');
-        console.log(f'   Time: {new Date().toLocaleString("zh-HK", { timeZone: "Asia/Hong_Kong" })}');
+        console.log(`   Time: ${new Date().toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' })}`);
         console.log('='.repeat(60));
 
         try {
@@ -133,7 +133,7 @@ class LearningScheduler {
     async runWeeklyLearning() {
         console.log('='.repeat(60));
         console.log('🔄 Running Weekly Learning...');
-        console.log(f'   Time: {new Date().toLocaleString("zh-HK", { timeZone: "Asia/Hong_Kong" })}');
+        console.log(`   Time: ${new Date().toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' })}`);
         console.log('='.repeat(60));
 
         try {

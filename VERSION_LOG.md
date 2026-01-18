@@ -6,6 +6,8 @@
 ### 修復
 - **learning.js `parameter_value.toFixed is not a function`**: `parameter_value`、`prediction_error`、`avg_impact` 從 DB 可能為字串，改為 `Number()` 再 toFixed，並處理 null/空字串
 - **GET /api/learning/anomalies 500**: 表/欄不存在時 (`42P01`、`42703`、`does not exist`) 降級返回 200 + 空陣列，避免 500；新增 `anomaly_type` 別名供前端顯示
+- **Anomalies `Cannot read properties of undefined (reading 'limit')`**: 在路由分發前設定 `req.query = parsedUrl.query || {}`，供 learning API 等使用
+- **Learning Scheduler `missing ) after argument list`**: 修正 `learning-scheduler.js` 內 Python 式 `f'...'` 為 JS 模板字串 `` `...${}...` ``
 
 ---
 
