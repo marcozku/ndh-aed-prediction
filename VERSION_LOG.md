@@ -1,5 +1,19 @@
 # 版本更新日誌
 
+## v4.0.02 - 2026-01-19 HKT
+**🩹 學習 / ai-factors-cache 502 防護與降級**
+
+### 修復
+- **GET /api/learning/* 與 GET /api/ai-factors-cache 返回 502**: 加入 20 秒請求逾時，超時改回 503，避免 Railway 上游逾時造成 502
+- **sendJson**: 若 `res.headersSent` 已為 true 則直接 return，避免重複寫入
+- **GET /api/ai-factors-cache**: 表 `ai_factors_cache` 不存在時 (42P01)` 降級回傳 `{ success: true, data: { last_update_time:0, factors_cache:{}, ... } }`
+- **learning.js**: 502/503 時顯示「學習服務暫時不可用」取代「HTTP 502」
+
+### 文檔
+- **EXECUTE_ON_RAILWAY.md**: 新增 migration 004 執行說明，供學習 API 使用
+
+---
+
 ## v4.0.01 - 2026-01-19 HKT
 **🩹 學習模組與 anomalies API 修復**
 

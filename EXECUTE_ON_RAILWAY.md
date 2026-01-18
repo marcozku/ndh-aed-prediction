@@ -1,5 +1,18 @@
 # 在 Railway 上執行添加數據腳本
 
+## 前置：學習系統數據庫 (migration 004)
+
+若使用自動學習系統（/api/learning/*），需先執行：
+
+```bash
+# 在 Railway 資料庫 Query / 或 railway run 後：
+psql $DATABASE_URL -f migrations/004_continuous_learning.sql
+```
+
+或於 Railway 資料庫的 Data / Query 貼上 `migrations/004_continuous_learning.sql` 內容並執行。未執行時，學習 API 會降級回傳空資料，不影響主預測功能。
+
+---
+
 ## 方法 1：使用 Railway Web 控制台（最簡單）
 
 1. 登入 Railway (https://railway.app)

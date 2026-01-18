@@ -1,7 +1,7 @@
 {
   "name": "ndh-aed-prediction",
-  "version": "4.0.01",
-  "description": "NDH AED 病人數量預測系統 v4.0.01 - 自動學習系統 (Continuous Learning System)",
+  "version": "4.0.02",
+  "description": "NDH AED 病人數量預測系統 v4.0.02 - 自動學習系統 (Continuous Learning System)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

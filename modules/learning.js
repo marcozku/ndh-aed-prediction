@@ -1,6 +1,6 @@
 /**
- * 自動學習系統模組 - v4.0.00
- * 顯示學習狀態、天氣影響參數、異常事件等
+ * 自動學習系統模組 - v4.0.01
+ * 顯示學習狀態、天氣影響參數、異常事件等；每 60 秒輪詢，有新資料自動更新
  */
 
 import { API } from './api.js';
@@ -18,13 +18,50 @@ const Learning = {
     // API 請求超時時間（毫秒）
     timeout: 10000,
 
+    // 輪詢間隔（毫秒），0=不輪詢；有新資料時自動跟上
+    pollIntervalMs: 60000,
+
+    _pollTimer: null,
+
     /**
      * 初始化學習系統
      */
-    async init() {
+    init() {
         console.log('🧠 初始化自動學習系統...');
-        // 延遲載入，避免阻塞主程序
-        setTimeout(() => this.loadAllData(), 500);
+        setTimeout(async () => {
+            await this.loadAllData();
+            this._startPolling();
+            this._setupVisibilityListener();
+        }, 500);
+    },
+
+    _startPolling() {
+        if (this._pollTimer) clearInterval(this._pollTimer);
+        if (!this.pollIntervalMs) return;
+        this._pollTimer = setInterval(() => {
+            if (document.hidden) return;
+            this.loadAllData();
+        }, this.pollIntervalMs);
+    },
+
+    _stopPolling() {
+        if (this._pollTimer) {
+            clearInterval(this._pollTimer);
+            this._pollTimer = null;
+        }
+    },
+
+    _setupVisibilityListener() {
+        if (this._visibilityListenerBound) return;
+        this._visibilityListenerBound = true;
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                this.loadAllData();
+                this._startPolling();
+            } else {
+                this._stopPolling();
+            }
+        });
     },
 
     /**
@@ -96,64 +133,48 @@ const Learning = {
     /**
      * 獲取學習摘要
      */
+    _okOrThrow(response) {
+        if (response.ok) return;
+        if (response.status === 502 || response.status === 503) throw new Error('學習服務暫時不可用');
+        throw new Error(`HTTP ${response.status}`);
+    },
+
     async fetchSummary() {
         const response = await this.fetchWithTimeout('/api/learning/summary');
-        if (!response.ok) {
-            if (response.status === 404) return null; // 數據庫表不存在
-            throw new Error(`HTTP ${response.status}`);
-        }
+        if (response.status === 404) return null;
+        this._okOrThrow(response);
         const data = await response.json();
         return data.success ? data.data : null;
     },
 
-    /**
-     * 獲取天氣影響參數
-     */
     async fetchWeatherImpacts() {
         const response = await this.fetchWithTimeout('/api/learning/weather-impacts');
-        if (!response.ok) {
-            if (response.status === 404) return null;
-            throw new Error(`HTTP ${response.status}`);
-        }
+        if (response.status === 404) return null;
+        this._okOrThrow(response);
         const data = await response.json();
         return data.success ? data.data : null;
     },
 
-    /**
-     * 獲取異常事件
-     */
     async fetchAnomalies() {
         const response = await this.fetchWithTimeout('/api/learning/anomalies?limit=10');
-        if (!response.ok) {
-            if (response.status === 404) return null;
-            throw new Error(`HTTP ${response.status}`);
-        }
+        if (response.status === 404) return null;
+        this._okOrThrow(response);
         const data = await response.json();
         return data.success ? data.data : null;
     },
 
-    /**
-     * 獲取 AI 事件學習
-     */
     async fetchAIEvents() {
         const response = await this.fetchWithTimeout('/api/learning/ai-events');
-        if (!response.ok) {
-            if (response.status === 404) return null;
-            throw new Error(`HTTP ${response.status}`);
-        }
+        if (response.status === 404) return null;
+        this._okOrThrow(response);
         const data = await response.json();
         return data.success ? data.data : null;
     },
 
-    /**
-     * 獲取調度器狀態
-     */
     async fetchSchedulerStatus() {
         const response = await this.fetchWithTimeout('/api/learning/scheduler-status');
-        if (!response.ok) {
-            if (response.status === 404) return null;
-            throw new Error(`HTTP ${response.status}`);
-        }
+        if (response.status === 404) return null;
+        this._okOrThrow(response);
         const data = await response.json();
         return data.success ? data.data : null;
     },

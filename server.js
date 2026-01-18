@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '4.0.01';
+const MODEL_VERSION = '4.0.02';
 
 // ============================================
 // HKT 時間工具函數
@@ -241,6 +241,7 @@ function parseBody(req) {
 
 // Helper to send JSON response
 function sendJson(res, data, statusCode = 200) {
+    if (res.headersSent) return;
     // 確保所有字符串都正確編碼為 UTF-8
     const jsonString = JSON.stringify(data, null, 0);
     const buffer = Buffer.from(jsonString, 'utf-8');
@@ -2379,24 +2380,26 @@ const apiHandlers = {
     // 獲取 AI 因素緩存（從數據庫）
     'GET /api/ai-factors-cache': async (req, res) => {
         if (!db || !db.pool) {
-            return sendJson(res, { 
-                success: false, 
-                error: '數據庫未配置' 
-            }, 503);
+            return sendJson(res, { success: false, error: '數據庫未配置' }, 503);
         }
-        
+        const REQ_TIMEOUT_MS = 20000;
         try {
-            const cache = await db.getAIFactorsCache();
-            sendJson(res, { 
-                success: true, 
-                data: cache 
-            });
+            await Promise.race([
+                (async () => {
+                    const cache = await db.getAIFactorsCache();
+                    sendJson(res, { success: true, data: cache });
+                })(),
+                new Promise((_, r) => setTimeout(() => r(new Error('REQUEST_TIMEOUT')), REQ_TIMEOUT_MS))
+            ]);
         } catch (err) {
+            if (err.message === 'REQUEST_TIMEOUT' && !res.headersSent) {
+                return sendJson(res, { success: false, error: 'Request timeout' }, 503);
+            }
+            if (err.code === '42P01' || /does not exist/i.test(String(err.message || ''))) {
+                return sendJson(res, { success: true, data: { last_update_time: 0, factors_cache: {}, analysis_data: {}, updated_at: null } });
+            }
             console.error('獲取 AI 因素緩存失敗:', err);
-            sendJson(res, { 
-                success: false, 
-                error: err.message 
-            }, 500);
+            sendJson(res, { success: false, error: err.message }, 500);
         }
     },
 
@@ -4522,58 +4525,22 @@ const apiHandlers = {
     // 獲取學習系統摘要
     'GET /api/learning/summary': async (req, res) => {
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
-
         try {
-            const result = await db.pool.query(`
-                SELECT * FROM learning_system_status
-            `);
-
-            // 獲取當前天氣影響
-            const weatherImpacts = await db.pool.query(`
-                SELECT * FROM current_weather_impacts
-                ORDER BY ABS(parameter_value) DESC
-                LIMIT 10
-            `);
-
-            // 獲取最近的異常
-            const recentAnomalies = await db.pool.query(`
-                SELECT
-                    date,
-                    actual_attendance,
-                    final_prediction,
-                    prediction_error,
-                    is_very_cold,
-                    is_heavy_rain,
-                    ai_event_type
-                FROM learning_records
-                WHERE is_anomaly = TRUE
-                ORDER BY date DESC
-                LIMIT 10
-            `);
-
-            const status = result.rows[0] || {};
-            sendJson(res, {
-                success: true,
-                data: {
-                    total_learning_days: status.total_records || 0,
-                    average_error: status.avg_error || 0,
-                    anomaly_count: status.total_anomalies || 0,
-                    last_learning_date: status.last_learning_date || null
-                }
-            });
+            await Promise.race([
+                (async () => {
+                    const result = await db.pool.query(`SELECT * FROM learning_system_status`);
+                    const weatherImpacts = await db.pool.query(`SELECT * FROM current_weather_impacts ORDER BY ABS(parameter_value) DESC LIMIT 10`);
+                    const recentAnomalies = await db.pool.query(`SELECT date, actual_attendance, final_prediction, prediction_error, is_very_cold, is_heavy_rain, ai_event_type FROM learning_records WHERE is_anomaly = TRUE ORDER BY date DESC LIMIT 10`);
+                    const status = result.rows[0] || {};
+                    sendJson(res, { success: true, data: { total_learning_days: status.total_records || 0, average_error: status.avg_error || 0, anomaly_count: status.total_anomalies || 0, last_learning_date: status.last_learning_date || null } });
+                })(),
+                new Promise((_, r) => setTimeout(() => r(new Error('REQUEST_TIMEOUT')), 20000))
+            ]);
         } catch (error) {
+            if (error.message === 'REQUEST_TIMEOUT' && !res.headersSent) return sendJson(res, { success: false, error: 'Request timeout' }, 503);
             console.error('❌ Learning summary error:', error);
-            // 如果表不存在，返回默認數據
-            if (error.code === '42P01' || error.message.includes('does not exist')) {
-                return sendJson(res, {
-                    success: true,
-                    data: {
-                        total_learning_days: 0,
-                        average_error: 0,
-                        anomaly_count: 0,
-                        last_learning_date: null
-                    }
-                });
+            if (error.code === '42P01' || (error.message && error.message.includes('does not exist'))) {
+                return sendJson(res, { success: true, data: { total_learning_days: 0, average_error: 0, anomaly_count: 0, last_learning_date: null } });
             }
             sendJson(res, { success: false, error: error.message }, 500);
         }
@@ -4582,27 +4549,19 @@ const apiHandlers = {
     // 獲取當前天氣影響參數
     'GET /api/learning/weather-impacts': async (req, res) => {
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
-
         try {
-            const result = await db.pool.query(`
-                SELECT * FROM current_weather_impacts
-                ORDER BY ABS(parameter_value) DESC
-            `);
-
-            sendJson(res, {
-                success: true,
-                data: {
-                    parameters: result.rows
-                }
-            });
+            await Promise.race([
+                (async () => {
+                    const result = await db.pool.query(`SELECT * FROM current_weather_impacts ORDER BY ABS(parameter_value) DESC`);
+                    sendJson(res, { success: true, data: { parameters: result.rows } });
+                })(),
+                new Promise((_, r) => setTimeout(() => r(new Error('REQUEST_TIMEOUT')), 20000))
+            ]);
         } catch (error) {
+            if (error.message === 'REQUEST_TIMEOUT' && !res.headersSent) return sendJson(res, { success: false, error: 'Request timeout' }, 503);
             console.error('❌ Weather impacts error:', error);
-            // 如果表不存在，返回空數組
-            if (error.code === '42P01' || error.message.includes('does not exist')) {
-                return sendJson(res, {
-                    success: true,
-                    data: { parameters: [] }
-                });
+            if (error.code === '42P01' || (error.message && error.message.includes('does not exist'))) {
+                return sendJson(res, { success: true, data: { parameters: [] } });
             }
             sendJson(res, { success: false, error: error.message }, 500);
         }
@@ -4611,45 +4570,22 @@ const apiHandlers = {
     // 獲取異常列表
     'GET /api/learning/anomalies': async (req, res) => {
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
-
+        const limit = parseInt(req.query && req.query.limit) || 30;
+        const offset = parseInt(req.query && req.query.offset) || 0;
         try {
-            const limit = parseInt(req.query.limit) || 30;
-            const offset = parseInt(req.query.offset) || 0;
-
-            const result = await db.pool.query(`
-                SELECT
-                    date,
-                    actual_attendance,
-                    final_prediction,
-                    prediction_error,
-                    error_pct,
-                    is_very_cold,
-                    is_very_hot,
-                    is_heavy_rain,
-                    is_strong_wind,
-                    ai_event_type,
-                    ai_factor,
-                    COALESCE(ai_event_type, '未知')::text as anomaly_type
-                FROM learning_records
-                WHERE is_anomaly = TRUE
-                ORDER BY date DESC
-                LIMIT $1 OFFSET $2
-            `, [limit, offset]);
-
-            // 獲取總數
-            const countResult = await db.pool.query(`
-                SELECT COUNT(*) FROM learning_records WHERE is_anomaly = TRUE
-            `);
-
-            sendJson(res, {
-                success: true,
-                data: { anomalies: result.rows, total: parseInt(countResult.rows[0].count, 10), limit, offset }
-            });
+            await Promise.race([
+                (async () => {
+                    const result = await db.pool.query(`SELECT date, actual_attendance, final_prediction, prediction_error, error_pct, is_very_cold, is_very_hot, is_heavy_rain, is_strong_wind, ai_event_type, ai_factor, COALESCE(ai_event_type, '未知')::text as anomaly_type FROM learning_records WHERE is_anomaly = TRUE ORDER BY date DESC LIMIT $1 OFFSET $2`, [limit, offset]);
+                    const countResult = await db.pool.query(`SELECT COUNT(*) FROM learning_records WHERE is_anomaly = TRUE`);
+                    sendJson(res, { success: true, data: { anomalies: result.rows, total: parseInt(countResult.rows[0].count, 10), limit, offset } });
+                })(),
+                new Promise((_, r) => setTimeout(() => r(new Error('REQUEST_TIMEOUT')), 20000))
+            ]);
         } catch (error) {
+            if (error.message === 'REQUEST_TIMEOUT' && !res.headersSent) return sendJson(res, { success: false, error: 'Request timeout' }, 503);
             console.error('❌ Anomalies error:', error);
-            // 表/欄不存在或 relation 不存在時降級返回空
-            if (error.code === '42P01' || error.code === '42703' || /does not exist|relation.*does not exist/i.test(String(error.message || ''))) {
-                return sendJson(res, { success: true, data: { anomalies: [], total: 0, limit: parseInt(req.query.limit) || 30, offset: parseInt(req.query.offset) || 0 } }, 200);
+            if (error.code === '42P01' || error.code === '42703' || (error.message && /does not exist|relation.*does not exist/i.test(String(error.message)))) {
+                return sendJson(res, { success: true, data: { anomalies: [], total: 0, limit, offset } }, 200);
             }
             sendJson(res, { success: false, error: error.message }, 500);
         }
@@ -4658,27 +4594,19 @@ const apiHandlers = {
     // 獲取 AI 事件學習摘要
     'GET /api/learning/ai-events': async (req, res) => {
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
-
         try {
-            const result = await db.pool.query(`
-                SELECT * FROM ai_learning_summary
-                ORDER BY total_occurrences DESC
-            `);
-
-            sendJson(res, {
-                success: true,
-                data: {
-                    events: result.rows
-                }
-            });
+            await Promise.race([
+                (async () => {
+                    const result = await db.pool.query(`SELECT * FROM ai_learning_summary ORDER BY total_occurrences DESC`);
+                    sendJson(res, { success: true, data: { events: result.rows } });
+                })(),
+                new Promise((_, r) => setTimeout(() => r(new Error('REQUEST_TIMEOUT')), 20000))
+            ]);
         } catch (error) {
+            if (error.message === 'REQUEST_TIMEOUT' && !res.headersSent) return sendJson(res, { success: false, error: 'Request timeout' }, 503);
             console.error('❌ AI events error:', error);
-            // 如果表不存在，返回空數組
-            if (error.code === '42P01' || error.message.includes('does not exist')) {
-                return sendJson(res, {
-                    success: true,
-                    data: { events: [] }
-                });
+            if (error.code === '42P01' || (error.message && error.message.includes('does not exist'))) {
+                return sendJson(res, { success: true, data: { events: [] } });
             }
             sendJson(res, { success: false, error: error.message }, 500);
         }
@@ -4809,61 +4737,32 @@ const apiHandlers = {
     // 獲取學習調度器狀態
     'GET /api/learning/scheduler-status': async (req, res) => {
         try {
-            let getScheduler;
-            try {
-                ({ getScheduler } = require('./modules/learning-scheduler'));
-            } catch (moduleError) {
-                // 模組加載失敗，返回默認狀態
-                return sendJson(res, {
-                    success: true,
-                    data: {
-                        is_running: false,
-                        scheduled_tasks: 0,
-                        last_run_time: null,
-                        run_count: 0,
-                        tasks: [],
-                        next_run: '未配置',
-                        error: 'Scheduler module not loaded'
+            await Promise.race([
+                (async () => {
+                    let getScheduler;
+                    try {
+                        ({ getScheduler } = require('./modules/learning-scheduler'));
+                    } catch (moduleError) {
+                        sendJson(res, { success: true, data: { is_running: false, scheduled_tasks: 0, last_run_time: null, run_count: 0, tasks: [], next_run: '未配置', error: 'Scheduler module not loaded' } });
+                        return;
                     }
-                });
-            }
-
-            const scheduler = getScheduler();
-            const status = scheduler.getStatus();
-
-            // 格式化下次運行時間
-            let nextRun = '每日 00:30 HKT';
-            if (status.lastRunTime) {
-                const nextDate = new Date(status.lastRunTime);
-                nextDate.setDate(nextDate.getDate() + 1);
-                nextDate.setHours(0, 30, 0, 0);
-                nextRun = nextDate.toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' });
-            }
-
-            sendJson(res, {
-                success: true,
-                data: {
-                    is_running: status.isRunning || false,
-                    scheduled_tasks: status.scheduledTasks || status.tasks?.length || 0,
-                    last_run_time: status.lastRunTime || null,
-                    run_count: status.runCount || 0,
-                    tasks: status.tasks || [],
-                    next_run: nextRun
-                }
-            });
+                    const scheduler = getScheduler();
+                    const status = scheduler.getStatus();
+                    let nextRun = '每日 00:30 HKT';
+                    if (status.lastRunTime) {
+                        const nextDate = new Date(status.lastRunTime);
+                        nextDate.setDate(nextDate.getDate() + 1);
+                        nextDate.setHours(0, 30, 0, 0);
+                        nextRun = nextDate.toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' });
+                    }
+                    sendJson(res, { success: true, data: { is_running: status.isRunning || false, scheduled_tasks: status.scheduledTasks || status.tasks?.length || 0, last_run_time: status.lastRunTime || null, run_count: status.runCount || 0, tasks: status.tasks || [], next_run: nextRun } });
+                })(),
+                new Promise((_, r) => setTimeout(() => r(new Error('REQUEST_TIMEOUT')), 20000))
+            ]);
         } catch (error) {
+            if (error.message === 'REQUEST_TIMEOUT' && !res.headersSent) return sendJson(res, { success: false, error: 'Request timeout' }, 503);
             console.error('❌ Scheduler status error:', error);
-            sendJson(res, {
-                success: true,
-                data: {
-                    is_running: false,
-                    scheduled_tasks: 0,
-                    last_run_time: null,
-                    run_count: 0,
-                    tasks: [],
-                    next_run: '每日 00:30 HKT'
-                }
-            });
+            sendJson(res, { success: true, data: { is_running: false, scheduled_tasks: 0, last_run_time: null, run_count: 0, tasks: [], next_run: '每日 00:30 HKT' } });
         }
     },
 
