@@ -171,13 +171,18 @@ class LearningScheduler {
     runPythonScript(scriptName, args = []) {
         return new Promise((resolve, reject) => {
             const scriptPath = path.join(__dirname, '..', 'python', scriptName);
-            const python = spawn('python', [scriptPath, ...args], {
+            const py = process.env.PYTHON || 'python3';
+            const python = spawn(py, [scriptPath, ...args], {
                 cwd: path.join(__dirname, '..'),
                 stdio: ['pipe', 'pipe', 'pipe']
             });
 
             let output = '';
             let error = '';
+
+            python.on('error', (err) => {
+                reject(new Error(`Failed to start Python: ${err.message}`));
+            });
 
             python.stdout.on('data', (data) => {
                 const text = data.toString();
@@ -190,15 +195,8 @@ class LearningScheduler {
             });
 
             python.on('close', (code) => {
-                if (code === 0) {
-                    resolve(output);
-                } else {
-                    reject(new Error(`Script exited with code ${code}: ${error}`));
-                }
-            });
-
-            python.on('error', (err) => {
-                reject(new Error(`Failed to start Python: ${err.message}`));
+                if (code === 0) resolve(output);
+                else reject(new Error(`Script exited with code ${code}: ${error}`));
             });
         });
     }
