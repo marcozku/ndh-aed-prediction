@@ -8,6 +8,8 @@
 - **GET /api/learning/anomalies 500**: 表/欄不存在時 (`42P01`、`42703`、`does not exist`) 降級返回 200 + 空陣列，避免 500；新增 `anomaly_type` 別名供前端顯示
 - **Anomalies `Cannot read properties of undefined (reading 'limit')`**: 在路由分發前設定 `req.query = parsedUrl.query || {}`，供 learning API 等使用
 - **Learning Scheduler `missing ) after argument list`**: 修正 `learning-scheduler.js` 內 Python 式 `f'...'` 為 JS 模板字串 `` `...${}...` ``
+- **POST /api/learning/update 500**: `req.body` 未解析，改為 `await parseBody(req)`；支援 `type=all` 映射為 daily；spawn 改為 `path.join(__dirname, 'python', script)` 並設 `cwd: __dirname`
+- **POST /api/learning/scheduler-run**: 改為 `await parseBody(req)` 取得 `req.body`
 
 ---
 

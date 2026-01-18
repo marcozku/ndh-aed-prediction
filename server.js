@@ -4719,20 +4719,23 @@ const apiHandlers = {
         const { spawn } = require('child_process');
 
         try {
-            const { type = 'daily' } = req.body;
+            const body = await parseBody(req).catch(() => ({}));
+            const { type = 'daily' } = body || {};
+            const effectiveType = (type === 'all') ? 'daily' : type;
 
             let script;
-            if (type === 'daily') {
+            if (effectiveType === 'daily') {
                 script = 'continuous_learner.py';
-            } else if (type === 'weekly') {
+            } else if (effectiveType === 'weekly') {
                 script = 'weather_impact_learner.py';
-            } else if (type === 'anomaly') {
+            } else if (effectiveType === 'anomaly') {
                 script = 'anomaly_detector.py';
             } else {
-                return sendJson(res, { success: false, error: 'Invalid type. Use: daily, weekly, or anomaly' }, 400);
+                return sendJson(res, { success: false, error: 'Invalid type. Use: daily, weekly, anomaly, or all' }, 400);
             }
 
-            const python = spawn('python', [`python/${script}`]);
+            const scriptPath = path.join(__dirname, 'python', script);
+            const python = spawn('python', [scriptPath], { cwd: __dirname });
 
             let output = '';
             python.stdout.on('data', (data) => {
@@ -4741,15 +4744,15 @@ const apiHandlers = {
 
             python.on('close', (code) => {
                 if (code === 0) {
-                    console.log(`✅ Learning update (${type}) complete:`, output);
+                    console.log(`✅ Learning update (${effectiveType}) complete:`, output);
                 } else {
-                    console.error(`❌ Learning update (${type}) failed (code ${code})`);
+                    console.error(`❌ Learning update (${effectiveType}) failed (code ${code})`);
                 }
             });
 
             sendJson(res, {
                 success: true,
-                message: `${type} learning update triggered`,
+                message: `${effectiveType} learning update triggered`,
                 script
             });
 
@@ -4869,7 +4872,8 @@ const apiHandlers = {
         const { getScheduler } = require('./modules/learning-scheduler');
 
         try {
-            const { task = 'daily' } = req.body;
+            const body = await parseBody(req).catch(() => ({}));
+            const { task = 'daily' } = body || {};
             const scheduler = getScheduler();
 
             if (task === 'daily') {
