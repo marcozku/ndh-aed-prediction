@@ -4551,14 +4551,30 @@ const apiHandlers = {
                 LIMIT 10
             `);
 
+            const status = result.rows[0] || {};
             sendJson(res, {
                 success: true,
-                status: result.rows[0] || {},
-                weatherImpacts: weatherImpacts.rows,
-                recentAnomalies: recentAnomalies.rows
+                data: {
+                    total_learning_days: status.total_records || 0,
+                    average_error: status.avg_error || 0,
+                    anomaly_count: status.total_anomalies || 0,
+                    last_learning_date: status.last_learning_date || null
+                }
             });
         } catch (error) {
             console.error('❌ Learning summary error:', error);
+            // 如果表不存在，返回默認數據
+            if (error.code === '42P01' || error.message.includes('does not exist')) {
+                return sendJson(res, {
+                    success: true,
+                    data: {
+                        total_learning_days: 0,
+                        average_error: 0,
+                        anomaly_count: 0,
+                        last_learning_date: null
+                    }
+                });
+            }
             sendJson(res, { success: false, error: error.message }, 500);
         }
     },
@@ -4575,11 +4591,19 @@ const apiHandlers = {
 
             sendJson(res, {
                 success: true,
-                impacts: result.rows,
-                updatedAt: result.rows.length > 0 ? result.rows[0].last_updated : null
+                data: {
+                    parameters: result.rows
+                }
             });
         } catch (error) {
             console.error('❌ Weather impacts error:', error);
+            // 如果表不存在，返回空數組
+            if (error.code === '42P01' || error.message.includes('does not exist')) {
+                return sendJson(res, {
+                    success: true,
+                    data: { parameters: [] }
+                });
+            }
             sendJson(res, { success: false, error: error.message }, 500);
         }
     },
@@ -4618,13 +4642,14 @@ const apiHandlers = {
 
             sendJson(res, {
                 success: true,
-                anomalies: result.rows,
-                total: parseInt(countResult.rows[0].count),
-                limit,
-                offset
+                data: { anomalies: result.rows, total: parseInt(countResult.rows[0].count), limit, offset }
             });
         } catch (error) {
             console.error('❌ Anomalies error:', error);
+            // 如果表不存在，返回 404
+            if (error.code === '42P01' || error.message.includes('does not exist')) {
+                return sendJson(res, { success: true, data: { anomalies: [], total: 0, limit, offset } }, 200);
+            }
             sendJson(res, { success: false, error: error.message }, 500);
         }
     },
@@ -4641,10 +4666,19 @@ const apiHandlers = {
 
             sendJson(res, {
                 success: true,
-                events: result.rows
+                data: {
+                    events: result.rows
+                }
             });
         } catch (error) {
             console.error('❌ AI events error:', error);
+            // 如果表不存在，返回空數組
+            if (error.code === '42P01' || error.message.includes('does not exist')) {
+                return sendJson(res, {
+                    success: true,
+                    data: { events: [] }
+                });
+            }
             sendJson(res, { success: false, error: error.message }, 500);
         }
     },
@@ -4770,16 +4804,62 @@ const apiHandlers = {
 
     // 獲取學習調度器狀態
     'GET /api/learning/scheduler-status': async (req, res) => {
-        const { getScheduler } = require('./modules/learning-scheduler');
-
         try {
+            let getScheduler;
+            try {
+                ({ getScheduler } = require('./modules/learning-scheduler'));
+            } catch (moduleError) {
+                // 模組加載失敗，返回默認狀態
+                return sendJson(res, {
+                    success: true,
+                    data: {
+                        is_running: false,
+                        scheduled_tasks: 0,
+                        last_run_time: null,
+                        run_count: 0,
+                        tasks: [],
+                        next_run: '未配置',
+                        error: 'Scheduler module not loaded'
+                    }
+                });
+            }
+
             const scheduler = getScheduler();
+            const status = scheduler.getStatus();
+
+            // 格式化下次運行時間
+            let nextRun = '每日 00:30 HKT';
+            if (status.lastRunTime) {
+                const nextDate = new Date(status.lastRunTime);
+                nextDate.setDate(nextDate.getDate() + 1);
+                nextDate.setHours(0, 30, 0, 0);
+                nextRun = nextDate.toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' });
+            }
+
             sendJson(res, {
                 success: true,
-                ...scheduler.getStatus()
+                data: {
+                    is_running: status.isRunning || false,
+                    scheduled_tasks: status.scheduledTasks || status.tasks?.length || 0,
+                    last_run_time: status.lastRunTime || null,
+                    run_count: status.runCount || 0,
+                    tasks: status.tasks || [],
+                    next_run: nextRun
+                }
             });
         } catch (error) {
-            sendJson(res, { success: false, error: error.message }, 500);
+            console.error('❌ Scheduler status error:', error);
+            sendJson(res, {
+                success: true,
+                data: {
+                    is_running: false,
+                    scheduled_tasks: 0,
+                    last_run_time: null,
+                    run_count: 0,
+                    tasks: [],
+                    next_run: '每日 00:30 HKT'
+                }
+            });
         }
     },
 

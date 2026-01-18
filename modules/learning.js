@@ -363,7 +363,7 @@ const Learning = {
     renderSchedulerCard() {
         const status = this.data.schedulerStatus || {};
         const isRunning = status.is_running || false;
-        const lastRun = status.last_run || '-';
+        const lastRun = status.last_run_time || '-';
         const nextRun = status.next_run || '-';
 
         return `
