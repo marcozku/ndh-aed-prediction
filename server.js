@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '4.0.03';
+const MODEL_VERSION = '4.0.04';
 
 // ============================================
 // HKT 時間工具函數
@@ -4746,26 +4746,35 @@ const apiHandlers = {
                     try {
                         ({ getScheduler } = require('./modules/learning-scheduler'));
                     } catch (moduleError) {
-                        sendJson(res, { success: true, data: { is_running: false, scheduled_tasks: 0, last_run_time: null, run_count: 0, tasks: [], next_run: '未配置', error: 'Scheduler module not loaded' } });
+                        sendJson(res, { success: true, data: { is_running: false, scheduler_active: false, scheduled_tasks: 0, last_run_time: null, run_count: 0, tasks: [], next_run: '未配置', error: 'Scheduler module not loaded' } });
                         return;
                     }
                     const scheduler = getScheduler();
                     const status = scheduler.getStatus();
-                    let nextRun = '每日 00:30 HKT';
-                    if (status.lastRunTime) {
-                        const nextDate = new Date(status.lastRunTime);
-                        nextDate.setDate(nextDate.getDate() + 1);
-                        nextDate.setHours(0, 30, 0, 0);
-                        nextRun = nextDate.toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' });
+                    let lastRunTime = status.lastRunTime || null;
+                    // 若記憶體無上次執行，以 learning_records 最後一筆作 fallback（重啟後仍能顯示）
+                    if (!lastRunTime && db && db.pool) {
+                        try {
+                            const r = await db.pool.query('SELECT MAX(created_at) AS t FROM learning_records');
+                            if (r.rows[0] && r.rows[0].t) lastRunTime = r.rows[0].t;
+                        } catch (_) {}
                     }
-                    sendJson(res, { success: true, data: { is_running: status.isRunning || false, scheduled_tasks: status.scheduledTasks || status.tasks?.length || 0, last_run_time: status.lastRunTime || null, run_count: status.runCount || 0, tasks: status.tasks || [], next_run: nextRun } });
+                    const schedulerActive = (status.scheduledTasks || status.tasks?.length || 0) > 0;
+                    let nextRun = '每日 00:30 HKT';
+                    if (lastRunTime) {
+                        const nd = new Date(lastRunTime);
+                        nd.setDate(nd.getDate() + 1);
+                        nd.setHours(0, 30, 0, 0);
+                        nextRun = nd.toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' });
+                    }
+                    sendJson(res, { success: true, data: { is_running: status.isRunning || false, scheduler_active: schedulerActive, scheduled_tasks: status.scheduledTasks || status.tasks?.length || 0, last_run_time: lastRunTime, run_count: status.runCount || 0, tasks: status.tasks || [], next_run: nextRun } });
                 })(),
                 new Promise((_, r) => setTimeout(() => r(new Error('REQUEST_TIMEOUT')), 20000))
             ]);
         } catch (error) {
             if (error.message === 'REQUEST_TIMEOUT' && !res.headersSent) return sendJson(res, { success: false, error: 'Request timeout' }, 503);
             console.error('❌ Scheduler status error:', error);
-            sendJson(res, { success: true, data: { is_running: false, scheduled_tasks: 0, last_run_time: null, run_count: 0, tasks: [], next_run: '每日 00:30 HKT' } });
+            sendJson(res, { success: true, data: { is_running: false, scheduler_active: false, scheduled_tasks: 0, last_run_time: null, run_count: 0, tasks: [], next_run: '每日 00:30 HKT' } });
         }
     },
 

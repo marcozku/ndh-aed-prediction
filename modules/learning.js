@@ -64,6 +64,18 @@ const Learning = {
         });
     },
 
+    formatDateHKT(v) {
+        if (v == null || v === '') return '';
+        const d = new Date(v);
+        return isNaN(d.getTime()) ? '' : d.toLocaleDateString('zh-HK', { timeZone: 'Asia/Hong_Kong' });
+    },
+
+    formatDateTimeHKT(v) {
+        if (v == null || v === '') return '';
+        const d = new Date(v);
+        return isNaN(d.getTime()) ? '' : d.toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' });
+    },
+
     /**
      * 帶超時的 fetch
      */
@@ -251,7 +263,7 @@ const Learning = {
         const learningDays = s.total_learning_days || 0;
         const avgError = s.average_error ? s.average_error.toFixed(2) : '-';
         const anomalyCount = s.anomaly_count || 0;
-        const lastUpdate = s.last_learning_date || '-';
+        const lastUpdate = s.last_learning_date ? this.formatDateHKT(s.last_learning_date) : '尚無記錄';
 
         return `
             <div class="learning-card summary-card">
@@ -387,9 +399,11 @@ const Learning = {
      */
     renderSchedulerCard() {
         const status = this.data.schedulerStatus || {};
-        const isRunning = status.is_running || false;
-        const lastRun = status.last_run_time || '-';
-        const nextRun = status.next_run || '-';
+        const taskRunning = status.is_running || false;
+        const schedulerActive = status.scheduler_active ?? ((status.scheduled_tasks || 0) > 0);
+        const statusText = taskRunning ? '🟢 執行中' : (schedulerActive ? '🟢 運行中' : '⚪ 已停止');
+        const lastRun = status.last_run_time ? this.formatDateTimeHKT(status.last_run_time) : '從未執行';
+        const nextRun = status.next_run || '每日 00:30 HKT';
 
         return `
             <div class="learning-card scheduler-card">
@@ -400,8 +414,8 @@ const Learning = {
                 <div class="scheduler-info">
                     <div class="scheduler-item">
                         <span class="scheduler-label">狀態</span>
-                        <span class="scheduler-status ${isRunning ? 'running' : 'stopped'}">
-                            ${isRunning ? '🟢 運行中' : '⚪ 已停止'}
+                        <span class="scheduler-status ${schedulerActive || taskRunning ? 'running' : 'stopped'}">
+                            ${statusText}
                         </span>
                     </div>
                     <div class="scheduler-item">
