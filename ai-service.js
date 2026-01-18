@@ -28,6 +28,49 @@ try {
     console.warn('⚠️ chinese-conv 未安裝，將無法自動轉換簡體中文到繁體中文');
 }
 
+// ============================================
+// AI 分析結果緩存
+// ============================================
+
+const ANALYSIS_CACHE_TTL = 2 * 60 * 60 * 1000; // 2 小時緩存
+const analysisCache = new Map();
+
+/**
+ * 從緩存獲取分析結果
+ */
+function getCachedAnalysis(cacheKey) {
+    const cached = analysisCache.get(cacheKey);
+    if (!cached) return null;
+
+    const now = Date.now();
+    if (now - cached.timestamp > ANALYSIS_CACHE_TTL) {
+        analysisCache.delete(cacheKey);
+        console.log(`📦 緩存過期: ${cacheKey}`);
+        return null;
+    }
+
+    console.log(`📦 使用緩存的分析結果 (${Math.round((now - cached.timestamp) / 1000)}秒前)`);
+    return cached.data;
+}
+
+/**
+ * 保存分析結果到緩存
+ */
+function setCachedAnalysis(cacheKey, data) {
+    analysisCache.set(cacheKey, {
+        timestamp: Date.now(),
+        data: data
+    });
+    console.log(`📦 分析結果已緩存: ${cacheKey}`);
+
+    // 清理舊緩存（保留最近 10 個）
+    if (analysisCache.size > 10) {
+        const oldestKey = analysisCache.keys().next().value;
+        analysisCache.delete(oldestKey);
+        console.log(`📦 清理舊緩存: ${oldestKey}`);
+    }
+}
+
 // 檢測是否包含簡體中文字符
 function hasSimplifiedChinese(text) {
     if (!text || typeof text !== 'string') return false;
@@ -888,7 +931,19 @@ async function searchRelevantNewsAndEvents() {
     console.log('🔍 開始搜索相關新聞和事件...');
     const today = getHKDateStr();
     const hkTime = new Date().toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' });
-    
+
+    // 📦 檢查緩存（基於日期和小時生成緩存鍵）
+    const currentHour = new Date().getHours();
+    const cacheKey = `analysis-${today}-${currentHour}`;
+    const cached = getCachedAnalysis(cacheKey);
+    if (cached) {
+        return {
+            ...cached,
+            cached: true,
+            timestamp: hkTime + ' HKT'
+        };
+    }
+
     // 生成唯一請求 ID 確保每次分析都是獨立的
     const requestId = `REQ-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
     console.log(`📋 AI 分析請求 ID: ${requestId}`);
@@ -1007,8 +1062,12 @@ JSON格式回應（繁體中文）：
         
         // 對所有因素進行自動事實核查
         result = factCheckAllFactors(result);
-        
+
         console.log(`✅ AI 分析完成，找到 ${result.factors ? result.factors.length : 0} 個影響因素`);
+
+        // 📦 保存到緩存
+        setCachedAnalysis(cacheKey, result);
+
         return result;
     } catch (error) {
         console.error('❌ 搜索新聞和事件失敗:', error);

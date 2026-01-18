@@ -548,7 +548,7 @@ async function fetchOfficialRssFeeds() {
 async function searchAllNewsSourcesWise(queries) {
     console.log('🌐 開始網絡新聞搜尋...');
     console.log(`📋 搜尋查詢: ${queries.join(', ')}`);
-    
+
     const allArticles = [];
     const searchResults = {
         timestamp: new Date().toISOString(),
@@ -560,11 +560,30 @@ async function searchAllNewsSourcesWise(queries) {
         apiUsage: {}
     };
 
-    // 1. Google News RSS 搜尋（免費無限制，最可靠）
-    for (const query of queries) {
-        try {
-            const articles = await searchGoogleNewsRss(query);
-            // 標記來源可信度
+    // 設置整體超時（40 秒，預留 20 秒給 AI 調用）
+    const TIMEOUT_MS = 40000;
+    const startTime = Date.now();
+
+    // 超時檢查函數
+    const checkTimeout = () => {
+        const elapsed = Date.now() - startTime;
+        if (elapsed > TIMEOUT_MS) {
+            throw new Error(`網絡搜尋超時（${TIMEOUT_MS/1000}秒）`);
+        }
+    };
+
+    try {
+        // 1. Google News RSS 搜尋（免費無限制，最可靠）- 限制每個請求 6 秒
+        for (const query of queries) {
+            checkTimeout();
+            try {
+                const articles = await Promise.race([
+                    searchGoogleNewsRss(query),
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Google News RSS 超時')), 6000)
+                    )
+                ]);
+                // 標記來源可信度
             articles.forEach(a => {
                 a.isTrustedSource = isTrustedNewsSource(a.url || '');
             });
@@ -580,12 +599,19 @@ async function searchAllNewsSourcesWise(queries) {
     // 2. GNews API 已停用（對中文/香港新聞支援較差）
     // if (NEWS_APIS.gnews.enabled && NEWS_APIS.gnews.apiKey && hasApiQuota('gnews')) { ... }
 
-    // 3. 使用 NewsData.io API（200 請求/天）- 只用 2 個查詢
+    // 3. 使用 NewsData.io API（200 請求/天）- 只用 2 個查詢，每個 8 秒超時
+    checkTimeout();
     if (NEWS_APIS.newsdata.apiKey && hasApiQuota('newsdata')) {
         const newsdataQueries = queries.slice(0, 2);
         for (const query of newsdataQueries) {
+            checkTimeout();
             try {
-                const articles = await searchNewsDataIo(query);
+                const articles = await Promise.race([
+                    searchNewsDataIo(query),
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('NewsData.io 超時')), 8000)
+                    )
+                ]);
                 allArticles.push(...articles);
                 if (articles.length > 0) {
                     searchResults.sources.push('NewsData.io');
@@ -596,9 +622,15 @@ async function searchAllNewsSourcesWise(queries) {
         }
     }
 
-    // 4. 獲取官方 RSS 源（最可信）
+    // 4. 獲取官方 RSS 源（最可信）- 10 秒超時
+    checkTimeout();
     try {
-        const officialArticles = await fetchOfficialRssFeeds();
+        const officialArticles = await Promise.race([
+            fetchOfficialRssFeeds(),
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Official RSS 超時')), 10000)
+            )
+        ]);
         // 官方來源全部標記為可信
         officialArticles.forEach(a => {
             a.isTrustedSource = true;
@@ -645,8 +677,26 @@ async function searchAllNewsSourcesWise(queries) {
     };
     
     console.log(`✅ 網絡搜尋完成: 總共 ${allArticles.length} 篇 → 去重後 ${uniqueArticles.length} 篇 → 最近7天 ${recentArticles.length} 篇 → 可信來源 ${trustedArticles.length} 篇`);
-    
+
     return searchResults;
+    } catch (error) {
+        // 捕獲超時錯誤
+        if (error.message.includes('超時')) {
+            console.warn(`⚠️ ${error.message}，返回已獲取的結果`);
+            searchResults.errors.push({ source: '整體搜尋', error: error.message });
+            // 即使超時，也返回已獲取的文章
+            const uniqueArticles = deduplicateArticles(allArticles);
+            const recentArticles = filterRecentArticles(uniqueArticles, 7);
+            searchResults.articles = recentArticles.slice(0, 50);
+            searchResults.trustedArticles = recentArticles.filter(a => a.isTrustedSource).slice(0, 30);
+            searchResults.totalFound = allArticles.length;
+            searchResults.uniqueCount = uniqueArticles.length;
+            searchResults.recentCount = recentArticles.length;
+            searchResults.partial = true; // 標記為部分結果
+            return searchResults;
+        }
+        throw error; // 其他錯誤重新拋出
+    }
 }
 
 /**
