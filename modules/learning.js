@@ -11,41 +11,85 @@ const Learning = {
         weatherImpacts: null,
         anomalies: null,
         aiEvents: null,
-        schedulerStatus: null
+        schedulerStatus: null,
+        errors: []
     },
+
+    // API 請求超時時間（毫秒）
+    timeout: 10000,
 
     /**
      * 初始化學習系統
      */
     async init() {
         console.log('🧠 初始化自動學習系統...');
-        await this.loadAllData();
+        // 延遲載入，避免阻塞主程序
+        setTimeout(() => this.loadAllData(), 500);
     },
 
     /**
-     * 加載所有學習數據
+     * 帶超時的 fetch
+     */
+    async fetchWithTimeout(url, options = {}) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+        try {
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            return response;
+        } catch (error) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error('請求超時');
+            }
+            throw error;
+        }
+    },
+
+    /**
+     * 加載所有學習數據（獨立處理每個請求）
      */
     async loadAllData() {
+        this.data.errors = [];
+
+        // 獨立加載每個數據源，一個失敗不影響其他
+        const loadSummary = this.safeFetch('summary', () => this.fetchSummary());
+        const loadWeatherImpacts = this.safeFetch('weatherImpacts', () => this.fetchWeatherImpacts());
+        const loadAnomalies = this.safeFetch('anomalies', () => this.fetchAnomalies());
+        const loadAIEvents = this.safeFetch('aiEvents', () => this.fetchAIEvents());
+        const loadSchedulerStatus = this.safeFetch('schedulerStatus', () => this.fetchSchedulerStatus());
+
+        // 等待所有請求完成（無論成功或失敗）
+        await Promise.all([
+            loadSummary,
+            loadWeatherImpacts,
+            loadAnomalies,
+            loadAIEvents,
+            loadSchedulerStatus
+        ]);
+
+        this.render();
+    },
+
+    /**
+     * 安全加載數據（捕獲錯誤但不中斷）
+     */
+    async safeFetch(key, fetchFn) {
         try {
-            // 並行加載所有數據
-            const [summary, weatherImpacts, anomalies, aiEvents, schedulerStatus] = await Promise.all([
-                this.fetchSummary(),
-                this.fetchWeatherImpacts(),
-                this.fetchAnomalies(),
-                this.fetchAIEvents(),
-                this.fetchSchedulerStatus()
-            ]);
-
-            this.data.summary = summary;
-            this.data.weatherImpacts = weatherImpacts;
-            this.data.anomalies = anomalies;
-            this.data.aiEvents = aiEvents;
-            this.data.schedulerStatus = schedulerStatus;
-
-            this.render();
+            const result = await fetchFn();
+            if (result) {
+                this.data[key] = result;
+                console.log(`✅ 學習系統 ${key} 加載成功`);
+            } else {
+                console.warn(`⚠️ 學習系統 ${key} 返回空數據`);
+            }
         } catch (error) {
-            console.error('加載學習數據失敗:', error);
-            this.renderError(error.message);
+            console.error(`❌ 學習系統 ${key} 加載失敗:`, error.message);
+            this.data.errors.push({ key, error: error.message });
         }
     },
 
@@ -53,8 +97,11 @@ const Learning = {
      * 獲取學習摘要
      */
     async fetchSummary() {
-        const response = await fetch('/api/learning/summary');
-        if (!response.ok) throw new Error('獲取學習摘要失敗');
+        const response = await this.fetchWithTimeout('/api/learning/summary');
+        if (!response.ok) {
+            if (response.status === 404) return null; // 數據庫表不存在
+            throw new Error(`HTTP ${response.status}`);
+        }
         const data = await response.json();
         return data.success ? data.data : null;
     },
@@ -63,8 +110,11 @@ const Learning = {
      * 獲取天氣影響參數
      */
     async fetchWeatherImpacts() {
-        const response = await fetch('/api/learning/weather-impacts');
-        if (!response.ok) throw new Error('獲取天氣影響失敗');
+        const response = await this.fetchWithTimeout('/api/learning/weather-impacts');
+        if (!response.ok) {
+            if (response.status === 404) return null;
+            throw new Error(`HTTP ${response.status}`);
+        }
         const data = await response.json();
         return data.success ? data.data : null;
     },
@@ -73,8 +123,11 @@ const Learning = {
      * 獲取異常事件
      */
     async fetchAnomalies() {
-        const response = await fetch('/api/learning/anomalies?limit=10');
-        if (!response.ok) throw new Error('獲取異常事件失敗');
+        const response = await this.fetchWithTimeout('/api/learning/anomalies?limit=10');
+        if (!response.ok) {
+            if (response.status === 404) return null;
+            throw new Error(`HTTP ${response.status}`);
+        }
         const data = await response.json();
         return data.success ? data.data : null;
     },
@@ -83,8 +136,11 @@ const Learning = {
      * 獲取 AI 事件學習
      */
     async fetchAIEvents() {
-        const response = await fetch('/api/learning/ai-events');
-        if (!response.ok) throw new Error('獲取 AI 事件失敗');
+        const response = await this.fetchWithTimeout('/api/learning/ai-events');
+        if (!response.ok) {
+            if (response.status === 404) return null;
+            throw new Error(`HTTP ${response.status}`);
+        }
         const data = await response.json();
         return data.success ? data.data : null;
     },
@@ -93,8 +149,11 @@ const Learning = {
      * 獲取調度器狀態
      */
     async fetchSchedulerStatus() {
-        const response = await fetch('/api/learning/scheduler-status');
-        if (!response.ok) throw new Error('獲取調度器狀態失敗');
+        const response = await this.fetchWithTimeout('/api/learning/scheduler-status');
+        if (!response.ok) {
+            if (response.status === 404) return null;
+            throw new Error(`HTTP ${response.status}`);
+        }
         const data = await response.json();
         return data.success ? data.data : null;
     },
@@ -132,8 +191,19 @@ const Learning = {
         const loading = document.getElementById('learning-loading');
         if (loading) loading.style.display = 'none';
 
-        // 檢查是否已初始化（數據庫表可能不存在）
-        if (!this.data.summary && !this.data.weatherImpacts) {
+        // 檢查是否有任何數據
+        const hasData = this.data.summary || this.data.weatherImpacts ||
+                       this.data.anomalies || this.data.aiEvents || this.data.schedulerStatus;
+
+        // 檢查是否所有請求都失敗了
+        const allFailed = this.data.errors.length >= 5;
+
+        if (allFailed) {
+            container.innerHTML = this.renderNotReady(this.data.errors);
+            return;
+        }
+
+        if (!hasData) {
             container.innerHTML = this.renderNotReady();
             return;
         }
@@ -328,15 +398,24 @@ const Learning = {
     /**
      * 渲染未準備狀態
      */
-    renderNotReady() {
+    renderNotReady(errors = null) {
+        let message = '<p>學習系統需要數據庫支持。請確保已執行 migration。</p>';
+
+        if (errors && errors.length > 0) {
+            const errorMsgs = errors.map(e => e.error).filter(e => e).join(', ');
+            if (errorMsgs) {
+                message = `<p class="error-detail">錯誤：${errorMsgs}</p>`;
+            }
+        }
+
         return `
             <div class="learning-not-ready">
                 <div class="not-ready-icon">🧠</div>
                 <h3>自動學習系統</h3>
-                <p>學習系統需要數據庫支持。請確保已執行 migration。</p>
+                ${message}
                 <div class="not-ready-actions">
-                    <button class="btn-primary" onclick="window.Learning?.triggerUpdate()">
-                        檢查狀態
+                    <button class="btn-primary" onclick="window.Learning?.loadAllData()">
+                        重新載入
                     </button>
                 </div>
             </div>
