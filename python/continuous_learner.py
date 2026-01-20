@@ -26,6 +26,15 @@ from dotenv import load_dotenv
 import json
 import requests
 
+# Fix Windows encoding
+if sys.platform == 'win32':
+    try:
+        import io
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+    except:
+        pass
+
 # ============================================================
 # Configuration
 # ============================================================
@@ -155,7 +164,7 @@ def fetch_yesterday_data(date):
             weather_factor
         FROM daily_predictions
         WHERE target_date = %s
-        ORDER BY prediction_date DESC
+        ORDER BY created_at DESC
         LIMIT 1
     """, (date,))
     result = cur.fetchone()
@@ -169,22 +178,22 @@ def fetch_yesterday_data(date):
         }
         print(f"   ✅ Prediction: {data['prediction']['production']:.1f}")
 
-    # 3. 獲取 AI factor 詳情
+    # 3. 獲取 AI factor 詳情（從 ai_factors JSONB 欄位）
     cur.execute("""
         SELECT
-            event_type,
-            event_description,
-            ai_factor
-        FROM ai_factor_validation
-        WHERE prediction_date = %s
+            ai_factors,
+            weather_data
+        FROM daily_predictions
+        WHERE target_date = %s
+        ORDER BY created_at DESC
+        LIMIT 1
     """, (date,))
     result = cur.fetchone()
-    if result:
-        data['ai_factor'] = {
-            'event_type': result[0],
-            'description': result[1],
-            'factor': float(result[2]) if result[2] else None
-        }
+    if result and result[0]:
+        import json
+        ai_data = result[0]
+        data['ai_factor'] = ai_data
+        print(f"   ✅ AI Factors: {json.dumps(ai_data, ensure_ascii=False)}")
 
     # 4. 獲取或獲取天氣數據
     cur.execute("""
