@@ -93,6 +93,7 @@ const NavManager = {
         this.setupStickyNav();
         this.setupNavLinks();
         this.setupBackToTop();
+        this.setupHamburgerMenu();
     },
     
     setupStickyNav() {
@@ -119,8 +120,9 @@ const NavManager = {
         // v3.0.84: 同時處理桌面和手機導航
         const desktopLinks = document.querySelectorAll('.nav-link');
         const mobileLinks = document.querySelectorAll('.mobile-nav-link');
-        const allLinks = [...desktopLinks, ...mobileLinks];
-        
+        const menuItems = document.querySelectorAll('.mobile-menu-item');
+        const allLinks = [...desktopLinks, ...mobileLinks, ...menuItems];
+
         // 點擊導航連結
         allLinks.forEach(link => {
             link.addEventListener('click', (e) => {
@@ -128,41 +130,44 @@ const NavManager = {
                 const target = document.querySelector(link.getAttribute('href'));
                 if (target) {
                     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    // 如果是漢堡菜單項目，關閉菜單
+                    if (link.classList.contains('mobile-menu-item')) {
+                        this.closeHamburgerMenu();
+                    }
                 }
             });
         });
-        
+
         // 滾動時更新活動狀態 - 找最接近視窗頂部的區塊
         const sectionIds = [
             'today-section',
-            'factors-section', 
+            'factors-section',
             'forecast-section',
             'confidence-dashboard',
             'charts-section',
             'model-training-section',
             'timeline-section',
             'algorithm-section',
-            'dual-track-section'
+            'dual-track-section',
+            'learning-section'
         ];
-        
+
         let ticking = false;
         window.addEventListener('scroll', () => {
             if (!ticking) {
                 requestAnimationFrame(() => {
-                    const navHeight = 70; // 導航欄高度
+                    const navHeight = 70;
                     const scrollPos = window.pageYOffset + navHeight + 20;
                     let activeSection = null;
                     let minDistance = Infinity;
-                    
-                    // 找出距離視窗頂部最近的區塊
+
                     sectionIds.forEach(sectionId => {
                         const section = document.getElementById(sectionId);
                         if (section) {
                             const rect = section.getBoundingClientRect();
                             const top = rect.top + window.pageYOffset;
                             const distance = Math.abs(scrollPos - top);
-                            
-                            // 如果區塊頂部在視窗內或剛過去
+
                             if (rect.top <= navHeight + 100 && rect.bottom > 0) {
                                 if (distance < minDistance) {
                                     minDistance = distance;
@@ -171,16 +176,14 @@ const NavManager = {
                             }
                         }
                     });
-                    
-                    // 如果沒找到，檢查是否在頁面底部
+
                     if (!activeSection) {
                         const lastSection = document.getElementById(sectionIds[sectionIds.length - 1]);
                         if (lastSection && window.innerHeight + window.pageYOffset >= document.body.offsetHeight - 100) {
                             activeSection = sectionIds[sectionIds.length - 1];
                         }
                     }
-                    
-                    // 更新導航高亮（桌面和手機）
+
                     if (activeSection) {
                         allLinks.forEach(link => {
                             const href = link.getAttribute('href');
@@ -190,24 +193,66 @@ const NavManager = {
                                 link.classList.remove('active');
                             }
                         });
-                        
-                        // v3.0.84: 滾動手機導航到當前活動項目
-                        const mobileNav = document.querySelector('.mobile-bottom-nav');
-                        const activeLink = document.querySelector(`.mobile-nav-link[href="#${activeSection}"]`);
-                        if (mobileNav && activeLink) {
-                            const navRect = mobileNav.getBoundingClientRect();
-                            const linkRect = activeLink.getBoundingClientRect();
-                            // 如果活動項目不在可視範圍內，滾動到中間
-                            if (linkRect.left < navRect.left || linkRect.right > navRect.right) {
-                                activeLink.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-                            }
-                        }
                     }
                     ticking = false;
                 });
                 ticking = true;
             }
         });
+    },
+
+    setupHamburgerMenu() {
+        const hamburgerBtn = document.getElementById('hamburger-menu-btn');
+        const overlay = document.getElementById('mobile-menu-overlay');
+        const closeBtn = document.getElementById('mobile-menu-close');
+
+        if (!hamburgerBtn || !overlay || !closeBtn) return;
+
+        // 打開菜單
+        hamburgerBtn.addEventListener('click', () => {
+            this.openHamburgerMenu();
+        });
+
+        // 關閉按鈕
+        closeBtn.addEventListener('click', () => {
+            this.closeHamburgerMenu();
+        });
+
+        // 點擊遮罩關閉
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                this.closeHamburgerMenu();
+            }
+        });
+
+        // ESC 鍵關閉
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && overlay.classList.contains('active')) {
+                this.closeHamburgerMenu();
+            }
+        });
+    },
+
+    openHamburgerMenu() {
+        const overlay = document.getElementById('mobile-menu-overlay');
+        const hamburgerBtn = document.getElementById('hamburger-menu-btn');
+
+        if (overlay && hamburgerBtn) {
+            overlay.classList.add('active');
+            hamburgerBtn.setAttribute('aria-expanded', 'true');
+            document.body.style.overflow = 'hidden';
+        }
+    },
+
+    closeHamburgerMenu() {
+        const overlay = document.getElementById('mobile-menu-overlay');
+        const hamburgerBtn = document.getElementById('hamburger-menu-btn');
+
+        if (overlay && hamburgerBtn) {
+            overlay.classList.remove('active');
+            hamburgerBtn.setAttribute('aria-expanded', 'false');
+            document.body.style.overflow = '';
+        }
     },
     
     setupBackToTop() {

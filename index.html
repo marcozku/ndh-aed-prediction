@@ -717,7 +717,7 @@
         <footer class="app-footer" role="contentinfo">
             <p id="data-source-info" style="cursor: pointer; text-decoration: underline;" data-lang-key="footer-source">數據來源：載入中...</p>
             <p id="last-update-info" class="last-update-info"></p>
-            <p id="model-version-info">預測模型版本 4.0.00 · 自動學習系統 · 香港時間 HKT</p>
+            <p id="model-version-info">預測模型版本 4.0.07 · UI 優化版 · 香港時間 HKT</p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2026 Marco Ma. All Rights Reserved.</p>
             <div class="footer-links">
                 <a href="/api/docs" class="footer-link" data-lang-key="footer-api">API 文檔</a>
@@ -905,9 +905,17 @@
     <!-- 模組化包裝層 -->
     <script type="module" src="app.js?v=6"></script>
     
-    <!-- v3.0.84: Mobile Bottom Navigation -->
+    <!-- v3.0.84: Mobile Bottom Navigation with Hamburger Menu -->
     <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
-        <div class="mobile-nav-inner">
+        <!-- Hamburger Menu Button -->
+        <button class="hamburger-menu-btn" id="hamburger-menu-btn" aria-label="打開選單" aria-expanded="false">
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+        </button>
+
+        <!-- Quick Access Bar (Always Visible) -->
+        <div class="mobile-nav-inner mobile-nav-quick">
             <a href="#today-section" class="mobile-nav-link active" data-section="today">
                 <span class="nav-icon">📊</span>
                 <span class="nav-text">今日</span>
@@ -920,34 +928,58 @@
                 <span class="nav-icon">📅</span>
                 <span class="nav-text">7日</span>
             </a>
-            <a href="#confidence-dashboard" class="mobile-nav-link" data-section="confidence">
-                <span class="nav-icon">🎚️</span>
-                <span class="nav-text">置信</span>
-            </a>
-            <a href="#charts-section" class="mobile-nav-link" data-section="charts">
-                <span class="nav-icon">📈</span>
-                <span class="nav-text">趨勢</span>
-            </a>
-            <a href="#model-training-section" class="mobile-nav-link" data-section="training">
-                <span class="nav-icon">🤖</span>
-                <span class="nav-text">訓練</span>
-            </a>
-            <a href="#timeline-section" class="mobile-nav-link" data-section="timeline">
-                <span class="nav-icon">📜</span>
-                <span class="nav-text">時間線</span>
-            </a>
-            <a href="#algorithm-section" class="mobile-nav-link" data-section="algorithm">
-                <span class="nav-icon">📐</span>
-                <span class="nav-text">算法</span>
-            </a>
-            <a href="#dual-track-section" class="mobile-nav-link" data-section="dual-track">
-                <span class="nav-icon">🔬</span>
-                <span class="nav-text">雙軌</span>
-            </a>
-            <a href="#learning-section" class="mobile-nav-link" data-section="learning">
-                <span class="nav-icon">🧠</span>
-                <span class="nav-text">學習</span>
-            </a>
+        </div>
+
+        <!-- Full Menu Overlay -->
+        <div class="mobile-menu-overlay" id="mobile-menu-overlay">
+            <div class="mobile-menu-content">
+                <div class="mobile-menu-header">
+                    <h2>功能選單</h2>
+                    <button class="mobile-menu-close" id="mobile-menu-close" aria-label="關閉選單">✕</button>
+                </div>
+                <div class="mobile-menu-grid">
+                    <a href="#today-section" class="mobile-menu-item" data-section="today">
+                        <span class="menu-item-icon">📊</span>
+                        <span class="menu-item-text">今日預測</span>
+                    </a>
+                    <a href="#factors-section" class="mobile-menu-item" data-section="factors">
+                        <span class="menu-item-icon">🎯</span>
+                        <span class="menu-item-text">影響因素</span>
+                    </a>
+                    <a href="#forecast-section" class="mobile-menu-item" data-section="forecast">
+                        <span class="menu-item-icon">📅</span>
+                        <span class="menu-item-text">7日預測</span>
+                    </a>
+                    <a href="#confidence-dashboard" class="mobile-menu-item" data-section="confidence">
+                        <span class="menu-item-icon">🎚️</span>
+                        <span class="menu-item-text">置信度</span>
+                    </a>
+                    <a href="#charts-section" class="mobile-menu-item" data-section="charts">
+                        <span class="menu-item-icon">📈</span>
+                        <span class="menu-item-text">趨勢圖表</span>
+                    </a>
+                    <a href="#model-training-section" class="mobile-menu-item" data-section="training">
+                        <span class="menu-item-icon">🤖</span>
+                        <span class="menu-item-text">模型訓練</span>
+                    </a>
+                    <a href="#timeline-section" class="mobile-menu-item" data-section="timeline">
+                        <span class="menu-item-icon">📜</span>
+                        <span class="menu-item-text">演進時間線</span>
+                    </a>
+                    <a href="#algorithm-section" class="mobile-menu-item" data-section="algorithm">
+                        <span class="menu-item-icon">📐</span>
+                        <span class="menu-item-text">算法說明</span>
+                    </a>
+                    <a href="#dual-track-section" class="mobile-menu-item" data-section="dual-track">
+                        <span class="menu-item-icon">🔬</span>
+                        <span class="menu-item-text">雙軌預測</span>
+                    </a>
+                    <a href="#learning-section" class="mobile-menu-item" data-section="learning">
+                        <span class="menu-item-icon">🧠</span>
+                        <span class="menu-item-text">自動學習</span>
+                    </a>
+                </div>
+            </div>
         </div>
     </nav>
 </body>

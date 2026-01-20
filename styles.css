@@ -5427,7 +5427,7 @@ section h2 {
         font-size: 0.9rem;
     }
     
-    /* Mobile Bottom Navigation Bar */
+    /* Mobile Bottom Navigation Bar with Hamburger Menu */
     .mobile-bottom-nav {
         display: flex !important;
         position: fixed;
@@ -5441,25 +5441,192 @@ section h2 {
         -webkit-backdrop-filter: var(--blur-lg);
         border-top: 1px solid var(--border-subtle);
         z-index: 1000;
-        overflow-x: auto;
-        overflow-y: hidden;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
+        align-items: center;
+        justify-content: space-between;
+        padding-left: 12px;
+        padding-right: 12px;
     }
-    
-    .mobile-bottom-nav::-webkit-scrollbar {
-        display: none;
+
+    /* Hamburger Menu Button */
+    .hamburger-menu-btn {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        width: 44px;
+        height: 44px;
+        border: none;
+        background: var(--bg-card);
+        border-radius: 12px;
+        cursor: pointer;
+        padding: 10px;
+        transition: all var(--transition-base);
+        box-shadow: var(--shadow-sm);
     }
-    
-    .mobile-nav-inner {
+
+    .hamburger-menu-btn:hover {
+        background: var(--bg-card-hover);
+        box-shadow: var(--shadow-md);
+    }
+
+    .hamburger-menu-btn:active {
+        transform: scale(0.95);
+    }
+
+    .hamburger-line {
+        width: 20px;
+        height: 2px;
+        background: var(--text-primary);
+        border-radius: 2px;
+        transition: all var(--transition-base);
+        transform-origin: center;
+    }
+
+    .hamburger-line:nth-child(1) {
+        margin-bottom: 4px;
+    }
+
+    .hamburger-line:nth-child(2) {
+        margin-bottom: 4px;
+    }
+
+    /* Hamburger animation when menu is open */
+    .hamburger-menu-btn[aria-expanded="true"] .hamburger-line:nth-child(1) {
+        transform: translateY(6px) rotate(45deg);
+    }
+
+    .hamburger-menu-btn[aria-expanded="true"] .hamburger-line:nth-child(2) {
+        opacity: 0;
+    }
+
+    .hamburger-menu-btn[aria-expanded="true"] .hamburger-line:nth-child(3) {
+        transform: translateY(-6px) rotate(-45deg);
+    }
+
+    /* Quick Access Bar */
+    .mobile-nav-quick {
+        flex: 1;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    /* Mobile Menu Overlay */
+    .mobile-menu-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: var(--blur-md);
+        -webkit-backdrop-filter: var(--blur-md);
+        z-index: 999;
+        opacity: 0;
+        visibility: hidden;
+        transition: all var(--transition-base);
+    }
+
+    .mobile-menu-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .mobile-menu-content {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--bg-secondary);
+        border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+        padding: 20px;
+        padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+        max-height: 80vh;
+        overflow-y: auto;
+        transform: translateY(100%);
+        transition: transform var(--transition-smooth);
+        box-shadow: var(--shadow-xl);
+    }
+
+    .mobile-menu-overlay.active .mobile-menu-content {
+        transform: translateY(0);
+    }
+
+    .mobile-menu-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .mobile-menu-header h2 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0;
+    }
+
+    .mobile-menu-close {
+        width: 36px;
+        height: 36px;
+        border: none;
+        background: var(--bg-primary);
+        border-radius: var(--radius-sm);
+        font-size: 1.2rem;
+        color: var(--text-secondary);
+        cursor: pointer;
         display: flex;
         align-items: center;
-        justify-content: flex-start;
-        gap: 4px;
-        padding: 8px 12px;
-        min-width: max-content;
+        justify-content: center;
+        transition: all var(--transition-base);
     }
-    
+
+    .mobile-menu-close:hover {
+        background: var(--bg-card-hover);
+        color: var(--text-primary);
+    }
+
+    .mobile-menu-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    .mobile-menu-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 16px 12px;
+        background: var(--bg-card);
+        border-radius: var(--radius-md);
+        text-decoration: none;
+        transition: all var(--transition-base);
+        border: 1px solid var(--border-subtle);
+    }
+
+    .mobile-menu-item:hover {
+        background: var(--bg-card-hover);
+        border-color: var(--border-medium);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .mobile-menu-item:active {
+        transform: scale(0.98);
+    }
+
+    .menu-item-icon {
+        font-size: 1.8rem;
+        margin-bottom: 8px;
+    }
+
+    .menu-item-text {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+
     .mobile-nav-link {
         display: flex;
         flex-direction: column;
@@ -5475,36 +5642,35 @@ section h2 {
         min-width: 52px;
         gap: 2px;
     }
-    
+
     .mobile-nav-link:hover,
     .mobile-nav-link:active {
         background: var(--bg-card);
         color: var(--text-primary);
     }
-    
+
     .mobile-nav-link.active {
         background: var(--gradient-primary);
         color: white;
     }
-    
+
     .mobile-nav-link .nav-icon {
         font-size: 1.3rem;
     }
-    
+
     .mobile-nav-link .nav-text {
         font-size: 0.6rem;
         white-space: nowrap;
     }
-    
+
     /* Add bottom padding to body for mobile nav */
     body {
         padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
     }
-    
+
     .back-to-top {
         width: 44px;
         height: 44px;
-        /* v3.0.87: 移到 mobile nav bar 上方 */
         bottom: calc(70px + env(safe-area-inset-bottom, 0px));
         right: 20px;
     }
@@ -6180,12 +6346,190 @@ section h2 {
     font-size: 0.7rem;
 }
 
-/* 空狀態 */
+/* 空狀態 - 增強版 */
 .empty-state {
     text-align: center;
-    padding: var(--space-lg);
+    padding: var(--space-xl);
     color: var(--text-tertiary);
     font-size: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    animation: fadeIn 0.3s ease;
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    margin-bottom: var(--space-md);
+    opacity: 0.6;
+    animation: float 3s ease-in-out infinite;
+}
+
+.empty-state-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-sm);
+}
+
+.empty-state-description {
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-md);
+    max-width: 400px;
+}
+
+/* 浮動動畫 */
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+/* 淡入動畫 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 脈衝動畫 - 用於重要元素 */
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 0.8;
+    }
+}
+
+/* 閃爍動畫 - 用於加載狀態 */
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+/* 微交互動畫增強 */
+.factor-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.forecast-card:hover {
+    border-color: var(--border-medium);
+    box-shadow: var(--shadow-md);
+}
+
+.algo-card:hover {
+    border-color: var(--accent-primary);
+    box-shadow: var(--glow-primary);
+    transform: translateY(-2px);
+}
+
+/* 按鈕點擊反饋 */
+button:active,
+.btn-primary:active,
+.btn-secondary:active {
+    transform: scale(0.97);
+}
+
+/* 鏈接懸停效果 */
+a:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+}
+
+/* 加載動畫 */
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border-subtle);
+    border-top-color: var(--accent-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 骨架屏加載效果 */
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        var(--bg-primary) 0%,
+        var(--bg-card) 50%,
+        var(--bg-primary) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--radius-sm);
+}
+
+/* 數字變化動畫 */
+@keyframes countUp {
+    from {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.metric-value {
+    animation: countUp 0.3s ease;
+}
+
+/* 成功/錯誤動畫 */
+@keyframes success {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+.toast.success {
+    animation: success 0.3s ease;
+}
+
+.toast.error {
+    animation: shake 0.4s ease;
+}
+
+/* 列表項滑入動畫 */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.timeline-item,
+.training-card {
+    animation: slideIn 0.3s ease;
 }
 
 /* 未準備狀態 */
@@ -6197,6 +6541,7 @@ section h2 {
 .not-ready-icon {
     font-size: 3rem;
     margin-bottom: var(--space-md);
+    animation: float 3s ease-in-out infinite;
 }
 
 .learning-not-ready h3 {
@@ -6223,6 +6568,29 @@ section h2 {
     cursor: pointer;
     border: none;
     transition: all var(--transition-fast);
+    position: relative;
+    overflow: hidden;
+}
+
+/* 按鈕漣漪效果 */
+.btn-primary::before,
+.btn-secondary::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.btn-primary:active::before,
+.btn-secondary:active::before {
+    width: 300px;
+    height: 300px;
 }
 
 .btn-primary {
