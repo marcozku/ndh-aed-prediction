@@ -1,5 +1,27 @@
 # 版本更新日誌
 
+## v4.0.11 - 2026-01-21 HKT
+**🐛 修復 AI 因素學習系統格式問題**
+
+### 問題修復
+- **ai_factors 格式不完整**：修復 server.js 自動預測生成的 ai_factors 缺少 type、description 等欄位
+  - **舊格式**：`{"factor": 0.7, "factors": [null, null, ...]}`
+  - **新格式**：`{"type": "醫院服務變更", "description": "...", "confidence": "中", "impactFactor": 1.0}`
+
+### 影響範圍
+- ✅ **learning_records.ai_event_type** 將能正確記錄 AI 事件類型
+- ✅ **ai_event_learning 表** 將能累積 AI 事件學習數據
+- ✅ **ai_learning_summary VIEW** 將返回統計結果
+- ✅ **前端「AI 因素學習」卡片** 將顯示實際數據而非「暫無 AI 事件數據」
+
+### 修復位置
+- `server.js:5630-5641` - 自動預測生成 ai_factors 時使用完整格式
+
+### 驗證結果
+- ✅ 已有 5 筆新格式記錄在數據庫中
+- ⚠️ 需要運行 continuous_learner.py 更新 learning_records
+- ⚠️ 需要累積足夠數據後 ai_learning_summary 才會有記錄
+
 ## v4.0.07 - 2026-01-20 HKT
 **🎨 手機版導航優化 + 微交互動畫增強**
 

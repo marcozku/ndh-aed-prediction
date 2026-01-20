@@ -5627,11 +5627,18 @@ async function generateServerSidePredictions(source = 'auto') {
                     factor: pred.factors.weather
                 } : null;
                 
-                // 準備 AI 因素數據
-                const aiFactorsData = pred.aiInfo ? {
-                    factor: pred.factors.ai,
-                    factors: pred.aiInfo.factors?.map(f => f.name || f.factor) || []
-                } : null;
+                // 準備 AI 因素數據（完整格式，包含 type、description 等欄位）
+                let aiFactorsData = null;
+                if (pred.aiInfo && pred.aiInfo.factors && pred.aiInfo.factors.length > 0) {
+                    // 取第一個完整因素作為主要數據（兼容學習系統需要的格式）
+                    const primaryFactor = pred.aiInfo.factors[0];
+                    aiFactorsData = {
+                        type: primaryFactor.type || '未知',
+                        description: primaryFactor.description || '',
+                        confidence: primaryFactor.confidence || '中',
+                        impactFactor: primaryFactor.impactFactor || pred.factors.ai || 1.0
+                    };
+                }
                 
                 const result = await db.insertDailyPrediction(
                     pred.date,
