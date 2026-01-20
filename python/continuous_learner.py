@@ -154,7 +154,19 @@ def fetch_yesterday_data(date):
         data['actual'] = result[0]
         print(f"   ✅ Actual attendance: {data['actual']}")
 
-    # 2. 獲取預測值
+    # 2. 獲取預測值（target_date 是 UTC 時間，需要用範圍查詢匹配 HKT 日期）
+    from datetime import timedelta
+    # date 參數可能是字符串或 date 對象
+    if isinstance(date, str):
+        date_obj = datetime.strptime(date, '%Y-%m-%d').date()
+    else:
+        date_obj = date
+    # HKT 日期對應的 UTC 範圍：前一天 16:00 到當天 16:00
+    utc_start = datetime.combine(date_obj - timedelta(days=1), datetime.min.time()) + timedelta(hours=16)
+    utc_end = datetime.combine(date_obj, datetime.min.time()) + timedelta(hours=16)
+
+    print(f"   🔍 Querying UTC range: {utc_start} to {utc_end}")
+
     cur.execute("""
         SELECT
             xgboost_base,
@@ -163,10 +175,10 @@ def fetch_yesterday_data(date):
             ai_factor,
             weather_factor
         FROM daily_predictions
-        WHERE target_date = %s
+        WHERE target_date >= %s AND target_date < %s
         ORDER BY created_at DESC
         LIMIT 1
-    """, (date,))
+    """, (utc_start, utc_end))
     result = cur.fetchone()
     if result:
         data['prediction'] = {
@@ -178,16 +190,16 @@ def fetch_yesterday_data(date):
         }
         print(f"   ✅ Prediction: {data['prediction']['production']:.1f}")
 
-    # 3. 獲取 AI factor 詳情（從 ai_factors JSONB 欄位）
+    # 3. 獲取 AI factor 詳情（從 ai_factors JSONB 欄位，使用相同的 UTC 範圍）
     cur.execute("""
         SELECT
             ai_factors,
             weather_data
         FROM daily_predictions
-        WHERE target_date = %s
+        WHERE target_date >= %s AND target_date < %s
         ORDER BY created_at DESC
         LIMIT 1
-    """, (date,))
+    """, (utc_start, utc_end))
     result = cur.fetchone()
     if result and result[0]:
         import json
