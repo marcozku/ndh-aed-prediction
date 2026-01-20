@@ -171,8 +171,45 @@ class LearningScheduler {
     runPythonScript(scriptName, args = []) {
         return new Promise((resolve, reject) => {
             const scriptPath = path.join(__dirname, '..', 'python', scriptName);
-            const py = process.env.PYTHON || 'python3';
-            const python = spawn(py, [scriptPath, ...args], {
+
+            // 嘗試多個 Python 命令
+            const pythonCommands = [
+                process.env.PYTHON,
+                'python3',
+                'python',
+                '/usr/bin/python3',
+                '/usr/local/bin/python3'
+            ].filter(Boolean);
+
+            let python = null;
+            let lastError = null;
+
+            // 測試哪個 Python 命令可用
+            for (const cmd of pythonCommands) {
+                try {
+                    const testResult = require('child_process').spawnSync(cmd, ['--version'], {
+                        stdio: 'pipe',
+                        timeout: 5000
+                    });
+                    if (testResult.error === null) {
+                        python = cmd;
+                        console.log(`✅ Using Python: ${cmd}`);
+                        break;
+                    }
+                } catch (e) {
+                    lastError = e;
+                }
+            }
+
+            if (!python) {
+                return reject(new Error(
+                    `Python not found. Tried: ${pythonCommands.join(', ')}\n` +
+                    `Error: ${lastError?.message || 'Unknown'}\n` +
+                    `Fix: Set PYTHON environment variable or install Python`
+                ));
+            }
+
+            const pythonProcess = spawn(python, [scriptPath, ...args], {
                 cwd: path.join(__dirname, '..'),
                 stdio: ['pipe', 'pipe', 'pipe']
             });
@@ -180,23 +217,23 @@ class LearningScheduler {
             let output = '';
             let error = '';
 
-            python.on('error', (err) => {
-                reject(new Error(`Failed to start Python: ${err.message}`));
+            pythonProcess.on('error', (err) => {
+                reject(new Error(`Failed to start Python (${python}): ${err.message}`));
             });
 
-            python.stdout.on('data', (data) => {
+            pythonProcess.stdout.on('data', (data) => {
                 const text = data.toString();
                 output += text;
                 console.log(text.trim());
             });
 
-            python.stderr.on('data', (data) => {
+            pythonProcess.stderr.on('data', (data) => {
                 error += data.toString();
             });
 
-            python.on('close', (code) => {
+            pythonProcess.on('close', (code) => {
                 if (code === 0) resolve(output);
-                else reject(new Error(`Script exited with code ${code}: ${error}`));
+                else reject(new Error(`${scriptName} exited with code ${code}\nStderr: ${error}`));
             });
         });
     }
