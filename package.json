@@ -1,7 +1,7 @@
 {
   "name": "ndh-aed-prediction",
-  "version": "4.0.11",
-  "description": "NDH AED 病人數量預測系統 v4.0.11 - AI 因素學習修復版",
+  "version": "4.0.12",
+  "description": "NDH AED 病人數量預測系統 v4.0.12 - 時區查詢修復版",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
