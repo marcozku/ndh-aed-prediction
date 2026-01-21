@@ -21,8 +21,11 @@ import sys
 import psycopg2
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
+
+# HKT = UTC+8
+HKT = timezone(timedelta(hours=8))
 import json
 import requests
 
@@ -536,17 +539,59 @@ def process_date(date):
 
     return True
 
+def get_yesterday_hkt():
+    """HKT 昨天（避免 server 在 UTC 時跑錯日）"""
+    now_hkt = datetime.now(HKT)
+    return (now_hkt - timedelta(days=1)).date()
+
+
+def run_catch_up(conn, end_date):
+    """補跑：從 last_learning_date+1 到 end_date 之間，有 actual 但無 learning_record 的日期"""
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT ad.date
+        FROM actual_data ad
+        LEFT JOIN learning_records lr ON lr.date = ad.date
+        WHERE lr.date IS NULL
+          AND ad.date > (SELECT COALESCE(MAX(date), '1900-01-01')::date FROM learning_records)
+          AND ad.date <= %s
+        ORDER BY ad.date
+    """, (end_date,))
+    rows = cur.fetchall()
+    cur.close()
+    return [r[0] for r in rows]
+
+
 def main():
-    """主函數 - 處理昨天的數據"""
-    yesterday = (datetime.now() - timedelta(days=1)).date()
+    """主函數 - 處理 HKT 昨天的數據；--catch-up 時一併補跑缺口日"""
+    yesterday = get_yesterday_hkt()
+    do_catch_up = '--catch-up' in (sys.argv or [])
 
     print("=" * 60)
     print("Continuous Learning Engine v4.0.00")
     print("=" * 60)
-    print(f"Processing: {yesterday}")
+    print(f"Processing (HKT yesterday): {yesterday}")
+    if do_catch_up:
+        print("   --catch-up: 補跑缺口日")
     print()
 
     success = process_date(yesterday)
+
+    if do_catch_up:
+        conn = get_db_connection()
+        try:
+            gap_dates = run_catch_up(conn, yesterday)
+        except Exception as e:
+            print(f"   ⚠️ Catch-up query error: {e}")
+            gap_dates = []
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        for d in (gap_dates or []):
+            if d != yesterday:  # 已處理
+                process_date(d)
 
     print()
     if success:

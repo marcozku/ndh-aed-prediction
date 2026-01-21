@@ -4529,10 +4529,12 @@ const apiHandlers = {
             await Promise.race([
                 (async () => {
                     const result = await db.pool.query(`SELECT * FROM learning_system_status`);
+                    const avgR = await db.pool.query(`SELECT COALESCE(ROUND(AVG(ABS(prediction_error))::numeric, 2), 0)::float AS a FROM learning_records WHERE prediction_error IS NOT NULL`);
                     const weatherImpacts = await db.pool.query(`SELECT * FROM current_weather_impacts ORDER BY ABS(parameter_value) DESC LIMIT 10`);
                     const recentAnomalies = await db.pool.query(`SELECT date, actual_attendance, final_prediction, prediction_error, is_very_cold, is_heavy_rain, ai_event_type FROM learning_records WHERE is_anomaly = TRUE ORDER BY date DESC LIMIT 10`);
                     const status = result.rows[0] || {};
-                    sendJson(res, { success: true, data: { total_learning_days: status.total_records || 0, average_error: status.avg_error || 0, anomaly_count: status.total_anomalies || 0, last_learning_date: status.last_learning_date || null } });
+                    const avgErr = parseFloat(avgR.rows[0]?.a) || 0;
+                    sendJson(res, { success: true, data: { total_learning_days: status.total_records || 0, average_error: avgErr, anomaly_count: status.total_anomalies || 0, last_learning_date: status.last_learning_date || null } });
                 })(),
                 new Promise((_, r) => setTimeout(() => r(new Error('REQUEST_TIMEOUT')), 20000))
             ]);
@@ -4664,7 +4666,9 @@ const apiHandlers = {
 
             const scriptPath = path.join(__dirname, 'python', script);
             const py = process.env.PYTHON || 'python3';
-            const python = spawn(py, [scriptPath], { cwd: __dirname });
+            const args = [scriptPath];
+            if (effectiveType === 'daily') args.push('--catch-up');
+            const python = spawn(py, args, { cwd: __dirname });
 
             python.on('error', (err) => {
                 console.error(`❌ Learning update spawn error: ${err.message}`);
@@ -4760,14 +4764,7 @@ const apiHandlers = {
                         } catch (_) {}
                     }
                     const schedulerActive = (status.scheduledTasks || status.tasks?.length || 0) > 0;
-                    let nextRun = '每日 00:30 HKT';
-                    if (lastRunTime) {
-                        const nd = new Date(lastRunTime);
-                        nd.setDate(nd.getDate() + 1);
-                        nd.setHours(0, 30, 0, 0);
-                        nextRun = nd.toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' });
-                    }
-                    sendJson(res, { success: true, data: { is_running: status.isRunning || false, scheduler_active: schedulerActive, scheduled_tasks: status.scheduledTasks || status.tasks?.length || 0, last_run_time: lastRunTime, run_count: status.runCount || 0, tasks: status.tasks || [], next_run: nextRun } });
+                    sendJson(res, { success: true, data: { is_running: status.isRunning || false, scheduler_active: schedulerActive, scheduled_tasks: status.scheduledTasks || status.tasks?.length || 0, last_run_time: lastRunTime, run_count: status.runCount || 0, tasks: status.tasks || [], next_run: '每日 00:30 HKT' } });
                 })(),
                 new Promise((_, r) => setTimeout(() => r(new Error('REQUEST_TIMEOUT')), 20000))
             ]);

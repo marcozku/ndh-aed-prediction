@@ -192,10 +192,24 @@ const Learning = {
     },
 
     /**
-     * 手動觸發學習更新
+     * 手動觸發學習更新（執行按鈕：改走 scheduler-run 以更新上次執行時間）
      */
     async triggerUpdate(type = 'all') {
         try {
+            // 執行按鈕的 daily/all 改走 scheduler-run，確保 lastRunTime 會更新
+            if (type === 'all' || type === 'daily') {
+                const r = await fetch('/api/learning/scheduler-run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task: 'daily' })
+                });
+                const data = await r.json();
+                if (data.success) {
+                    await this.loadAllData();
+                    return { success: true, message: data.message };
+                }
+                return { success: false, message: data.error || '觸發失敗' };
+            }
             const response = await fetch('/api/learning/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -203,7 +217,6 @@ const Learning = {
             });
             const data = await response.json();
             if (data.success) {
-                // 重新加載數據
                 await this.loadAllData();
                 return { success: true, message: data.message };
             }
@@ -261,9 +274,9 @@ const Learning = {
     renderSummaryCard() {
         const s = this.data.summary || {};
         const learningDays = s.total_learning_days || 0;
-        const avgError = s.average_error ? s.average_error.toFixed(2) : '-';
+        const avgError = (s.average_error != null && s.average_error !== '') ? Number(s.average_error).toFixed(2) : '-';
         const anomalyCount = s.anomaly_count || 0;
-        const lastUpdate = s.last_learning_date ? this.formatDateHKT(s.last_learning_date) : '尚無記錄';
+        const lastLearning = s.last_learning_date ? this.formatDateHKT(s.last_learning_date) : '尚無記錄';
 
         return `
             <div class="learning-card summary-card">
@@ -278,15 +291,15 @@ const Learning = {
                     </div>
                     <div class="stat-item">
                         <span class="stat-label">平均誤差</span>
-                        <span class="stat-value">${avgError} 人</span>
+                        <span class="stat-value">${avgError === '-' ? '-' : avgError + ' 人'}</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-label">異常事件</span>
                         <span class="stat-value ${anomalyCount > 0 ? 'stat-warning' : ''}">${anomalyCount}</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-label">最後更新</span>
-                        <span class="stat-value stat-small">${lastUpdate}</span>
+                        <span class="stat-label">最後學習日</span>
+                        <span class="stat-value stat-small">${lastLearning}</span>
                     </div>
                 </div>
             </div>

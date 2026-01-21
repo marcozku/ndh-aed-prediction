@@ -1,5 +1,23 @@
 # 版本更新日誌
 
+## v4.0.13 - 2026-01-21 HKT
+**🐛 自動學習系統：時區、補跑、摘要與執行流程**
+
+### 問題與修復
+- **最後學習日停在 17/1**：continuous_learner 用 server 時區的「昨天」，Railway 為 UTC 會錯日；改為 **HKT 昨天**（`datetime.now(timezone(timedelta(hours=8)))`）
+- **缺口日未補**：只處理昨天，若 actual_data 有 18–20 而 17 後無 learning_record 會永遠缺；新增 **`--catch-up`**：補跑「last_learning_date+1 ～ 昨天」中有 actual 但無 learning_record 的日期；scheduler 每日與手動執行 daily 時均帶 `--catch-up`
+- **平均誤差「- 人」**：`learning_system_status` 無 `avg_error`；summary API 改為查 `AVG(ABS(prediction_error))`；前端 `0` 不當 falsy 改為 `(s.average_error != null && s.average_error !== '')`，無資料時顯示「-」不帶「人」
+- **下次執行時區混淆**：原以 `lastRunTime+1 日 00:30` 用 server 時區換成 HKT 會變 08:30；改為固定 **「每日 00:30 HKT」**
+- **執行按鈕未更新上次執行**：原走 `/api/learning/update` 直接 spawn Python，scheduler 的 `lastRunTime` 不更新；改走 **`/api/learning/scheduler-run`** `{ task: 'daily' }`，由 runDailyLearning 更新
+
+### 變更檔案
+- `python/continuous_learner.py`：HKT 昨天、`get_yesterday_hkt()`、`run_catch_up()`、`--catch-up`
+- `modules/learning-scheduler.js`：continuous_learner 傳入 `['--catch-up']`
+- `server.js`：summary 補 `AVG(ABS(prediction_error))`；scheduler-status `next_run` 固定「每日 00:30 HKT」；learning/update 的 daily 加 `--catch-up`
+- `modules/learning.js`：平均誤差顯示、標籤「最後更新」→「最後學習日」、triggerUpdate(all/daily) 改為 scheduler-run
+
+---
+
 ## v4.0.12 - 2026-01-20 HKT
 **🐛 修復 continuous_learner.py 時區查詢問題**
 

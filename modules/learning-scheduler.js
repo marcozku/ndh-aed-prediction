@@ -108,8 +108,8 @@ class LearningScheduler {
         console.log('='.repeat(60));
 
         try {
-            // 1. 運行持續學習腳本
-            await this.runPythonScript('continuous_learner.py');
+            // 1. 運行持續學習腳本（--catch-up 補跑缺口日）
+            await this.runPythonScript('continuous_learner.py', ['--catch-up']);
 
             // 2. 運行異常檢測
             await this.runPythonScript('anomaly_detector.py');
