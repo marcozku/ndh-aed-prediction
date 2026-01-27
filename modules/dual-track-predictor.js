@@ -159,8 +159,8 @@ class DualTrackPredictor {
     async savePredictions(result) {
         const query = `
             INSERT INTO daily_predictions (
-                prediction_date,
-                predicted_attendance,
+                target_date,
+                predicted_count,
                 prediction_production,
                 prediction_experimental,
                 xgboost_base,
@@ -169,18 +169,18 @@ class DualTrackPredictor {
                 model_version,
                 created_at
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-            ON CONFLICT (prediction_date) 
+            ON CONFLICT (target_date)
             DO UPDATE SET
-                predicted_attendance = EXCLUDED.predicted_attendance,
+                predicted_count = EXCLUDED.predicted_count,
                 prediction_production = EXCLUDED.prediction_production,
                 prediction_experimental = EXCLUDED.prediction_experimental,
                 xgboost_base = EXCLUDED.xgboost_base,
                 weather_factor = EXCLUDED.weather_factor,
                 ai_factor = EXCLUDED.ai_factor,
                 model_version = EXCLUDED.model_version,
-                updated_at = NOW()
+                created_at = NOW()
         `;
-        
+
         await this.pool.query(query, [
             result.date,
             result.production.prediction, // Default to production
@@ -191,7 +191,7 @@ class DualTrackPredictor {
             result.factors.ai,
             '3.0.82'
         ]);
-        
+
         // Also save to AI validation table
         const validationQuery = `
             INSERT INTO ai_factor_validation (
@@ -211,7 +211,7 @@ class DualTrackPredictor {
                 weather_factor = EXCLUDED.weather_factor,
                 event_description = EXCLUDED.event_description
         `;
-        
+
         await this.pool.query(validationQuery, [
             result.date,
             result.xgboost_base,
@@ -229,37 +229,37 @@ class DualTrackPredictor {
     async validatePrediction(date, actualAttendance) {
         // Get predictions
         const query = `
-            SELECT 
+            SELECT
                 prediction_production,
                 prediction_experimental,
                 ai_factor
             FROM daily_predictions
-            WHERE prediction_date = $1
+            WHERE target_date = $1
         `;
-        
+
         const result = await this.pool.query(query, [date]);
         if (result.rows.length === 0) {
             throw new Error(`No prediction found for ${date}`);
         }
-        
+
         const pred = result.rows[0];
         const productionError = Math.abs(pred.prediction_production - actualAttendance);
         const experimentalError = Math.abs(pred.prediction_experimental - actualAttendance);
         const betterModel = experimentalError < productionError ? 'experimental' : 'production';
         const improvement = productionError - experimentalError;
-        
+
         // Update prediction record
         const updateQuery = `
             UPDATE daily_predictions
-            SET 
+            SET
                 actual_attendance = $1,
                 production_error = $2,
                 experimental_error = $3,
                 better_model = $4,
                 validation_date = NOW()
-            WHERE prediction_date = $5
+            WHERE target_date = $5
         `;
-        
+
         await this.pool.query(updateQuery, [
             actualAttendance,
             productionError,
@@ -267,11 +267,11 @@ class DualTrackPredictor {
             betterModel,
             date
         ]);
-        
+
         // Update AI validation table
         const validationUpdateQuery = `
             UPDATE ai_factor_validation
-            SET 
+            SET
                 actual_attendance = $1,
                 production_error = $2,
                 experimental_error = $3,
@@ -279,7 +279,7 @@ class DualTrackPredictor {
                 validated_at = NOW()
             WHERE prediction_date = $5
         `;
-        
+
         await this.pool.query(validationUpdateQuery, [
             actualAttendance,
             productionError,
@@ -287,12 +287,12 @@ class DualTrackPredictor {
             improvement,
             date
         ]);
-        
+
         console.log(`✅ Validated ${date}: Production MAE=${productionError.toFixed(2)}, Experimental MAE=${experimentalError.toFixed(2)}, Winner=${betterModel}`);
-        
+
         // Check if we should run optimization
         await this.checkOptimizationTrigger();
-        
+
         return {
             date,
             actual: actualAttendance,
@@ -318,7 +318,7 @@ class DualTrackPredictor {
             SELECT COUNT(*) as validated_count
             FROM daily_predictions
             WHERE validation_date IS NOT NULL
-              AND prediction_date >= CURRENT_DATE - INTERVAL '${this.validationWindowDays} days'
+              AND target_date >= CURRENT_DATE - INTERVAL '${this.validationWindowDays} days'
         `;
         
         const result = await this.pool.query(query);
@@ -373,18 +373,18 @@ class DualTrackPredictor {
     async getValidationSummary() {
         const query = `
             WITH recent_validations AS (
-                SELECT 
+                SELECT
                     COUNT(*) as total,
                     AVG(production_error) as prod_mae,
                     AVG(experimental_error) as exp_mae,
                     STDDEV(production_error) as prod_std,
                     STDDEV(experimental_error) as exp_std,
                     SUM(CASE WHEN better_model = 'experimental' THEN 1 ELSE 0 END) as exp_wins,
-                    MIN(prediction_date) as first_date,
-                    MAX(prediction_date) as last_date
+                    MIN(target_date) as first_date,
+                    MAX(target_date) as last_date
                 FROM daily_predictions
                 WHERE validation_date IS NOT NULL
-                  AND prediction_date >= CURRENT_DATE - INTERVAL '${this.validationWindowDays} days'
+                  AND target_date >= CURRENT_DATE - INTERVAL '${this.validationWindowDays} days'
             ),
             latest_weights AS (
                 SELECT *
@@ -392,7 +392,7 @@ class DualTrackPredictor {
                 ORDER BY optimization_date DESC
                 LIMIT 1
             )
-            SELECT 
+            SELECT
                 rv.*,
                 lw.w_base_new as current_w_base,
                 lw.w_weather_new as current_w_weather,

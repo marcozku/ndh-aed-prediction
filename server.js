@@ -4417,32 +4417,32 @@ const apiHandlers = {
     // Get validation history for chart
     'GET /api/dual-track/history': async (req, res) => {
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
-        
+
         try {
             const query = `
-                SELECT 
-                    prediction_date,
+                SELECT
+                    target_date,
                     production_error,
                     experimental_error
                 FROM daily_predictions
                 WHERE validation_date IS NOT NULL
-                  AND prediction_date >= CURRENT_DATE - INTERVAL '90 days'
-                ORDER BY prediction_date
+                  AND target_date >= CURRENT_DATE - INTERVAL '90 days'
+                ORDER BY target_date
             `;
-            
+
             const result = await db.pool.query(query);
-            
-            const dates = result.rows.map(r => r.prediction_date);
+
+            const dates = result.rows.map(r => r.target_date);
             const productionErrors = result.rows.map(r => parseFloat(r.production_error));
             const experimentalErrors = result.rows.map(r => parseFloat(r.experimental_error));
-            
+
             sendJson(res, {
                 success: true,
                 dates,
                 productionErrors,
                 experimentalErrors
             });
-            
+
         } catch (error) {
             console.error('❌ Validation history error:', error);
             sendJson(res, { success: false, error: error.message }, 500);
