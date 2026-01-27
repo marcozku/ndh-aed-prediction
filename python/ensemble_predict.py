@@ -122,7 +122,9 @@ class XGBoostWrapper:
     def predict(self, X):
         import xgboost as xgb
         if isinstance(X, pd.DataFrame):
-            dmatrix = xgb.DMatrix(X)
+            # 明確指定 feature_names 以避免特徵名稱不匹配問題
+            feature_names = X.columns.tolist()
+            dmatrix = xgb.DMatrix(X, feature_names=feature_names)
         else:
             dmatrix = xgb.DMatrix(X)
         return self.booster.predict(dmatrix)
