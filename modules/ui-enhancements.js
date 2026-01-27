@@ -236,12 +236,10 @@ const NavManager = {
     openHamburgerMenu() {
         const overlay = document.getElementById('mobile-menu-overlay');
         const hamburgerBtn = document.getElementById('hamburger-menu-btn');
-        const bottomNav = document.querySelector('.mobile-bottom-nav');
 
         if (overlay && hamburgerBtn) {
             overlay.classList.add('active');
             hamburgerBtn.setAttribute('aria-expanded', 'true');
-            bottomNav?.classList.add('menu-open');
             document.body.style.overflow = 'hidden';
         }
     },
@@ -249,12 +247,10 @@ const NavManager = {
     closeHamburgerMenu() {
         const overlay = document.getElementById('mobile-menu-overlay');
         const hamburgerBtn = document.getElementById('hamburger-menu-btn');
-        const bottomNav = document.querySelector('.mobile-bottom-nav');
 
         if (overlay && hamburgerBtn) {
             overlay.classList.remove('active');
             hamburgerBtn.setAttribute('aria-expanded', 'false');
-            bottomNav?.classList.remove('menu-open');
             document.body.style.overflow = '';
         }
     },

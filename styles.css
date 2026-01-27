@@ -5503,23 +5503,6 @@ section h2 {
         transform: translateY(-6px) rotate(-45deg);
     }
 
-    /* Quick Access Bar - hide icons until menu opens */
-    .mobile-nav-quick {
-        flex: 1;
-        justify-content: center;
-        gap: 8px;
-    }
-
-    /* Hide nav icons by default */
-    .mobile-nav-quick .nav-icon {
-        display: none;
-    }
-
-    /* Show icons when menu is open */
-    .mobile-bottom-nav.menu-open .mobile-nav-quick .nav-icon {
-        display: inline;
-    }
-
     /* Mobile Menu Overlay */
     .mobile-menu-overlay {
         position: fixed;
