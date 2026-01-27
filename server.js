@@ -4369,36 +4369,80 @@ const apiHandlers = {
                 }
             }
             
-            // 計算驗證統計
-            let valStats = { total: 0, with_dual: 0, avg_error: null };
+            // 計算驗證統計（過去30天）
+            let valStats = {
+                sample_count: 0,
+                prod_mae: null,
+                exp_mae: null,
+                prod_wins: 0,
+                exp_wins: 0,
+                ties: 0
+            };
             try {
+                // v4.0.14: 計算雙軌驗證統計
                 const validationQuery = hasColumns ? `
-                    SELECT 
-                        COUNT(*) as total,
-                        COUNT(CASE WHEN prediction_production IS NOT NULL AND prediction_experimental IS NOT NULL THEN 1 END) as with_dual,
-                        AVG(ABS(predicted_count - (SELECT patient_count FROM actual_data ad WHERE ad.date = dp.target_date))) as avg_error
-                    FROM daily_predictions dp
-                    WHERE target_date >= CURRENT_DATE - INTERVAL '30 days'
+                    WITH comparison_data AS (
+                        SELECT
+                            dp.target_date,
+                            dp.predicted_count as production_pred,
+                            dp.prediction_experimental as experimental_pred,
+                            ad.patient_count as actual
+                        FROM daily_predictions dp
+                        INNER JOIN actual_data ad ON ad.date = dp.target_date
+                        WHERE dp.target_date >= CURRENT_DATE - INTERVAL '30 days'
+                          AND ad.patient_count IS NOT NULL
+                    )
+                    SELECT
+                        COUNT(*) as sample_count,
+                        AVG(ABS(production_pred - actual)) as prod_mae,
+                        AVG(ABS(experimental_pred - actual)) as exp_mae,
+                        SUM(CASE WHEN ABS(production_pred - actual) < ABS(experimental_pred - actual) THEN 1 ELSE 0 END) as prod_wins,
+                        SUM(CASE WHEN ABS(experimental_pred - actual) < ABS(production_pred - actual) THEN 1 ELSE 0 END) as exp_wins,
+                        SUM(CASE WHEN ABS(production_pred - actual) = ABS(experimental_pred - actual) THEN 1 ELSE 0 END) as ties
+                    FROM comparison_data
                 ` : `
-                    SELECT COUNT(*) as total, 0 as with_dual, NULL as avg_error
-                    FROM daily_predictions
-                    WHERE target_date >= CURRENT_DATE - INTERVAL '30 days'
+                    SELECT 0 as sample_count, NULL::float as prod_mae, NULL::float as exp_mae, 0 as prod_wins, 0 as exp_wins, 0 as ties
                 `;
                 const valResult = await db.pool.query(validationQuery);
-                valStats = valResult.rows[0] || {};
+                if (valResult.rows.length > 0) {
+                    valStats = { ...valStats, ...valResult.rows[0] };
+                }
             } catch (e) {
                 console.warn('⚠️ 驗證統計查詢失敗:', e.message);
             }
-            
+
+            // 計算改進百分比和勝率
+            let mae_improvement_pct = '--';
+            let win_rate_pct = '--';
+
+            if (valStats.sample_count > 0) {
+                const prodMae = parseFloat(valStats.prod_mae) || 0;
+                const expMae = parseFloat(valStats.exp_mae) || 0;
+                const totalComparisons = valStats.prod_wins + valStats.exp_wins + valStats.ties;
+
+                // 改進百分比 (Exp 比 Prod 好多少)
+                if (prodMae > 0 && expMae > 0) {
+                    const improvement = ((prodMae - expMae) / prodMae) * 100;
+                    mae_improvement_pct = (improvement > 0 ? '+' : '') + improvement.toFixed(1) + '%';
+                }
+
+                // 勝率 (Exp 勝的比例)
+                if (totalComparisons > 0) {
+                    win_rate_pct = ((valStats.exp_wins / totalComparisons) * 100).toFixed(1) + '%';
+                }
+            }
+
             const validation = {
-                total_comparisons: parseInt(valStats.with_dual) || 0,
-                prod_wins: 0,
-                exp_wins: 0,
-                prod_mae: valStats.avg_error ? parseFloat(valStats.avg_error).toFixed(1) : '--',
-                exp_mae: '--',
-                mae_improvement_pct: '--',
-                win_rate_pct: '--',
-                recommendation: todayPrediction ? '雙軌系統運行中' : '等待雙軌預測數據'
+                total_comparisons: parseInt(valStats.sample_count) || 0,
+                prod_mae: valStats.prod_mae ? parseFloat(valStats.prod_mae).toFixed(1) : '--',
+                exp_mae: valStats.exp_mae ? parseFloat(valStats.exp_mae).toFixed(1) : '--',
+                mae_improvement_pct: mae_improvement_pct,
+                win_rate_pct: win_rate_pct,
+                prod_wins: parseInt(valStats.prod_wins) || 0,
+                exp_wins: parseInt(valStats.exp_wins) || 0,
+                recommendation: valStats.sample_count >= 30 ?
+                    (parseFloat(mae_improvement_pct) < 0 ? 'Experimental 表現較佳，考慮切換' : 'Production 表現穩定，繼續觀察') :
+                    `需要 ${30 - (valStats.sample_count || 0)} 天更多數據`
             };
             
             sendJson(res, {
