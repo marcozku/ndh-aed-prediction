@@ -67,7 +67,8 @@ def prepare_opt10_features(df, target_date_str):
     else:
         last_row['Weekly_Change'] = 0
 
-    return pd.DataFrame([last_row])
+    # 確保列順序與 OPT10_FEATURES 完全一致（XGBoost 需要匹配的特徵名稱）
+    return pd.DataFrame([last_row], columns=OPT10_FEATURES)
 
 
 def load_xgboost_model():
