@@ -11,7 +11,12 @@
       "Bash(timeout 30 python:*)",
       "Bash(psql:*)",
       "Bash(curl:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(bash:*)",
+      "Bash(for i in {1..12})",
+      "Bash(do sleep 15)",
+      "Bash(break)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []

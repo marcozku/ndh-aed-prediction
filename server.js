@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '4.0.16-AI-WEATHER-FACTORS'; // v4.0.16: Day 8-30 整合 AI/天氣因子
+const MODEL_VERSION = '4.0.17-FORCE-DEPLOY'; // v4.0.17: 強制 Railway 部署 30 天預測 + AI/天氣因子
 
 // ============================================
 // HKT 時間工具函數

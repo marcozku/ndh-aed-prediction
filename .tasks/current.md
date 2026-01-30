@@ -122,15 +122,39 @@
 - [x] 推送到 GitHub main (commit c1c5d07, 0097d0a, cde94d3, 6d8398d)
 - [x] 更新 server.js 註釋 (v3.0.86 → v3.3.01)
 
-### Railway 部署問題 ❌
+### Railway 部署問題修復 ✅
 - [x] 觸發 Railway 重新生成預測 (20.9秒完成)
 - [x] 推送 v4.0.14 版本觸發自動部署
-- [ ] **問題：Railway 還在運行 v3.0.85，自動部署失敗**
-- [ ] 診斷 Railway 部署失敗原因
-- [ ] 修復部署問題
-- [ ] 驗證 Railway 運行 v4.0.14
+- [x] 診斷問題：Day 8-30 預測計算為 NaN
+- [x] 修復 Day 8-30 缺失的預測邏輯 (v4.0.15)
+- [x] 診斷問題：Day 8-30 預測過於簡單循環
+- [x] 整合 AI/天氣因子到 Day 8-30 (v4.0.16)
+- [x] 推送 v4.0.16 到 GitHub (commit 0e60147)
+- [ ] 等待 Railway 部署 v4.0.16
 - [ ] 驗證 30 天預測數據生成
-- [ ] 確認前端顯示 30 天數據
+- [ ] 確認預測不再呈現簡單循環模式
+
+### v4.0.16 修復內容
+**問題**：Day 8-30 預測只用星期均值+衰減，呈現簡單循環模式
+
+**修復**：
+- 添加 AI 因子調整（影響係數 0.4）
+- 添加天氣因子調整（影響係數 0.25）
+- 保留月份季節性效應（影響係數 0.5）
+- 長期預測現在考慮：均值回歸、AI 事件、天氣預報、季節性
+
+**技術細節** (server.js:5798-5835)：
+```javascript
+// Day 8-30 新增 AI/天氣因子
+if (aiFactor !== 1.0) {
+    const aiImpact = (aiFactor - 1.0) * targetMean * 0.4;
+    value += aiImpact;
+}
+if (weatherFactor !== 1.0) {
+    const weatherImpact = (weatherFactor - 1.0) * targetMean * 0.25;
+    value += weatherImpact;
+}
+```
 
 ### 修復摘要
 
