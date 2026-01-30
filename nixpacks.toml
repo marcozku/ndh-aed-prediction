@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["nodejs_18", "python311"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["npm run postinstall || true"]
+
+[start]
+cmd = "node server.js"
