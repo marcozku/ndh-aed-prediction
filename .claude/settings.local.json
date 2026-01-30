@@ -9,7 +9,8 @@
       "Bash(git commit:*)",
       "Bash(python:*)",
       "Bash(timeout 30 python:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

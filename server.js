@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '4.0.14'; // v3.3.01: 30天長期預測
+const MODEL_VERSION = '4.0.15-FORCE-30DAY'; // v3.3.01: 強制 30 天長期預測
 
 // ============================================
 // HKT 時間工具函數
@@ -5633,7 +5633,8 @@ async function generateServerSidePredictions(source = 'auto') {
         console.log(`📊 XGBoost 基準預測: ${Math.round(basePrediction)} 人`);
         console.log(`📅 預測起始日期: ${hk.dateStr}`);
         
-        // v3.3.00: 擴展到 30 天預測（Day 0-30）
+        // v3.3.01: 強制擴展到 30 天預測（Day 0-30）
+        console.log('🔥 [FORCE-30DAY] 開始生成 30 天預測循環...');
         for (let i = 0; i <= 30; i++) {
             // 使用 HKT 日期計算，避免 UTC 時區偏移問題
             const targetDate = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
