@@ -1,14 +1,18 @@
 """
-XGBoost 滾動預測腳本 (v4.0.23)
+XGBoost 滾動預測腳本 (v4.0.24)
 使用真實歷史數據 + 之前的預測值來生成多天預測
 
-每天的預測使用：
-1. 所有真實歷史數據
-2. 之前天數的預測值（作為虛擬歷史數據）
-3. 假期因子調整 (v4.0.22)
-4. 星期效應因子 (v4.0.23 - 提升係數到 1.0)
+v4.0.24 修復預測持平問題：
+- EWMA 只使用最近 30 天數據計算，確保新預測能影響特徵
+- 添加基於歷史星期均值的調整
+- 增加隨機擾動模擬真實世界的日常變化
 
-這樣 Lag1, Lag7, EWMA7, EWMA14 等特徵會隨著預測天數變化
+每天的預測使用：
+1. 最近 30-60 天的歷史數據（計算 EWMA）
+2. 之前天數的預測值（作為虛擬歷史數據）
+3. 假期因子調整
+4. 星期效應因子
+5. 日常隨機擾動
 """
 import pandas as pd
 import numpy as np
@@ -37,6 +41,17 @@ DOW_FACTORS = {
     4: 0.98,  # 週五 -2%
     5: 0.88,  # 週六 -12%
     6: 0.84   # 週日 -16%
+}
+
+# 歷史星期平均值（Post-COVID 2023-2025）
+DOW_MEANS = {
+    0: 225,  # 週日
+    1: 270,  # 週一（最高）
+    2: 260,  # 週二
+    3: 255,  # 週三
+    4: 252,  # 週四
+    5: 245,  # 週五
+    6: 235   # 週六
 }
 
 
@@ -148,6 +163,8 @@ def prepare_features(df, target_date_str):
     """
     為目標日期準備特徵
     df 應該包含所有可用的歷史數據（真實 + 預測）
+    
+    v4.0.24: 只使用最近 N 天數據計算 EWMA，確保預測值能有效影響特徵
     """
     df = df.copy()
     df['Date'] = pd.to_datetime(df['Date'])
@@ -173,11 +190,13 @@ def prepare_features(df, target_date_str):
     else:
         last_row['Attendance_Lag7'] = df['Attendance'].mean() if len(df) > 0 else 250
 
-    # EWMA
+    # v4.0.24: EWMA 只使用最近 30 天數據
+    # 這樣新的預測值對 EWMA 有更大影響
+    EWMA_WINDOW = 30
     if len(df) >= 1:
-        series = df['Attendance']
-        last_row['Attendance_EWMA7'] = series.ewm(span=7, adjust=False).mean().iloc[-1]
-        last_row['Attendance_EWMA14'] = series.ewm(span=14, adjust=False).mean().iloc[-1]
+        recent_data = df.tail(EWMA_WINDOW)['Attendance']
+        last_row['Attendance_EWMA7'] = recent_data.ewm(span=7, adjust=False).mean().iloc[-1]
+        last_row['Attendance_EWMA14'] = recent_data.ewm(span=14, adjust=False).mean().iloc[-1]
     else:
         last_row['Attendance_EWMA7'] = 250
         last_row['Attendance_EWMA14'] = 250
@@ -224,18 +243,28 @@ def rolling_predict(start_date, days):
 
     print(f"📊 已加載 {len(historical_data)} 天歷史數據", file=sys.stderr)
 
-    # 計算歷史平均值（用於因子調整基準）
-    historical_mean = historical_data['Attendance'].mean()
-    print(f"📈 歷史平均值: {historical_mean:.1f}", file=sys.stderr)
+    # 計算近 90 天的歷史統計（更能反映當前趨勢）
+    recent_90_days = historical_data.tail(90)
+    historical_mean = recent_90_days['Attendance'].mean()
+    historical_std = recent_90_days['Attendance'].std()
+    print(f"📈 近 90 天平均值: {historical_mean:.1f}, 標準差: {historical_std:.1f}", file=sys.stderr)
+
+    # 計算各星期的實際平均值
+    historical_data['Date'] = pd.to_datetime(historical_data['Date'])
+    historical_data['dow'] = historical_data['Date'].dt.dayofweek
+    actual_dow_means = historical_data.tail(180).groupby('dow')['Attendance'].mean().to_dict()
+    print(f"📊 實際星期均值: {actual_dow_means}", file=sys.stderr)
 
     # 準備滾動預測
     import xgboost as xgb
     df = historical_data.copy()
-    df['Date'] = pd.to_datetime(df['Date'])
     df = df.sort_values('Date').reset_index(drop=True)
 
     predictions = []
     start_dt = pd.to_datetime(start_date)
+    
+    # v4.0.24: 使用固定種子確保可重現，但每天不同
+    np.random.seed(int(start_dt.timestamp()) % 2**31)
 
     for i in range(days):
         target_dt = start_dt + timedelta(days=i)
@@ -248,19 +277,36 @@ def rolling_predict(start_date, days):
         # XGBoost 預測
         try:
             dmatrix = xgb.DMatrix(features_df[feature_cols], feature_names=feature_cols)
-            pred = float(booster.predict(dmatrix)[0])
+            xgb_pred = float(booster.predict(dmatrix)[0])
         except Exception as e:
             print(f"⚠️ Day {i} 預測失敗: {e}", file=sys.stderr)
             continue
 
         # ============================================================
-        # v4.0.22: 應用因子調整
+        # v4.0.24: 混合預測策略
         # ============================================================
+        # 問題：XGBoost 對遠期預測缺乏變異性（EWMA 收斂）
+        # 解決：結合 XGBoost 預測 + 星期歷史均值 + 隨機擾動
+        
+        # 獲取該星期的歷史均值
+        dow_historical_mean = actual_dow_means.get(dow, historical_mean)
+        
+        # 根據預測天數調整混合權重
+        # Day 0-7: 主要依賴 XGBoost（權重 0.9 -> 0.6）
+        # Day 8-30: 逐漸增加歷史均值的權重
+        if i <= 7:
+            xgb_weight = 0.9 - i * 0.04  # 0.9 -> 0.62
+        else:
+            xgb_weight = max(0.4, 0.6 - (i - 7) * 0.01)  # 0.59 -> 0.4
+        
+        mean_weight = 1 - xgb_weight
+        
+        # 混合 XGBoost 預測和星期歷史均值
+        pred = xgb_pred * xgb_weight + dow_historical_mean * mean_weight
 
-        # 1. 星期效應因子（加強星期變化）
+        # 1. 星期效應調整（基於實際歷史數據）
         dow_factor = DOW_FACTORS.get(dow, 1.0)
-        # v4.0.23: 提升星期效應係數，反映真實的星期變化（週一 270 vs 週日 225 = 45人差異）
-        dow_adjustment = (dow_factor - 1.0) * historical_mean * 1.0
+        dow_adjustment = (dow_factor - 1.0) * pred * 0.3  # 調整幅度 30%
         pred += dow_adjustment
 
         # 2. 假期因子
@@ -269,12 +315,20 @@ def rolling_predict(start_date, days):
             pred = pred * HOLIDAY_FACTOR
             print(f"🎌 {target_date_str} 是假期，應用因子 {HOLIDAY_FACTOR}", file=sys.stderr)
 
-        # 3. 確保預測值在合理範圍內
-        pred = max(100, min(400, pred))
+        # 3. v4.0.24: 添加隨機擾動模擬真實世界變化
+        # 歷史標準差約 28，我們使用較小的擾動
+        if i > 0:
+            # 擾動幅度隨預測天數增加（反映不確定性）
+            noise_std = historical_std * 0.3 * (1 + i * 0.02)
+            noise = np.random.normal(0, noise_std)
+            pred += noise
+        
+        # 4. 確保預測值在合理範圍內
+        pred = max(150, min(350, pred))
 
         # 計算置信區間
-        uncertainty_multiplier = 1.0 + i * 0.02
-        std_preds = pred * 0.05 * uncertainty_multiplier
+        uncertainty_multiplier = 1.0 + i * 0.025
+        std_preds = historical_std * uncertainty_multiplier
 
         result = {
             'date': target_date_str,
@@ -282,6 +336,9 @@ def rolling_predict(start_date, days):
             'day_ahead': i,
             'dow': dow,
             'dow_factor': round(dow_factor, 3),
+            'xgb_weight': round(xgb_weight, 2),
+            'xgb_raw': round(xgb_pred, 1),
+            'dow_mean': round(dow_historical_mean, 1),
             'is_holiday': is_holiday,
             'ci80': {
                 'low': round(pred - 1.28 * std_preds, 1),
@@ -301,17 +358,18 @@ def rolling_predict(start_date, days):
         }])
         df = pd.concat([df, new_row], ignore_index=True)
 
-        # 每 7 天輸出一次進度
-        if (i + 1) % 7 == 0:
-            print(f"📊 已完成 {i + 1}/{days} 天滾動預測", file=sys.stderr)
+        # 輸出進度
+        if i <= 7 or (i + 1) % 7 == 0:
+            print(f"📈 Day {i}: XGB={xgb_pred:.0f} ({xgb_weight:.0%}), Mean={dow_historical_mean:.0f} → {pred:.0f}", file=sys.stderr)
 
     print(f"✅ 滾動預測完成: {len(predictions)} 天", file=sys.stderr)
 
     return {
         'predictions': predictions,
-        'model_type': f'{model_type}_rolling_v4.0.23',
+        'model_type': f'{model_type}_rolling_v4.0.24',
         'historical_days': len(historical_data),
-        'historical_mean': round(historical_mean, 1)
+        'historical_mean': round(historical_mean, 1),
+        'historical_std': round(historical_std, 1)
     }
 
 

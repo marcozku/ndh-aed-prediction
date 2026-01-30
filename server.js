@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '4.0.21'; // v4.0.21: 使用 Python XGBoost 滾動預測（真實歷史數據）
+const MODEL_VERSION = '4.0.24'; // v4.0.24: 修復預測持平問題（混合預測策略+隨機擾動）
 
 // ============================================
 // HKT 時間工具函數

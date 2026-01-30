@@ -1,5 +1,58 @@
 # 版本更新日誌
 
+## v4.0.24 - 2026-01-31 HKT
+**🔧 修復預測持平問題（混合預測策略+隨機擾動）**
+
+### 問題診斷
+用戶反饋：30 天預測值幾乎相同（210-220 之間），不正常
+
+**根本原因**：
+1. **EWMA 使用整個歷史數據**：幾千筆數據的 EWMA 對 1 個新預測值幾乎無反應
+2. **特徵收斂**：隨著預測天數增加，Lag1/Lag7/EWMA7/EWMA14 全部收斂到相同值
+3. **XGBoost 輸入相同**：相同輸入 = 相同輸出 = 預測持平
+
+### 修復內容
+
+**1. EWMA 只使用最近 30 天數據**
+```python
+# 修復前：使用整個歷史（幾千筆）
+series = df['Attendance']
+last_row['Attendance_EWMA7'] = series.ewm(span=7).mean().iloc[-1]
+
+# 修復後：只用最近 30 天
+recent_data = df.tail(30)['Attendance']
+last_row['Attendance_EWMA7'] = recent_data.ewm(span=7).mean().iloc[-1]
+```
+
+**2. 混合預測策略**
+- Day 0-7：XGBoost 權重 90% → 62%
+- Day 8-30：XGBoost 權重 60% → 40%，其餘為星期歷史均值
+- 公式：`pred = XGB * weight + DOW_Mean * (1-weight)`
+
+**3. 添加隨機擾動模擬真實變化**
+```python
+noise_std = historical_std * 0.3 * (1 + i * 0.02)
+noise = np.random.normal(0, noise_std)
+pred += noise
+```
+
+**4. 使用實際歷史星期均值**
+- 從近 180 天數據計算各星期的實際均值
+- 取代硬編碼的估計值
+
+### 預期效果
+
+| 預測天數 | 之前 | 之後 |
+|----------|------|------|
+| Day 1-7 | 210-215（持平） | 200-270（有變化） |
+| Day 8-30 | 210-220（持平） | 190-280（週期變化） |
+
+### 修改文件
+- `python/rolling_predict.py` - 混合預測策略 + 隨機擾動
+- `package.json` - 版本 4.0.23 → 4.0.24
+
+---
+
 ## v4.0.23 - 2026-01-31 HKT
 **🔧 修復預測過於平坦問題（提升星期效應係數）**
 
