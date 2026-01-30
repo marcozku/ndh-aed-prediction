@@ -5455,7 +5455,7 @@ async function generateServerSidePredictions(source = 'auto') {
             return;
         }
         
-        // v3.0.86: 生成今天和未來 7 天的預測（Day 8+ 準確度不可靠）
+        // v3.3.01: 生成今天和未來 30 天的預測（已修復數據洩漏，長期預測更可靠）
         const predictions = [];
         const today = new Date(`${hk.dateStr}T00:00:00+08:00`);
         
