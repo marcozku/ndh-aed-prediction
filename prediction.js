@@ -10273,28 +10273,36 @@ async function fetchPerformanceViewsData() {
             html += '</tr>';
 
             // MAPE
+            const mapeGap = real.mape - training.mape;
+            const mapeGapPct = training.mape > 0 ? (mapeGap / training.mape * 100) : 0;
+            const mapeColor = mapeGapPct > 200 ? '#ef4444' : mapeGapPct > 100 ? '#f59e0b' : '#22c55e';
             html += `<tr style="border-bottom: 1px solid var(--border-color);">`;
             html += `<td style="padding: 6px;">MAPE (%)</td>`;
             html += `<td style="padding: 6px; text-align: right; color: #22c55e;">${training.mape.toFixed(2)}</td>`;
             html += `<td style="padding: 6px; text-align: right;">${real.mape.toFixed(2)}</td>`;
-            html += `<td style="padding: 6px; text-align: right; color: var(--text-secondary);">--</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: ${mapeColor};">+${mapeGapPct.toFixed(0)}%</td>`;
             html += '</tr>';
 
-            // R² (只有訓練有)
+            // R² - 訓練有理論值，實際用 1-(實際MAE/平均值)² 估算
+            const estimatedR2 = real.mae > 0 ? Math.max(0, 1 - Math.pow(real.mae / 240, 2)) : 0; // 假設平均值約240
+            const r2Gap = (training.r2 - estimatedR2) * 100;
+            const r2Color = r2Gap > 50 ? '#ef4444' : r2Gap > 20 ? '#f59e0b' : '#22c55e';
             html += `<tr style="border-bottom: 1px solid var(--border-color); background: var(--bg-primary);">`;
             html += `<td style="padding: 6px;">R² (%)</td>`;
             html += `<td style="padding: 6px; text-align: right; color: #22c55e;">${(training.r2 * 100).toFixed(1)}</td>`;
-            html += `<td style="padding: 6px; text-align: right; color: var(--text-secondary);">--</td>`;
-            html += `<td style="padding: 6px; text-align: right; color: var(--text-secondary);">--</td>`;
+            html += `<td style="padding: 6px; text-align: right;">${(estimatedR2 * 100).toFixed(1)}*</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: ${r2Color};">-${r2Gap.toFixed(0)}%</td>`;
             html += '</tr>';
 
-            // CI 準確率
+            // CI 準確率 - 目標是 80%
+            const ci80Gap = real.ci80_accuracy - 80; // 與目標 80% 的差距
+            const ci80GapColor = ci80Gap >= 0 ? '#22c55e' : ci80Gap >= -10 ? '#f59e0b' : '#ef4444';
             html += `<tr style="border-bottom: 1px solid var(--border-color);">`;
             html += `<td style="padding: 6px;">80% CI 準確率</td>`;
-            html += `<td style="padding: 6px; text-align: right; color: var(--text-secondary);">--</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: #22c55e;">80.0</td>`;
             const ci80Color = real.ci80_accuracy >= 80 ? '#22c55e' : real.ci80_accuracy >= 70 ? '#f59e0b' : '#ef4444';
-            html += `<td style="padding: 6px; text-align: right; color: ${ci80Color};">${real.ci80_accuracy.toFixed(1)}%</td>`;
-            html += `<td style="padding: 6px; text-align: right; color: var(--text-secondary);">--</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: ${ci80Color};">${real.ci80_accuracy.toFixed(1)}</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: ${ci80GapColor};">${ci80Gap >= 0 ? '+' : ''}${ci80Gap.toFixed(1)}%</td>`;
             html += '</tr>';
 
             html += '</tbody></table>';
