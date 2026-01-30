@@ -902,6 +902,26 @@ const apiHandlers = {
                 WHERE actual_count IS NOT NULL
             `);
 
+            // 2b. 計算實際 R² = 1 - (SS_res / SS_tot)
+            const r2Result = await db.pool.query(`
+                WITH stats AS (
+                    SELECT
+                        AVG(actual_count) as mean_actual,
+                        SUM(POWER(actual_count - predicted_count, 2)) as ss_res
+                    FROM prediction_accuracy
+                    WHERE actual_count IS NOT NULL
+                ),
+                ss_tot_calc AS (
+                    SELECT
+                        SUM(POWER(actual_count - (SELECT mean_actual FROM stats), 2)) as ss_tot
+                    FROM prediction_accuracy
+                    WHERE actual_count IS NOT NULL
+                )
+                SELECT
+                    CASE WHEN st.ss_tot > 0 THEN 1 - (s.ss_res / st.ss_tot) ELSE 0 END as real_r2
+                FROM stats s, ss_tot_calc st
+            `);
+
             // 3. 獲取最近 30 天的實際性能
             const recent30Result = await db.pool.query(`
                 SELECT
@@ -917,6 +937,7 @@ const apiHandlers = {
             const training = trainingResult.rows[0] || {};
             const real = realResult.rows[0] || {};
             const recent30 = recent30Result.rows[0] || {};
+            const realR2 = r2Result.rows[0]?.real_r2 || 0;
 
             // 4. 計算差距和改進建議
             const trainingMAE = parseFloat(training.training_mae) || 0;
@@ -966,6 +987,7 @@ const apiHandlers = {
                         mae: parseFloat(real.real_mae) || 0,
                         rmse: parseFloat(real.real_rmse) || 0,
                         mape: parseFloat(real.real_mape) || 0,
+                        r2: parseFloat(realR2) || 0,
                         ci80_accuracy: parseFloat(real.ci80_accuracy) || 0,
                         ci95_accuracy: parseFloat(real.ci95_accuracy) || 0
                     },

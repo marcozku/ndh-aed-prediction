@@ -10283,12 +10283,15 @@ async function fetchPerformanceViewsData() {
             html += `<td style="padding: 6px; text-align: right; color: ${mapeColor};">+${mapeGapPct.toFixed(0)}%</td>`;
             html += '</tr>';
 
-            // R² - 只有訓練數據有，實際無法計算（需要完整測試集）
+            // R² - 訓練和實際都有真實數據
+            const r2Gap = (training.r2 - real.r2) * 100;
+            const r2Color = real.r2 < 0 ? '#ef4444' : real.r2 < 0.5 ? '#f59e0b' : '#22c55e';
+            const r2GapColor = r2Gap > 50 ? '#ef4444' : r2Gap > 20 ? '#f59e0b' : '#22c55e';
             html += `<tr style="border-bottom: 1px solid var(--border-color); background: var(--bg-primary);">`;
             html += `<td style="padding: 6px;">R² (%)</td>`;
             html += `<td style="padding: 6px; text-align: right; color: #22c55e;">${(training.r2 * 100).toFixed(1)}</td>`;
-            html += `<td style="padding: 6px; text-align: right; color: var(--text-tertiary);">N/A</td>`;
-            html += `<td style="padding: 6px; text-align: right; color: var(--text-tertiary);">N/A</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: ${r2Color};">${(real.r2 * 100).toFixed(1)}</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: ${r2GapColor};">-${Math.abs(r2Gap).toFixed(0)}%</td>`;
             html += '</tr>';
 
             // 80% CI 準確率 - 實際數據，目標是 80%
