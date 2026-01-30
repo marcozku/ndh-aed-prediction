@@ -1,7 +1,9 @@
 /**
  * XGBoost 預測器模組
- * v3.2.01: 最佳 10 特徵 + Optuna 優化參數 (MAE: 2.85, 改善 82%)
+ * v3.2.01: 最佳 10 特徵 + Optuna 優化參數
  * 調用 Python XGBoost 預測腳本
+ *
+ * 模型性能數據從數據庫動態獲取，不使用硬編碼值
  */
 const { spawn } = require('child_process');
 const path = require('path');

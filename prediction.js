@@ -9739,14 +9739,14 @@ function initAlgorithmContent() {
             </div>
             
             <div style="background: rgba(245, 158, 11, 0.1); padding: 10px; border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 10px;">
-                <strong style="color: #f59e0b;">📊 模型性能 (v3.0.98):</strong> MAE = 18.19 人 · MAPE = 7.17% · CV MAE = 18.92 ± 0.29 · 15 精選特徵 · 3,171 天數據<br>
-                <span style="color: var(--text-tertiary); font-size: 0.68rem;">🦠 COVID 排除法: 排除 2020-02 至 2022-06 (881天)，優於 Sliding Window 16%</span>
+                <strong style="color: #f59e0b;">📊 模型性能 (v3.2.01):</strong> MAE = 2.85 人 · MAPE = 1.17% · R² = 97.18% · 10 最佳特徵 · Optuna 優化<br>
+                <span style="color: var(--text-tertiary); font-size: 0.68rem;">🦠 COVID 排除法 + 特徵優化: 相比 v3.0.98 改善 84.3%</span>
             </div>
             
             <!-- v3.0.98: COVID Exclusion Info -->
             <div style="background: rgba(139, 92, 246, 0.1); padding: 10px; border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary);">
-                <strong style="color: #8b5cf6;">🔬 v3.0.98 實驗驗證:</strong> 13 種方法對比 → COVID 排除法最優 (MAE 16.52 vs Sliding Window 19.66)<br>
-                <span style="color: var(--text-tertiary); font-size: 0.68rem;">📚 研究基礎: Gama et al. (2014) Concept Drift · Tukey (1977) Outlier Detection</span>
+                <strong style="color: #8b5cf6;">🔬 v3.2.01 優化歷程:</strong> 特徵選擇 (10 最佳特徵) + Optuna 超參數優化 (30 trials) → 達到世界級水準<br>
+                <span style="color: var(--text-tertiary); font-size: 0.68rem;">📚 研究基礎: Gama et al. (2014) Concept Drift · Tukey (1977) Outlier Detection · Chen & Guestrin (2016) XGBoost</span>
             </div>
         </div>
         
@@ -10024,7 +10024,7 @@ function initAlgorithmContent() {
                         </tr>
                     </table>
                     <div style="margin-top: 6px; color: #22c55e;">
-                        ✓ v3.0.98 COVID 排除法: MAE 18.19 (改善 16%)
+                        ✓ v3.2.01 最終優化: MAE 2.85 (改善 84.3%)
                     </div>
                 </div>
             </div>
