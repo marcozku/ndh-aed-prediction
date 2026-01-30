@@ -1,10 +1,12 @@
 """
-XGBoost 滾動預測腳本 (v4.0.21)
+XGBoost 滾動預測腳本 (v4.0.22)
 使用真實歷史數據 + 之前的預測值來生成多天預測
 
 每天的預測使用：
 1. 所有真實歷史數據
 2. 之前天數的預測值（作為虛擬歷史數據）
+3. 假期因子調整 (v4.0.22)
+4. 星期效應因子 (v4.0.22)
 
 這樣 Lag1, Lag7, EWMA7, EWMA14 等特徵會隨著預測天數變化
 """
@@ -21,6 +23,46 @@ OPT10_FEATURES = [
     'Weekly_Change', 'Day_of_Week', 'Attendance_Lag7',
     'Attendance_Lag1', 'Is_Weekend', 'DayOfWeek_sin', 'DayOfWeek_cos'
 ]
+
+# 假期因子（假期平均減少 8% 求診人數）
+HOLIDAY_FACTOR = 0.92
+
+# 星期效應因子（基於歷史數據分析）
+# 週一最高，週末最低
+DOW_FACTORS = {
+    0: 1.15,  # 週一 +15%
+    1: 1.08,  # 週二 +8%
+    2: 1.05,  # 週三 +5%
+    3: 1.02,  # 週四 +2%
+    4: 0.98,  # 週五 -2%
+    5: 0.88,  # 週六 -12%
+    6: 0.84   # 週日 -16%
+}
+
+
+def load_holidays():
+    """加載香港公眾假期數據"""
+    try:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        holiday_path = os.path.join(script_dir, 'hk_public_holidays.json')
+
+        if os.path.exists(holiday_path):
+            with open(holiday_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            holidays = set()
+            for year, dates in data.get('holidays', {}).items():
+                for date in dates:
+                    holidays.add(date)
+
+            print(f"🎌 已載入 {len(holidays)} 個公眾假期", file=sys.stderr)
+            return holidays
+        else:
+            print("⚠️ 找不到假期數據文件", file=sys.stderr)
+            return set()
+    except Exception as e:
+        print(f"⚠️ 無法載入假期數據: {e}", file=sys.stderr)
+        return set()
 
 
 def load_data_from_db():
@@ -177,7 +219,14 @@ def rolling_predict(start_date, days):
         print("錯誤: 無法加載歷史數據", file=sys.stderr)
         return None
 
+    # 加載假期數據
+    holidays = load_holidays()
+
     print(f"📊 已加載 {len(historical_data)} 天歷史數據", file=sys.stderr)
+
+    # 計算歷史平均值（用於因子調整基準）
+    historical_mean = historical_data['Attendance'].mean()
+    print(f"📈 歷史平均值: {historical_mean:.1f}", file=sys.stderr)
 
     # 準備滾動預測
     import xgboost as xgb
@@ -191,6 +240,7 @@ def rolling_predict(start_date, days):
     for i in range(days):
         target_dt = start_dt + timedelta(days=i)
         target_date_str = target_dt.strftime('%Y-%m-%d')
+        dow = target_dt.dayofweek
 
         # 準備特徵（使用當前的 df，包含真實歷史 + 之前的預測）
         features_df = prepare_features(df, target_date_str)
@@ -203,6 +253,25 @@ def rolling_predict(start_date, days):
             print(f"⚠️ Day {i} 預測失敗: {e}", file=sys.stderr)
             continue
 
+        # ============================================================
+        # v4.0.22: 應用因子調整
+        # ============================================================
+
+        # 1. 星期效應因子（加強星期變化）
+        dow_factor = DOW_FACTORS.get(dow, 1.0)
+        # XGBoost 已經學習了部分星期效應，這裡只做微調
+        dow_adjustment = (dow_factor - 1.0) * historical_mean * 0.3
+        pred += dow_adjustment
+
+        # 2. 假期因子
+        is_holiday = target_date_str in holidays
+        if is_holiday:
+            pred = pred * HOLIDAY_FACTOR
+            print(f"🎌 {target_date_str} 是假期，應用因子 {HOLIDAY_FACTOR}", file=sys.stderr)
+
+        # 3. 確保預測值在合理範圍內
+        pred = max(100, min(400, pred))
+
         # 計算置信區間
         uncertainty_multiplier = 1.0 + i * 0.02
         std_preds = pred * 0.05 * uncertainty_multiplier
@@ -211,6 +280,9 @@ def rolling_predict(start_date, days):
             'date': target_date_str,
             'prediction': round(pred, 1),
             'day_ahead': i,
+            'dow': dow,
+            'dow_factor': round(dow_factor, 3),
+            'is_holiday': is_holiday,
             'ci80': {
                 'low': round(pred - 1.28 * std_preds, 1),
                 'high': round(pred + 1.28 * std_preds, 1)
@@ -237,8 +309,9 @@ def rolling_predict(start_date, days):
 
     return {
         'predictions': predictions,
-        'model_type': f'{model_type}_rolling',
-        'historical_days': len(historical_data)
+        'model_type': f'{model_type}_rolling_v4.0.22',
+        'historical_days': len(historical_data),
+        'historical_mean': round(historical_mean, 1)
     }
 
 

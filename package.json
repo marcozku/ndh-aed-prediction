@@ -1,7 +1,7 @@
 {
   "name": "ndh-aed-prediction",
-  "version": "4.0.21",
-  "description": "NDH AED 病人數量預測系統 v4.0.21 - 使用 Python XGBoost 滾動預測（真實歷史數據）",
+  "version": "4.0.22",
+  "description": "NDH AED 病人數量預測系統 v4.0.22 - 滾動預測添加假期/星期效應因子",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
