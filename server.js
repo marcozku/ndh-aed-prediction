@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '4.0.20'; // v4.0.20: 滾動預測修復週期性循環問題
+const MODEL_VERSION = '4.0.21'; // v4.0.21: 使用 Python XGBoost 滾動預測（真實歷史數據）
 
 // ============================================
 // HKT 時間工具函數
@@ -5628,19 +5628,86 @@ async function generateServerSidePredictions(source = 'auto') {
         // 假期因子（基於歷史數據分析）
         const HOLIDAY_FACTOR = 0.92; // 假期平均減少 8% 求診人數
 
-        // 首先獲取 XGBoost 基準預測（使用今天的日期）
-        let basePrediction = null;
+        // v4.0.21: 使用 Python XGBoost 滾動預測（真實歷史數據）
+        // 一次性獲取所有 31 天的 XGBoost 基準預測
+        let xgboostPredictions = {}; // { 'YYYY-MM-DD': prediction }
+        let basePrediction = 249; // 默認值
+
         try {
-            const baseResult = await ensemblePredictor.predict(hk.dateStr);
-            if (baseResult && baseResult.prediction) {
-                basePrediction = baseResult.prediction;
+            // 調用 Python 滾動預測腳本
+            const { spawn } = require('child_process');
+            const pythonScript = path.join(__dirname, 'python', 'rolling_predict.py');
+
+            console.log(`🔄 調用 Python XGBoost 滾動預測 (31 天)...`);
+
+            const pythonResult = await new Promise((resolve, reject) => {
+                const python = spawn('python', [pythonScript, hk.dateStr, '31'], {
+                    cwd: __dirname,
+                    stdio: ['pipe', 'pipe', 'pipe']
+                });
+
+                let output = '';
+                let error = '';
+
+                python.stdout.on('data', (data) => {
+                    output += data.toString();
+                });
+
+                python.stderr.on('data', (data) => {
+                    error += data.toString();
+                    // 輸出進度信息
+                    const msg = data.toString();
+                    if (msg.includes('📊') || msg.includes('✅')) {
+                        console.log(msg.trim());
+                    }
+                });
+
+                python.on('close', (code) => {
+                    if (code === 0) {
+                        try {
+                            resolve(JSON.parse(output));
+                        } catch (e) {
+                            reject(new Error(`無法解析 Python 輸出: ${e.message}`));
+                        }
+                    } else {
+                        reject(new Error(`Python 錯誤 (code ${code}): ${error || output}`));
+                    }
+                });
+
+                python.on('error', (err) => {
+                    reject(new Error(`無法執行 Python: ${err.message}`));
+                });
+            });
+
+            // 將預測結果轉換為 map
+            if (pythonResult && pythonResult.predictions) {
+                for (const pred of pythonResult.predictions) {
+                    xgboostPredictions[pred.date] = pred.prediction;
+                }
+                console.log(`✅ XGBoost 滾動預測完成: ${Object.keys(xgboostPredictions).length} 天`);
+
+                // 設置 Day 0 的基準預測
+                if (xgboostPredictions[hk.dateStr]) {
+                    basePrediction = xgboostPredictions[hk.dateStr];
+                }
             }
         } catch (e) {
-            console.error('❌ 無法獲取 XGBoost 基準預測:', e.message);
+            console.error('❌ XGBoost 滾動預測失敗，使用備用方法:', e.message);
+
+            // 備用方法：單日預測
+            try {
+                const baseResult = await ensemblePredictor.predict(hk.dateStr);
+                if (baseResult && baseResult.prediction) {
+                    basePrediction = baseResult.prediction;
+                    xgboostPredictions[hk.dateStr] = basePrediction;
+                }
+            } catch (e2) {
+                console.error('❌ 單日預測也失敗:', e2.message);
+            }
         }
-        
-        // 如果無法獲取基準預測，使用歷史平均值
-        if (!basePrediction) {
+
+        // 如果沒有任何預測，使用歷史平均值
+        if (Object.keys(xgboostPredictions).length === 0) {
             try {
                 const statsResult = await db.pool.query(`
                     SELECT AVG(patient_count) as avg_count FROM actual_data
@@ -5648,20 +5715,12 @@ async function generateServerSidePredictions(source = 'auto') {
                 `);
                 basePrediction = parseFloat(statsResult.rows[0]?.avg_count) || 249;
             } catch (e) {
-                basePrediction = 249; // 全局平均值
+                basePrediction = 249;
             }
         }
-        
-        console.log(`📊 XGBoost 基準預測: ${Math.round(basePrediction)} 人`);
-        console.log(`📅 預測起始日期: ${hk.dateStr}`);
 
-        // v4.0.20: 滾動預測 - 追蹤前一天的預測值來更新偏差
-        // 這解決了 XGBoost 對所有未來日期返回相似值的問題
-        let rollingPredictions = []; // 保存每天的預測值
-        let rollingEWMA7 = basePrediction; // 滾動 EWMA7
-        let rollingEWMA14 = basePrediction; // 滾動 EWMA14
-        const ewma7Alpha = 2 / (7 + 1); // EWMA7 平滑係數
-        const ewma14Alpha = 2 / (14 + 1); // EWMA14 平滑係數
+        console.log(`📊 XGBoost Day 0 預測: ${Math.round(basePrediction)} 人`);
+        console.log(`📅 預測起始日期: ${hk.dateStr}`);
 
         // v3.3.01: 強制擴展到 30 天預測（Day 0-30）
         console.log('🔥 [FORCE-30DAY] 開始生成 30 天滾動預測...');
@@ -5734,92 +5793,47 @@ async function generateServerSidePredictions(source = 'auto') {
             let predictionMethod = 'multiplicative';
             let bayesianResult = null;
             
+            // ============================================================
+            // v4.0.21: 使用 Python XGBoost 滾動預測（真實歷史數據）
+            // ============================================================
+            // 獲取該日期的 XGBoost 基準預測
+            let xgboostBase = xgboostPredictions[dateStr] || basePrediction;
+            const targetMean = dowMeans[dow];
+
             if (daysAhead === 0) {
-                // ============================================================
                 // Day 0：XGBoost + Pragmatic Bayesian 融合
-                // ============================================================
                 try {
                     const { getPragmaticBayesian } = require('./modules/pragmatic-bayesian');
                     const bayesian = getPragmaticBayesian({
                         baseStd: dowStds[dow] || 15
                     });
-                    bayesianResult = bayesian.predict(basePrediction, aiFactor, weatherFactor);
+                    bayesianResult = bayesian.predict(xgboostBase, aiFactor, weatherFactor);
                     adjusted = bayesianResult.prediction;
 
-                    // v4.0.19: 應用假期因子（乘法調整）
+                    // 應用假期因子（乘法調整）
                     if (isHoliday) {
                         adjusted = Math.round(adjusted * holidayFactor);
                     }
 
-                    predictionMethod = 'pragmatic_bayesian';
-
-                    console.log(`🎯 Day 0 Bayesian: base=${basePrediction}, AI=${aiFactor.toFixed(2)}, Weather=${weatherFactor.toFixed(2)}${isHoliday ? ', 🎌假期' : ''} → ${adjusted}`);
+                    predictionMethod = 'xgboost_bayesian';
+                    console.log(`🎯 Day 0: XGBoost=${Math.round(xgboostBase)}, AI=${aiFactor.toFixed(2)}, Weather=${weatherFactor.toFixed(2)}${isHoliday ? ', 🎌假期' : ''} → ${adjusted}`);
                 } catch (e) {
-                    // Fallback 使用加法效應模型
-                    console.log(`⚠️ Bayesian 融合失敗，使用加法模型: ${e.message}`);
-                    const targetMean = dowMeans[dow];
-                    const xgboostDeviation = basePrediction - targetMean;
-                    let value = targetMean + xgboostDeviation;
-
-                    if (aiFactor !== 1.0) {
-                        value += (aiFactor - 1.0) * targetMean * 0.5;
-                    }
-                    if (weatherFactor !== 1.0) {
-                        value += (weatherFactor - 1.0) * targetMean * 0.3;
-                    }
-                    adjusted = Math.round(value);
-
-                    // v4.0.19: 應用假期因子（乘法調整）
+                    // Fallback
+                    adjusted = Math.round(xgboostBase);
                     if (isHoliday) {
                         adjusted = Math.round(adjusted * holidayFactor);
                     }
+                    predictionMethod = 'xgboost_fallback';
                 }
-
-                // v3.0.85: 移除硬上限，讓模型自由預測
-
-                // v4.0.20: Day 0 也保存到滾動預測數組，作為後續預測的基準
-                rollingPredictions.push({ date: dateStr, value: adjusted, dow });
-                rollingEWMA7 = adjusted;
-                rollingEWMA14 = adjusted;
 
             } else {
                 // ============================================================
-                // Day 1-30：滾動預測 + 均值回歸混合（v4.0.20）
+                // Day 1-30：XGBoost 滾動預測 + 因子調整（v4.0.21）
                 // ============================================================
-                // 核心改進：使用前一天的預測值來更新滾動偏差
-                // 這解決了 XGBoost 對所有未來日期返回相似值的週期性問題
+                // XGBoost 已使用真實歷史數據 + 之前的預測值計算特徵
 
-                // 權重衰減公式：XGBoost 權重隨天數遞減，均值權重遞增
-                let xgboostWeight;
-                if (daysAhead <= 7) {
-                    xgboostWeight = Math.max(0.3, 1.0 - 0.1 * daysAhead);
-                } else {
-                    xgboostWeight = Math.max(0.15, 0.3 - 0.007 * (daysAhead - 7));
-                }
-                const meanWeight = 1.0 - xgboostWeight;
-
-                const targetMean = dowMeans[dow];
-
-                // v4.0.20: 使用滾動 EWMA 來調整預測
-                // 滾動偏差 = 前一天預測與該天均值的差異
-                let rollingDeviation = 0;
-                if (rollingPredictions.length > 0) {
-                    const lastPred = rollingPredictions[rollingPredictions.length - 1];
-                    const lastDow = new Date(lastPred.date).getDay();
-                    const lastMean = dowMeans[lastDow] || 247;
-                    rollingDeviation = lastPred.value - lastMean;
-                }
-
-                // 計算基於滾動 EWMA 的預測
-                // 使用滾動 EWMA 作為「動態基準」，而不是固定的 basePrediction
-                const ewmaBasedPred = rollingEWMA7;
-
-                // 混合：滾動 EWMA 預測 + 星期均值
-                let value = xgboostWeight * ewmaBasedPred + meanWeight * targetMean;
-
-                // 加入滾動偏差的衰減影響（讓趨勢延續但逐漸減弱）
-                const deviationDecay = Math.exp(-0.1 * daysAhead);
-                value += rollingDeviation * deviationDecay * 0.3;
+                // 使用 Python 滾動預測的結果作為基準
+                let value = xgboostBase;
 
                 // 應用 AI 因素（加法調整，長期影響減弱）
                 const aiWeight = daysAhead <= 7 ? 0.5 : Math.max(0.3, 0.5 - 0.01 * (daysAhead - 7));
@@ -5834,27 +5848,19 @@ async function generateServerSidePredictions(source = 'auto') {
                 }
 
                 // 應用月份效應
-                value += (monthFactor - 1.0) * targetMean * 0.5;
+                value += (monthFactor - 1.0) * targetMean * 0.3;
 
                 adjusted = Math.round(value);
-                predictionMethod = `rolling_hybrid_${Math.round(xgboostWeight * 100)}`;
+                predictionMethod = `xgboost_rolling`;
 
-                // v4.0.19: 應用假期因子（乘法調整）
+                // 應用假期因子（乘法調整）
                 if (isHoliday) {
                     adjusted = Math.round(adjusted * holidayFactor);
                     predictionMethod += '_holiday';
                 }
 
-                // 更新滾動 EWMA（用於下一天的預測）
-                rollingEWMA7 = ewma7Alpha * adjusted + (1 - ewma7Alpha) * rollingEWMA7;
-                rollingEWMA14 = ewma14Alpha * adjusted + (1 - ewma14Alpha) * rollingEWMA14;
-
-                // 保存這天的預測
-                rollingPredictions.push({ date: dateStr, value: adjusted, dow });
-
                 if (daysAhead <= 7 || daysAhead % 7 === 0) {
-                    console.log(`📈 Day ${daysAhead}: EWMA7=${Math.round(rollingEWMA7)}, Mean=${targetMean}, ` +
-                        `Dev=${rollingDeviation.toFixed(1)}${isHoliday ? ', 🎌假期' : ''} → ${adjusted}`);
+                    console.log(`📈 Day ${daysAhead}: XGBoost=${Math.round(xgboostBase)}, Mean=${targetMean}${isHoliday ? ', 🎌假期' : ''} → ${adjusted}`);
                 }
             }
 
