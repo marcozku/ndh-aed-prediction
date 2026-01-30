@@ -5890,8 +5890,8 @@ async function generateServerSidePredictions(source = 'auto') {
             let expPrediction = adjusted;
             
             // 計算 AI 對預測的影響量
-            const targetMean = dowMeans[dow] || 247;
-            const aiImpact = aiFactor !== 1.0 ? (aiFactor - 1.0) * targetMean * 0.15 : 0;
+            const targetMeanForAI = dowMeans[dow] || 247;
+            const aiImpact = aiFactor !== 1.0 ? (aiFactor - 1.0) * targetMeanForAI * 0.15 : 0;
             
             if (aiFactor !== 1.0) {
                 // Production = 主預測 - AI 影響（即不含 AI 的預測）
