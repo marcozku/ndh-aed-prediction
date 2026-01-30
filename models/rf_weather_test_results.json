@@ -1,0 +1,31 @@
+{
+  "timestamp": "2026-01-17 03:13:55",
+  "results": {
+    "rf_base": {
+      "mae": 17.37969187873919,
+      "rmse": 21.62965374207832,
+      "mape": 7.156486876760352,
+      "r2": 0.25048357191234727
+    },
+    "rf_weather": {
+      "mae": 17.59399342649004,
+      "rmse": 21.687795924718042,
+      "mape": 7.281862555195481,
+      "r2": 0.24644863979630727
+    }
+  },
+  "weather_features_used": [
+    "mean_temp",
+    "max_temp",
+    "min_temp",
+    "temp_range",
+    "is_very_hot",
+    "is_hot",
+    "is_cold",
+    "is_very_cold"
+  ],
+  "conclusion": {
+    "weather_helps": false,
+    "improvement": 0.21430154775084986
+  }
+}

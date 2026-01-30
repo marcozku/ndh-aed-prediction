@@ -1,0 +1,56 @@
+{
+  "timestamp": "2026-01-17 03:18:40",
+  "results": {
+    "rf_base": {
+      "mae": 16.71229853979677,
+      "rmse": 21.112551075583116,
+      "mape": 6.855633710363748,
+      "r2": 0.2858927397529779
+    },
+    "rf_absolute": {
+      "mae": 16.808740153591675,
+      "rmse": 21.027503518907125,
+      "mape": 6.931590923162389,
+      "r2": 0.2916344193950282
+    },
+    "rf_change": {
+      "mae": 16.782040576629733,
+      "rmse": 20.981418071643393,
+      "mape": 6.952484434896025,
+      "r2": 0.29473603063397746
+    },
+    "rf_combined": {
+      "mae": 17.040530173391613,
+      "rmse": 21.17627392937755,
+      "mape": 7.060487390367398,
+      "r2": 0.2815755329005155
+    }
+  },
+  "weather_change_features": [
+    "temp_change_1d",
+    "temp_change_3d",
+    "temp_change_7d",
+    "sudden_temp_drop",
+    "sudden_temp_rise",
+    "extreme_temp_drop",
+    "temp_volatility_7d",
+    "max_temp_change_1d",
+    "max_temp_change_3d",
+    "min_temp_change_1d",
+    "temp_range_change",
+    "entering_hot_weather",
+    "entering_cold_weather",
+    "leaving_hot_weather",
+    "leaving_cold_weather",
+    "consecutive_hot_days",
+    "consecutive_cold_days",
+    "temp_deviation_from_seasonal",
+    "extreme_cold_for_season",
+    "extreme_hot_for_season"
+  ],
+  "conclusion": {
+    "change_features_help": false,
+    "absolute_features_help": false,
+    "best_approach": "rf_base"
+  }
+}

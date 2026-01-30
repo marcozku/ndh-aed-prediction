@@ -1,0 +1,42 @@
+{
+  "timestamp": "2026-01-18 01:10:11",
+  "baseline_mae": 15.73,
+  "total_features": 15,
+  "best_n_features": 10,
+  "best_mae": 5.083235740661621,
+  "improvement_pct": 67.68445174404563,
+  "feature_importance": {
+    "Day_of_Week": 0.01792069710791111,
+    "Month": 0.0014476117212325335,
+    "Day_of_Month": 0.0033781002275645733,
+    "Is_Weekend": 0.0,
+    "Holiday_Factor": 0.0,
+    "Is_Winter_Flu_Season": 0.0,
+    "DayOfWeek_sin": 0.0013967511476948857,
+    "DayOfWeek_cos": 0.0007436376763507724,
+    "Attendance_Lag1": 0.041845545172691345,
+    "Attendance_Lag7": 0.01593933440744877,
+    "Attendance_Lag30": 0.003465889720246196,
+    "Attendance_EWMA7": 0.6549752354621887,
+    "Attendance_EWMA14": 0.003294901689514518,
+    "Daily_Change": 0.21322834491729736,
+    "Weekly_Change": 0.04236386716365814
+  },
+  "test_results": [
+    {
+      "n_features": 5,
+      "mae": 5.13337516784668,
+      "improvement": 67.36570141229066
+    },
+    {
+      "n_features": 10,
+      "mae": 5.083235740661621,
+      "improvement": 67.68445174404563
+    },
+    {
+      "n_features": 15,
+      "mae": 5.100156784057617,
+      "improvement": 67.57687994877548
+    }
+  ]
+}

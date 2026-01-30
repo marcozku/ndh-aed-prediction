@@ -1,0 +1,84 @@
+{
+  "timestamp": "2026-01-18 01:16:58",
+  "baseline_mae": 2.91,
+  "results": {
+    "baseline": {
+      "mae": 2.5548884868621826,
+      "improvement": 12.2031447813683,
+      "n_features": 10
+    },
+    "flu": {
+      "mae": 2.54988956451416,
+      "improvement": 12.374929054496219,
+      "n_features": 21
+    },
+    "ai": {
+      "mae": 2.7553536891937256,
+      "improvement": 5.3143062132740395,
+      "n_features": 26
+    },
+    "weather": {
+      "mae": 2.8408572673797607,
+      "improvement": 2.3760389216577114,
+      "n_features": 21
+    },
+    "all": {
+      "mae": 2.874969959259033,
+      "improvement": 1.2037814687617503,
+      "n_features": 48
+    }
+  },
+  "best_combo": "flu",
+  "best_mae": 2.54988956451416,
+  "best_improvement": 12.374929054496219,
+  "feature_importance": {
+    "Attendance_EWMA7": 0.6081137657165527,
+    "Daily_Change": 0.06200740858912468,
+    "Attendance_EWMA14": 0.10084572434425354,
+    "Weekly_Change": 0.043499547988176346,
+    "Day_of_Week": 0.01718984730541706,
+    "Attendance_Lag7": 0.08332928270101547,
+    "Attendance_Lag1": 0.01900174282491207,
+    "Is_Weekend": 0.016464775428175926,
+    "DayOfWeek_sin": 0.001121011795476079,
+    "DayOfWeek_cos": 0.008250906132161617,
+    "Flu_Month": 0.0007325588958337903,
+    "Flu_Season_Winter": 0.00025448380620218813,
+    "Flu_Season_Summer": 0.0006420903373509645,
+    "Flu_Is_Peak": 0.0004202449636068195,
+    "Flu_Days_To_Peak": 0.0003866393235512078,
+    "Flu_Pre_Peak_7d": 0.00036989746149629354,
+    "Flu_Post_Peak_7d": 0.0005864509730599821,
+    "Flu_Intensity": 0.0009359265677630901,
+    "Flu_Intensity_Level": 0.00019009974494110793,
+    "Flu_Post_NewYear": 0.000712995941285044,
+    "Flu_School_Start": 0.0004132341709919274,
+    "Month_sin": 0.0003801217826548964,
+    "Month_cos": 0.0004356108547654003,
+    "Day_sin": 0.000463114061858505,
+    "Day_cos": 0.00047941619413904846,
+    "Quarter": 0.0001324306649621576,
+    "Quarter_Start": 0.0007960765506140888,
+    "Month_Start": 0.00025356715195812285,
+    "Month_End": 0.00018908917263615876,
+    "Week_of_Year": 0.001028260332532227,
+    "Year_End": 6.926758214831352e-05,
+    "Year_Start": 0.0,
+    "Is_Monday": 0.0049652233719825745,
+    "Is_Friday": 0.0003231029841117561,
+    "Trend_7d": 0.015340416692197323,
+    "Trend_30d": 0.0016202774131670594,
+    "Volatility_7d": 0.0032184147275984287,
+    "Sim_Temp": 0.0004297773411963135,
+    "Sim_Temp_Range": 0.000391719164326787,
+    "Sim_Rain_Prob": 0.001261229976080358,
+    "Sim_Is_Rainy": 0.00034590763971209526,
+    "Sim_Humidity": 0.0,
+    "Sim_Is_Sunny": 0.0006219240603968501,
+    "Sim_Is_Cloudy": 0.0005117919063195586,
+    "Sim_Is_Very_Hot": 0.00012239637726452202,
+    "Sim_Is_Very_Cold": 0.000290331692667678,
+    "Sim_Temp_Change_1d": 0.0003764779248740524,
+    "Sim_Temp_Change_3d": 0.00048542075091972947
+  }
+}

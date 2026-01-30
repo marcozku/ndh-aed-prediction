@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"c:\\Github\\ndh-aed-prediction\" add server.js)",
+      "Bash(git -C \"c:\\Github\\ndh-aed-prediction\" commit -m \"$(cat <<''EOF''\nfix(dual-track): 計算真實驗證統計\n\n## 修復\n- /api/dual-track/summary 現在實際計算改進幅度和勝率\n- INNER JOIN actual_data 獲取實際值\n- 計算 prod_mae, exp_mae\n- 計算 mae_improvement_pct = (prod_mae - exp_mae) / prod_mae * 100%\n- 計算 win_rate_pct = exp_wins / total * 100%\n\n## 之前問題\n- mae_improvement_pct 和 win_rate_pct 硬編碼為 ''--''\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(ls:*)",
+      "Bash(git -C \"c:\\Github\\ndh-aed-prediction\" status --short)",
+      "Bash(git -C \"c:\\Github\\ndh-aed-prediction\" add -A)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

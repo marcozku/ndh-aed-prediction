@@ -1,0 +1,98 @@
+{
+  "timestamp": "2026-01-18 01:13:07",
+  "data_info": {
+    "total_records": 3734,
+    "date_range": "2014-12-01 00:00:00 → 2026-01-16 00:00:00",
+    "train_size": 2987,
+    "test_size": 747
+  },
+  "baseline_mae": 15.73,
+  "total_features": 15,
+  "best_n_features": 10,
+  "best_mae": 2.9106082916259766,
+  "improvement_pct": 81.4964507843231,
+  "feature_importance": {
+    "Day_of_Week": 0.03402765467762947,
+    "Month": 0.0006575130973942578,
+    "Day_of_Month": 0.0004566536226775497,
+    "Is_Weekend": 0.015442922711372375,
+    "Holiday_Factor": 0.0,
+    "Is_Winter_Flu_Season": 0.0004247775941621512,
+    "DayOfWeek_sin": 0.0014637311687693,
+    "DayOfWeek_cos": 0.0008729641558602452,
+    "Attendance_Lag1": 0.02249722182750702,
+    "Attendance_Lag7": 0.02925723046064377,
+    "Attendance_Lag30": 0.0006835951353423297,
+    "Attendance_EWMA7": 0.7141106724739075,
+    "Attendance_EWMA14": 0.06426666676998138,
+    "Daily_Change": 0.07310738414525986,
+    "Weekly_Change": 0.04273102059960365
+  },
+  "all_results": [
+    {
+      "n_features": 3,
+      "mae": 7.984193325042725,
+      "improvement": 49.242254767687704
+    },
+    {
+      "n_features": 4,
+      "mae": 8.092580795288086,
+      "improvement": 48.553205370069385
+    },
+    {
+      "n_features": 5,
+      "mae": 6.542593479156494,
+      "improvement": 58.406907316233344
+    },
+    {
+      "n_features": 6,
+      "mae": 3.9658398628234863,
+      "improvement": 74.78804918739043
+    },
+    {
+      "n_features": 7,
+      "mae": 2.9178030490875244,
+      "improvement": 81.45071170319437
+    },
+    {
+      "n_features": 8,
+      "mae": 2.9178030490875244,
+      "improvement": 81.45071170319437
+    },
+    {
+      "n_features": 9,
+      "mae": 2.926875352859497,
+      "improvement": 81.39303653617611
+    },
+    {
+      "n_features": 10,
+      "mae": 2.9106082916259766,
+      "improvement": 81.4964507843231
+    },
+    {
+      "n_features": 11,
+      "mae": 2.952446937561035,
+      "improvement": 81.23047083559418
+    },
+    {
+      "n_features": 12,
+      "mae": 2.962782859802246,
+      "improvement": 81.16476249331058
+    },
+    {
+      "n_features": 13,
+      "mae": 2.9314818382263184,
+      "improvement": 81.36375182310033
+    },
+    {
+      "n_features": 14,
+      "mae": 2.9314818382263184,
+      "improvement": 81.36375182310033
+    },
+    {
+      "n_features": 15,
+      "mae": 2.9314818382263184,
+      "improvement": 81.36375182310033
+    }
+  ]
+}
