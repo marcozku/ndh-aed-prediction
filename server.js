@@ -786,9 +786,84 @@ const apiHandlers = {
     // Get accuracy statistics
     'GET /api/accuracy': async (req, res) => {
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
-        
+
         const stats = await db.getAccuracyStats();
         sendJson(res, { success: true, data: stats });
+    },
+
+    // v4.0.14: 獲取最近準確度視圖數據（使用性能視圖）
+    'GET /api/recent-accuracy': async (req, res) => {
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
+
+        try {
+            // 嘗試使用性能視圖，如果不存在則使用原始查詢
+            let result;
+            try {
+                result = await db.pool.query('SELECT * FROM v_recent_accuracy');
+            } catch (viewErr) {
+                // 視圖不存在，使用原始查詢
+                console.log('⚠️ v_recent_accuracy 視圖不存在，使用原始查詢');
+                result = await db.pool.query(`
+                    SELECT
+                        pa.target_date,
+                        pa.predicted_count,
+                        pa.actual_count,
+                        pa.error,
+                        pa.error_percentage
+                    FROM prediction_accuracy pa
+                    ORDER BY pa.target_date DESC
+                    LIMIT 100
+                `);
+            }
+
+            sendJson(res, {
+                success: true,
+                data: result.rows,
+                count: result.rows.length,
+                source: 'v_recent_accuracy'
+            });
+        } catch (err) {
+            console.error('獲取最近準確度失敗:', err);
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+
+    // v4.0.14: 獲取模型性能視圖數據（使用性能視圖）
+    'GET /api/model-performance': async (req, res) => {
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
+
+        try {
+            // 嘗試使用性能視圖，如果不存在則使用原始查詢
+            let result;
+            try {
+                result = await db.pool.query('SELECT * FROM v_model_performance');
+            } catch (viewErr) {
+                // 視圖不存在，使用原始查詢
+                console.log('⚠️ v_model_performance 視圖不存在，使用原始查詢');
+                result = await db.pool.query(`
+                    SELECT
+                        model_name,
+                        mae,
+                        rmse,
+                        mape,
+                        r2,
+                        training_date,
+                        data_count
+                    FROM model_metrics
+                    ORDER BY updated_at DESC
+                `);
+            }
+
+            sendJson(res, {
+                success: true,
+                data: result.rows,
+                count: result.rows.length,
+                source: 'v_model_performance'
+            });
+        } catch (err) {
+            console.error('獲取模型性能失敗:', err);
+            sendJson(res, { error: err.message }, 500);
+        }
     },
 
     // Get comparison data (actual vs predicted)

@@ -8861,6 +8861,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // 載入算法說明
     loadAlgorithmDescription();
+
+    // v4.0.14: 載入性能視圖
+    loadPerformanceViews();
     
     // v3.0.83: 載入雙軌預測系統
     loadDualTrackSection();
@@ -10153,6 +10156,113 @@ async function loadCurrentSmoothingMethod() {
         console.log('✅ 平滑方法已載入:', method, confidence);
     } catch (e) {
         console.log('⚠️ 無法載入平滑方法:', e.message);
+    }
+}
+
+// v4.0.14: 載入性能視圖數據
+async function loadPerformanceViews() {
+    const toggleBtn = document.getElementById('toggle-performance-views');
+    const detailDiv = document.getElementById('performance-views-detail');
+
+    if (!toggleBtn || !detailDiv) return;
+
+    let isLoaded = false;
+
+    toggleBtn.addEventListener('click', async () => {
+        if (detailDiv.style.display === 'none') {
+            detailDiv.style.display = 'block';
+            toggleBtn.innerHTML = '<i class="fas fa-chart-line"></i> 隱藏詳細性能數據';
+
+            if (!isLoaded) {
+                await fetchPerformanceViewsData();
+                isLoaded = true;
+            }
+        } else {
+            detailDiv.style.display = 'none';
+            toggleBtn.innerHTML = '<i class="fas fa-chart-line"></i> 查看詳細性能數據';
+        }
+    });
+}
+
+// v4.0.14: 獲取性能視圖數據
+async function fetchPerformanceViewsData() {
+    const recentAccuracyEl = document.getElementById('recent-accuracy-table');
+    const modelPerformanceEl = document.getElementById('model-performance-table');
+
+    // 獲取最近準確度
+    try {
+        const recentResp = await fetch('/api/recent-accuracy');
+        const recentData = await recentResp.json();
+
+        if (recentData.success && recentData.data && recentData.data.length > 0) {
+            let html = '<table style="width: 100%; font-size: 0.75em; border-collapse: collapse;">';
+            html += '<thead><tr style="background: var(--bg-tertiary);">';
+            html += '<th style="padding: 6px; text-align: left;">日期</th>';
+            html += '<th style="padding: 6px; text-align: right;">預測</th>';
+            html += '<th style="padding: 6px; text-align: right;">實際</th>';
+            html += '<th style="padding: 6px; text-align: right;">誤差</th>';
+            html += '<th style="padding: 6px; text-align: right;">誤差%</th>';
+            html += '</tr></thead><tbody>';
+
+            recentData.data.slice(0, 20).forEach((row, i) => {
+                const date = row.target_date ? new Date(row.target_date).toLocaleDateString('zh-HK') : '--';
+                const errorPct = row.error_percentage ? Math.abs(row.error_percentage).toFixed(1) : '--';
+                const errorColor = Math.abs(row.error_percentage || 0) <= 5 ? '#22c55e' : Math.abs(row.error_percentage || 0) <= 10 ? '#f59e0b' : '#ef4444';
+
+                html += `<tr style="border-bottom: 1px solid var(--border-color); ${i % 2 === 0 ? 'background: var(--bg-primary);' : ''}">`;
+                html += `<td style="padding: 4px 6px;">${date}</td>`;
+                html += `<td style="padding: 4px 6px; text-align: right;">${row.predicted_count || '--'}</td>`;
+                html += `<td style="padding: 4px 6px; text-align: right;">${row.actual_count || '--'}</td>`;
+                html += `<td style="padding: 4px 6px; text-align: right;">${row.error || '--'}</td>`;
+                html += `<td style="padding: 4px 6px; text-align: right; color: ${errorColor};">${errorPct}%</td>`;
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            html += `<p style="font-size: 0.7em; color: var(--text-tertiary); margin-top: 6px;">來源: ${recentData.source} · 共 ${recentData.count} 筆</p>`;
+            recentAccuracyEl.innerHTML = html;
+        } else {
+            recentAccuracyEl.innerHTML = '<p style="color: var(--text-secondary); font-size: 0.85em;">暫無數據（需要運行數據庫遷移）</p>';
+        }
+    } catch (err) {
+        console.error('獲取最近準確度失敗:', err);
+        recentAccuracyEl.innerHTML = `<p style="color: #ef4444; font-size: 0.85em;">載入失敗: ${err.message}</p>`;
+    }
+
+    // 獲取模型性能
+    try {
+        const perfResp = await fetch('/api/model-performance');
+        const perfData = await perfResp.json();
+
+        if (perfData.success && perfData.data && perfData.data.length > 0) {
+            let html = '<table style="width: 100%; font-size: 0.75em; border-collapse: collapse;">';
+            html += '<thead><tr style="background: var(--bg-tertiary);">';
+            html += '<th style="padding: 6px; text-align: left;">模型</th>';
+            html += '<th style="padding: 6px; text-align: right;">MAE</th>';
+            html += '<th style="padding: 6px; text-align: right;">RMSE</th>';
+            html += '<th style="padding: 6px; text-align: right;">MAPE</th>';
+            html += '<th style="padding: 6px; text-align: right;">R²</th>';
+            html += '</tr></thead><tbody>';
+
+            perfData.data.forEach((row, i) => {
+                html += `<tr style="border-bottom: 1px solid var(--border-color); ${i % 2 === 0 ? 'background: var(--bg-primary);' : ''}">`;
+                html += `<td style="padding: 4px 6px;">${row.model_name || '--'}</td>`;
+                html += `<td style="padding: 4px 6px; text-align: right;">${row.mae ? row.mae.toFixed(2) : '--'}</td>`;
+                html += `<td style="padding: 4px 6px; text-align: right;">${row.rmse ? row.rmse.toFixed(2) : '--'}</td>`;
+                html += `<td style="padding: 4px 6px; text-align: right;">${row.mape ? row.mape.toFixed(2) + '%' : '--'}</td>`;
+                html += `<td style="padding: 4px 6px; text-align: right; color: #22c55e;">${row.r2 ? (row.r2 * 100).toFixed(1) + '%' : '--'}</td>`;
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            html += `<p style="font-size: 0.7em; color: var(--text-tertiary); margin-top: 6px;">來源: ${perfData.source} · 共 ${perfData.count} 個模型</p>`;
+            modelPerformanceEl.innerHTML = html;
+        } else {
+            modelPerformanceEl.innerHTML = '<p style="color: var(--text-secondary); font-size: 0.85em;">暫無數據（需要運行數據庫遷移）</p>';
+        }
+    } catch (err) {
+        console.error('獲取模型性能失敗:', err);
+        modelPerformanceEl.innerHTML = `<p style="color: #ef4444; font-size: 0.85em;">載入失敗: ${err.message}</p>`;
     }
 }
 

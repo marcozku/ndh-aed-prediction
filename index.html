@@ -821,6 +821,26 @@
                     <p style="margin-top: 8px; font-size: 0.85em; color: var(--text-secondary);">
                         訓練：<span id="methodology-train-date">--</span> · <span id="methodology-data-count">--</span> 筆數據
                     </p>
+                    <!-- v4.0.14: 性能視圖詳細數據 -->
+                    <div class="performance-views-toggle" style="margin-top: 12px;">
+                        <button id="toggle-performance-views" class="btn-secondary btn-sm" style="font-size: 0.8em; padding: 4px 10px;">
+                            <i class="fas fa-chart-line"></i> 查看詳細性能數據
+                        </button>
+                    </div>
+                    <div id="performance-views-detail" style="display: none; margin-top: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 8px;">
+                        <div style="margin-bottom: 12px;">
+                            <h5 style="font-size: 0.9em; margin-bottom: 8px; color: var(--text-primary);">📈 最近準確度 (v_recent_accuracy)</h5>
+                            <div id="recent-accuracy-table" style="max-height: 200px; overflow-y: auto;">
+                                <p style="color: var(--text-secondary); font-size: 0.85em;">載入中...</p>
+                            </div>
+                        </div>
+                        <div>
+                            <h5 style="font-size: 0.9em; margin-bottom: 8px; color: var(--text-primary);">🤖 模型性能摘要 (v_model_performance)</h5>
+                            <div id="model-performance-table">
+                                <p style="color: var(--text-secondary); font-size: 0.85em;">載入中...</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="methodology-section">
                     <h4>🔥 關鍵特徵</h4>
