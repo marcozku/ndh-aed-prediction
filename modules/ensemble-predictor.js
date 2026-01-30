@@ -205,7 +205,12 @@ class EnsemblePredictor {
      */
     async getModelStatusAsync() {
         const status = this.getModelStatus();
-        const fileMetrics = status.xgboost?.metrics || status.details?.xgboost?.metrics;
+        // v3.2.02: 優先使用當前模型的 metrics（opt10 優先於 xgboost）
+        const currentModel = status.currentModel || 'xgboost';
+        const fileMetrics = status[currentModel]?.metrics ||
+                           status.details?.[currentModel]?.metrics ||
+                           status.xgboost?.metrics ||
+                           status.details?.xgboost?.metrics;
         
         // 優先從數據庫讀取 metrics，但比較日期選擇最新的
         try {

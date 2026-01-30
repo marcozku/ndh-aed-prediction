@@ -1286,9 +1286,14 @@ const MethodologyModal = {
             if (!response.ok) throw new Error('Failed to fetch model diagnostics');
             
             const result = await response.json();
-            // 嘗試多個路徑獲取 metrics
+            // v3.2.02: 優先使用當前模型的 metrics（opt10 優先於 xgboost）
             const modelStatus = result.data?.modelStatus;
-            const metrics = modelStatus?.xgboost?.metrics || 
+            const currentModel = modelStatus?.currentModel || 'xgboost';
+            const metrics = modelStatus?.[currentModel]?.metrics ||
+                           modelStatus?.details?.[currentModel]?.metrics ||
+                           modelStatus?.opt10?.metrics ||
+                           modelStatus?.details?.opt10?.metrics ||
+                           modelStatus?.xgboost?.metrics ||
                            modelStatus?.details?.xgboost?.metrics ||
                            null;
             
@@ -1333,8 +1338,14 @@ const MethodologyModal = {
                         trainDateEl.textContent = metrics.training_date;
                     }
                 }
-                if (dataCountEl && metrics.data_count !== undefined) {
-                    dataCountEl.textContent = metrics.data_count.toLocaleString();
+                if (dataCountEl) {
+                    // v3.2.02: 支持 data_count 或 train_size + test_size
+                    const dataCount = metrics.data_count ||
+                                     (metrics.train_size && metrics.test_size ?
+                                      metrics.train_size + metrics.test_size : null);
+                    if (dataCount) {
+                        dataCountEl.textContent = dataCount.toLocaleString();
+                    }
                 }
                 
                 this.metricsLoaded = true;
