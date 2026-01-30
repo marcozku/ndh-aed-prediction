@@ -10206,8 +10206,10 @@ async function fetchPerformanceViewsData() {
 
             recentData.data.slice(0, 20).forEach((row, i) => {
                 const date = row.target_date ? new Date(row.target_date).toLocaleDateString('zh-HK') : '--';
-                const errorPct = row.error_percentage ? Math.abs(row.error_percentage).toFixed(1) : '--';
-                const errorColor = Math.abs(row.error_percentage || 0) <= 5 ? '#22c55e' : Math.abs(row.error_percentage || 0) <= 10 ? '#f59e0b' : '#ef4444';
+                // v3.2.02: 確保數值類型（PostgreSQL 可能返回字符串）
+                const errorPct = row.error_percentage ? Math.abs(parseFloat(row.error_percentage)).toFixed(1) : '--';
+                const errorPctNum = row.error_percentage ? Math.abs(parseFloat(row.error_percentage)) : 0;
+                const errorColor = errorPctNum <= 5 ? '#22c55e' : errorPctNum <= 10 ? '#f59e0b' : '#ef4444';
 
                 html += `<tr style="border-bottom: 1px solid var(--border-color); ${i % 2 === 0 ? 'background: var(--bg-primary);' : ''}">`;
                 html += `<td style="padding: 4px 6px;">${date}</td>`;
@@ -10245,12 +10247,18 @@ async function fetchPerformanceViewsData() {
             html += '</tr></thead><tbody>';
 
             perfData.data.forEach((row, i) => {
+                // v3.2.02: 確保數值類型（PostgreSQL 可能返回字符串）
+                const mae = row.mae ? parseFloat(row.mae) : null;
+                const rmse = row.rmse ? parseFloat(row.rmse) : null;
+                const mape = row.mape ? parseFloat(row.mape) : null;
+                const r2 = row.r2 ? parseFloat(row.r2) : null;
+
                 html += `<tr style="border-bottom: 1px solid var(--border-color); ${i % 2 === 0 ? 'background: var(--bg-primary);' : ''}">`;
                 html += `<td style="padding: 4px 6px;">${row.model_name || '--'}</td>`;
-                html += `<td style="padding: 4px 6px; text-align: right;">${row.mae ? row.mae.toFixed(2) : '--'}</td>`;
-                html += `<td style="padding: 4px 6px; text-align: right;">${row.rmse ? row.rmse.toFixed(2) : '--'}</td>`;
-                html += `<td style="padding: 4px 6px; text-align: right;">${row.mape ? row.mape.toFixed(2) + '%' : '--'}</td>`;
-                html += `<td style="padding: 4px 6px; text-align: right; color: #22c55e;">${row.r2 ? (row.r2 * 100).toFixed(1) + '%' : '--'}</td>`;
+                html += `<td style="padding: 4px 6px; text-align: right;">${mae !== null ? mae.toFixed(2) : '--'}</td>`;
+                html += `<td style="padding: 4px 6px; text-align: right;">${rmse !== null ? rmse.toFixed(2) : '--'}</td>`;
+                html += `<td style="padding: 4px 6px; text-align: right;">${mape !== null ? mape.toFixed(2) + '%' : '--'}</td>`;
+                html += `<td style="padding: 4px 6px; text-align: right; color: #22c55e;">${r2 !== null ? (r2 * 100).toFixed(1) + '%' : '--'}</td>`;
                 html += '</tr>';
             });
 
