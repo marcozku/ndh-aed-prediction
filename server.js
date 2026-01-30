@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '4.0.15-FORCE-30DAY'; // v3.3.01: 強制 30 天長期預測
+const MODEL_VERSION = '4.0.16-AI-WEATHER-FACTORS'; // v4.0.16: Day 8-30 整合 AI/天氣因子
 
 // ============================================
 // HKT 時間工具函數
@@ -5796,7 +5796,7 @@ async function generateServerSidePredictions(source = 'auto') {
 
             } else {
                 // ============================================================
-                // Day 8-30：長期預測（均值回歸 + 季節性）
+                // Day 8-30：長期預測（均值回歸 + 季節性 + AI + 天氣）
                 // ============================================================
                 const targetMean = dowMeans[dow];
 
@@ -5811,13 +5811,26 @@ async function generateServerSidePredictions(source = 'auto') {
 
                 let value = targetMean + xgboostDeviation * decayFactor;
 
+                // 應用 AI 因素（加法調整，長期影響減弱）
+                if (aiFactor !== 1.0) {
+                    const aiImpact = (aiFactor - 1.0) * targetMean * 0.4; // 長期 AI 影響減弱到 0.4
+                    value += aiImpact;
+                }
+
+                // 應用天氣因素（加法調整，長期影響減弱）
+                if (weatherFactor !== 1.0) {
+                    const weatherImpact = (weatherFactor - 1.0) * targetMean * 0.25; // 長期天氣影響減弱到 0.25
+                    value += weatherImpact;
+                }
+
                 // 應用月份效應
                 value += (monthFactor - 1.0) * targetMean * 0.5;
 
                 adjusted = Math.round(value);
-                predictionMethod = 'long_term_mean_reversion';
+                predictionMethod = 'long_term_mean_reversion_with_factors';
 
-                console.log(`📅 Day ${daysAhead}: Mean=${targetMean}, Decay=${decayFactor.toFixed(2)} → ${adjusted}`);
+                console.log(`📅 Day ${daysAhead}: Mean=${targetMean}, Decay=${decayFactor.toFixed(2)}, ` +
+                    `AI=${aiFactor.toFixed(2)}, Weather=${weatherFactor.toFixed(2)} → ${adjusted}`);
             }
 
             // 置信區間：基於歷史標準差
