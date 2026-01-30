@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '4.0.18'; // v4.0.18: 修復 Day 8-30 週期循環 - 統一使用 XGBoost 混合預測
+const MODEL_VERSION = '4.0.20'; // v4.0.20: 滾動預測修復週期性循環問題
 
 // ============================================
 // HKT 時間工具函數
@@ -5654,9 +5654,17 @@ async function generateServerSidePredictions(source = 'auto') {
         
         console.log(`📊 XGBoost 基準預測: ${Math.round(basePrediction)} 人`);
         console.log(`📅 預測起始日期: ${hk.dateStr}`);
-        
+
+        // v4.0.20: 滾動預測 - 追蹤前一天的預測值來更新偏差
+        // 這解決了 XGBoost 對所有未來日期返回相似值的問題
+        let rollingPredictions = []; // 保存每天的預測值
+        let rollingEWMA7 = basePrediction; // 滾動 EWMA7
+        let rollingEWMA14 = basePrediction; // 滾動 EWMA14
+        const ewma7Alpha = 2 / (7 + 1); // EWMA7 平滑係數
+        const ewma14Alpha = 2 / (14 + 1); // EWMA14 平滑係數
+
         // v3.3.01: 強制擴展到 30 天預測（Day 0-30）
-        console.log('🔥 [FORCE-30DAY] 開始生成 30 天預測循環...');
+        console.log('🔥 [FORCE-30DAY] 開始生成 30 天滾動預測...');
         for (let i = 0; i <= 30; i++) {
             // 使用 HKT 日期計算，避免 UTC 時區偏移問題
             const targetDate = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
@@ -5766,96 +5774,87 @@ async function generateServerSidePredictions(source = 'auto') {
                         adjusted = Math.round(adjusted * holidayFactor);
                     }
                 }
-                
+
                 // v3.0.85: 移除硬上限，讓模型自由預測
-                
+
+                // v4.0.20: Day 0 也保存到滾動預測數組，作為後續預測的基準
+                rollingPredictions.push({ date: dateStr, value: adjusted, dow });
+                rollingEWMA7 = adjusted;
+                rollingEWMA14 = adjusted;
+
             } else {
                 // ============================================================
-                // Day 1-30：XGBoost 預測 + 均值回歸混合（v4.0.18）
+                // Day 1-30：滾動預測 + 均值回歸混合（v4.0.20）
                 // ============================================================
+                // 核心改進：使用前一天的預測值來更新滾動偏差
+                // 這解決了 XGBoost 對所有未來日期返回相似值的週期性問題
+
                 // 權重衰減公式：XGBoost 權重隨天數遞減，均值權重遞增
-                // Day 1-7: weight = max(0.3, 1 - 0.1 * daysAhead)
-                // Day 8-30: weight = max(0.15, 0.3 - 0.01 * (daysAhead - 7))
                 let xgboostWeight;
                 if (daysAhead <= 7) {
                     xgboostWeight = Math.max(0.3, 1.0 - 0.1 * daysAhead);
                 } else {
-                    // Day 8+: 從 0.3 緩慢衰減到 0.15
                     xgboostWeight = Math.max(0.15, 0.3 - 0.007 * (daysAhead - 7));
                 }
                 const meanWeight = 1.0 - xgboostWeight;
 
                 const targetMean = dowMeans[dow];
 
-                // 嘗試獲取該日期的 XGBoost 預測
-                let xgboostPred = null;
-                try {
-                    const futureResult = await ensemblePredictor.predict(dateStr);
-                    if (futureResult && futureResult.prediction) {
-                        xgboostPred = futureResult.prediction;
-                    }
-                } catch (e) {
-                    // XGBoost 預測失敗，使用回退方法
+                // v4.0.20: 使用滾動 EWMA 來調整預測
+                // 滾動偏差 = 前一天預測與該天均值的差異
+                let rollingDeviation = 0;
+                if (rollingPredictions.length > 0) {
+                    const lastPred = rollingPredictions[rollingPredictions.length - 1];
+                    const lastDow = new Date(lastPred.date).getDay();
+                    const lastMean = dowMeans[lastDow] || 247;
+                    rollingDeviation = lastPred.value - lastMean;
                 }
 
-                if (xgboostPred !== null) {
-                    // 混合 XGBoost 和均值
-                    let value = xgboostWeight * xgboostPred + meanWeight * targetMean;
+                // 計算基於滾動 EWMA 的預測
+                // 使用滾動 EWMA 作為「動態基準」，而不是固定的 basePrediction
+                const ewmaBasedPred = rollingEWMA7;
 
-                    // 應用 AI 因素（加法調整，長期影響減弱）
-                    const aiWeight = daysAhead <= 7 ? 0.5 : Math.max(0.3, 0.5 - 0.01 * (daysAhead - 7));
-                    if (aiFactor !== 1.0) {
-                        value += (aiFactor - 1.0) * targetMean * aiWeight;
-                    }
+                // 混合：滾動 EWMA 預測 + 星期均值
+                let value = xgboostWeight * ewmaBasedPred + meanWeight * targetMean;
 
-                    // 應用天氣因素（加法調整，長期影響減弱）
-                    const weatherWeight = daysAhead <= 7 ? 0.3 : Math.max(0.15, 0.3 - 0.01 * (daysAhead - 7));
-                    if (weatherFactor !== 1.0) {
-                        value += (weatherFactor - 1.0) * targetMean * weatherWeight;
-                    }
+                // 加入滾動偏差的衰減影響（讓趨勢延續但逐漸減弱）
+                const deviationDecay = Math.exp(-0.1 * daysAhead);
+                value += rollingDeviation * deviationDecay * 0.3;
 
-                    // 應用月份效應
-                    value += (monthFactor - 1.0) * targetMean * 0.5;
+                // 應用 AI 因素（加法調整，長期影響減弱）
+                const aiWeight = daysAhead <= 7 ? 0.5 : Math.max(0.3, 0.5 - 0.01 * (daysAhead - 7));
+                if (aiFactor !== 1.0) {
+                    value += (aiFactor - 1.0) * targetMean * aiWeight;
+                }
 
-                    adjusted = Math.round(value);
-                    predictionMethod = `xgboost_hybrid_${Math.round(xgboostWeight * 100)}`;
+                // 應用天氣因素（加法調整，長期影響減弱）
+                const weatherWeight = daysAhead <= 7 ? 0.3 : Math.max(0.15, 0.3 - 0.01 * (daysAhead - 7));
+                if (weatherFactor !== 1.0) {
+                    value += (weatherFactor - 1.0) * targetMean * weatherWeight;
+                }
 
-                    // v4.0.19: 應用假期因子（乘法調整）
-                    if (isHoliday) {
-                        adjusted = Math.round(adjusted * holidayFactor);
-                        predictionMethod += '_holiday';
-                    }
+                // 應用月份效應
+                value += (monthFactor - 1.0) * targetMean * 0.5;
 
-                    console.log(`📈 Day ${daysAhead}: XGBoost=${Math.round(xgboostPred)}, Mean=${targetMean}, ` +
-                        `Weight=${xgboostWeight.toFixed(2)}${isHoliday ? ', 🎌假期' : ''} → ${adjusted}`);
-                } else {
-                    // XGBoost 不可用，使用偏差衰減方法
-                    const todayHK = new Date(today.getTime() + 8 * 60 * 60 * 1000);
-                    const todayDOW = todayHK.getUTCDay();
-                    const todayMean = dowMeans[todayDOW];
-                    const xgboostDeviation = basePrediction - todayMean;
-                    const decayFactor = Math.exp(-0.05 * daysAhead); // 更慢的衰減
+                adjusted = Math.round(value);
+                predictionMethod = `rolling_hybrid_${Math.round(xgboostWeight * 100)}`;
 
-                    let value = targetMean + xgboostDeviation * decayFactor;
+                // v4.0.19: 應用假期因子（乘法調整）
+                if (isHoliday) {
+                    adjusted = Math.round(adjusted * holidayFactor);
+                    predictionMethod += '_holiday';
+                }
 
-                    const aiWeight = daysAhead <= 7 ? 0.5 : Math.max(0.3, 0.5 - 0.01 * (daysAhead - 7));
-                    if (aiFactor !== 1.0) {
-                        value += (aiFactor - 1.0) * targetMean * aiWeight;
-                    }
-                    const weatherWeight = daysAhead <= 7 ? 0.3 : Math.max(0.15, 0.3 - 0.01 * (daysAhead - 7));
-                    if (weatherFactor !== 1.0) {
-                        value += (weatherFactor - 1.0) * targetMean * weatherWeight;
-                    }
-                    value += (monthFactor - 1.0) * targetMean * 0.5;
+                // 更新滾動 EWMA（用於下一天的預測）
+                rollingEWMA7 = ewma7Alpha * adjusted + (1 - ewma7Alpha) * rollingEWMA7;
+                rollingEWMA14 = ewma14Alpha * adjusted + (1 - ewma14Alpha) * rollingEWMA14;
 
-                    adjusted = Math.round(value);
+                // 保存這天的預測
+                rollingPredictions.push({ date: dateStr, value: adjusted, dow });
 
-                    // v4.0.19: 應用假期因子（乘法調整）
-                    if (isHoliday) {
-                        adjusted = Math.round(adjusted * holidayFactor);
-                    }
-
-                    predictionMethod = 'deviation_decay';
+                if (daysAhead <= 7 || daysAhead % 7 === 0) {
+                    console.log(`📈 Day ${daysAhead}: EWMA7=${Math.round(rollingEWMA7)}, Mean=${targetMean}, ` +
+                        `Dev=${rollingDeviation.toFixed(1)}${isHoliday ? ', 🎌假期' : ''} → ${adjusted}`);
                 }
             }
 

@@ -1,6 +1,6 @@
 /**
  * XGBoost 預測器模組
- * v3.2.01: 最佳 10 特徵 + Optuna 優化參數
+ * v4.0.20: 支持滾動預測 (rolling forecast) - 修復週期性循環問題
  * 調用 Python XGBoost 預測腳本
  *
  * 模型性能數據從數據庫動態獲取，不使用硬編碼值
@@ -213,12 +213,12 @@ class EnsemblePredictor {
                            status.details?.[currentModel]?.metrics ||
                            status.xgboost?.metrics ||
                            status.details?.xgboost?.metrics;
-        
+
         // 優先從數據庫讀取 metrics，但比較日期選擇最新的
         try {
             const db = require('../database');
             const dbMetrics = await db.getModelMetrics('xgboost');
-            
+
             if (dbMetrics && dbMetrics.mae !== null) {
                 // 安全地解析日期，處理無效日期
                 let dbDate = new Date(0);
@@ -228,7 +228,7 @@ class EnsemblePredictor {
                         dbDate = parsedDbDate;
                     }
                 }
-                
+
                 let fileDate = new Date(0);
                 if (fileMetrics?.training_date) {
                     const parsedFileDate = new Date(fileMetrics.training_date);
@@ -236,10 +236,10 @@ class EnsemblePredictor {
                         fileDate = parsedFileDate;
                     }
                 }
-                
+
                 // 使用較新的數據源
                 const useDatabase = dbDate >= fileDate;
-                
+
                 if (useDatabase) {
                     const metrics = {
                         mae: parseFloat(dbMetrics.mae),
@@ -253,7 +253,7 @@ class EnsemblePredictor {
                         feature_count: dbMetrics.feature_count,
                         ai_factors_count: dbMetrics.ai_factors_count
                     };
-                    
+
                     // 更新 status 中的 metrics
                     if (status.details && status.details.xgboost) {
                         status.details.xgboost.metrics = metrics;
@@ -277,8 +277,81 @@ class EnsemblePredictor {
         } catch (e) {
             console.warn('從數據庫讀取模型指標失敗，使用文件版本:', e.message);
         }
-        
+
         return status;
+    }
+
+    /**
+     * 滾動預測 (v4.0.20) - 修復週期性循環問題
+     * 每天的預測使用前一天的預測值來更新 Lag 和 EWMA 特徵
+     *
+     * @param {string} startDate - 開始日期 (YYYY-MM-DD)
+     * @param {number} days - 預測天數
+     * @param {string} historicalDataPath - 歷史數據 CSV 路徑
+     * @returns {Promise<Object>} 滾動預測結果
+     */
+    async rollingForecast(startDate, days, historicalDataPath) {
+        return new Promise((resolve, reject) => {
+            // 檢查模型是否可用
+            if (!this.isModelAvailable()) {
+                return reject(new Error('XGBoost 模型未訓練。請先運行 python/train_all_models.py'));
+            }
+
+            const ensemblePredictScript = path.join(__dirname, '../python/ensemble_predict.py');
+
+            // 使用滾動預測模式
+            const args = [
+                ensemblePredictScript,
+                '--rolling',
+                startDate,
+                String(days)
+            ];
+
+            if (historicalDataPath) {
+                args.push(historicalDataPath);
+            }
+
+            console.log(`🔄 啟動 ${days} 天滾動預測 (從 ${startDate})`);
+
+            const python = spawn('python3', args, {
+                cwd: path.join(__dirname, '..'),
+                stdio: ['pipe', 'pipe', 'pipe']
+            });
+
+            let output = '';
+            let error = '';
+
+            python.stdout.on('data', (data) => {
+                output += data.toString();
+            });
+
+            python.stderr.on('data', (data) => {
+                const msg = data.toString();
+                error += msg;
+                // 輸出進度信息
+                if (msg.includes('📊') || msg.includes('🔄')) {
+                    console.log(msg.trim());
+                }
+            });
+
+            python.on('close', (code) => {
+                if (code === 0) {
+                    try {
+                        const result = JSON.parse(output);
+                        console.log(`✅ 滾動預測完成: ${result.predictions?.length || 0} 天`);
+                        resolve(result);
+                    } catch (e) {
+                        reject(new Error(`無法解析滾動預測輸出: ${e.message}\n輸出: ${output}`));
+                    }
+                } else {
+                    reject(new Error(`滾動預測錯誤 (code ${code}): ${error || output}`));
+                }
+            });
+
+            python.on('error', (err) => {
+                reject(new Error(`無法執行滾動預測: ${err.message}`));
+            });
+        });
     }
 }
 

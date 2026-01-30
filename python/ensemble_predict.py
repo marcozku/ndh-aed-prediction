@@ -1,6 +1,6 @@
 """
 XGBoost 預測腳本
-v3.2.01: 支持最佳 10 特徵模型 (opt10) 和標準 XGBoost 模型
+v4.0.20: 支持滾動預測 (rolling forecast) - 修復週期性循環問題
 優先使用 opt10 模型 (MAE: 2.85)
 """
 import pandas as pd
@@ -18,7 +18,7 @@ OPT10_FEATURES = [
 ]
 
 def prepare_opt10_features(df, target_date_str):
-    """為 opt10 模型準備特徵"""
+    """為 opt10 模型準備特徵（單日預測）"""
     df = df.copy()
     df['Date'] = pd.to_datetime(df['Date'])
     df = df.sort_values('Date').reset_index(drop=True)
@@ -49,7 +49,7 @@ def prepare_opt10_features(df, target_date_str):
 
     # EWMA
     if len(df) >= 1:
-        series = pd.concat([df['Attendance'], pd.Series([last_row['Attendance_Lag1']])], ignore_index=True)
+        series = df['Attendance']
         last_row['Attendance_EWMA7'] = series.ewm(span=7, adjust=False).mean().iloc[-1]
         last_row['Attendance_EWMA14'] = series.ewm(span=14, adjust=False).mean().iloc[-1]
     else:
@@ -57,17 +57,89 @@ def prepare_opt10_features(df, target_date_str):
         last_row['Attendance_EWMA14'] = 250
 
     # 變化
-    if len(df) >= 1:
-        last_row['Daily_Change'] = last_row['Attendance_Lag1'] - df.iloc[-1]['Attendance'] if len(df) >= 2 else 0
+    if len(df) >= 2:
+        last_row['Daily_Change'] = df.iloc[-1]['Attendance'] - df.iloc[-2]['Attendance']
     else:
         last_row['Daily_Change'] = 0
 
-    if len(df) >= 7:
-        last_row['Weekly_Change'] = last_row['Attendance_Lag1'] - df.iloc[-7]['Attendance']
+    if len(df) >= 8:
+        last_row['Weekly_Change'] = df.iloc[-1]['Attendance'] - df.iloc[-8]['Attendance']
     else:
         last_row['Weekly_Change'] = 0
 
     # 確保列順序與 OPT10_FEATURES 完全一致（XGBoost 需要匹配的特徵名稱）
+    return pd.DataFrame([last_row], columns=OPT10_FEATURES)
+
+
+def prepare_rolling_features(df, target_date_str, previous_predictions=None):
+    """
+    為滾動預測準備特徵 (v4.0.20)
+
+    參數:
+        df: 歷史數據 DataFrame
+        target_date_str: 目標日期
+        previous_predictions: 之前的預測值列表 [{date, prediction}, ...]
+
+    返回:
+        特徵 DataFrame
+    """
+    df = df.copy()
+    df['Date'] = pd.to_datetime(df['Date'])
+    df = df.sort_values('Date').reset_index(drop=True)
+
+    target_dt = pd.to_datetime(target_date_str)
+
+    # 如果有之前的預測，將它們添加到歷史數據中
+    if previous_predictions and len(previous_predictions) > 0:
+        pred_rows = []
+        for pred in previous_predictions:
+            pred_rows.append({
+                'Date': pd.to_datetime(pred['date']),
+                'Attendance': pred['prediction']
+            })
+        pred_df = pd.DataFrame(pred_rows)
+        df = pd.concat([df, pred_df], ignore_index=True)
+        df = df.sort_values('Date').reset_index(drop=True)
+
+    # 時間特徵
+    last_row = {}
+    last_row['Date'] = target_dt
+    last_row['Day_of_Week'] = target_dt.dayofweek
+    last_row['Is_Weekend'] = 1 if target_dt.dayofweek >= 5 else 0
+    last_row['DayOfWeek_sin'] = np.sin(2 * np.pi * target_dt.dayofweek / 7)
+    last_row['DayOfWeek_cos'] = np.cos(2 * np.pi * target_dt.dayofweek / 7)
+
+    # Lag 特徵（使用合併後的數據）
+    if len(df) >= 1:
+        last_row['Attendance_Lag1'] = df.iloc[-1]['Attendance']
+    else:
+        last_row['Attendance_Lag1'] = 250
+
+    if len(df) >= 7:
+        last_row['Attendance_Lag7'] = df.iloc[-7]['Attendance']
+    else:
+        last_row['Attendance_Lag7'] = df['Attendance'].mean() if len(df) > 0 else 250
+
+    # EWMA（使用合併後的數據）
+    if len(df) >= 1:
+        series = df['Attendance']
+        last_row['Attendance_EWMA7'] = series.ewm(span=7, adjust=False).mean().iloc[-1]
+        last_row['Attendance_EWMA14'] = series.ewm(span=14, adjust=False).mean().iloc[-1]
+    else:
+        last_row['Attendance_EWMA7'] = 250
+        last_row['Attendance_EWMA14'] = 250
+
+    # 變化特徵
+    if len(df) >= 2:
+        last_row['Daily_Change'] = df.iloc[-1]['Attendance'] - df.iloc[-2]['Attendance']
+    else:
+        last_row['Daily_Change'] = 0
+
+    if len(df) >= 8:
+        last_row['Weekly_Change'] = df.iloc[-1]['Attendance'] - df.iloc[-8]['Attendance']
+    else:
+        last_row['Weekly_Change'] = 0
+
     return pd.DataFrame([last_row], columns=OPT10_FEATURES)
 
 
@@ -305,35 +377,158 @@ def set_default_ai(row):
     row['AI_Impact_Rolling7'] = 1.0
     row['AI_Impact_Trend'] = 0.0
 
+
+def rolling_forecast(start_date, days, historical_data):
+    """
+    滾動預測 (v4.0.20) - 修復週期性循環問題
+
+    每天的預測使用前一天的預測值來更新 Lag 和 EWMA 特徵，
+    避免所有未來日期使用相同的特徵值。
+
+    參數:
+        start_date: 開始日期 (YYYY-MM-DD)
+        days: 預測天數
+        historical_data: DataFrame，包含歷史數據（Date, Attendance）
+
+    返回:
+        list: [{date, prediction, ci80, ci95}, ...]
+    """
+    # 加載模型
+    xgb_model, xgb_features, model_type = load_xgboost_model()
+
+    if xgb_model is None:
+        return None
+
+    # 準備歷史數據
+    df = historical_data.copy()
+    df['Date'] = pd.to_datetime(df['Date'])
+    df = df.sort_values('Date').reset_index(drop=True)
+
+    predictions = []
+    previous_predictions = []
+
+    start_dt = pd.to_datetime(start_date)
+
+    for i in range(days):
+        target_dt = start_dt + timedelta(days=i)
+        target_date_str = target_dt.strftime('%Y-%m-%d')
+
+        # 使用滾動特徵（包含之前的預測值）
+        if model_type == 'opt10':
+            features_df = prepare_rolling_features(df, target_date_str, previous_predictions)
+        else:
+            # 舊模型使用原始方法
+            features_df = prepare_opt10_features(df, target_date_str)
+
+        if features_df is None:
+            continue
+
+        # XGBoost 預測
+        try:
+            xgb_pred = predict_with_xgboost(xgb_model, xgb_features, features_df)
+        except Exception as e:
+            print(f"⚠️ Day {i} 預測失敗: {e}", file=sys.stderr)
+            continue
+
+        if xgb_pred is None:
+            continue
+
+        # 計算置信區間（遠期預測不確定性增加）
+        uncertainty_multiplier = 1.0 + i * 0.02  # 每天增加 2%
+        std_preds = xgb_pred * 0.05 * uncertainty_multiplier
+
+        result = {
+            'date': target_date_str,
+            'prediction': float(xgb_pred),
+            'day_ahead': i,
+            'ci80': {
+                'low': float(xgb_pred - 1.28 * std_preds),
+                'high': float(xgb_pred + 1.28 * std_preds)
+            },
+            'ci95': {
+                'low': float(xgb_pred - 1.96 * std_preds),
+                'high': float(xgb_pred + 1.96 * std_preds)
+            }
+        }
+
+        predictions.append(result)
+
+        # 將這天的預測添加到歷史中，供下一天使用
+        previous_predictions.append({
+            'date': target_date_str,
+            'prediction': xgb_pred
+        })
+
+        # 每 7 天輸出一次進度
+        if (i + 1) % 7 == 0:
+            print(f"📊 已完成 {i + 1}/{days} 天滾動預測", file=sys.stderr)
+
+    return predictions
+
 def main():
-    """命令行接口"""
+    """命令行接口 v4.0.20"""
     if len(sys.argv) < 2:
-        print("用法: python ensemble_predict.py <target_date> [historical_data_path]", file=sys.stderr)
-        print("注意: 現在只使用 XGBoost 模型", file=sys.stderr)
+        print("用法:", file=sys.stderr)
+        print("  單日預測: python ensemble_predict.py <target_date> [historical_data_path]", file=sys.stderr)
+        print("  滾動預測: python ensemble_predict.py --rolling <start_date> <days> [historical_data_path]", file=sys.stderr)
         sys.exit(1)
-    
-    target_date = sys.argv[1]
-    
-    # 嘗試從數據庫或 CSV 加載歷史數據
-    historical_data = None
-    if len(sys.argv) >= 3:
-        csv_path = sys.argv[2]
-        if os.path.exists(csv_path):
-            historical_data = pd.read_csv(csv_path)
-            if 'Date' not in historical_data.columns:
-                if 'date' in historical_data.columns:
+
+    # 檢查是否為滾動預測模式
+    if sys.argv[1] == '--rolling':
+        if len(sys.argv) < 4:
+            print("滾動預測用法: python ensemble_predict.py --rolling <start_date> <days> [historical_data_path]", file=sys.stderr)
+            sys.exit(1)
+
+        start_date = sys.argv[2]
+        days = int(sys.argv[3])
+
+        # 加載歷史數據
+        historical_data = None
+        if len(sys.argv) >= 5:
+            csv_path = sys.argv[4]
+            if os.path.exists(csv_path):
+                historical_data = pd.read_csv(csv_path)
+                if 'Date' not in historical_data.columns and 'date' in historical_data.columns:
                     historical_data['Date'] = historical_data['date']
-            if 'Attendance' not in historical_data.columns:
-                if 'patient_count' in historical_data.columns:
+                if 'Attendance' not in historical_data.columns and 'patient_count' in historical_data.columns:
                     historical_data['Attendance'] = historical_data['patient_count']
-    
-    result = ensemble_predict(target_date, historical_data)
-    
-    if result:
-        print(json.dumps(result, indent=2))
+
+        if historical_data is None:
+            print("錯誤: 滾動預測需要歷史數據", file=sys.stderr)
+            sys.exit(1)
+
+        print(f"🔄 開始 {days} 天滾動預測 (從 {start_date})", file=sys.stderr)
+        results = rolling_forecast(start_date, days, historical_data)
+
+        if results:
+            print(json.dumps({'predictions': results, 'model_type': 'opt10_rolling'}, indent=2))
+        else:
+            print("錯誤: 滾動預測失敗", file=sys.stderr)
+            sys.exit(1)
     else:
-        print("錯誤: 無法生成預測", file=sys.stderr)
-        sys.exit(1)
+        # 單日預測模式
+        target_date = sys.argv[1]
+
+        # 嘗試從數據庫或 CSV 加載歷史數據
+        historical_data = None
+        if len(sys.argv) >= 3:
+            csv_path = sys.argv[2]
+            if os.path.exists(csv_path):
+                historical_data = pd.read_csv(csv_path)
+                if 'Date' not in historical_data.columns:
+                    if 'date' in historical_data.columns:
+                        historical_data['Date'] = historical_data['date']
+                if 'Attendance' not in historical_data.columns:
+                    if 'patient_count' in historical_data.columns:
+                        historical_data['Attendance'] = historical_data['patient_count']
+
+        result = ensemble_predict(target_date, historical_data)
+
+        if result:
+            print(json.dumps(result, indent=2))
+        else:
+            print("錯誤: 無法生成預測", file=sys.stderr)
+            sys.exit(1)
 
 if __name__ == '__main__':
     main()
