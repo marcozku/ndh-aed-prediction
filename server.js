@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '4.0.17-FORCE-DEPLOY'; // v4.0.17: 強制 Railway 部署 30 天預測 + AI/天氣因子
+const MODEL_VERSION = '4.0.18'; // v4.0.18: 修復 Day 8-30 週期循環 - 統一使用 XGBoost 混合預測
 
 // ============================================
 // HKT 時間工具函數
@@ -5727,18 +5727,24 @@ async function generateServerSidePredictions(source = 'auto') {
                 
                 // v3.0.85: 移除硬上限，讓模型自由預測
                 
-            } else if (daysAhead <= 7) {
+            } else {
                 // ============================================================
-                // Day 1-7：XGBoost 預測 + 均值回歸混合（v3.0.79）
+                // Day 1-30：XGBoost 預測 + 均值回歸混合（v4.0.18）
                 // ============================================================
                 // 權重衰減公式：XGBoost 權重隨天數遞減，均值權重遞增
-                // weight = max(0.3, 1 - 0.1 * daysAhead)
-                // Day 1: 0.9, Day 2: 0.8, ..., Day 7: 0.3
-                const xgboostWeight = Math.max(0.3, 1.0 - 0.1 * daysAhead);
+                // Day 1-7: weight = max(0.3, 1 - 0.1 * daysAhead)
+                // Day 8-30: weight = max(0.15, 0.3 - 0.01 * (daysAhead - 7))
+                let xgboostWeight;
+                if (daysAhead <= 7) {
+                    xgboostWeight = Math.max(0.3, 1.0 - 0.1 * daysAhead);
+                } else {
+                    // Day 8+: 從 0.3 緩慢衰減到 0.15
+                    xgboostWeight = Math.max(0.15, 0.3 - 0.007 * (daysAhead - 7));
+                }
                 const meanWeight = 1.0 - xgboostWeight;
-                
+
                 const targetMean = dowMeans[dow];
-                
+
                 // 嘗試獲取該日期的 XGBoost 預測
                 let xgboostPred = null;
                 try {
@@ -5749,88 +5755,54 @@ async function generateServerSidePredictions(source = 'auto') {
                 } catch (e) {
                     // XGBoost 預測失敗，使用回退方法
                 }
-                
+
                 if (xgboostPred !== null) {
                     // 混合 XGBoost 和均值
                     let value = xgboostWeight * xgboostPred + meanWeight * targetMean;
-                    
-                    // 應用 AI 因素（加法調整）
+
+                    // 應用 AI 因素（加法調整，長期影響減弱）
+                    const aiWeight = daysAhead <= 7 ? 0.5 : Math.max(0.3, 0.5 - 0.01 * (daysAhead - 7));
                     if (aiFactor !== 1.0) {
-                        value += (aiFactor - 1.0) * targetMean * 0.5;
+                        value += (aiFactor - 1.0) * targetMean * aiWeight;
                     }
-                    
-                    // 應用天氣因素（加法調整）
+
+                    // 應用天氣因素（加法調整，長期影響減弱）
+                    const weatherWeight = daysAhead <= 7 ? 0.3 : Math.max(0.15, 0.3 - 0.01 * (daysAhead - 7));
                     if (weatherFactor !== 1.0) {
-                        value += (weatherFactor - 1.0) * targetMean * 0.3;
+                        value += (weatherFactor - 1.0) * targetMean * weatherWeight;
                     }
-                    
+
                     // 應用月份效應
                     value += (monthFactor - 1.0) * targetMean * 0.5;
-                    
+
                     adjusted = Math.round(value);
                     predictionMethod = `xgboost_hybrid_${Math.round(xgboostWeight * 100)}`;
-                    
+
                     console.log(`📈 Day ${daysAhead}: XGBoost=${Math.round(xgboostPred)}, Mean=${targetMean}, ` +
-                        `Weight=${xgboostWeight.toFixed(1)} → ${adjusted}`);
+                        `Weight=${xgboostWeight.toFixed(2)} → ${adjusted}`);
                 } else {
                     // XGBoost 不可用，使用偏差衰減方法
                     const todayHK = new Date(today.getTime() + 8 * 60 * 60 * 1000);
                     const todayDOW = todayHK.getUTCDay();
                     const todayMean = dowMeans[todayDOW];
                     const xgboostDeviation = basePrediction - todayMean;
-                    const decayFactor = Math.exp(-0.1 * daysAhead);
-                    
+                    const decayFactor = Math.exp(-0.05 * daysAhead); // 更慢的衰減
+
                     let value = targetMean + xgboostDeviation * decayFactor;
-                    
+
+                    const aiWeight = daysAhead <= 7 ? 0.5 : Math.max(0.3, 0.5 - 0.01 * (daysAhead - 7));
                     if (aiFactor !== 1.0) {
-                        value += (aiFactor - 1.0) * targetMean * 0.5;
+                        value += (aiFactor - 1.0) * targetMean * aiWeight;
                     }
+                    const weatherWeight = daysAhead <= 7 ? 0.3 : Math.max(0.15, 0.3 - 0.01 * (daysAhead - 7));
                     if (weatherFactor !== 1.0) {
-                        value += (weatherFactor - 1.0) * targetMean * 0.3;
+                        value += (weatherFactor - 1.0) * targetMean * weatherWeight;
                     }
                     value += (monthFactor - 1.0) * targetMean * 0.5;
-                    
+
                     adjusted = Math.round(value);
                     predictionMethod = 'deviation_decay';
                 }
-
-            } else {
-                // ============================================================
-                // Day 8-30：長期預測（均值回歸 + 季節性 + AI + 天氣）
-                // ============================================================
-                const targetMean = dowMeans[dow];
-
-                // 使用偏差衰減方法
-                const todayHK = new Date(today.getTime() + 8 * 60 * 60 * 1000);
-                const todayDOW = todayHK.getUTCDay();
-                const todayMean = dowMeans[todayDOW];
-                const xgboostDeviation = basePrediction - todayMean;
-
-                // 長期預測：偏差快速衰減到 0
-                const decayFactor = Math.exp(-0.2 * daysAhead);
-
-                let value = targetMean + xgboostDeviation * decayFactor;
-
-                // 應用 AI 因素（加法調整，長期影響減弱）
-                if (aiFactor !== 1.0) {
-                    const aiImpact = (aiFactor - 1.0) * targetMean * 0.4; // 長期 AI 影響減弱到 0.4
-                    value += aiImpact;
-                }
-
-                // 應用天氣因素（加法調整，長期影響減弱）
-                if (weatherFactor !== 1.0) {
-                    const weatherImpact = (weatherFactor - 1.0) * targetMean * 0.25; // 長期天氣影響減弱到 0.25
-                    value += weatherImpact;
-                }
-
-                // 應用月份效應
-                value += (monthFactor - 1.0) * targetMean * 0.5;
-
-                adjusted = Math.round(value);
-                predictionMethod = 'long_term_mean_reversion_with_factors';
-
-                console.log(`📅 Day ${daysAhead}: Mean=${targetMean}, Decay=${decayFactor.toFixed(2)}, ` +
-                    `AI=${aiFactor.toFixed(2)}, Weather=${weatherFactor.toFixed(2)} → ${adjusted}`);
             }
 
             // 置信區間：基於歷史標準差
