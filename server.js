@@ -5605,7 +5605,29 @@ async function generateServerSidePredictions(source = 'auto') {
         if (Object.keys(aiFactorsMap).length > 0) {
             console.log(`🤖 AI 因素日期: ${Object.keys(aiFactorsMap).slice(0, 5).join(', ')}`);
         }
-        
+
+        // v4.0.19: 載入香港公眾假期數據
+        let holidaySet = new Set();
+        try {
+            const fs = require('fs');
+            const holidayPath = path.join(__dirname, 'python/hk_public_holidays.json');
+            if (fs.existsSync(holidayPath)) {
+                const holidayData = JSON.parse(fs.readFileSync(holidayPath, 'utf8'));
+                // 將所有年份的假期日期加入 Set
+                for (const year in holidayData.holidays) {
+                    for (const date of holidayData.holidays[year]) {
+                        holidaySet.add(date);
+                    }
+                }
+                console.log(`🎌 已載入 ${holidaySet.size} 個公眾假期日期`);
+            }
+        } catch (e) {
+            console.log('⚠️ 無法載入假期數據:', e.message);
+        }
+
+        // 假期因子（基於歷史數據分析）
+        const HOLIDAY_FACTOR = 0.92; // 假期平均減少 8% 求診人數
+
         // 首先獲取 XGBoost 基準預測（使用今天的日期）
         let basePrediction = null;
         try {
@@ -5658,12 +5680,21 @@ async function generateServerSidePredictions(source = 'auto') {
                 aiInfo = aiFactorsMap[dateStr];
             }
             
-            // 應用天氣因素調整
+            // 應用天氣因素調整（只使用真實天氣預報數據）
             let weatherFactor = 1.0;
             let weatherInfo = null;
             if (weatherForecast[dateStr]) {
                 weatherFactor = weatherForecast[dateStr].factor;
                 weatherInfo = weatherForecast[dateStr];
+            }
+            // Day 10+ 沒有天氣預報數據，weatherFactor 保持 1.0
+
+            // v4.0.19: 應用假期因子
+            let holidayFactor = 1.0;
+            let isHoliday = false;
+            if (holidaySet.has(dateStr)) {
+                holidayFactor = HOLIDAY_FACTOR;
+                isHoliday = true;
             }
             
             // ============================================================
@@ -5706,16 +5737,22 @@ async function generateServerSidePredictions(source = 'auto') {
                     });
                     bayesianResult = bayesian.predict(basePrediction, aiFactor, weatherFactor);
                     adjusted = bayesianResult.prediction;
+
+                    // v4.0.19: 應用假期因子（乘法調整）
+                    if (isHoliday) {
+                        adjusted = Math.round(adjusted * holidayFactor);
+                    }
+
                     predictionMethod = 'pragmatic_bayesian';
-                    
-                    console.log(`🎯 Day 0 Bayesian: base=${basePrediction}, AI=${aiFactor.toFixed(2)}, Weather=${weatherFactor.toFixed(2)} → ${adjusted}`);
+
+                    console.log(`🎯 Day 0 Bayesian: base=${basePrediction}, AI=${aiFactor.toFixed(2)}, Weather=${weatherFactor.toFixed(2)}${isHoliday ? ', 🎌假期' : ''} → ${adjusted}`);
                 } catch (e) {
                     // Fallback 使用加法效應模型
                     console.log(`⚠️ Bayesian 融合失敗，使用加法模型: ${e.message}`);
                     const targetMean = dowMeans[dow];
                     const xgboostDeviation = basePrediction - targetMean;
                     let value = targetMean + xgboostDeviation;
-                    
+
                     if (aiFactor !== 1.0) {
                         value += (aiFactor - 1.0) * targetMean * 0.5;
                     }
@@ -5723,6 +5760,11 @@ async function generateServerSidePredictions(source = 'auto') {
                         value += (weatherFactor - 1.0) * targetMean * 0.3;
                     }
                     adjusted = Math.round(value);
+
+                    // v4.0.19: 應用假期因子（乘法調整）
+                    if (isHoliday) {
+                        adjusted = Math.round(adjusted * holidayFactor);
+                    }
                 }
                 
                 // v3.0.85: 移除硬上限，讓模型自由預測
@@ -5778,8 +5820,14 @@ async function generateServerSidePredictions(source = 'auto') {
                     adjusted = Math.round(value);
                     predictionMethod = `xgboost_hybrid_${Math.round(xgboostWeight * 100)}`;
 
+                    // v4.0.19: 應用假期因子（乘法調整）
+                    if (isHoliday) {
+                        adjusted = Math.round(adjusted * holidayFactor);
+                        predictionMethod += '_holiday';
+                    }
+
                     console.log(`📈 Day ${daysAhead}: XGBoost=${Math.round(xgboostPred)}, Mean=${targetMean}, ` +
-                        `Weight=${xgboostWeight.toFixed(2)} → ${adjusted}`);
+                        `Weight=${xgboostWeight.toFixed(2)}${isHoliday ? ', 🎌假期' : ''} → ${adjusted}`);
                 } else {
                     // XGBoost 不可用，使用偏差衰減方法
                     const todayHK = new Date(today.getTime() + 8 * 60 * 60 * 1000);
@@ -5801,6 +5849,12 @@ async function generateServerSidePredictions(source = 'auto') {
                     value += (monthFactor - 1.0) * targetMean * 0.5;
 
                     adjusted = Math.round(value);
+
+                    // v4.0.19: 應用假期因子（乘法調整）
+                    if (isHoliday) {
+                        adjusted = Math.round(adjusted * holidayFactor);
+                    }
+
                     predictionMethod = 'deviation_decay';
                 }
             }
@@ -5854,10 +5908,12 @@ async function generateServerSidePredictions(source = 'auto') {
                     dow: dowFactor,
                     month: monthFactor,
                     ai: aiFactor,
-                    weather: weatherFactor
+                    weather: weatherFactor,
+                    holiday: holidayFactor  // v4.0.19: 假期因子
                 },
                 weatherInfo,
                 aiInfo,
+                isHoliday,  // v4.0.19: 是否假期
                 anomaly,  // v3.0.85: 異常標記
                 // v3.0.86: 雙軌數據
                 dualTrack: {
