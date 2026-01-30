@@ -7,7 +7,9 @@
       "Bash(node:*)",
       "Bash(echo:*)",
       "Bash(git commit:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(timeout 30 python:*)",
+      "Bash(psql:*)"
     ],
     "deny": [],
     "ask": []

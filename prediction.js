@@ -10283,26 +10283,34 @@ async function fetchPerformanceViewsData() {
             html += `<td style="padding: 6px; text-align: right; color: ${mapeColor};">+${mapeGapPct.toFixed(0)}%</td>`;
             html += '</tr>';
 
-            // R² - 訓練有理論值，實際用 1-(實際MAE/平均值)² 估算
-            const estimatedR2 = real.mae > 0 ? Math.max(0, 1 - Math.pow(real.mae / 240, 2)) : 0; // 假設平均值約240
-            const r2Gap = (training.r2 - estimatedR2) * 100;
-            const r2Color = r2Gap > 50 ? '#ef4444' : r2Gap > 20 ? '#f59e0b' : '#22c55e';
+            // R² - 只有訓練數據有，實際無法計算（需要完整測試集）
             html += `<tr style="border-bottom: 1px solid var(--border-color); background: var(--bg-primary);">`;
             html += `<td style="padding: 6px;">R² (%)</td>`;
             html += `<td style="padding: 6px; text-align: right; color: #22c55e;">${(training.r2 * 100).toFixed(1)}</td>`;
-            html += `<td style="padding: 6px; text-align: right;">${(estimatedR2 * 100).toFixed(1)}*</td>`;
-            html += `<td style="padding: 6px; text-align: right; color: ${r2Color};">-${r2Gap.toFixed(0)}%</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: var(--text-tertiary);">N/A</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: var(--text-tertiary);">N/A</td>`;
             html += '</tr>';
 
-            // CI 準確率 - 目標是 80%
-            const ci80Gap = real.ci80_accuracy - 80; // 與目標 80% 的差距
+            // 80% CI 準確率 - 實際數據，目標是 80%
+            const ci80Gap = real.ci80_accuracy - 80;
             const ci80GapColor = ci80Gap >= 0 ? '#22c55e' : ci80Gap >= -10 ? '#f59e0b' : '#ef4444';
             html += `<tr style="border-bottom: 1px solid var(--border-color);">`;
             html += `<td style="padding: 6px;">80% CI 準確率</td>`;
-            html += `<td style="padding: 6px; text-align: right; color: #22c55e;">80.0</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: var(--text-tertiary);">目標 80%</td>`;
             const ci80Color = real.ci80_accuracy >= 80 ? '#22c55e' : real.ci80_accuracy >= 70 ? '#f59e0b' : '#ef4444';
-            html += `<td style="padding: 6px; text-align: right; color: ${ci80Color};">${real.ci80_accuracy.toFixed(1)}</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: ${ci80Color};">${real.ci80_accuracy.toFixed(1)}%</td>`;
             html += `<td style="padding: 6px; text-align: right; color: ${ci80GapColor};">${ci80Gap >= 0 ? '+' : ''}${ci80Gap.toFixed(1)}%</td>`;
+            html += '</tr>';
+
+            // 95% CI 準確率 - 實際數據
+            const ci95Gap = real.ci95_accuracy - 95;
+            const ci95GapColor = ci95Gap >= 0 ? '#22c55e' : ci95Gap >= -10 ? '#f59e0b' : '#ef4444';
+            html += `<tr style="border-bottom: 1px solid var(--border-color); background: var(--bg-primary);">`;
+            html += `<td style="padding: 6px;">95% CI 準確率</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: var(--text-tertiary);">目標 95%</td>`;
+            const ci95Color = real.ci95_accuracy >= 95 ? '#22c55e' : real.ci95_accuracy >= 85 ? '#f59e0b' : '#ef4444';
+            html += `<td style="padding: 6px; text-align: right; color: ${ci95Color};">${real.ci95_accuracy.toFixed(1)}%</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: ${ci95GapColor};">${ci95Gap >= 0 ? '+' : ''}${ci95Gap.toFixed(1)}%</td>`;
             html += '</tr>';
 
             html += '</tbody></table>';
