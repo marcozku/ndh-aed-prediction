@@ -866,6 +866,129 @@ const apiHandlers = {
         }
     },
 
+    // v4.0.15: 獲取訓練性能 vs 實際性能對比數據
+    'GET /api/performance-comparison': async (req, res) => {
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
+
+        try {
+            // 1. 獲取訓練理論性能 (model_metrics)
+            const trainingResult = await db.pool.query(`
+                SELECT
+                    model_name,
+                    version,
+                    mae as training_mae,
+                    rmse as training_rmse,
+                    mape as training_mape,
+                    r2 as training_r2,
+                    n_features,
+                    optimization_method,
+                    training_date
+                FROM model_metrics
+                WHERE model_name = 'xgboost'
+                ORDER BY updated_at DESC
+                LIMIT 1
+            `);
+
+            // 2. 獲取實際預測性能 (prediction_accuracy)
+            const realResult = await db.pool.query(`
+                SELECT
+                    COUNT(*) as total_predictions,
+                    AVG(ABS(predicted_count - actual_count)) as real_mae,
+                    SQRT(AVG(POWER(predicted_count - actual_count, 2))) as real_rmse,
+                    AVG(ABS(predicted_count - actual_count)::float / NULLIF(actual_count, 0) * 100) as real_mape,
+                    SUM(CASE WHEN within_ci80 THEN 1 ELSE 0 END)::float / COUNT(*) * 100 as ci80_accuracy,
+                    SUM(CASE WHEN within_ci95 THEN 1 ELSE 0 END)::float / COUNT(*) * 100 as ci95_accuracy
+                FROM prediction_accuracy
+                WHERE actual_count IS NOT NULL
+            `);
+
+            // 3. 獲取最近 30 天的實際性能
+            const recent30Result = await db.pool.query(`
+                SELECT
+                    COUNT(*) as total_predictions,
+                    AVG(ABS(predicted_count - actual_count)) as real_mae,
+                    SQRT(AVG(POWER(predicted_count - actual_count, 2))) as real_rmse,
+                    AVG(ABS(predicted_count - actual_count)::float / NULLIF(actual_count, 0) * 100) as real_mape
+                FROM prediction_accuracy
+                WHERE actual_count IS NOT NULL
+                AND target_date >= CURRENT_DATE - INTERVAL '30 days'
+            `);
+
+            const training = trainingResult.rows[0] || {};
+            const real = realResult.rows[0] || {};
+            const recent30 = recent30Result.rows[0] || {};
+
+            // 4. 計算差距和改進建議
+            const trainingMAE = parseFloat(training.training_mae) || 0;
+            const realMAE = parseFloat(real.real_mae) || 0;
+            const maeGap = realMAE - trainingMAE;
+            const maeGapPercent = trainingMAE > 0 ? ((maeGap / trainingMAE) * 100) : 0;
+
+            const improvements = [];
+            if (maeGapPercent > 100) {
+                improvements.push({
+                    area: '模型泛化能力',
+                    severity: 'high',
+                    suggestion: '實際 MAE 遠高於訓練 MAE，建議增加訓練數據多樣性或調整模型複雜度'
+                });
+            }
+            if (parseFloat(real.ci80_accuracy) < 80) {
+                improvements.push({
+                    area: '置信區間校準',
+                    severity: 'medium',
+                    suggestion: `80% CI 準確率僅 ${parseFloat(real.ci80_accuracy).toFixed(1)}%，建議重新校準置信區間`
+                });
+            }
+            if (parseFloat(recent30.real_mae) > realMAE * 1.2) {
+                improvements.push({
+                    area: '近期性能下降',
+                    severity: 'high',
+                    suggestion: '近 30 天性能明顯下降，建議檢查數據分佈變化或重新訓練模型'
+                });
+            }
+
+            sendJson(res, {
+                success: true,
+                data: {
+                    training: {
+                        model_name: training.model_name || 'xgboost',
+                        version: training.version || 'unknown',
+                        mae: parseFloat(training.training_mae) || 0,
+                        rmse: parseFloat(training.training_rmse) || 0,
+                        mape: parseFloat(training.training_mape) || 0,
+                        r2: parseFloat(training.training_r2) || 0,
+                        n_features: training.n_features || 0,
+                        optimization_method: training.optimization_method || '',
+                        training_date: training.training_date
+                    },
+                    real: {
+                        total_predictions: parseInt(real.total_predictions) || 0,
+                        mae: parseFloat(real.real_mae) || 0,
+                        rmse: parseFloat(real.real_rmse) || 0,
+                        mape: parseFloat(real.real_mape) || 0,
+                        ci80_accuracy: parseFloat(real.ci80_accuracy) || 0,
+                        ci95_accuracy: parseFloat(real.ci95_accuracy) || 0
+                    },
+                    recent30: {
+                        total_predictions: parseInt(recent30.total_predictions) || 0,
+                        mae: parseFloat(recent30.real_mae) || 0,
+                        rmse: parseFloat(recent30.real_rmse) || 0,
+                        mape: parseFloat(recent30.real_mape) || 0
+                    },
+                    gap_analysis: {
+                        mae_gap: maeGap,
+                        mae_gap_percent: maeGapPercent,
+                        status: maeGapPercent > 200 ? 'critical' : maeGapPercent > 100 ? 'warning' : 'good'
+                    },
+                    improvements: improvements
+                }
+            });
+        } catch (err) {
+            console.error('獲取性能對比失敗:', err);
+            sendJson(res, { error: err.message }, 500);
+        }
+    },
+
     // Get comparison data (actual vs predicted)
     'GET /api/comparison': async (req, res) => {
         if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);

@@ -10231,39 +10231,112 @@ async function fetchPerformanceViewsData() {
         recentAccuracyEl.innerHTML = `<p style="color: #ef4444; font-size: 0.85em;">載入失敗: ${err.message}</p>`;
     }
 
-    // 獲取模型性能
+    // 獲取模型性能 - v4.0.15: 改為顯示訓練 vs 實際性能對比
     try {
-        const perfResp = await fetch('/api/model-performance');
+        const perfResp = await fetch('/api/performance-comparison');
         const perfData = await perfResp.json();
 
-        if (perfData.success && perfData.data && perfData.data.length > 0) {
-            let html = '<table style="width: 100%; font-size: 0.75em; border-collapse: collapse;">';
+        if (perfData.success && perfData.data) {
+            const { training, real, recent30, gap_analysis, improvements } = perfData.data;
+
+            let html = '<div style="font-size: 0.8em;">';
+
+            // 訓練 vs 實際對比表
+            html += '<table style="width: 100%; font-size: 0.9em; border-collapse: collapse; margin-bottom: 12px;">';
             html += '<thead><tr style="background: var(--bg-tertiary);">';
-            html += '<th style="padding: 6px; text-align: left;">模型</th>';
-            html += '<th style="padding: 6px; text-align: right;">MAE</th>';
-            html += '<th style="padding: 6px; text-align: right;">RMSE</th>';
-            html += '<th style="padding: 6px; text-align: right;">MAPE</th>';
-            html += '<th style="padding: 6px; text-align: right;">R²</th>';
+            html += '<th style="padding: 8px; text-align: left;">指標</th>';
+            html += '<th style="padding: 8px; text-align: right;">訓練理論</th>';
+            html += '<th style="padding: 8px; text-align: right;">實際表現</th>';
+            html += '<th style="padding: 8px; text-align: right;">差距</th>';
             html += '</tr></thead><tbody>';
 
-            perfData.data.forEach((row, i) => {
-                // v3.2.02: 確保數值類型（PostgreSQL 可能返回字符串）
-                const mae = row.mae ? parseFloat(row.mae) : null;
-                const rmse = row.rmse ? parseFloat(row.rmse) : null;
-                const mape = row.mape ? parseFloat(row.mape) : null;
-                const r2 = row.r2 ? parseFloat(row.r2) : null;
+            // MAE
+            const maeGap = real.mae - training.mae;
+            const maeGapPct = training.mae > 0 ? (maeGap / training.mae * 100) : 0;
+            const maeColor = maeGapPct > 200 ? '#ef4444' : maeGapPct > 100 ? '#f59e0b' : '#22c55e';
+            html += `<tr style="border-bottom: 1px solid var(--border-color);">`;
+            html += `<td style="padding: 6px;">MAE (人)</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: #22c55e;">${training.mae.toFixed(2)}</td>`;
+            html += `<td style="padding: 6px; text-align: right;">${real.mae.toFixed(2)}</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: ${maeColor};">+${maeGapPct.toFixed(0)}%</td>`;
+            html += '</tr>';
 
-                html += `<tr style="border-bottom: 1px solid var(--border-color); ${i % 2 === 0 ? 'background: var(--bg-primary);' : ''}">`;
-                html += `<td style="padding: 4px 6px;">${row.model_name || '--'}</td>`;
-                html += `<td style="padding: 4px 6px; text-align: right;">${mae !== null ? mae.toFixed(2) : '--'}</td>`;
-                html += `<td style="padding: 4px 6px; text-align: right;">${rmse !== null ? rmse.toFixed(2) : '--'}</td>`;
-                html += `<td style="padding: 4px 6px; text-align: right;">${mape !== null ? mape.toFixed(2) + '%' : '--'}</td>`;
-                html += `<td style="padding: 4px 6px; text-align: right; color: #22c55e;">${r2 !== null ? (r2 * 100).toFixed(1) + '%' : '--'}</td>`;
-                html += '</tr>';
-            });
+            // RMSE
+            const rmseGap = real.rmse - training.rmse;
+            const rmseGapPct = training.rmse > 0 ? (rmseGap / training.rmse * 100) : 0;
+            const rmseColor = rmseGapPct > 200 ? '#ef4444' : rmseGapPct > 100 ? '#f59e0b' : '#22c55e';
+            html += `<tr style="border-bottom: 1px solid var(--border-color); background: var(--bg-primary);">`;
+            html += `<td style="padding: 6px;">RMSE (人)</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: #22c55e;">${training.rmse.toFixed(2)}</td>`;
+            html += `<td style="padding: 6px; text-align: right;">${real.rmse.toFixed(2)}</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: ${rmseColor};">+${rmseGapPct.toFixed(0)}%</td>`;
+            html += '</tr>';
+
+            // MAPE
+            html += `<tr style="border-bottom: 1px solid var(--border-color);">`;
+            html += `<td style="padding: 6px;">MAPE (%)</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: #22c55e;">${training.mape.toFixed(2)}</td>`;
+            html += `<td style="padding: 6px; text-align: right;">${real.mape.toFixed(2)}</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: var(--text-secondary);">--</td>`;
+            html += '</tr>';
+
+            // R² (只有訓練有)
+            html += `<tr style="border-bottom: 1px solid var(--border-color); background: var(--bg-primary);">`;
+            html += `<td style="padding: 6px;">R² (%)</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: #22c55e;">${(training.r2 * 100).toFixed(1)}</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: var(--text-secondary);">--</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: var(--text-secondary);">--</td>`;
+            html += '</tr>';
+
+            // CI 準確率
+            html += `<tr style="border-bottom: 1px solid var(--border-color);">`;
+            html += `<td style="padding: 6px;">80% CI 準確率</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: var(--text-secondary);">--</td>`;
+            const ci80Color = real.ci80_accuracy >= 80 ? '#22c55e' : real.ci80_accuracy >= 70 ? '#f59e0b' : '#ef4444';
+            html += `<td style="padding: 6px; text-align: right; color: ${ci80Color};">${real.ci80_accuracy.toFixed(1)}%</td>`;
+            html += `<td style="padding: 6px; text-align: right; color: var(--text-secondary);">--</td>`;
+            html += '</tr>';
 
             html += '</tbody></table>';
-            html += `<p style="font-size: 0.7em; color: var(--text-tertiary); margin-top: 6px;">來源: ${perfData.source} · 共 ${perfData.count} 個模型</p>`;
+
+            // 狀態指示
+            const statusColor = gap_analysis.status === 'critical' ? '#ef4444' : gap_analysis.status === 'warning' ? '#f59e0b' : '#22c55e';
+            const statusIcon = gap_analysis.status === 'critical' ? '🔴' : gap_analysis.status === 'warning' ? '🟡' : '🟢';
+            const statusText = gap_analysis.status === 'critical' ? '需要改進' : gap_analysis.status === 'warning' ? '有待優化' : '表現良好';
+
+            html += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--bg-tertiary); border-radius: 6px; margin-bottom: 10px;">`;
+            html += `<span>${statusIcon} <strong style="color: ${statusColor};">${statusText}</strong></span>`;
+            html += `<span style="font-size: 0.85em;">訓練: ${training.version} · 實際: ${real.total_predictions} 筆預測</span>`;
+            html += '</div>';
+
+            // 近 30 天趨勢
+            if (recent30.total_predictions > 0) {
+                const recent30Better = recent30.mae < real.mae;
+                const trendIcon = recent30Better ? '📈' : '📉';
+                const trendColor = recent30Better ? '#22c55e' : '#f59e0b';
+                html += `<div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 10px;">`;
+                html += `${trendIcon} 近 30 天 MAE: <span style="color: ${trendColor};">${recent30.mae.toFixed(2)} 人</span> (${recent30.total_predictions} 筆)`;
+                if (recent30Better) {
+                    html += ` <span style="color: #22c55e;">↑ 改善中</span>`;
+                }
+                html += '</div>';
+            }
+
+            // 改進建議
+            if (improvements && improvements.length > 0) {
+                html += '<div style="margin-top: 10px; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: 6px; border-left: 3px solid #ef4444;">';
+                html += '<strong style="font-size: 0.85em;">💡 改進建議:</strong>';
+                html += '<ul style="margin: 6px 0 0 0; padding-left: 18px; font-size: 0.8em;">';
+                improvements.forEach(imp => {
+                    const sevColor = imp.severity === 'high' ? '#ef4444' : '#f59e0b';
+                    html += `<li style="margin-bottom: 4px; color: ${sevColor};">${imp.suggestion}</li>`;
+                });
+                html += '</ul></div>';
+            }
+
+            html += '</div>';
+            html += `<p style="font-size: 0.65em; color: var(--text-tertiary); margin-top: 8px;">訓練: ${training.optimization_method} · ${training.n_features} 特徵</p>`;
+
             modelPerformanceEl.innerHTML = html;
         } else {
             modelPerformanceEl.innerHTML = '<p style="color: var(--text-secondary); font-size: 0.85em;">暫無數據（需要運行數據庫遷移）</p>';
