@@ -1,0 +1,17 @@
+[
+  "Attendance_EWMA7",
+  "Daily_Change",
+  "Attendance_EWMA14",
+  "Weekly_Change",
+  "Day_of_Week",
+  "Attendance_Lag7",
+  "Attendance_Lag1",
+  "Is_Weekend",
+  "DayOfWeek_sin",
+  "DayOfWeek_cos",
+  "Is_Public_Holiday",
+  "Days_To_Holiday",
+  "Days_After_Holiday",
+  "Is_Holiday_Eve",
+  "Is_Holiday_After"
+]

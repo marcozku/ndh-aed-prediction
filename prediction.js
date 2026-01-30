@@ -1534,9 +1534,9 @@ async function initCharts(predictor) {
     let usedDatabasePredictions = false;
     let dbPredictionCount = 0;
     
-    // 嘗試從資料庫載入 7 天 XGBoost 預測
+    // 嘗試從資料庫載入 30 天 XGBoost 預測
     try {
-        const response = await fetch('/api/future-predictions?days=7');
+        const response = await fetch('/api/future-predictions?days=30');
         const result = await response.json();
         
         if (result.success && result.data && result.data.length >= 5) {
@@ -6407,8 +6407,8 @@ let weatherForecastData = null;
 let weatherMonthlyAverages = null; // 從 HKO 歷史數據計算的月度平均
 let currentAQHI = null; // AQHI 空氣質素數據
 
-// 緩存 7 天預測結果（確保 7 天預測卡片和趨勢圖數據一致）
-let cached7DayForecasts = null;
+// 緩存 30 天預測結果（確保 30 天預測卡片和趨勢圖數據一致）
+let cached30DayForecasts = null;
 
 // 天氣快取
 const weatherCache = {

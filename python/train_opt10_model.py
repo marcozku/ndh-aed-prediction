@@ -139,13 +139,15 @@ def prepare_optimal_features(df):
     df['Attendance_Lag1'] = df['Attendance'].shift(1)
     df['Attendance_Lag7'] = df['Attendance'].shift(7)
 
-    print(f"   🔨 計算 EWMA...", flush=True)
-    df['Attendance_EWMA7'] = df['Attendance'].ewm(span=7, adjust=False).mean()
-    df['Attendance_EWMA14'] = df['Attendance'].ewm(span=14, adjust=False).mean()
+    print(f"   🔨 計算 EWMA (修復數據洩漏)...", flush=True)
+    # 修復: 使用 shift(1) 避免數據洩漏，不包含當天的 Attendance
+    df['Attendance_EWMA7'] = df['Attendance'].shift(1).ewm(span=7, adjust=False).mean()
+    df['Attendance_EWMA14'] = df['Attendance'].shift(1).ewm(span=14, adjust=False).mean()
 
-    print(f"   🔨 計算變化特徵...", flush=True)
-    df['Daily_Change'] = df['Attendance'].diff()
-    df['Weekly_Change'] = df['Attendance'].diff(7)
+    print(f"   🔨 計算變化特徵 (修復數據洩漏)...", flush=True)
+    # 修復: 使用 shift(1) 避免數據洩漏
+    df['Daily_Change'] = df['Attendance'].shift(1).diff()
+    df['Weekly_Change'] = df['Attendance'].shift(1).diff(7)
 
     print(f"   🔨 處理缺失值...", flush=True)
     df['Attendance_Lag1'] = df['Attendance_Lag1'].fillna(df['Attendance'].mean())

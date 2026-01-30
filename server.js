@@ -500,7 +500,7 @@ const apiHandlers = {
         
         try {
             const parsedUrl = url.parse(req.url, true);
-            const days = Math.min(parseInt(parsedUrl.query.days) || 7, 7); // v3.0.86: 最多 7 天
+            const days = Math.min(parseInt(parsedUrl.query.days) || 30, 30); // v3.3.00: 最多 30 天
             
             // 獲取香港時間的今天日期
             const now = new Date();
@@ -5633,8 +5633,8 @@ async function generateServerSidePredictions(source = 'auto') {
         console.log(`📊 XGBoost 基準預測: ${Math.round(basePrediction)} 人`);
         console.log(`📅 預測起始日期: ${hk.dateStr}`);
         
-        // v3.0.86: 只預測 7 天（Day 0-7）
-        for (let i = 0; i <= 7; i++) {
+        // v3.3.00: 擴展到 30 天預測（Day 0-30）
+        for (let i = 0; i <= 30; i++) {
             // 使用 HKT 日期計算，避免 UTC 時區偏移問題
             const targetDate = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
             // 轉換為 HKT 時區的日期字符串

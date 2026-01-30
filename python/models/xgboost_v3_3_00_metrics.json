@@ -1,0 +1,108 @@
+{
+  "version": "3.3.00",
+  "model_name": "xgboost_v3_3_00_fixed",
+  "features": [
+    "Attendance_EWMA7",
+    "Daily_Change",
+    "Attendance_EWMA14",
+    "Weekly_Change",
+    "Day_of_Week",
+    "Attendance_Lag7",
+    "Attendance_Lag1",
+    "Is_Weekend",
+    "DayOfWeek_sin",
+    "DayOfWeek_cos",
+    "Is_Public_Holiday",
+    "Days_To_Holiday",
+    "Days_After_Holiday",
+    "Is_Holiday_Eve",
+    "Is_Holiday_After"
+  ],
+  "n_features": 15,
+  "mae": 17.740127563476562,
+  "rmse": 22.70962731643922,
+  "mape": 7.34299914425574,
+  "r2": 0.2757784128189087,
+  "cv_mae": 17.120051193237305,
+  "cv_results": [
+    {
+      "fold": 1,
+      "mae": 18.13134002685547,
+      "rmse": 22.701441997150752,
+      "mape": 7.12996355986938,
+      "r2": 0.30472302436828613
+    },
+    {
+      "fold": 2,
+      "mae": 17.35016632080078,
+      "rmse": 20.87204963712686,
+      "mape": 6.989940815856197,
+      "r2": 0.3783532381057739
+    },
+    {
+      "fold": 3,
+      "mae": 16.2430419921875,
+      "rmse": 20.56292223279447,
+      "mape": 6.779712392842077,
+      "r2": 0.3506892919540405
+    },
+    {
+      "fold": 4,
+      "mae": 16.482036590576172,
+      "rmse": 21.333071627601107,
+      "mape": 6.710466395109968,
+      "r2": 0.2348170280456543
+    },
+    {
+      "fold": 5,
+      "mae": 17.3936710357666,
+      "rmse": 23.598748694399163,
+      "mape": 7.241614665336352,
+      "r2": 0.3344534635543823
+    }
+  ],
+  "improvements": {
+    "data_leakage_fixed": true,
+    "holiday_features_added": true,
+    "time_series_cv": true
+  },
+  "comparison_v3_2_01": {
+    "old_mae": 2.85,
+    "new_mae": 17.740127563476562,
+    "mae_change_pct": 522.4606162623355,
+    "note": "訓練 MAE 上升是正常的（修復數據洩漏後），更接近真實性能"
+  },
+  "training_date": "2026-01-30 22:09:18",
+  "train_size": 2996,
+  "test_size": 749,
+  "feature_importance": {
+    "Attendance_EWMA7": 0.0,
+    "Daily_Change": 0.0,
+    "Attendance_EWMA14": 0.0,
+    "Weekly_Change": 0.0,
+    "Day_of_Week": 0.0,
+    "Attendance_Lag7": 0.0,
+    "Attendance_Lag1": 0.0,
+    "Is_Weekend": 0.0,
+    "DayOfWeek_sin": 0.0,
+    "DayOfWeek_cos": 0.0,
+    "Is_Public_Holiday": 0.0,
+    "Days_To_Holiday": 0.0,
+    "Days_After_Holiday": 0.0,
+    "Is_Holiday_Eve": 0.0,
+    "Is_Holiday_After": 0.0
+  },
+  "optuna_params": {
+    "max_depth": 9,
+    "learning_rate": 0.045,
+    "min_child_weight": 6,
+    "subsample": 0.67,
+    "colsample_bytree": 0.92,
+    "gamma": 0.84,
+    "reg_alpha": 1.35,
+    "reg_lambda": 0.79,
+    "objective": "reg:squarederror",
+    "tree_method": "hist",
+    "eval_metric": "mae"
+  }
+}
