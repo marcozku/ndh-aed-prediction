@@ -1,12 +1,12 @@
 """
-XGBoost 滾動預測腳本 (v4.0.22)
+XGBoost 滾動預測腳本 (v4.0.23)
 使用真實歷史數據 + 之前的預測值來生成多天預測
 
 每天的預測使用：
 1. 所有真實歷史數據
 2. 之前天數的預測值（作為虛擬歷史數據）
 3. 假期因子調整 (v4.0.22)
-4. 星期效應因子 (v4.0.22)
+4. 星期效應因子 (v4.0.23 - 提升係數到 1.0)
 
 這樣 Lag1, Lag7, EWMA7, EWMA14 等特徵會隨著預測天數變化
 """
@@ -259,8 +259,8 @@ def rolling_predict(start_date, days):
 
         # 1. 星期效應因子（加強星期變化）
         dow_factor = DOW_FACTORS.get(dow, 1.0)
-        # XGBoost 已經學習了部分星期效應，這裡只做微調
-        dow_adjustment = (dow_factor - 1.0) * historical_mean * 0.3
+        # v4.0.23: 提升星期效應係數，反映真實的星期變化（週一 270 vs 週日 225 = 45人差異）
+        dow_adjustment = (dow_factor - 1.0) * historical_mean * 1.0
         pred += dow_adjustment
 
         # 2. 假期因子
@@ -309,7 +309,7 @@ def rolling_predict(start_date, days):
 
     return {
         'predictions': predictions,
-        'model_type': f'{model_type}_rolling_v4.0.22',
+        'model_type': f'{model_type}_rolling_v4.0.23',
         'historical_days': len(historical_data),
         'historical_mean': round(historical_mean, 1)
     }
