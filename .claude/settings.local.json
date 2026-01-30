@@ -10,7 +10,8 @@
       "Bash(python:*)",
       "Bash(timeout 30 python:*)",
       "Bash(psql:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

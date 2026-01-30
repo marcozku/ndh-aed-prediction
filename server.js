@@ -5793,10 +5793,33 @@ async function generateServerSidePredictions(source = 'auto') {
                     adjusted = Math.round(value);
                     predictionMethod = 'deviation_decay';
                 }
-                
-                // v3.0.86: Day 1-7 已涵蓋所有預測範圍
+
+            } else {
+                // ============================================================
+                // Day 8-30：長期預測（均值回歸 + 季節性）
+                // ============================================================
+                const targetMean = dowMeans[dow];
+
+                // 使用偏差衰減方法
+                const todayHK = new Date(today.getTime() + 8 * 60 * 60 * 1000);
+                const todayDOW = todayHK.getUTCDay();
+                const todayMean = dowMeans[todayDOW];
+                const xgboostDeviation = basePrediction - todayMean;
+
+                // 長期預測：偏差快速衰減到 0
+                const decayFactor = Math.exp(-0.2 * daysAhead);
+
+                let value = targetMean + xgboostDeviation * decayFactor;
+
+                // 應用月份效應
+                value += (monthFactor - 1.0) * targetMean * 0.5;
+
+                adjusted = Math.round(value);
+                predictionMethod = 'long_term_mean_reversion';
+
+                console.log(`📅 Day ${daysAhead}: Mean=${targetMean}, Decay=${decayFactor.toFixed(2)} → ${adjusted}`);
             }
-            
+
             // 置信區間：基於歷史標準差
             const baseStd = dowStds[dow];
             // 遠期預測不確定性增加
