@@ -1,10 +1,11 @@
 # 使用 Node.js 官方映像
 FROM node:18
 
-# 安裝 Python 3 和 pip
+# 安裝 Python 3 和 pip，並創建 python 符號鏈接
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
+    && ln -s /usr/bin/python3 /usr/bin/python \
     && rm -rf /var/lib/apt/lists/*
 
 # 設置工作目錄
