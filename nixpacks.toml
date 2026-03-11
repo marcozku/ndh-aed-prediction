@@ -2,7 +2,7 @@
 nixPkgs = ["nodejs_18", "python311"]
 
 [phases.install]
-cmds = ["npm ci"]
+cmds = ["npm ci", "pip install -r python/requirements.txt"]
 
 [phases.build]
 cmds = ["npm run postinstall || true"]
