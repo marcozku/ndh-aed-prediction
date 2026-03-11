@@ -2,10 +2,10 @@
 nixPkgs = ["nodejs_18", "python311"]
 
 [phases.install]
-cmds = ["npm ci", "pip install -r python/requirements.txt"]
+cmds = ["npm ci", "pip3 install -r python/requirements.txt --break-system-packages"]
 
 [phases.build]
-cmds = ["npm run postinstall || true"]
+cmds = ["npm run postinstall || true", "ln -sf $(which python3) $(dirname $(which python3))/python"]
 
 [start]
 cmd = "node server.js"
