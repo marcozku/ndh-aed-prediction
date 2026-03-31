@@ -1,6 +1,9 @@
 """
 XGBoost 預測腳本
-v4.0.20: 支持滾動預測 (rolling forecast) - 修復週期性循環問題
+v4.0.26: 改進置信區間計算與滾動窗口機制
+- 使用歷史誤差計算置信區間
+- 添加滾動窗口（最近 180 天）
+- 改進遠期預測不確定性建模
 優先使用 opt10 模型 (MAE: 2.85)
 """
 import pandas as pd
@@ -141,6 +144,40 @@ def prepare_rolling_features(df, target_date_str, previous_predictions=None):
         last_row['Weekly_Change'] = 0
 
     return pd.DataFrame([last_row], columns=OPT10_FEATURES)
+
+
+def calculate_historical_errors(df, model, feature_cols, model_type='opt10', window_days=180):
+    """計算歷史預測誤差（用於置信區間）"""
+    if df is None or len(df) < 30:
+        return None
+    
+    df = df.copy()
+    df['Date'] = pd.to_datetime(df['Date'])
+    df = df.sort_values('Date').reset_index(drop=True)
+    
+    # 只使用最近 window_days 天
+    if len(df) > window_days:
+        df = df.iloc[-window_days:].reset_index(drop=True)
+    
+    errors = []
+    for i in range(14, len(df)):  # 需要至少 14 天歷史數據
+        train_df = df.iloc[:i]
+        target_date = df.iloc[i]['Date'].strftime('%Y-%m-%d')
+        actual = df.iloc[i]['Attendance']
+        
+        try:
+            if model_type == 'opt10':
+                features_df = prepare_opt10_features(train_df, target_date)
+            else:
+                features_df = prepare_opt10_features(train_df, target_date)
+            
+            pred = predict_with_xgboost(model, feature_cols, features_df)
+            if pred is not None:
+                errors.append(abs(pred - actual))
+        except:
+            continue
+    
+    return np.array(errors) if len(errors) > 0 else None
 
 
 def load_xgboost_model():
@@ -337,8 +374,13 @@ def ensemble_predict(target_date, historical_data):
     if xgb_pred is None:
         return None
 
-    # 計算置信區間
-    std_preds = xgb_pred * 0.05
+    # 計算置信區間（使用歷史誤差）
+    hist_errors = calculate_historical_errors(historical_data, xgb_model, xgb_features, model_type)
+    if hist_errors is not None and len(hist_errors) > 10:
+        std_preds = np.std(hist_errors)
+    else:
+        std_preds = xgb_pred * 0.05
+    
     ci80_low = xgb_pred - 1.28 * std_preds
     ci80_high = xgb_pred + 1.28 * std_preds
     ci95_low = xgb_pred - 1.96 * std_preds
@@ -399,10 +441,14 @@ def rolling_forecast(start_date, days, historical_data):
     if xgb_model is None:
         return None
 
-    # 準備歷史數據
+    # 準備歷史數據（使用滾動窗口：最近 180 天）
     df = historical_data.copy()
     df['Date'] = pd.to_datetime(df['Date'])
     df = df.sort_values('Date').reset_index(drop=True)
+    
+    # 滾動窗口機制
+    if len(df) > 180:
+        df = df.iloc[-180:].reset_index(drop=True)
 
     predictions = []
     previous_predictions = []
@@ -433,9 +479,16 @@ def rolling_forecast(start_date, days, historical_data):
         if xgb_pred is None:
             continue
 
-        # 計算置信區間（遠期預測不確定性增加）
-        uncertainty_multiplier = 1.0 + i * 0.02  # 每天增加 2%
-        std_preds = xgb_pred * 0.05 * uncertainty_multiplier
+        # 計算置信區間（使用歷史誤差 + 遠期不確定性）
+        hist_errors = calculate_historical_errors(df, xgb_model, xgb_features, model_type)
+        if hist_errors is not None and len(hist_errors) > 10:
+            base_std = np.std(hist_errors)
+        else:
+            base_std = xgb_pred * 0.05
+        
+        # 遠期不確定性：非線性增長
+        uncertainty_multiplier = 1.0 + (i ** 1.2) * 0.015
+        std_preds = base_std * uncertainty_multiplier
 
         result = {
             'date': target_date_str,

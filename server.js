@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '4.0.25'; // v4.0.25: 修復 Railway 預測持平（server.js 混合策略+擾動）
+const MODEL_VERSION = '4.0.26'; // v4.0.26: 改進置信區間計算與滾動窗口機制
 
 // ============================================
 // HKT 時間工具函數
