@@ -1288,6 +1288,224 @@ function buildModelComparisonResponse(rows = []) {
     };
 }
 
+const WEATHER_HISTORY_SYNC_LOOKBACK_DAYS = Math.max(7, parseInt(process.env.WEATHER_HISTORY_SYNC_LOOKBACK_DAYS || '90', 10) || 90);
+const WEATHER_HISTORY_SYNC_COOLDOWN_MS = Math.max(60 * 1000, parseInt(process.env.WEATHER_HISTORY_SYNC_COOLDOWN_MS || String(30 * 60 * 1000), 10) || (30 * 60 * 1000));
+
+const weatherHistorySyncState = {
+    promise: null,
+    lastAttemptAt: null,
+    lastSuccessAt: null,
+    lastError: null,
+    lastTrigger: null,
+    lastResult: null
+};
+
+function getRecentDateRange(lookbackDays = WEATHER_HISTORY_SYNC_LOOKBACK_DAYS) {
+    const safeLookbackDays = Math.max(1, Number(lookbackDays) || WEATHER_HISTORY_SYNC_LOOKBACK_DAYS);
+    const endDate = getHKTDate();
+    const end = new Date(`${endDate}T00:00:00+08:00`);
+    const start = new Date(end);
+    start.setDate(start.getDate() - (safeLookbackDays - 1));
+
+    return {
+        startDate: start.toISOString().split('T')[0],
+        endDate
+    };
+}
+
+async function getWeatherSyncSummary(startDate) {
+    if (!db || !db.pool) {
+        return {
+            missingCount: 0,
+            earliestMissingDate: null,
+            latestMissingDate: null,
+            latestWeatherDate: null
+        };
+    }
+
+    const result = await db.pool.query(`
+        WITH missing_dates AS (
+            SELECT a.date
+            FROM actual_data a
+            LEFT JOIN weather_history wh
+                ON wh.date = a.date
+            WHERE a.date >= $1::date
+              AND a.patient_count IS NOT NULL
+              AND (
+                  wh.date IS NULL OR
+                  wh.temp_min IS NULL OR
+                  wh.temp_max IS NULL OR
+                  wh.temp_mean IS NULL OR
+                  wh.rainfall_mm IS NULL OR
+                  wh.humidity_pct IS NULL OR
+                  wh.pressure_hpa IS NULL
+              )
+
+            UNION
+
+            SELECT lr.date
+            FROM learning_records lr
+            WHERE lr.date >= $1::date
+              AND (
+                  lr.temp_min IS NULL OR
+                  lr.temp_max IS NULL OR
+                  lr.rainfall_mm IS NULL OR
+                  lr.humidity_pct IS NULL OR
+                  lr.pressure_hpa IS NULL
+              )
+        )
+        SELECT
+            COUNT(*)::int AS missing_count,
+            MIN(date) AS earliest_missing_date,
+            MAX(date) AS latest_missing_date,
+            (
+                SELECT MAX(date)
+                FROM weather_history
+                WHERE
+                    temp_min IS NOT NULL AND
+                    temp_max IS NOT NULL AND
+                    temp_mean IS NOT NULL AND
+                    rainfall_mm IS NOT NULL AND
+                    humidity_pct IS NOT NULL AND
+                    pressure_hpa IS NOT NULL
+            ) AS latest_weather_date
+        FROM missing_dates
+    `, [startDate]);
+
+    const row = result.rows[0] || {};
+    return {
+        missingCount: Number(row.missing_count) || 0,
+        earliestMissingDate: formatDbDate(row.earliest_missing_date),
+        latestMissingDate: formatDbDate(row.latest_missing_date),
+        latestWeatherDate: formatDbDate(row.latest_weather_date)
+    };
+}
+
+async function ensureWeatherHistorySync(options = {}) {
+    const {
+        reason = 'unknown',
+        lookbackDays = WEATHER_HISTORY_SYNC_LOOKBACK_DAYS,
+        force = false
+    } = options;
+
+    if (!db || !db.pool) {
+        return {
+            success: false,
+            skipped: true,
+            reason: 'database unavailable'
+        };
+    }
+
+    if (weatherHistorySyncState.promise) {
+        console.log(`🌦️ 天氣歷史同步進行中，重用現有任務 (${reason})`);
+        return weatherHistorySyncState.promise;
+    }
+
+    const { startDate, endDate } = getRecentDateRange(lookbackDays);
+    const summaryBefore = await getWeatherSyncSummary(startDate);
+    const now = Date.now();
+    const recentlyAttempted = weatherHistorySyncState.lastAttemptAt && (now - weatherHistorySyncState.lastAttemptAt < WEATHER_HISTORY_SYNC_COOLDOWN_MS);
+
+    if (!force) {
+        if (summaryBefore.missingCount === 0) {
+            return {
+                success: true,
+                skipped: true,
+                reason: 'up-to-date',
+                startDate,
+                endDate,
+                summary: summaryBefore
+            };
+        }
+
+        if (recentlyAttempted) {
+            return {
+                success: false,
+                skipped: true,
+                reason: 'cooldown',
+                startDate,
+                endDate,
+                summary: summaryBefore,
+                lastError: weatherHistorySyncState.lastError,
+                lastAttemptAt: weatherHistorySyncState.lastAttemptAt
+            };
+        }
+    }
+
+    weatherHistorySyncState.lastAttemptAt = now;
+    weatherHistorySyncState.lastTrigger = reason;
+
+    const taskPromise = (async () => {
+        try {
+            const { getScheduler } = require('./modules/learning-scheduler');
+            const scheduler = getScheduler();
+
+            console.log(`🌦️ 開始自動同步天氣歷史資料 (${reason})：${startDate} 至 ${endDate}，缺失 ${summaryBefore.missingCount} 天`);
+            const output = await scheduler.runPythonScript('backfill_weather_learning.py', [
+                '--start-date', startDate,
+                '--end-date', endDate,
+                '--only-missing-core'
+            ]);
+
+            const summaryAfter = await getWeatherSyncSummary(startDate);
+            const result = {
+                success: true,
+                skipped: false,
+                startDate,
+                endDate,
+                reason,
+                summaryBefore,
+                summaryAfter,
+                output
+            };
+
+            weatherHistorySyncState.lastSuccessAt = Date.now();
+            weatherHistorySyncState.lastError = null;
+            weatherHistorySyncState.lastResult = result;
+
+            console.log(`✅ 天氣歷史同步完成 (${reason})：缺失 ${summaryBefore.missingCount} → ${summaryAfter.missingCount}`);
+            return result;
+        } catch (error) {
+            weatherHistorySyncState.lastError = error.message;
+            const result = {
+                success: false,
+                skipped: false,
+                startDate,
+                endDate,
+                reason,
+                summaryBefore,
+                error: error.message
+            };
+            weatherHistorySyncState.lastResult = result;
+
+            console.warn(`⚠️ 天氣歷史同步失敗 (${reason}): ${error.message}`);
+            return result;
+        } finally {
+            weatherHistorySyncState.promise = null;
+        }
+    })();
+
+    weatherHistorySyncState.promise = taskPromise;
+    return taskPromise;
+}
+
+function getFallbackMonthlyWeatherAverages() {
+    return {
+        1: { mean: 16.3, max: 19.3, min: 13.7 },
+        2: { mean: 16.9, max: 19.8, min: 14.5 },
+        3: { mean: 19.4, max: 22.3, min: 17.1 },
+        4: { mean: 23.4, max: 26.5, min: 21.0 },
+        5: { mean: 26.4, max: 29.4, min: 24.1 },
+        6: { mean: 28.2, max: 31.0, min: 26.0 },
+        7: { mean: 28.9, max: 31.6, min: 26.8 },
+        8: { mean: 28.6, max: 31.3, min: 26.5 },
+        9: { mean: 27.7, max: 30.6, min: 25.5 },
+        10: { mean: 25.3, max: 28.5, min: 23.0 },
+        11: { mean: 21.6, max: 24.8, min: 19.1 },
+        12: { mean: 17.8, max: 21.0, min: 15.2 }
+    };
+}
+
 // API handlers
 const apiHandlers = {
     // Upload actual data
@@ -3186,50 +3404,39 @@ const apiHandlers = {
     // v2.9.97: 獲取日內預測波動數據（已移動到路由表上方，此處移除重複）
     // 注意：此 API 已在路由表開頭定義，包含 finalPredicted 和 actual
 
-    // v2.9.95: 獲取天氣-出席相關性數據（使用真實 HKO 歷史天氣 + 實際出席）
+    // v2.9.95: 獲取天氣-出席相關性數據（使用 weather_history 自動同步 + 實際出席）
     'GET /api/weather-correlation': async (req, res) => {
         if (!db || !db.pool) {
             return sendJson(res, { success: false, error: '數據庫未配置' }, 503);
         }
         
         try {
-            const fs = require('fs');
-            const path = require('path');
-            const weatherPath = path.join(__dirname, 'python/weather_history.csv');
-            
-            // 讀取天氣歷史 CSV
-            let weatherMap = {};
-            if (fs.existsSync(weatherPath)) {
-                const csvContent = fs.readFileSync(weatherPath, 'utf-8');
-                const lines = csvContent.trim().split('\n');
-                // 跳過標題行: Date,mean_temp,max_temp,min_temp,temp_range,is_very_hot,is_hot,is_cold,is_very_cold
-                for (let i = 1; i < lines.length; i++) {
-                    const parts = lines[i].split(',');
-                    if (parts.length >= 4) {
-                        const date = parts[0].trim();
-                        weatherMap[date] = {
-                            mean_temp: parseFloat(parts[1]),
-                            max_temp: parseFloat(parts[2]),
-                            min_temp: parseFloat(parts[3]),
-                            temp_range: parseFloat(parts[4]) || 0,
-                            is_very_hot: parts[5] === '1',
-                            is_hot: parts[6] === '1',
-                            is_cold: parts[7] === '1',
-                            is_very_cold: parts[8] === '1'
-                        };
-                    }
-                }
-                console.log(`✅ 天氣歷史數據已載入: ${Object.keys(weatherMap).length} 天`);
-            } else {
-                console.warn('⚠️ 找不到天氣歷史數據: ' + weatherPath);
-            }
-            
-            // 獲取所有實際出席數據
+            const syncResult = await ensureWeatherHistorySync({ reason: 'api-weather-correlation' });
             const result = await db.pool.query(`
-                SELECT date, patient_count
-                FROM actual_data
-                WHERE patient_count IS NOT NULL
-                ORDER BY date DESC
+                SELECT
+                    a.date,
+                    a.patient_count,
+                    wh.temp_mean,
+                    wh.temp_min,
+                    wh.temp_max,
+                    wh.humidity_pct,
+                    wh.rainfall_mm,
+                    wh.wind_kmh,
+                    wh.pressure_hpa,
+                    wh.is_very_hot,
+                    wh.is_very_cold,
+                    wh.typhoon_signal,
+                    wh.rainstorm_warning,
+                    wh.hot_warning,
+                    wh.cold_warning
+                FROM actual_data a
+                INNER JOIN weather_history wh
+                    ON wh.date = a.date
+                WHERE a.patient_count IS NOT NULL
+                  AND wh.temp_mean IS NOT NULL
+                  AND wh.temp_min IS NOT NULL
+                  AND wh.temp_max IS NOT NULL
+                ORDER BY a.date DESC
             `);
             
             if (result.rows.length === 0) {
@@ -3238,69 +3445,79 @@ const apiHandlers = {
                     data: [],
                     count: 0,
                     correlation: { temperature: null, tempRange: null, isHot: null, isCold: null },
-                    message: '暫無實際出席數據'
+                    message: '暫無可分析的天氣歷史數據',
+                    sync: syncResult,
+                    source: 'weather_history (DB auto-sync) + actual_data'
                 });
             }
             
-            // 合併天氣和出席數據
-            const dataPoints = [];
-            for (const row of result.rows) {
-                const dateStr = new Date(row.date).toISOString().split('T')[0];
-                const weather = weatherMap[dateStr];
-                if (weather && row.patient_count != null) {
-                    dataPoints.push({
-                        date: dateStr,
-                        actual: row.patient_count,
-                        temperature: weather.mean_temp,
-                        tempRange: weather.temp_range,
-                        maxTemp: weather.max_temp,
-                        minTemp: weather.min_temp,
-                        isHot: weather.is_hot ? 1 : 0,
-                        isCold: weather.is_cold ? 1 : 0,
-                        isVeryHot: weather.is_very_hot ? 1 : 0,
-                        isVeryCold: weather.is_very_cold ? 1 : 0
-                    });
+            const toNumberOrNull = (value) => {
+                const num = Number(value);
+                return Number.isFinite(num) ? num : null;
+            };
+            const toFlagNumber = (value, fallback = false) => {
+                if (value === null || value === undefined) {
+                    return fallback ? 1 : 0;
                 }
-            }
+                if (typeof value === 'boolean') {
+                    return value ? 1 : 0;
+                }
+                const normalized = String(value).trim().toLowerCase();
+                if (['true', 't', 'yes', 'y', '1'].includes(normalized)) return 1;
+                if (['false', 'f', 'no', 'n', '0', ''].includes(normalized)) return 0;
+                return Number(normalized) > 0 ? 1 : 0;
+            };
+            const parseTyphoonSignalLevel = (value) => {
+                if (value === null || value === undefined || value === '') return 0;
+                if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+                const normalized = String(value).trim().toUpperCase();
+                const matched = normalized.match(/T(\d+)/);
+                if (matched) return parseInt(matched[1], 10) || 0;
+                const fallback = parseInt(normalized, 10);
+                return Number.isFinite(fallback) ? fallback : 0;
+            };
+            const parseRainstormWarningLevel = (value) => {
+                if (value === null || value === undefined || value === '') return 0;
+                if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+                const normalized = String(value).trim().toUpperCase();
+                if (normalized === 'BLACK') return 3;
+                if (normalized === 'RED') return 2;
+                if (normalized === 'AMBER' || normalized === 'YELLOW') return 1;
+                const fallback = parseInt(normalized, 10);
+                return Number.isFinite(fallback) ? fallback : 0;
+            };
             
-            // v3.0.9: 讀取天氣警告歷史數據（颱風、暴雨等）
-            const warningsPath = path.join(__dirname, 'python/weather_warnings_history.csv');
-            let warningsMap = {};
-            if (fs.existsSync(warningsPath)) {
-                const warningsContent = fs.readFileSync(warningsPath, 'utf-8');
-                const warningsLines = warningsContent.trim().split('\n');
-                for (const line of warningsLines) {
-                    if (line.startsWith('#') || line.startsWith('Date')) continue;
-                    const parts = line.split(',');
-                    if (parts.length >= 5) {
-                        const date = parts[0].trim();
-                        warningsMap[date] = {
-                            typhoonSignal: parseInt(parts[1]) || 0,
-                            rainstormWarning: parseInt(parts[2]) || 0,
-                            hotWarning: parseInt(parts[3]) || 0,
-                            coldWarning: parseInt(parts[4]) || 0,
-                            notes: parts[5] || ''
-                        };
-                    }
-                }
-                console.log(`✅ 天氣警告數據已載入: ${Object.keys(warningsMap).length} 天`);
-            }
-            
-            // 合併警告數據到 dataPoints
-            for (const d of dataPoints) {
-                const warning = warningsMap[d.date];
-                if (warning) {
-                    d.typhoonSignal = warning.typhoonSignal;
-                    d.rainstormWarning = warning.rainstormWarning;
-                    d.hotWarning = warning.hotWarning;
-                    d.coldWarning = warning.coldWarning;
-                } else {
-                    d.typhoonSignal = 0;
-                    d.rainstormWarning = 0;
-                    d.hotWarning = 0;
-                    d.coldWarning = 0;
-                }
-            }
+            const dataPoints = result.rows.map((row) => {
+                const maxTemp = toNumberOrNull(row.temp_max);
+                const minTemp = toNumberOrNull(row.temp_min);
+                const temperature = toNumberOrNull(row.temp_mean);
+                const tempRange = maxTemp !== null && minTemp !== null
+                    ? Math.round((maxTemp - minTemp) * 10) / 10
+                    : null;
+                const isVeryHotFallback = maxTemp !== null && maxTemp >= 33;
+                const isVeryColdFallback = minTemp !== null && minTemp <= 10;
+                
+                return {
+                    date: formatDbDate(row.date),
+                    actual: toNumberOrNull(row.patient_count),
+                    temperature,
+                    humidity: toNumberOrNull(row.humidity_pct),
+                    rainfall: toNumberOrNull(row.rainfall_mm),
+                    windKmh: toNumberOrNull(row.wind_kmh),
+                    pressureHpa: toNumberOrNull(row.pressure_hpa),
+                    tempRange,
+                    maxTemp,
+                    minTemp,
+                    isHot: maxTemp !== null && maxTemp >= 30 ? 1 : 0,
+                    isCold: minTemp !== null && minTemp <= 12 ? 1 : 0,
+                    isVeryHot: toFlagNumber(row.is_very_hot, isVeryHotFallback),
+                    isVeryCold: toFlagNumber(row.is_very_cold, isVeryColdFallback),
+                    typhoonSignal: parseTyphoonSignalLevel(row.typhoon_signal),
+                    rainstormWarning: parseRainstormWarningLevel(row.rainstorm_warning),
+                    hotWarning: toFlagNumber(row.hot_warning),
+                    coldWarning: toFlagNumber(row.cold_warning)
+                };
+            }).filter((row) => row.actual !== null && row.temperature !== null);
             
             // 計算相關係數
             const correlation = calculateCorrelation(dataPoints);
@@ -3560,7 +3777,8 @@ const apiHandlers = {
                     dowWeatherStats
                 },
                 researchReferences,
-                source: 'HKO weather_history.csv + weather_warnings_history.csv + actual_data'
+                sync: syncResult,
+                source: 'weather_history (DB auto-sync) + actual_data'
             });
         } catch (err) {
             console.error('獲取天氣相關性數據失敗:', err);
@@ -3906,80 +4124,95 @@ const apiHandlers = {
         }
     },
 
-    // 天氣月度平均（從真實歷史數據計算）
+    // 天氣月度平均（從 weather_history 自動同步後的真實歷史數據聚合）
     'GET /api/weather-monthly-averages': async (req, res) => {
         try {
-            const fs = require('fs');
-            const path = require('path');
-            const weatherPath = path.join(__dirname, 'python/weather_history.csv');
+            const fallbackData = getFallbackMonthlyWeatherAverages();
+            const buildFallbackPayload = () => {
+                const payload = {};
+                for (let month = 1; month <= 12; month++) {
+                    payload[month] = {
+                        ...fallbackData[month],
+                        count: 0
+                    };
+                }
+                return payload;
+            };
             
-            if (!fs.existsSync(weatherPath)) {
+            if (!db || !db.pool) {
                 return sendJson(res, {
-                    success: false,
-                    error: '天氣歷史數據不存在',
+                    success: true,
                     fallback: true,
-                    // 提供基於香港氣候的真實歷史平均值（來自 HKO 官方數據）
-                    data: {
-                        1: { mean: 16.3, max: 19.3, min: 13.7 },
-                        2: { mean: 16.9, max: 19.8, min: 14.5 },
-                        3: { mean: 19.4, max: 22.3, min: 17.1 },
-                        4: { mean: 23.4, max: 26.5, min: 21.0 },
-                        5: { mean: 26.4, max: 29.4, min: 24.1 },
-                        6: { mean: 28.2, max: 31.0, min: 26.0 },
-                        7: { mean: 28.9, max: 31.6, min: 26.8 },
-                        8: { mean: 28.6, max: 31.3, min: 26.5 },
-                        9: { mean: 27.7, max: 30.6, min: 25.5 },
-                        10: { mean: 25.3, max: 28.5, min: 23.0 },
-                        11: { mean: 21.6, max: 24.8, min: 19.1 },
-                        12: { mean: 17.8, max: 21.0, min: 15.2 }
-                    },
-                    source: 'HKO 官方氣候正常值 (1991-2020)'
+                    data: buildFallbackPayload(),
+                    source: 'HKO 官方氣候正常值 (1991-2020)',
+                    totalDays: 0,
+                    sync: {
+                        success: false,
+                        skipped: true,
+                        reason: 'database unavailable'
+                    }
                 });
             }
             
-            // 讀取並解析 CSV
-            const csvContent = fs.readFileSync(weatherPath, 'utf-8');
-            const lines = csvContent.trim().split('\n');
-            const headers = lines[0].split(',');
+            const syncResult = await ensureWeatherHistorySync({ reason: 'api-weather-monthly-averages' });
+            const monthlyResult = await db.pool.query(`
+                SELECT
+                    EXTRACT(MONTH FROM date)::int AS month,
+                    ROUND(AVG(temp_mean)::numeric, 1) AS mean,
+                    ROUND(AVG(temp_max)::numeric, 1) AS max,
+                    ROUND(AVG(temp_min)::numeric, 1) AS min,
+                    COUNT(*)::int AS count
+                FROM weather_history
+                WHERE temp_mean IS NOT NULL
+                  AND temp_max IS NOT NULL
+                  AND temp_min IS NOT NULL
+                GROUP BY EXTRACT(MONTH FROM date)
+                ORDER BY month
+            `);
             
-            // 計算月度平均
-            const monthlyData = {};
-            for (let m = 1; m <= 12; m++) {
-                monthlyData[m] = { mean: [], max: [], min: [] };
+            if (monthlyResult.rows.length === 0) {
+                return sendJson(res, {
+                    success: true,
+                    fallback: true,
+                    data: buildFallbackPayload(),
+                    source: 'HKO 官方氣候正常值 (1991-2020)',
+                    totalDays: 0,
+                    sync: syncResult
+                });
             }
             
-            for (let i = 1; i < lines.length; i++) {
-                const values = lines[i].split(',');
-                const date = new Date(values[0]);
-                const month = date.getMonth() + 1;
-                const meanTemp = parseFloat(values[1]);
-                const maxTemp = parseFloat(values[2]);
-                const minTemp = parseFloat(values[3]);
-                
-                if (!isNaN(meanTemp) && monthlyData[month]) {
-                    monthlyData[month].mean.push(meanTemp);
-                    if (!isNaN(maxTemp)) monthlyData[month].max.push(maxTemp);
-                    if (!isNaN(minTemp)) monthlyData[month].min.push(minTemp);
-                }
-            }
-            
-            // 計算平均
-            const result = {};
-            for (let m = 1; m <= 12; m++) {
-                const data = monthlyData[m];
-                result[m] = {
-                    mean: data.mean.length > 0 ? Math.round(data.mean.reduce((a, b) => a + b, 0) / data.mean.length * 10) / 10 : null,
-                    max: data.max.length > 0 ? Math.round(data.max.reduce((a, b) => a + b, 0) / data.max.length * 10) / 10 : null,
-                    min: data.min.length > 0 ? Math.round(data.min.reduce((a, b) => a + b, 0) / data.min.length * 10) / 10 : null,
-                    count: data.mean.length
+            const result = buildFallbackPayload();
+            const monthsWithDbData = new Set();
+            let totalDays = 0;
+            for (const row of monthlyResult.rows) {
+                const month = Number(row.month);
+                const count = Number(row.count) || 0;
+                monthsWithDbData.add(month);
+                totalDays += count;
+                result[month] = {
+                    mean: Number(row.mean),
+                    max: Number(row.max),
+                    min: Number(row.min),
+                    count
                 };
+            }
+            
+            const missingMonths = [];
+            for (let month = 1; month <= 12; month++) {
+                if (!monthsWithDbData.has(month)) {
+                    missingMonths.push(month);
+                }
             }
             
             sendJson(res, {
                 success: true,
                 data: result,
-                source: '香港天文台打鼓嶺站歷史數據 (1988-2025)',
-                totalDays: lines.length - 1
+                source: missingMonths.length > 0
+                    ? 'weather_history (DB auto-sync aggregated, fallback-filled missing months)'
+                    : 'weather_history (DB auto-sync aggregated)',
+                totalDays,
+                missingMonths,
+                sync: syncResult
             });
         } catch (error) {
             console.error('計算天氣月度平均失敗:', error);
@@ -7352,6 +7585,12 @@ server.listen(PORT, async () => {
             const learningScheduler = getScheduler();
             learningScheduler.start();
             console.log(`📚 Learning Scheduler started`);
+            ensureWeatherHistorySync({
+                reason: 'startup',
+                lookbackDays: WEATHER_HISTORY_SYNC_LOOKBACK_DAYS
+            }).catch((syncError) => {
+                console.warn(`⚠️ 啟動時天氣歷史同步失敗: ${syncError.message}`);
+            });
         } catch (e) {
             console.log(`⚠️ Learning Scheduler not available: ${e.message}`);
         }

@@ -4163,7 +4163,7 @@ async function initWeatherCorrChart() {
     if (canvas) canvas.style.display = 'none';
     
     try {
-        // 獲取天氣-出席相關性數據（使用真實 HKO 歷史天氣）
+        // 獲取天氣-出席相關性數據（使用自動同步的真實 HKO 歷史天氣）
         const response = await fetch('/api/weather-correlation');
         if (!response.ok) throw new Error('API 錯誤');
         const result = await response.json();
@@ -4173,7 +4173,7 @@ async function initWeatherCorrChart() {
                 loading.innerHTML = `
                     <div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">
                         暫無天氣相關性數據<br>
-                        <small>需要 weather_history.csv + 實際出席數據</small>
+                        <small>需要已同步的天氣歷史資料 + 實際出席數據</small>
                     </div>
                 `;
             }
