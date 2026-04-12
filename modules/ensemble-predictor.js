@@ -1,9 +1,6 @@
 /**
  * XGBoost 預測器模組
- * v4.0.20: 支持滾動預測 (rolling forecast) - 修復週期性循環問題
- * 調用 Python XGBoost 預測腳本
- *
- * 模型性能數據從數據庫動態獲取，不使用硬編碼值
+ * 支持標準模型與 opt10 模型，並在執行時自動檢測可用的 Python 命令。
  */
 const { spawn } = require('child_process');
 const path = require('path');
@@ -13,77 +10,92 @@ class EnsemblePredictor {
     constructor() {
         this.pythonScript = path.join(__dirname, '../python/predict.py');
         this.modelsDir = path.join(__dirname, '../python/models');
-        // v3.2.00: 優先使用最佳 10 特徵模型
-        this.preferredModel = 'opt10'; // 'opt10' or 'xgboost'
+        this.preferredModel = 'opt10';
+        this.pythonCommand = null;
     }
 
-    /**
-     * 檢查模型是否已訓練
-     * v3.2.00: 優先檢查 opt10 模型，然後檢查標準 xgboost 模型
-     */
-    isModelAvailable() {
-        // 優先使用最佳 10 特徵模型
-        if (this.isOpt10ModelAvailable()) {
-            this.preferredModel = 'opt10';
-            return true;
+    detectPythonCommand() {
+        if (this.pythonCommand) {
+            return Promise.resolve(this.pythonCommand);
         }
-        // 回退到標準 XGBoost 模型
-        this.preferredModel = 'xgboost';
-        return this.isStandardModelAvailable();
+
+        const commands = ['python3', 'python'];
+
+        return new Promise((resolve) => {
+            const tryCommand = (index) => {
+                if (index >= commands.length) {
+                    resolve(null);
+                    return;
+                }
+
+                const command = commands[index];
+                const python = spawn(command, ['--version'], { stdio: 'pipe' });
+
+                python.on('close', (code) => {
+                    if (code === 0) {
+                        this.pythonCommand = command;
+                        resolve(command);
+                        return;
+                    }
+
+                    tryCommand(index + 1);
+                });
+
+                python.on('error', () => {
+                    tryCommand(index + 1);
+                });
+            };
+
+            tryCommand(0);
+        });
     }
 
-    /**
-     * 檢查最佳 10 特徵模型是否可用
-     */
     isOpt10ModelAvailable() {
         const requiredFiles = [
             'xgboost_opt10_model.json',
             'xgboost_opt10_features.json'
         ];
 
-        return requiredFiles.every(file => {
-            const filePath = path.join(this.modelsDir, file);
-            return fs.existsSync(filePath);
-        });
+        return requiredFiles.every((file) => fs.existsSync(path.join(this.modelsDir, file)));
     }
 
-    /**
-     * 檢查標準 XGBoost 模型是否可用
-     */
     isStandardModelAvailable() {
         const requiredFiles = [
             'xgboost_model.json',
             'xgboost_features.json'
         ];
 
-        return requiredFiles.every(file => {
-            const filePath = path.join(this.modelsDir, file);
-            return fs.existsSync(filePath);
-        });
+        return requiredFiles.every((file) => fs.existsSync(path.join(this.modelsDir, file)));
     }
 
-    /**
-     * 獲取當前使用的模型類型
-     */
+    isModelAvailable() {
+        if (this.isOpt10ModelAvailable()) {
+            this.preferredModel = 'opt10';
+            return true;
+        }
+
+        this.preferredModel = 'xgboost';
+        return this.isStandardModelAvailable();
+    }
+
     getCurrentModel() {
         return this.preferredModel;
     }
 
-    /**
-     * 執行集成預測
-     * @param {string} targetDate - 目標日期 (YYYY-MM-DD)
-     * @param {Array} historicalData - 歷史數據數組 [{date, attendance}, ...]
-     * @returns {Promise<Object>} 預測結果
-     */
     async predict(targetDate, historicalData = null) {
-        return new Promise((resolve, reject) => {
-            // 檢查模型是否可用
-            if (!this.isModelAvailable()) {
-                return reject(new Error('XGBoost 模型未訓練。請先運行 python/train_all_models.py'));
-            }
+        void historicalData;
 
-            // 準備 Python 命令
-            const python = spawn('python3', [
+        if (!this.isModelAvailable()) {
+            throw new Error('XGBoost 模型未訓練。請先運行 python/train_all_models.py');
+        }
+
+        const pythonCommand = await this.detectPythonCommand();
+        if (!pythonCommand) {
+            throw new Error('無法找到 Python 執行檔。請確認 python3 或 python 可於 PATH 使用。');
+        }
+
+        return new Promise((resolve, reject) => {
+            const python = spawn(pythonCommand, [
                 this.pythonScript,
                 targetDate
             ], {
@@ -103,28 +115,24 @@ class EnsemblePredictor {
             });
 
             python.on('close', (code) => {
-                if (code === 0) {
-                    try {
-                        const result = JSON.parse(output);
-                        resolve(result);
-                    } catch (e) {
-                        reject(new Error(`無法解析 Python 輸出: ${e.message}\n輸出: ${output}`));
-                    }
-                } else {
+                if (code !== 0) {
                     reject(new Error(`Python 腳本錯誤 (code ${code}): ${error || output}`));
+                    return;
+                }
+
+                try {
+                    resolve(JSON.parse(output));
+                } catch (err) {
+                    reject(new Error(`無法解析 Python 輸出: ${err.message}\n輸出: ${output}`));
                 }
             });
 
             python.on('error', (err) => {
-                reject(new Error(`無法執行 Python 腳本: ${err.message}\n請確保已安裝 Python 3 和所有依賴`));
+                reject(new Error(`無法執行 Python 腳本: ${err.message}`));
             });
         });
     }
 
-    /**
-     * 獲取模型狀態（詳細版本）- 同步版本，從文件讀取
-     * v3.2.00: 支持檢查 opt10 和 xgboost 模型
-     */
     getModelStatus() {
         const modelFiles = {
             opt10: {
@@ -143,22 +151,18 @@ class EnsemblePredictor {
         const modelDetails = {};
 
         for (const [modelKey, files] of Object.entries(modelFiles)) {
-            const modelFile = files.model;
-            const modelPath = path.join(this.modelsDir, modelFile);
+            const modelPath = path.join(this.modelsDir, files.model);
             const exists = fs.existsSync(modelPath);
 
             models[modelKey] = exists;
-
-            // 獲取詳細信息
             modelDetails[modelKey] = {
-                exists: exists,
+                exists,
                 path: modelPath,
                 fileSize: exists ? fs.statSync(modelPath).size : 0,
                 lastModified: exists ? fs.statSync(modelPath).mtime : null,
                 requiredFiles: {}
             };
 
-            // 檢查所有必需文件
             for (const [fileKey, fileName] of Object.entries(files)) {
                 const filePath = path.join(this.modelsDir, fileName);
                 modelDetails[modelKey].requiredFiles[fileKey] = {
@@ -168,12 +172,10 @@ class EnsemblePredictor {
                 };
             }
 
-            // 讀取 metrics 文件內容（如果存在）- 用於快速檢查
             const metricsPath = path.join(this.modelsDir, files.metrics);
             if (fs.existsSync(metricsPath)) {
                 try {
-                    const metricsContent = fs.readFileSync(metricsPath, 'utf8');
-                    modelDetails[modelKey].metrics = JSON.parse(metricsContent);
+                    modelDetails[modelKey].metrics = JSON.parse(fs.readFileSync(metricsPath, 'utf8'));
                     modelDetails[modelKey].metricsSource = 'file';
                 } catch (err) {
                     console.error(`無法讀取 ${modelKey} metrics:`, err.message);
@@ -182,45 +184,35 @@ class EnsemblePredictor {
             }
         }
 
-        // 確定當前使用的模型
         const currentModel = this.isOpt10ModelAvailable() ? 'opt10' : 'xgboost';
 
         return {
             available: this.isModelAvailable(),
-            currentModel: currentModel,
-            models: models,
+            currentModel,
+            models,
             modelsDir: this.modelsDir,
             details: modelDetails,
-            // v3.2.00: 優先返回當前使用模型的 metrics
             opt10: modelDetails.opt10 || null,
             xgboost: modelDetails.xgboost || null,
             current: modelDetails[currentModel] || null,
-            // 檢查目錄是否存在
             modelsDirExists: fs.existsSync(this.modelsDir),
-            // 列出目錄中的所有文件
             allFiles: fs.existsSync(this.modelsDir) ? fs.readdirSync(this.modelsDir) : []
         };
     }
 
-    /**
-     * 獲取模型狀態（異步版本）- 優先從數據庫讀取 metrics
-     */
     async getModelStatusAsync() {
         const status = this.getModelStatus();
-        // v3.2.02: 優先使用當前模型的 metrics（opt10 優先於 xgboost）
         const currentModel = status.currentModel || 'xgboost';
         const fileMetrics = status[currentModel]?.metrics ||
                            status.details?.[currentModel]?.metrics ||
                            status.xgboost?.metrics ||
                            status.details?.xgboost?.metrics;
 
-        // 優先從數據庫讀取 metrics，但比較日期選擇最新的
         try {
             const db = require('../database');
             const dbMetrics = await db.getModelMetrics('xgboost');
 
             if (dbMetrics && dbMetrics.mae !== null) {
-                // 安全地解析日期，處理無效日期
                 let dbDate = new Date(0);
                 if (dbMetrics.training_date) {
                     const parsedDbDate = new Date(dbMetrics.training_date);
@@ -237,10 +229,7 @@ class EnsemblePredictor {
                     }
                 }
 
-                // 使用較新的數據源
-                const useDatabase = dbDate >= fileDate;
-
-                if (useDatabase) {
+                if (dbDate >= fileDate) {
                     const metrics = {
                         mae: parseFloat(dbMetrics.mae),
                         mape: parseFloat(dbMetrics.mape),
@@ -254,8 +243,7 @@ class EnsemblePredictor {
                         ai_factors_count: dbMetrics.ai_factors_count
                     };
 
-                    // 更新 status 中的 metrics
-                    if (status.details && status.details.xgboost) {
+                    if (status.details?.xgboost) {
                         status.details.xgboost.metrics = metrics;
                         status.details.xgboost.metricsSource = 'database';
                     }
@@ -264,9 +252,8 @@ class EnsemblePredictor {
                         status.xgboost.metricsSource = 'database';
                     }
                 } else {
-                    // 文件較新，保持 status 中的 file metrics
                     console.log('📊 使用文件版本的 metrics (較新):', fileDate.toISOString());
-                    if (status.details && status.details.xgboost) {
+                    if (status.details?.xgboost) {
                         status.details.xgboost.metricsSource = 'file';
                     }
                     if (status.xgboost) {
@@ -281,25 +268,18 @@ class EnsemblePredictor {
         return status;
     }
 
-    /**
-     * 滾動預測 (v4.0.20) - 修復週期性循環問題
-     * 每天的預測使用前一天的預測值來更新 Lag 和 EWMA 特徵
-     *
-     * @param {string} startDate - 開始日期 (YYYY-MM-DD)
-     * @param {number} days - 預測天數
-     * @param {string} historicalDataPath - 歷史數據 CSV 路徑
-     * @returns {Promise<Object>} 滾動預測結果
-     */
     async rollingForecast(startDate, days, historicalDataPath) {
+        if (!this.isModelAvailable()) {
+            throw new Error('XGBoost 模型未訓練。請先運行 python/train_all_models.py');
+        }
+
+        const pythonCommand = await this.detectPythonCommand();
+        if (!pythonCommand) {
+            throw new Error('無法找到 Python 執行檔。請確認 python3 或 python 可於 PATH 使用。');
+        }
+
         return new Promise((resolve, reject) => {
-            // 檢查模型是否可用
-            if (!this.isModelAvailable()) {
-                return reject(new Error('XGBoost 模型未訓練。請先運行 python/train_all_models.py'));
-            }
-
             const ensemblePredictScript = path.join(__dirname, '../python/ensemble_predict.py');
-
-            // 使用滾動預測模式
             const args = [
                 ensemblePredictScript,
                 '--rolling',
@@ -313,7 +293,7 @@ class EnsemblePredictor {
 
             console.log(`🔄 啟動 ${days} 天滾動預測 (從 ${startDate})`);
 
-            const python = spawn('python3', args, {
+            const python = spawn(pythonCommand, args, {
                 cwd: path.join(__dirname, '..'),
                 stdio: ['pipe', 'pipe', 'pipe']
             });
@@ -326,25 +306,25 @@ class EnsemblePredictor {
             });
 
             python.stderr.on('data', (data) => {
-                const msg = data.toString();
-                error += msg;
-                // 輸出進度信息
-                if (msg.includes('📊') || msg.includes('🔄')) {
-                    console.log(msg.trim());
+                const message = data.toString();
+                error += message;
+                if (message.includes('📊') || message.includes('🔄')) {
+                    console.log(message.trim());
                 }
             });
 
             python.on('close', (code) => {
-                if (code === 0) {
-                    try {
-                        const result = JSON.parse(output);
-                        console.log(`✅ 滾動預測完成: ${result.predictions?.length || 0} 天`);
-                        resolve(result);
-                    } catch (e) {
-                        reject(new Error(`無法解析滾動預測輸出: ${e.message}\n輸出: ${output}`));
-                    }
-                } else {
+                if (code !== 0) {
                     reject(new Error(`滾動預測錯誤 (code ${code}): ${error || output}`));
+                    return;
+                }
+
+                try {
+                    const result = JSON.parse(output);
+                    console.log(`✅ 滾動預測完成: ${result.predictions?.length || 0} 天`);
+                    resolve(result);
+                } catch (err) {
+                    reject(new Error(`無法解析滾動預測輸出: ${err.message}\n輸出: ${output}`));
                 }
             });
 
@@ -356,4 +336,3 @@ class EnsemblePredictor {
 }
 
 module.exports = { EnsemblePredictor };
-

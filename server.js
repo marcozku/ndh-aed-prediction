@@ -124,12 +124,19 @@ let db = null;
 // 檢查是否有任何數據庫環境變數
 const hasDbConfig = process.env.DATABASE_URL || 
                    (process.env.PGHOST && process.env.PGUSER && process.env.PGPASSWORD && process.env.PGDATABASE);
+const enableStartupDataSync = process.env.ENABLE_STARTUP_DATA_SYNC === 'true';
+
+db = require('./database');
 
 // 總是嘗試初始化數據庫模組（即使沒有環境變數，也會返回 null pool）
 db = require('./database');
 
 if (hasDbConfig) {
     db.initDatabase().then(async () => {
+        if (!enableStartupDataSync) {
+            console.log('?? Startup data sync disabled. Set ENABLE_STARTUP_DATA_SYNC=true to enable automatic CSV import and actual-data backfill.');
+            return;
+        }
         // 數據庫初始化完成後，自動導入 CSV 數據
         // 優先檢查項目目錄中的 CSV 文件
         const csvFiles = [
@@ -6129,5 +6136,3 @@ server.listen(PORT, async () => {
         console.log(`⚠️ 數據庫未配置 (設置 DATABASE_URL 或 PGHOST/PGUSER/PGPASSWORD/PGDATABASE 環境變數以啟用)`);
     }
 });
-
-

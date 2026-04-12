@@ -3904,16 +3904,92 @@ async function initComparisonTable() {
         
         // 生成表格行
         tableBody.innerHTML = validComparisonData.map(d => {
-            const error = d.error || (d.predicted && d.actual ? d.predicted - d.actual : null);
-            const errorRate = d.error_percentage || (error && d.actual ? ((error / d.actual) * 100).toFixed(2) : null);
+            // 強制確保正確提取日期和實際人數
+            // 優先使用明確的字段名
+            let dateValue = d.date || d.Date || d.target_date || null;
+            let actualValue = d.actual !== undefined && d.actual !== null ? d.actual : 
+                               (d.patient_count !== undefined && d.patient_count !== null ? d.patient_count : 
+                               (d.attendance !== undefined && d.attendance !== null ? d.attendance : null));
+            
+            // 強制驗證：如果 date 字段是數字（在合理範圍內），而 actual 是日期字符串，則交換
+            // 這是一個安全檢查，確保數據正確
+            if (dateValue !== null && typeof dateValue === 'number' && dateValue >= 100 && dateValue <= 1000) {
+                // date 是數字，可能是實際人數
+                if (actualValue !== null && typeof actualValue === 'string' && 
+                    (actualValue.match(/^\d{4}-\d{2}-\d{2}/) || actualValue.match(/^\d{2}\/\d{2}\/\d{4}/))) {
+                    // actual 是日期字符串，確認錯位，交換
+                    console.warn('⚠️ 強制修復數據錯位:', { 
+                        originalDate: dateValue, 
+                        originalActual: actualValue 
+                    });
+                    const temp = dateValue;
+                    dateValue = actualValue;
+                    actualValue = temp;
+                }
+            }
+            
+            // 再次驗證：確保 date 是日期格式，actual 是數字
+            if (dateValue !== null && typeof dateValue === 'number') {
+                console.error('❌ 日期字段仍然是數字，數據可能有問題:', { dateValue, actualValue, allData: d });
+            }
+            if (actualValue !== null && typeof actualValue === 'string' && 
+                (actualValue.match(/^\d{4}-\d{2}-\d{2}/) || actualValue.match(/^\d{2}\/\d{2}\/\d{4}/))) {
+                console.error('❌ 實際人數字段仍然是日期字符串，數據可能有問題:', { dateValue, actualValue, allData: d });
+            }
+            
+            // 檢測並修復數據錯位問題
+            // 檢查：如果 date 字段是數字（100-1000範圍，可能是實際人數），而 actual 是日期字符串，則交換
+            const isDateValueNumber = dateValue !== null && typeof dateValue === 'number' && 
+                                      dateValue >= 100 && dateValue <= 1000; // 合理的實際人數範圍
+            const isActualValueDateString = actualValue !== null && typeof actualValue === 'string' && 
+                                           (actualValue.match(/^\d{4}-\d{2}-\d{2}/) || 
+                                            actualValue.match(/^\d{2}\/\d{2}\/\d{4}/) ||
+                                            actualValue.match(/^\d{4}-\d{2}-\d{2}T/)); // 支持 ISO 格式
+            const isDateValueDateString = dateValue !== null && typeof dateValue === 'string' && 
+                                         (dateValue.match(/^\d{4}-\d{2}-\d{2}/) || 
+                                          dateValue.match(/^\d{2}\/\d{2}\/\d{4}/) ||
+                                          dateValue.match(/^\d{4}-\d{2}-\d{2}T/)); // 支持 ISO 格式
+            const isActualValueNumber = actualValue !== null && typeof actualValue === 'number' && 
+                                       actualValue >= 100 && actualValue <= 1000; // 合理的實際人數範圍
+            
+            // 如果 date 是數字（可能是實際人數），而 actual 是日期字符串，則交換
+            if (isDateValueNumber && isActualValueDateString) {
+                console.warn('⚠️ 檢測到數據錯位（date是數字，actual是日期），正在修復:', { 
+                    originalDate: dateValue, 
+                    originalActual: actualValue,
+                    swapped: true
+                });
+                const temp = dateValue;
+                dateValue = actualValue;
+                actualValue = temp;
+            }
+            // 如果 date 是日期字符串，而 actual 是數字，這是正確的，不需要交換
+            // 但如果 date 是日期字符串，而 actual 也是日期字符串，可能有問題
+            else if (isDateValueDateString && isActualValueDateString) {
+                console.warn('⚠️ 兩個字段都是日期字符串，可能有問題:', d);
+            }
+            // 如果 date 是數字，而 actual 也是數字，可能是兩個都錯位了
+            else if (isDateValueNumber && isActualValueNumber) {
+                console.warn('⚠️ 兩個字段都是數字，可能有問題:', d);
+            }
+            // 如果 date 是字符串但不是日期格式，而 actual 是數字，可能是 date 字段有問題
+            else if (dateValue !== null && typeof dateValue === 'string' && !isDateValueDateString && isActualValueNumber) {
+                console.warn('⚠️ date 字段是字符串但不是日期格式，actual 是數字:', d);
+            }
+            
+            let finalDate = dateValue;
+            let finalActual = actualValue;
+            
+            const error = d.error || (d.predicted && finalActual ? d.predicted - finalActual : null);
+            const errorRate = d.error_percentage || (error && finalActual ? ((error / finalActual) * 100).toFixed(2) : null);
             const ci80 = d.ci80_low && d.ci80_high ? `${d.ci80_low}-${d.ci80_high}` : '--';
             const ci95 = d.ci95_low && d.ci95_high ? `${d.ci95_low}-${d.ci95_high}` : '--';
             const accuracy = errorRate ? (100 - Math.abs(parseFloat(errorRate))).toFixed(2) + '%' : '--';
             
             return `
                 <tr>
-                    <td>${formatDateDDMM(d.date, true)}</td>
-                    <td>${d.actual || '--'}</td>
+                    <td>${finalDate ? formatDateDDMM(finalDate, true) : '--'}</td>
+                    <td>${finalActual ?? '--'}</td>
                     <td>${d.predicted || '--'}</td>
                     <td>${error !== null ? (error > 0 ? '+' : '') + error : '--'}</td>
                     <td>${errorRate !== null ? (errorRate > 0 ? '+' : '') + errorRate + '%' : '--'}</td>
@@ -11143,7 +11219,7 @@ function initCSVUpload() {
                 uploadArea.style.background = 'transparent';
                 
                 const file = e.dataTransfer.files[0];
-                if (file && file.type === 'text/csv' || file.name.endsWith('.csv')) {
+                if (file && (file.type === 'text/csv' || file.name.endsWith('.csv'))) {
                     fileInput.files = e.dataTransfer.files;
                     fileInput.dispatchEvent(new Event('change'));
                 } else {
@@ -11402,3 +11478,6 @@ async function forceRefreshAI() {
 window.forceRefreshAI = forceRefreshAI;
 
 // 觸發添加實際數據
+if (typeof window !== 'undefined') {
+    window.triggerAddActualData = triggerAddActualData;
+}
