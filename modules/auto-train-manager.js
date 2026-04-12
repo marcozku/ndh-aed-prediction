@@ -68,7 +68,7 @@ class AutoTrainManager {
             const status = await db.getTrainingStatus('xgboost');
             
             if (status) {
-                this.lastTrainingDate = status.last_training_date;
+                this.lastTrainingDate = status.last_training_date || status.updated_at || null;
                 this.lastDataCount = status.last_data_count || 0;
                 this.lastTrainingOutput = status.last_training_output || '';
                 this.lastTrainingError = status.last_training_error || '';
@@ -512,6 +512,10 @@ class AutoTrainManager {
                     console.log(`✅ 模型文件驗證通過`);
                     
                     // 🔴 保存模型指標到數據庫（持久化）
+                    this.lastTrainingDate = new Date().toISOString();
+                    if (dataCount !== null) {
+                        this.lastDataCount = dataCount;
+                    }
                     await this._saveModelMetricsToDB();
                     
                     await this._saveTrainingStatusToDB(dataCount, false);

@@ -361,6 +361,183 @@ function generateRecommendations(status, pythonInfo) {
     return recommendations;
 }
 
+function buildModelDiagnosticsRecommendations(status, pythonInfo) {
+    const recommendations = [];
+
+    if (!pythonInfo?.available) {
+        recommendations.push({
+            level: 'error',
+            message: 'Python runtime unavailable',
+            action: 'Install Python 3.8+ and ensure python3 or python is on PATH'
+        });
+    } else if (pythonInfo?.dependencies && !pythonInfo.dependencies.available) {
+        recommendations.push({
+            level: 'error',
+            message: 'XGBoost Python dependency unavailable',
+            action: 'Install the Python requirements before using ensemble prediction',
+            error: pythonInfo.dependencies.error || null
+        });
+    }
+
+    if (!status?.modelsDirExists) {
+        recommendations.push({
+            level: 'error',
+            message: 'Model directory missing',
+            action: `Create model directory: ${status?.modelsDir || 'python/models'}`
+        });
+    }
+
+    const fileModels = status?.fileModels || status?.models || {};
+    const missingModels = [];
+    if (!fileModels.xgboost && !fileModels.opt10) {
+        missingModels.push('XGBoost');
+    }
+
+    if (missingModels.length > 0) {
+        recommendations.push({
+            level: 'warning',
+            message: `Missing model files: ${missingModels.join(', ')}`,
+            action: 'Run python/train_all_models.py to regenerate the model files'
+        });
+    }
+
+    if (status?.details) {
+        for (const [modelKey, details] of Object.entries(status.details)) {
+            if (!details?.exists) continue;
+
+            const missingFiles = Object.entries(details.requiredFiles || {})
+                .filter(([key, file]) => !file.exists && key !== 'model')
+                .map(([, file]) => file.name);
+
+            if (missingFiles.length > 0) {
+                recommendations.push({
+                    level: 'warning',
+                    message: `${modelKey} is missing required files: ${missingFiles.join(', ')}`,
+                    action: 'Retrain or restore the missing model artifacts'
+                });
+            }
+        }
+    }
+
+    if (!status?.available && status?.fileAvailable && status?.runtime && !status.runtime.ready) {
+        recommendations.push({
+            level: 'warning',
+            message: 'Model files exist but runtime is not ready',
+            action: 'Fix the Python environment so XGBoost predictions can actually run',
+            error: status.runtime.error || status.runtime.dependencies?.error || null
+        });
+    }
+
+    if (recommendations.length === 0) {
+        recommendations.push({
+            level: 'success',
+            message: 'Model files and runtime look healthy',
+            action: 'Ensemble prediction is ready'
+        });
+    }
+
+    return recommendations;
+}
+
+function normalizeMetricsPayload(metrics = {}) {
+    const toNumber = (value) => {
+        const num = Number(value);
+        return Number.isFinite(num) ? num : null;
+    };
+
+    const trainCount = toNumber(metrics.train_count ?? metrics.train_size);
+    const testCount = toNumber(metrics.test_count ?? metrics.test_size);
+
+    return {
+        mae: toNumber(metrics.mae),
+        mape: toNumber(metrics.mape),
+        rmse: toNumber(metrics.rmse),
+        r2: toNumber(metrics.r2),
+        training_date: metrics.training_date || null,
+        feature_count: toNumber(metrics.feature_count ?? metrics.n_features),
+        data_count: toNumber(metrics.data_count) ?? ((trainCount || 0) + (testCount || 0) || null),
+        train_count: trainCount,
+        test_count: testCount,
+        ai_factors_count: toNumber(metrics.ai_factors_count),
+        baseline_mae: toNumber(metrics.baseline_mae),
+        improvement_vs_baseline: metrics.improvement_vs_baseline || null
+    };
+}
+
+async function getCurrentModelMetricsSnapshot() {
+    let status = null;
+
+    try {
+        const { EnsemblePredictor } = require('./modules/ensemble-predictor');
+        const predictor = new EnsemblePredictor();
+        status = await predictor.getModelStatusAsync();
+
+        const currentModel = status.currentModel || predictor.getCurrentModel() || 'xgboost';
+        const currentDetails = status.current || status.details?.[currentModel] || null;
+        const currentMetrics = currentDetails?.metrics || null;
+
+        if (currentMetrics && currentMetrics.mae !== undefined && currentMetrics.mape !== undefined) {
+            return {
+                modelName: currentModel,
+                metrics: normalizeMetricsPayload(currentMetrics),
+                source: currentDetails?.metricsSource || 'file',
+                status
+            };
+        }
+
+        if (db && db.pool) {
+            const dbMetrics = await db.getModelMetrics(currentModel);
+            if (dbMetrics && dbMetrics.mae !== null) {
+                return {
+                    modelName: currentModel,
+                    metrics: normalizeMetricsPayload(dbMetrics),
+                    source: 'database',
+                    status
+                };
+            }
+        }
+    } catch (error) {
+        console.warn('Unable to load current model metrics snapshot:', error.message);
+    }
+
+    try {
+        if (db && db.pool) {
+            const dbMetrics = await db.getModelMetrics('xgboost');
+            if (dbMetrics && dbMetrics.mae !== null) {
+                return {
+                    modelName: 'xgboost',
+                    metrics: normalizeMetricsPayload(dbMetrics),
+                    source: 'database',
+                    status
+                };
+            }
+        }
+    } catch (error) {
+        console.warn('Unable to load legacy database metrics:', error.message);
+    }
+
+    try {
+        const fallbackMetricsPath = path.join(__dirname, 'python/models/xgboost_metrics.json');
+        if (fs.existsSync(fallbackMetricsPath)) {
+            return {
+                modelName: 'xgboost',
+                metrics: normalizeMetricsPayload(JSON.parse(fs.readFileSync(fallbackMetricsPath, 'utf8'))),
+                source: 'file',
+                status
+            };
+        }
+    } catch (error) {
+        console.warn('Unable to load fallback file metrics:', error.message);
+    }
+
+    return {
+        modelName: status?.currentModel || 'xgboost',
+        metrics: null,
+        source: 'none',
+        status
+    };
+}
+
 // API handlers
 const apiHandlers = {
     // Upload actual data
@@ -2674,6 +2851,14 @@ const apiHandlers = {
             const { EnsemblePredictor } = require('./modules/ensemble-predictor');
             const predictor = new EnsemblePredictor();
             const status = await predictor.getModelStatusAsync();
+            const runtimePythonInfo = {
+                available: status.runtime?.python?.available || false,
+                command: status.runtime?.python?.command || null,
+                version: status.runtime?.python?.version || null,
+                dependencies: status.runtime?.dependencies || null,
+                ready: status.runtime?.ready || false,
+                error: status.runtime?.error || status.runtime?.dependencies?.error || null
+            };
             
             // 添加訓練狀態（從 DB 獲取）
             try {
@@ -3079,47 +3264,38 @@ const apiHandlers = {
             
             const timelineData = JSON.parse(fs.readFileSync(timelinePath, 'utf8'));
             
-            // 優先從數據庫讀取最新模型指標
             let currentMetrics = null;
-            if (db && db.pool) {
-                try {
-                    const dbMetrics = await db.getModelMetrics('xgboost');
-                    if (dbMetrics && dbMetrics.mae !== null) {
-                        currentMetrics = {
-                            mae: parseFloat(dbMetrics.mae),
-                            mape: parseFloat(dbMetrics.mape),
-                            rmse: parseFloat(dbMetrics.rmse),
-                            r2: dbMetrics.r2 ? parseFloat(dbMetrics.r2) : null,
-                            feature_count: dbMetrics.feature_count
-                        };
-                    }
-                } catch (e) {
-                    console.warn('從數據庫讀取模型指標失敗:', e.message);
-                }
+            let currentModel = null;
+            let currentMetricsSource = 'none';
+            try {
+                const snapshot = await getCurrentModelMetricsSnapshot();
+                currentMetrics = snapshot.metrics;
+                currentModel = snapshot.modelName;
+                currentMetricsSource = snapshot.source;
+            } catch (e) {
+                console.warn('讀取目前模型快照失敗:', e.message);
             }
             
-            // 如果數據庫沒有，從文件讀取（向後兼容）
-            if (!currentMetrics) {
-                const metricsPath = path.join(__dirname, 'python/models/xgboost_metrics.json');
-                if (fs.existsSync(metricsPath)) {
-                    currentMetrics = JSON.parse(fs.readFileSync(metricsPath, 'utf8'));
-                }
-            }
-            
-            // 更新最新版本的實際 metrics
             if (currentMetrics) {
                 const latestEntry = timelineData.timeline[timelineData.timeline.length - 1];
-                if (latestEntry && latestEntry.metrics) {
-                    latestEntry.metrics.mae = currentMetrics.mae;
-                    latestEntry.metrics.mape = currentMetrics.mape;
-                    latestEntry.metrics.rmse = currentMetrics.rmse;
-                    latestEntry.metrics.r2 = currentMetrics.r2 || null;
+                if (latestEntry) {
+                    latestEntry.metrics = {
+                        ...(latestEntry.metrics || {}),
+                        mae: currentMetrics.mae,
+                        mape: currentMetrics.mape,
+                        rmse: currentMetrics.rmse,
+                        r2: currentMetrics.r2 || null
+                    };
+                    latestEntry.current_model = currentModel;
+                    latestEntry.metrics_source = currentMetricsSource;
                 }
             }
             
             sendJson(res, {
                 success: true,
-                data: timelineData
+                data: timelineData,
+                currentModel,
+                currentMetricsSource
             });
         } catch (error) {
             console.error('算法時間線 API 錯誤:', error);
@@ -3137,9 +3313,14 @@ const apiHandlers = {
                 return sendJson(res, { 
                     success: true, 
                     data: {
-                        xgboost: 0.95,
-                        ai: 0.00,
-                        weather: 0.05,
+                        current: {
+                            xgboost: 0.95,
+                            ai: 0.00,
+                            weather: 0.05
+                        },
+                        xgboost_reliability: 0.95,
+                        ai_reliability: 0.00,
+                        weather_reliability: 0.05,
                         source: 'default'
                     }
                 });
@@ -3156,6 +3337,9 @@ const apiHandlers = {
                         ai: parseFloat(state.ai_reliability) || 0.00,
                         weather: parseFloat(state.weather_reliability) || 0.05
                     },
+                    xgboost_reliability: parseFloat(state.xgboost_reliability) || 0.95,
+                    ai_reliability: parseFloat(state.ai_reliability) || 0.00,
+                    weather_reliability: parseFloat(state.weather_reliability) || 0.05,
                     learningRate: parseFloat(state.learning_rate) || 0.10,
                     totalSamples: parseInt(state.total_samples) || 0,
                     lastUpdated: state.last_updated,
@@ -3178,44 +3362,25 @@ const apiHandlers = {
             const { EnsemblePredictor } = require('./modules/ensemble-predictor');
             const predictor = new EnsemblePredictor();
             const status = await predictor.getModelStatusAsync();
-            
-            // 檢查 Python 環境
-            const { spawn } = require('child_process');
-            const pythonCheck = new Promise((resolve) => {
-                const python = spawn('python3', ['--version'], {
-                    stdio: ['pipe', 'pipe', 'pipe']
-                });
-                
-                let output = '';
-                python.stdout.on('data', (data) => {
-                    output += data.toString();
-                });
-                
-                python.on('close', (code) => {
-                    resolve({
-                        available: code === 0,
-                        version: output.trim(),
-                        error: code !== 0 ? 'Python 3 不可用' : null
-                    });
-                });
-                
-                python.on('error', (err) => {
-                    resolve({
-                        available: false,
-                        version: null,
-                        error: err.message
-                    });
-                });
-            });
-            
-            const pythonInfo = await pythonCheck;
+            const runtimePythonInfo = {
+                available: status.runtime?.python?.available || false,
+                command: status.runtime?.python?.command || null,
+                version: status.runtime?.python?.version || null,
+                dependencies: status.runtime?.dependencies || null,
+                ready: status.runtime?.ready || false,
+                error: status.runtime?.error || status.runtime?.dependencies?.error || null
+            };
+            const metricsSnapshot = await getCurrentModelMetricsSnapshot();
             
             sendJson(res, {
                 success: true,
                 data: {
                     modelStatus: status,
-                    python: pythonInfo,
-                    recommendations: generateRecommendations(status, pythonInfo)
+                    currentModel: metricsSnapshot.modelName,
+                    currentMetrics: metricsSnapshot.metrics,
+                    currentMetricsSource: metricsSnapshot.source,
+                    python: runtimePythonInfo,
+                    recommendations: buildModelDiagnosticsRecommendations(status, runtimePythonInfo)
                 }
             });
         } catch (err) {
@@ -4239,6 +4404,24 @@ const apiHandlers = {
             }
 
             // 3. 實時誤差：基於最近實際預測 vs 實際數據
+            try {
+                const metricsSnapshot = await getCurrentModelMetricsSnapshot();
+                if (metricsSnapshot.metrics) {
+                    trainingMetrics = metricsSnapshot.metrics;
+                    details.metricsSource = metricsSnapshot.source;
+                    details.trainingModel = metricsSnapshot.modelName;
+                    details.trainingMAE = trainingMetrics.mae;
+                    details.trainingMAPE = trainingMetrics.mape;
+                    details.trainingRMSE = trainingMetrics.rmse;
+                    details.trainingR2 = trainingMetrics.r2 || null;
+                    details.trainingDate = trainingMetrics.training_date;
+                    details.featureCount = trainingMetrics.feature_count;
+                    details.modelExists = true;
+                }
+            } catch (e) {
+                console.warn('目前模型指標快照讀取失敗:', e.message);
+            }
+
             let liveMAE = null;
             let liveMAPE = null;
             let liveRMSE = null;
@@ -4276,6 +4459,37 @@ const apiHandlers = {
             }
 
             // 4. 模型擬合度：優先使用實時誤差，否則使用訓練指標
+            if (db && db.pool) {
+                try {
+                    const accuracyResult = await db.pool.query(`
+                        SELECT
+                            AVG(ABS(error)) as mae,
+                            AVG(ABS(error_percentage)) as mape,
+                            STDDEV(error) as rmse,
+                            COUNT(*) as count,
+                            MIN(target_date) as from_date,
+                            MAX(target_date) as to_date
+                        FROM prediction_accuracy
+                        WHERE target_date >= CURRENT_DATE - INTERVAL '14 days'
+                    `);
+
+                    if (accuracyResult.rows[0].count > 0) {
+                        liveMAE = parseFloat(accuracyResult.rows[0].mae);
+                        liveMAPE = parseFloat(accuracyResult.rows[0].mape);
+                        liveRMSE = parseFloat(accuracyResult.rows[0].rmse) || null;
+                        details.liveSource = 'prediction_accuracy';
+                        details.liveMAE = liveMAE;
+                        details.liveMAPE = liveMAPE;
+                        details.liveRMSE = liveRMSE;
+                        details.liveComparisonCount = parseInt(accuracyResult.rows[0].count);
+                        details.liveFromDate = accuracyResult.rows[0].from_date;
+                        details.liveToDate = accuracyResult.rows[0].to_date;
+                    }
+                } catch (e) {
+                    console.warn('prediction_accuracy 近期誤差讀取失敗:', e.message);
+                }
+            }
+
             if (liveMAE !== null && liveMAPE !== null) {
                 // 使用實時誤差計算
                 const NAIVE_MAE = 18.3;
@@ -4340,6 +4554,31 @@ const apiHandlers = {
             }
 
             // 5. 近期準確度（保留向後兼容）
+            if (trainingMetrics && trainingMetrics.mae !== null && trainingMetrics.mape !== null) {
+                const NAIVE_MAE = 18.3;
+                const mase = trainingMetrics.mae / NAIVE_MAE;
+
+                let skillScore;
+                if (mase <= 0.5) skillScore = 100;
+                else if (mase < 1.0) skillScore = Math.round(100 - (mase - 0.5) * 100);
+                else if (mase < 1.5) skillScore = Math.round(50 - (mase - 1.0) * 100);
+                else skillScore = 0;
+
+                let mapeScore;
+                if (trainingMetrics.mape < 5) mapeScore = 100;
+                else if (trainingMetrics.mape < 8) mapeScore = 85;
+                else if (trainingMetrics.mape < 10) mapeScore = 70;
+                else if (trainingMetrics.mape < 12) mapeScore = 60;
+                else if (trainingMetrics.mape < 15) mapeScore = 50;
+                else mapeScore = Math.max(0, 40 - (trainingMetrics.mape - 15) * 2);
+
+                modelFit = Math.round(skillScore * 0.6 + mapeScore * 0.4);
+                details.fitSource = 'training';
+                details.mase = parseFloat(mase.toFixed(3));
+                details.skillScore = skillScore;
+                details.naiveMAE = NAIVE_MAE;
+            }
+
             recentAccuracy = liveMAPE !== null ? Math.round(100 - liveMAPE) : (trainingMetrics ? Math.round(100 - trainingMetrics.mape) : 85);
             
             // 計算綜合置信度
@@ -4611,8 +4850,8 @@ const apiHandlers = {
                     WITH comparison_data AS (
                         SELECT
                             dp.target_date,
-                            dp.predicted_count as production_pred,
-                            dp.prediction_experimental as experimental_pred,
+                            COALESCE(dp.prediction_production, dp.predicted_count) as production_pred,
+                            COALESCE(dp.prediction_experimental, dp.predicted_count) as experimental_pred,
                             ad.patient_count as actual
                         FROM daily_predictions dp
                         INNER JOIN actual_data ad ON ad.date = dp.target_date
@@ -4645,7 +4884,10 @@ const apiHandlers = {
             if (valStats.sample_count > 0) {
                 const prodMae = parseFloat(valStats.prod_mae) || 0;
                 const expMae = parseFloat(valStats.exp_mae) || 0;
-                const totalComparisons = valStats.prod_wins + valStats.exp_wins + valStats.ties;
+                const prodWins = parseInt(valStats.prod_wins) || 0;
+                const expWins = parseInt(valStats.exp_wins) || 0;
+                const ties = parseInt(valStats.ties) || 0;
+                const totalComparisons = prodWins + expWins + ties;
 
                 // 改進百分比 (Exp 比 Prod 好多少)
                 if (prodMae > 0 && expMae > 0) {
@@ -4655,7 +4897,7 @@ const apiHandlers = {
 
                 // 勝率 (Exp 勝的比例)
                 if (totalComparisons > 0) {
-                    win_rate_pct = ((valStats.exp_wins / totalComparisons) * 100).toFixed(1) + '%';
+                    win_rate_pct = ((expWins / totalComparisons) * 100).toFixed(1) + '%';
                 }
             }
 
@@ -4667,6 +4909,7 @@ const apiHandlers = {
                 win_rate_pct: win_rate_pct,
                 prod_wins: parseInt(valStats.prod_wins) || 0,
                 exp_wins: parseInt(valStats.exp_wins) || 0,
+                ties: parseInt(valStats.ties) || 0,
                 recommendation: valStats.sample_count >= 30 ?
                     (parseFloat(mae_improvement_pct) < 0 ? 'Experimental 表現較佳，考慮切換' : 'Production 表現穩定，繼續觀察') :
                     `需要 ${30 - (valStats.sample_count || 0)} 天更多數據`
@@ -5021,7 +5264,26 @@ const apiHandlers = {
                     try {
                         ({ getScheduler } = require('./modules/learning-scheduler'));
                     } catch (moduleError) {
-                        sendJson(res, { success: true, data: { is_running: false, scheduler_active: false, scheduled_tasks: 0, last_run_time: null, run_count: 0, tasks: [], next_run: '未配置', error: 'Scheduler module not loaded' } });
+                        sendJson(res, {
+                            success: true,
+                            data: {
+                                is_running: false,
+                                scheduler_active: false,
+                                scheduler_mode: 'inactive',
+                                scheduled_tasks: 0,
+                                last_run_time: null,
+                                run_count: 0,
+                                tasks: [],
+                                next_run: '每日 00:30 HKT',
+                                next_runs: {
+                                    daily: '每日 00:30 HKT',
+                                    weekly: '每週一 01:00 HKT',
+                                    forecast: '每 6 小時'
+                                },
+                                last_error: 'Scheduler module not loaded',
+                                error: 'Scheduler module not loaded'
+                            }
+                        });
                         return;
                     }
                     const scheduler = getScheduler();
@@ -5034,15 +5296,52 @@ const apiHandlers = {
                             if (r.rows[0] && r.rows[0].t) lastRunTime = r.rows[0].t;
                         } catch (_) {}
                     }
-                    const schedulerActive = (status.scheduledTasks || status.tasks?.length || 0) > 0;
-                    sendJson(res, { success: true, data: { is_running: status.isRunning || false, scheduler_active: schedulerActive, scheduled_tasks: status.scheduledTasks || status.tasks?.length || 0, last_run_time: lastRunTime, run_count: status.runCount || 0, tasks: status.tasks || [], next_run: '每日 00:30 HKT' } });
+                    const schedulerActive = status.schedulerActive ?? ((status.scheduledTasks || status.tasks?.length || 0) > 0);
+                    const nextRuns = status.nextRuns || {
+                        daily: '每日 00:30 HKT',
+                        weekly: '每週一 01:00 HKT',
+                        forecast: '每 6 小時'
+                    };
+                    sendJson(res, {
+                        success: true,
+                        data: {
+                            is_running: status.isRunning || false,
+                            scheduler_active: schedulerActive,
+                            scheduler_mode: status.schedulerMode || 'unknown',
+                            scheduled_tasks: status.scheduledTasks || status.tasks?.length || 0,
+                            last_run_time: lastRunTime,
+                            run_count: status.runCount || 0,
+                            tasks: status.tasks || [],
+                            next_run: nextRuns.daily || '每日 00:30 HKT',
+                            next_runs: nextRuns,
+                            last_error: status.lastError || null
+                        }
+                    });
                 })(),
                 new Promise((_, r) => setTimeout(() => r(new Error('REQUEST_TIMEOUT')), 20000))
             ]);
         } catch (error) {
             if (error.message === 'REQUEST_TIMEOUT' && !res.headersSent) return sendJson(res, { success: false, error: 'Request timeout' }, 503);
             console.error('❌ Scheduler status error:', error);
-            sendJson(res, { success: true, data: { is_running: false, scheduler_active: false, scheduled_tasks: 0, last_run_time: null, run_count: 0, tasks: [], next_run: '每日 00:30 HKT' } });
+            sendJson(res, {
+                success: true,
+                data: {
+                    is_running: false,
+                    scheduler_active: false,
+                    scheduler_mode: 'inactive',
+                    scheduled_tasks: 0,
+                    last_run_time: null,
+                    run_count: 0,
+                    tasks: [],
+                    next_run: '每日 00:30 HKT',
+                    next_runs: {
+                        daily: '每日 00:30 HKT',
+                        weekly: '每週一 01:00 HKT',
+                        forecast: '每 6 小時'
+                    },
+                    last_error: error.message
+                }
+            });
         }
     },
 

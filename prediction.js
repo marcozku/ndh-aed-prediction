@@ -102,6 +102,11 @@ async function checkXGBoostAvailability() {
     try {
         const response = await fetch('/api/ensemble-status');
         const result = await response.json();
+        if (result?.data?.runtime?.ready === true) {
+            result.data.models = { ...(result.data.models || {}), xgboost: true };
+        } else if (result?.data?.runtime?.ready === false) {
+            result.data.models = { ...(result.data.models || {}), xgboost: false };
+        }
         if (result.success && result.data && result.data.models && result.data.models.xgboost) {
             xgboostAvailable = true;
             console.log('✅ XGBoost 模型可用');
@@ -10467,10 +10472,11 @@ async function loadDualTrackSection() {
         // 獲取可靠度權重
         let reliability = { xgboost: 0.95, ai: 0.00, weather: 0.05 };
         if (relResult.success && relResult.data) {
+            const currentReliability = relResult.data.current || {};
             reliability = {
-                xgboost: parseFloat(relResult.data.xgboost_reliability) || 0.95,
-                ai: parseFloat(relResult.data.ai_reliability) || 0.00,
-                weather: parseFloat(relResult.data.weather_reliability) || 0.05
+                xgboost: parseFloat(currentReliability.xgboost ?? relResult.data.xgboost_reliability) || 0.95,
+                ai: parseFloat(currentReliability.ai ?? relResult.data.ai_reliability) || 0.00,
+                weather: parseFloat(currentReliability.weather ?? relResult.data.weather_reliability) || 0.05
             };
         }
         

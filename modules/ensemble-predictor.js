@@ -1,7 +1,3 @@
-/**
- * XGBoost 預測器模組
- * 支持標準模型與 opt10 模型，並在執行時自動檢測可用的 Python 命令。
- */
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -50,6 +46,136 @@ class EnsemblePredictor {
         });
     }
 
+    async getPythonVersion(command) {
+        return new Promise((resolve) => {
+            const python = spawn(command, ['--version'], { stdio: 'pipe' });
+            let output = '';
+            let errorOutput = '';
+
+            python.stdout.on('data', (data) => {
+                output += data.toString();
+            });
+
+            python.stderr.on('data', (data) => {
+                errorOutput += data.toString();
+            });
+
+            python.on('close', (code) => {
+                resolve(code === 0 ? (output || errorOutput).trim() : null);
+            });
+
+            python.on('error', () => {
+                resolve(null);
+            });
+        });
+    }
+
+    async checkRuntimeStatus() {
+        const pythonCommand = await this.detectPythonCommand();
+
+        if (!pythonCommand) {
+            return {
+                ready: false,
+                python: {
+                    available: false,
+                    command: null,
+                    version: null
+                },
+                dependencies: {
+                    available: false,
+                    output: '',
+                    error: 'Python command not found'
+                },
+                error: 'Python command not found'
+            };
+        }
+
+        const version = await this.getPythonVersion(pythonCommand);
+
+        const dependencies = await new Promise((resolve) => {
+            const python = spawn(
+                pythonCommand,
+                ['-c', 'import xgboost; print("OK")'],
+                {
+                    cwd: path.join(__dirname, '..', 'python'),
+                    stdio: ['pipe', 'pipe', 'pipe']
+                }
+            );
+
+            let output = '';
+            let error = '';
+
+            python.stdout.on('data', (data) => {
+                output += data.toString();
+            });
+
+            python.stderr.on('data', (data) => {
+                error += data.toString();
+            });
+
+            python.on('close', (code) => {
+                resolve({
+                    available: code === 0,
+                    output: output.trim(),
+                    error: error.trim() || null
+                });
+            });
+
+            python.on('error', (err) => {
+                resolve({
+                    available: false,
+                    output: '',
+                    error: err.message
+                });
+            });
+        });
+
+        return {
+            ready: dependencies.available,
+            python: {
+                available: true,
+                command: pythonCommand,
+                version
+            },
+            dependencies,
+            error: dependencies.available ? null : (dependencies.error || 'Python dependencies unavailable')
+        };
+    }
+
+    normalizeMetrics(metrics = {}) {
+        const toNumber = (value) => {
+            const num = Number(value);
+            return Number.isFinite(num) ? num : null;
+        };
+
+        const trainCount = toNumber(metrics.train_count ?? metrics.train_size);
+        const testCount = toNumber(metrics.test_count ?? metrics.test_size);
+
+        return {
+            mae: toNumber(metrics.mae),
+            mape: toNumber(metrics.mape),
+            rmse: toNumber(metrics.rmse),
+            r2: toNumber(metrics.r2),
+            training_date: metrics.training_date || null,
+            data_count: toNumber(metrics.data_count) ?? ((trainCount || 0) + (testCount || 0) || null),
+            train_count: trainCount,
+            test_count: testCount,
+            feature_count: toNumber(metrics.feature_count ?? metrics.n_features),
+            ai_factors_count: toNumber(metrics.ai_factors_count),
+            baseline_mae: toNumber(metrics.baseline_mae),
+            improvement_vs_baseline: metrics.improvement_vs_baseline || null
+        };
+    }
+
+    parseMetricDate(value) {
+        if (!value) {
+            return new Date(0);
+        }
+
+        const parsed = new Date(String(value).replace(' HKT', '').trim());
+        return Number.isNaN(parsed.getTime()) ? new Date(0) : parsed;
+    }
+
     isOpt10ModelAvailable() {
         const requiredFiles = [
             'xgboost_opt10_model.json',
@@ -86,12 +212,12 @@ class EnsemblePredictor {
         void historicalData;
 
         if (!this.isModelAvailable()) {
-            throw new Error('XGBoost 模型未訓練。請先運行 python/train_all_models.py');
+            throw new Error('XGBoost 模型未訓練，請先執行 python/train_all_models.py');
         }
 
         const pythonCommand = await this.detectPythonCommand();
         if (!pythonCommand) {
-            throw new Error('無法找到 Python 執行檔。請確認 python3 或 python 可於 PATH 使用。');
+            throw new Error('找不到可用的 Python 指令，請確認 python3 或 python 已加入 PATH');
         }
 
         return new Promise((resolve, reject) => {
@@ -116,7 +242,7 @@ class EnsemblePredictor {
 
             python.on('close', (code) => {
                 if (code !== 0) {
-                    reject(new Error(`Python 腳本錯誤 (code ${code}): ${error || output}`));
+                    reject(new Error(`Python 執行失敗 (code ${code}): ${error || output}`));
                     return;
                 }
 
@@ -128,7 +254,7 @@ class EnsemblePredictor {
             });
 
             python.on('error', (err) => {
-                reject(new Error(`無法執行 Python 腳本: ${err.message}`));
+                reject(new Error(`無法啟動 Python: ${err.message}`));
             });
         });
     }
@@ -178,7 +304,7 @@ class EnsemblePredictor {
                     modelDetails[modelKey].metrics = JSON.parse(fs.readFileSync(metricsPath, 'utf8'));
                     modelDetails[modelKey].metricsSource = 'file';
                 } catch (err) {
-                    console.error(`無法讀取 ${modelKey} metrics:`, err.message);
+                    console.error(`無法解析 ${modelKey} metrics:`, err.message);
                     modelDetails[modelKey].metrics = null;
                 }
             }
@@ -203,79 +329,66 @@ class EnsemblePredictor {
     async getModelStatusAsync() {
         const status = this.getModelStatus();
         const currentModel = status.currentModel || 'xgboost';
-        const fileMetrics = status[currentModel]?.metrics ||
-                           status.details?.[currentModel]?.metrics ||
-                           status.xgboost?.metrics ||
-                           status.details?.xgboost?.metrics;
+        const currentDetails = status.details?.[currentModel] || status.current || null;
+        const fileMetrics = currentDetails?.metrics || null;
+        const fileModels = { ...status.models };
+        const runtime = await this.checkRuntimeStatus();
 
         try {
             const db = require('../database');
-            const dbMetrics = await db.getModelMetrics('xgboost');
+            const dbMetrics = await db.getModelMetrics(currentModel);
 
             if (dbMetrics && dbMetrics.mae !== null) {
-                let dbDate = new Date(0);
-                if (dbMetrics.training_date) {
-                    const parsedDbDate = new Date(dbMetrics.training_date);
-                    if (!isNaN(parsedDbDate.getTime())) {
-                        dbDate = parsedDbDate;
-                    }
-                }
-
-                let fileDate = new Date(0);
-                if (fileMetrics?.training_date) {
-                    const parsedFileDate = new Date(fileMetrics.training_date);
-                    if (!isNaN(parsedFileDate.getTime())) {
-                        fileDate = parsedFileDate;
-                    }
-                }
+                const dbDate = this.parseMetricDate(dbMetrics.training_date);
+                const fileDate = this.parseMetricDate(fileMetrics?.training_date);
 
                 if (dbDate >= fileDate) {
-                    const metrics = {
-                        mae: parseFloat(dbMetrics.mae),
-                        mape: parseFloat(dbMetrics.mape),
-                        rmse: parseFloat(dbMetrics.rmse),
-                        r2: dbMetrics.r2 ? parseFloat(dbMetrics.r2) : null,
-                        training_date: dbMetrics.training_date,
-                        data_count: dbMetrics.data_count,
-                        train_count: dbMetrics.train_count,
-                        test_count: dbMetrics.test_count,
-                        feature_count: dbMetrics.feature_count,
-                        ai_factors_count: dbMetrics.ai_factors_count
-                    };
-
-                    if (status.details?.xgboost) {
-                        status.details.xgboost.metrics = metrics;
-                        status.details.xgboost.metricsSource = 'database';
+                    const metrics = this.normalizeMetrics(dbMetrics);
+                    if (status.details?.[currentModel]) {
+                        status.details[currentModel].metrics = metrics;
+                        status.details[currentModel].metricsSource = 'database';
                     }
-                    if (status.xgboost) {
-                        status.xgboost.metrics = metrics;
-                        status.xgboost.metricsSource = 'database';
+                    if (status[currentModel]) {
+                        status[currentModel].metrics = metrics;
+                        status[currentModel].metricsSource = 'database';
                     }
-                } else {
-                    console.log('📊 使用文件版本的 metrics (較新):', fileDate.toISOString());
-                    if (status.details?.xgboost) {
-                        status.details.xgboost.metricsSource = 'file';
+                    if (status.current) {
+                        status.current.metrics = metrics;
+                        status.current.metricsSource = 'database';
                     }
-                    if (status.xgboost) {
-                        status.xgboost.metricsSource = 'file';
+                } else if (status.details?.[currentModel]) {
+                    status.details[currentModel].metricsSource = 'file';
+                    if (status[currentModel]) {
+                        status[currentModel].metricsSource = 'file';
+                    }
+                    if (status.current) {
+                        status.current.metricsSource = 'file';
                     }
                 }
             }
-        } catch (e) {
-            console.warn('從數據庫讀取模型指標失敗，使用文件版本:', e.message);
+        } catch (error) {
+            console.warn('讀取資料庫模型指標失敗，改用檔案指標:', error.message);
         }
+
+        status.fileAvailable = status.available;
+        status.fileModels = fileModels;
+        status.runtime = runtime;
+        status.available = status.available && runtime.ready;
+        status.models = Object.fromEntries(
+            Object.entries(fileModels).map(([modelKey, exists]) => [modelKey, exists && runtime.ready])
+        );
 
         return status;
     }
 
     async rollingForecast(startDate, days, historicalDataPath) {
         if (!this.isModelAvailable()) {
-            throw new Error('XGBoost 模型未訓練。請先運行 python/train_all_models.py');
+            throw new Error('XGBoost 模型未訓練，請先執行 python/train_all_models.py');
         }
 
         const pythonCommand = await this.detectPythonCommand();
         if (!pythonCommand) {
-            throw new Error('無法找到 Python 執行檔。請確認 python3 或 python 可於 PATH 使用。');
+            throw new Error('找不到可用的 Python 指令，請確認 python3 或 python 已加入 PATH');
         }
 
         return new Promise((resolve, reject) => {
@@ -291,7 +404,7 @@ class EnsemblePredictor {
                 args.push(historicalDataPath);
             }
 
-            console.log(`🔄 啟動 ${days} 天滾動預測 (從 ${startDate})`);
+            console.log(`開始 ${days} 天滾動預測 (起始 ${startDate})`);
 
             const python = spawn(pythonCommand, args, {
                 cwd: path.join(__dirname, '..'),
@@ -306,30 +419,24 @@ class EnsemblePredictor {
             });
 
             python.stderr.on('data', (data) => {
-                const message = data.toString();
-                error += message;
-                if (message.includes('📊') || message.includes('🔄')) {
-                    console.log(message.trim());
-                }
+                error += data.toString();
             });
 
             python.on('close', (code) => {
                 if (code !== 0) {
-                    reject(new Error(`滾動預測錯誤 (code ${code}): ${error || output}`));
+                    reject(new Error(`滾動預測失敗 (code ${code}): ${error || output}`));
                     return;
                 }
 
                 try {
-                    const result = JSON.parse(output);
-                    console.log(`✅ 滾動預測完成: ${result.predictions?.length || 0} 天`);
-                    resolve(result);
+                    resolve(JSON.parse(output));
                 } catch (err) {
                     reject(new Error(`無法解析滾動預測輸出: ${err.message}\n輸出: ${output}`));
                 }
             });
 
             python.on('error', (err) => {
-                reject(new Error(`無法執行滾動預測: ${err.message}`));
+                reject(new Error(`無法啟動滾動預測: ${err.message}`));
             });
         });
     }
