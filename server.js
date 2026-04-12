@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '4.0.26'; // v4.0.26: 改進置信區間計算與滾動窗口機制
+const MODEL_VERSION = '4.0.27'; // v4.0.27: 移除人工噪音並加入自適應基線校準
 
 // ============================================
 // HKT 時間工具函數
@@ -535,6 +535,308 @@ async function getCurrentModelMetricsSnapshot() {
         metrics: null,
         source: 'none',
         status
+    };
+}
+
+function clampNumber(value, min, max) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return min;
+    return Math.min(max, Math.max(min, num));
+}
+
+function createDefaultPredictionContext() {
+    return {
+        profileWindowStart: '2023-01-01',
+        recentWindowDays: 84,
+        overallMean: 251,
+        dowMeans: {
+            0: 241,
+            1: 277,
+            2: 258,
+            3: 251,
+            4: 255,
+            5: 253,
+            6: 230
+        },
+        dowStds: {
+            0: 27,
+            1: 25,
+            2: 26,
+            3: 27,
+            4: 26,
+            5: 24,
+            6: 24
+        },
+        monthFactors: {
+            1: 0.9292,
+            2: 0.9707,
+            3: 0.9892,
+            4: 1.0137,
+            5: 1.0692,
+            6: 1.0178,
+            7: 1.0159,
+            8: 0.9937,
+            9: 1.0267,
+            10: 1.0324,
+            11: 0.9790,
+            12: 0.9958
+        },
+        recentWeekdayProfile: {},
+        calibration: {
+            overall: {
+                bias7: 0,
+                bias14: 0,
+                bias42: 0,
+                mae42: 18,
+                n7: 0,
+                n14: 0,
+                n42: 0
+            },
+            weekdayBias: {}
+        }
+    };
+}
+
+async function loadAdaptivePredictionContext() {
+    const context = createDefaultPredictionContext();
+
+    if (!db || !db.pool) {
+        return context;
+    }
+
+    try {
+        const overallResult = await db.pool.query(`
+            SELECT AVG(patient_count)::float AS overall_mean
+            FROM actual_data
+            WHERE date >= DATE '2023-01-01'
+        `);
+        const overallMean = Number(overallResult.rows[0]?.overall_mean);
+        if (Number.isFinite(overallMean)) {
+            context.overallMean = overallMean;
+        }
+    } catch (error) {
+        console.warn('Unable to load overall attendance profile:', error.message);
+    }
+
+    try {
+        const weekdayResult = await db.pool.query(`
+            SELECT
+                EXTRACT(ISODOW FROM date)::int AS iso_dow,
+                AVG(patient_count)::float AS avg_count,
+                COALESCE(STDDEV_SAMP(patient_count), 25)::float AS std_count
+            FROM actual_data
+            WHERE date >= DATE '2023-01-01'
+            GROUP BY 1
+            ORDER BY 1
+        `);
+
+        for (const row of weekdayResult.rows) {
+            const jsDow = row.iso_dow === 7 ? 0 : row.iso_dow;
+            if (Number.isFinite(Number(row.avg_count))) {
+                context.dowMeans[jsDow] = Number(row.avg_count);
+            }
+            if (Number.isFinite(Number(row.std_count))) {
+                context.dowStds[jsDow] = Math.max(18, Number(row.std_count));
+            }
+        }
+    } catch (error) {
+        console.warn('Unable to load weekday attendance profile:', error.message);
+    }
+
+    try {
+        const monthResult = await db.pool.query(`
+            WITH base AS (
+                SELECT
+                    EXTRACT(MONTH FROM date)::int AS month,
+                    patient_count
+                FROM actual_data
+                WHERE date >= DATE '2023-01-01'
+            ),
+            overall AS (
+                SELECT AVG(patient_count)::float AS overall_mean
+                FROM base
+            )
+            SELECT
+                month,
+                (AVG(patient_count) / NULLIF((SELECT overall_mean FROM overall), 0))::float AS month_factor
+            FROM base
+            GROUP BY month
+            ORDER BY month
+        `);
+
+        for (const row of monthResult.rows) {
+            const month = Number(row.month);
+            const factor = Number(row.month_factor);
+            if (Number.isFinite(month) && Number.isFinite(factor)) {
+                context.monthFactors[month] = clampNumber(factor, 0.85, 1.15);
+            }
+        }
+    } catch (error) {
+        console.warn('Unable to load month attendance profile:', error.message);
+    }
+
+    try {
+        const recentWeekdayResult = await db.pool.query(`
+            SELECT
+                EXTRACT(DOW FROM date)::int AS dow,
+                AVG(patient_count)::float AS avg_count,
+                COUNT(*)::int AS sample_count
+            FROM actual_data
+            WHERE date >= CURRENT_DATE - INTERVAL '84 days'
+            GROUP BY 1
+        `);
+
+        context.recentWeekdayProfile = {};
+        for (const row of recentWeekdayResult.rows) {
+            const dow = Number(row.dow);
+            const mean = Number(row.avg_count);
+            const sampleCount = Number(row.sample_count) || 0;
+            if (!Number.isFinite(dow) || !Number.isFinite(mean)) continue;
+
+            context.recentWeekdayProfile[dow] = {
+                mean,
+                sampleCount
+            };
+        }
+    } catch (error) {
+        console.warn('Unable to load recent weekday attendance profile:', error.message);
+    }
+
+    try {
+        const overallBiasResult = await db.pool.query(`
+            SELECT
+                AVG(error)::float FILTER (WHERE target_date >= CURRENT_DATE - INTERVAL '7 days') AS bias7,
+                AVG(error)::float FILTER (WHERE target_date >= CURRENT_DATE - INTERVAL '14 days') AS bias14,
+                AVG(error)::float FILTER (WHERE target_date >= CURRENT_DATE - INTERVAL '42 days') AS bias42,
+                AVG(ABS(error))::float FILTER (WHERE target_date >= CURRENT_DATE - INTERVAL '42 days') AS mae42,
+                COUNT(*) FILTER (WHERE target_date >= CURRENT_DATE - INTERVAL '7 days')::int AS n7,
+                COUNT(*) FILTER (WHERE target_date >= CURRENT_DATE - INTERVAL '14 days')::int AS n14,
+                COUNT(*) FILTER (WHERE target_date >= CURRENT_DATE - INTERVAL '42 days')::int AS n42
+            FROM prediction_accuracy
+        `);
+
+        const overall = overallBiasResult.rows[0] || {};
+        context.calibration.overall = {
+            bias7: Number(overall.bias7) || 0,
+            bias14: Number(overall.bias14) || 0,
+            bias42: Number(overall.bias42) || 0,
+            mae42: Number(overall.mae42) || context.calibration.overall.mae42,
+            n7: Number(overall.n7) || 0,
+            n14: Number(overall.n14) || 0,
+            n42: Number(overall.n42) || 0
+        };
+    } catch (error) {
+        console.warn('Unable to load overall prediction bias profile:', error.message);
+    }
+
+    try {
+        const weekdayBiasResult = await db.pool.query(`
+            SELECT
+                EXTRACT(DOW FROM target_date)::int AS dow,
+                AVG(error)::float FILTER (WHERE target_date >= CURRENT_DATE - INTERVAL '14 days') AS bias14,
+                AVG(error)::float FILTER (WHERE target_date >= CURRENT_DATE - INTERVAL '42 days') AS bias42,
+                AVG(ABS(error))::float FILTER (WHERE target_date >= CURRENT_DATE - INTERVAL '42 days') AS mae42,
+                COUNT(*) FILTER (WHERE target_date >= CURRENT_DATE - INTERVAL '14 days')::int AS n14,
+                COUNT(*) FILTER (WHERE target_date >= CURRENT_DATE - INTERVAL '42 days')::int AS n42
+            FROM prediction_accuracy
+            GROUP BY 1
+        `);
+
+        for (const row of weekdayBiasResult.rows) {
+            const dow = Number(row.dow);
+            if (!Number.isFinite(dow)) continue;
+
+            context.calibration.weekdayBias[dow] = {
+                bias14: Number(row.bias14) || 0,
+                bias42: Number(row.bias42) || 0,
+                mae42: Number(row.mae42) || context.calibration.overall.mae42,
+                n14: Number(row.n14) || 0,
+                n42: Number(row.n42) || 0
+            };
+        }
+    } catch (error) {
+        console.warn('Unable to load weekday prediction bias profile:', error.message);
+    }
+
+    return context;
+}
+
+function calculateCalibrationAdjustment(dow, daysAhead, predictionContext) {
+    const overall = predictionContext?.calibration?.overall || {};
+    const weekday = predictionContext?.calibration?.weekdayBias?.[dow] || {};
+
+    const weekdayShortWeight = clampNumber((weekday.n14 || 0) / 4, 0, 1) * 0.45;
+    const weekdayMediumWeight = clampNumber((weekday.n42 || 0) / 8, 0, 1) * 0.30;
+    const overallShortWeight = clampNumber((overall.n14 || 0) / 10, 0, 1) * 0.20;
+    const overallMediumWeight = clampNumber((overall.n42 || 0) / 28, 0, 1) * 0.05;
+
+    const biasEstimate =
+        (weekday.bias14 || 0) * weekdayShortWeight +
+        (weekday.bias42 || 0) * weekdayMediumWeight +
+        (overall.bias14 || overall.bias7 || 0) * overallShortWeight +
+        (overall.bias42 || 0) * overallMediumWeight;
+
+    const horizonDecay = daysAhead === 0
+        ? 1
+        : daysAhead <= 7
+            ? Math.max(0.55, 1 - daysAhead * 0.06)
+            : Math.max(0.18, 0.55 - (daysAhead - 7) * 0.018);
+
+    const maxAdjustment = clampNumber(
+        ((overall.mae42 || weekday.mae42 || 18) * 0.9),
+        6,
+        24
+    );
+
+    const rawAdjustment = -biasEstimate * horizonDecay;
+    const adjustment = Math.abs(rawAdjustment) < 1.5
+        ? 0
+        : clampNumber(rawAdjustment, -maxAdjustment, maxAdjustment);
+
+    return {
+        adjustment,
+        biasEstimate,
+        horizonDecay,
+        maxAdjustment
+    };
+}
+
+function calculateAdaptiveTargetMean(dow, monthFactor, predictionContext) {
+    const overallMean = Number(predictionContext?.overallMean) || 251;
+    const longTermDowMean = Number(predictionContext?.dowMeans?.[dow]) || overallMean;
+    const safeMonthFactor = Number.isFinite(Number(monthFactor)) ? Number(monthFactor) : 1;
+    const seasonalBaseline = longTermDowMean * safeMonthFactor;
+    const recentProfile = predictionContext?.recentWeekdayProfile?.[dow];
+
+    if (!recentProfile) {
+        return {
+            targetMean: seasonalBaseline,
+            seasonalBaseline,
+            recentWeekdayMean: null,
+            recentBlendWeight: 0
+        };
+    }
+
+    const recentWeekdayMean = Number(recentProfile.mean);
+    const sampleCount = Number(recentProfile.sampleCount) || 0;
+    if (!Number.isFinite(recentWeekdayMean)) {
+        return {
+            targetMean: seasonalBaseline,
+            seasonalBaseline,
+            recentWeekdayMean: null,
+            recentBlendWeight: 0
+        };
+    }
+
+    const recentBlendWeight = clampNumber(sampleCount / 12, 0, 1) * 0.35;
+    const blendedMean = seasonalBaseline * (1 - recentBlendWeight) + recentWeekdayMean * recentBlendWeight;
+    const guardBand = Math.max(18, seasonalBaseline * 0.12);
+
+    return {
+        targetMean: clampNumber(blendedMean, seasonalBaseline - guardBand, seasonalBaseline + guardBand),
+        seasonalBaseline,
+        recentWeekdayMean,
+        recentBlendWeight
     };
 }
 
@@ -5749,6 +6051,7 @@ async function generateServerSidePredictions(source = 'auto') {
     try {
         // 檢查 XGBoost 模型是否可用
         let ensemblePredictor = null;
+        let pythonCommand = 'python';
         try {
             const { EnsemblePredictor } = require('./modules/ensemble-predictor');
             ensemblePredictor = new EnsemblePredictor();
@@ -5756,6 +6059,7 @@ async function generateServerSidePredictions(source = 'auto') {
                 console.log('⚠️ XGBoost 模型未訓練，跳過自動預測。請先運行 python/train_all_models.py');
                 return;
             }
+            pythonCommand = await ensemblePredictor.detectPythonCommand() || 'python';
         } catch (e) {
             console.log('⚠️ XGBoost 模組不可用，跳過自動預測:', e.message);
             return;
@@ -5764,33 +6068,19 @@ async function generateServerSidePredictions(source = 'auto') {
         // v3.3.01: 生成今天和未來 30 天的預測（已修復數據洩漏，長期預測更可靠）
         const predictions = [];
         const today = new Date(`${hk.dateStr}T00:00:00+08:00`);
+        const predictionContext = await loadAdaptivePredictionContext();
+        const overallMean = predictionContext.overallMean;
+        const dowMeans = predictionContext.dowMeans;
+        const dowStds = predictionContext.dowStds;
+        const monthFactors = predictionContext.monthFactors;
+        const dowFactors = Object.fromEntries(
+            Object.entries(dowMeans).map(([dow, mean]) => [
+                dow,
+                Number((mean / overallMean).toFixed(4))
+            ])
+        );
         
-        // 星期效應因子（基於研究：週一最高 124%，週末最低 70%）
-        const dowFactors = {
-            0: 0.85,  // 週日
-            1: 1.10,  // 週一（最高）
-            2: 1.05,  // 週二
-            3: 1.02,  // 週三
-            4: 1.00,  // 週四
-            5: 0.98,  // 週五
-            6: 0.88   // 週六
-        };
-        
-        // 月份效應因子
-        const monthFactors = {
-            1: 1.05,  // 冬季流感
-            2: 1.03,
-            3: 1.02,
-            4: 0.98,
-            5: 0.97,
-            6: 0.98,
-            7: 1.02,  // 夏季流感
-            8: 1.01,
-            9: 0.99,
-            10: 1.00,
-            11: 1.01,
-            12: 1.04  // 冬季
-        };
+        console.log(`📈 動態基線已載入: overall=${overallMean.toFixed(1)}, Mon=${Math.round(dowMeans[1])}, Wed=${Math.round(dowMeans[3])}, Sat=${Math.round(dowMeans[6])}`);
         
         // 加載 AI 因素
         let aiFactorsMap = {};
@@ -5947,7 +6237,7 @@ async function generateServerSidePredictions(source = 'auto') {
             console.log(`🔄 調用 Python XGBoost 滾動預測 (31 天)...`);
 
             const pythonResult = await new Promise((resolve, reject) => {
-                const python = spawn('python', [pythonScript, hk.dateStr, '31'], {
+                const python = spawn(pythonCommand, [pythonScript, hk.dateStr, '31'], {
                     cwd: __dirname,
                     stdio: ['pipe', 'pipe', 'pipe']
                 });
@@ -6019,9 +6309,9 @@ async function generateServerSidePredictions(source = 'auto') {
                     SELECT AVG(patient_count) as avg_count FROM actual_data
                     WHERE date >= CURRENT_DATE - INTERVAL '90 days'
                 `);
-                basePrediction = parseFloat(statsResult.rows[0]?.avg_count) || 249;
+                basePrediction = parseFloat(statsResult.rows[0]?.avg_count) || overallMean || 249;
             } catch (e) {
-                basePrediction = 249;
+                basePrediction = overallMean || 249;
             }
         }
 
@@ -6044,6 +6334,7 @@ async function generateServerSidePredictions(source = 'auto') {
             
             // 應用月份效應調整
             const monthFactor = monthFactors[month] || 1.0;
+            const adaptiveTarget = calculateAdaptiveTargetMean(dow, monthFactor, predictionContext);
             
             // 應用 AI 因素調整
             let aiFactor = 1.0;
@@ -6087,8 +6378,6 @@ async function generateServerSidePredictions(source = 'auto') {
             // 歷史星期均值（Post-COVID 2023-2025 實際數據）
             // 來源: AI-AED-Algorithm-Specification.txt - Post-COVID Baseline (2023-2025)
             // Mean: 253.8 ± 28, Monday: 270 ± 35, Saturday: 235 ± 32
-            const dowMeans = { 0: 225, 1: 270, 2: 260, 3: 255, 4: 252, 5: 245, 6: 235 };
-            const dowStds = { 0: 28, 1: 35, 2: 30, 3: 28, 4: 28, 5: 28, 6: 32 };
             // v3.0.85: 移除硬上限，改用異常標記
             // 歷史參考範圍（用於異常檢測，不再 clip）
             const NORMAL_MIN = 180;  // Post-COVID 歷史低值
@@ -6104,7 +6393,7 @@ async function generateServerSidePredictions(source = 'auto') {
             // ============================================================
             // 獲取該日期的 XGBoost 基準預測
             let xgboostBase = xgboostPredictions[dateStr] || basePrediction;
-            const targetMean = dowMeans[dow];
+            const targetMean = adaptiveTarget.targetMean;
 
             if (daysAhead === 0) {
                 // Day 0：XGBoost + Pragmatic Bayesian 融合
@@ -6137,7 +6426,7 @@ async function generateServerSidePredictions(source = 'auto') {
                 // Day 1-30：混合預測策略（v4.0.25）
                 // ============================================================
                 // 問題：XGBoost 滾動預測在 Railway 可能失敗，導致使用固定 basePrediction
-                // 解決：結合 XGBoost（如果有）+ 星期歷史均值 + 隨機擾動
+                // 解決：結合 XGBoost（如果有）+ 自適應星期基線
                 
                 // 檢查是否有有效的 XGBoost 預測
                 const hasValidXgboost = xgboostPredictions[dateStr] && xgboostPredictions[dateStr] !== basePrediction;
@@ -6149,11 +6438,19 @@ async function generateServerSidePredictions(source = 'auto') {
                 
                 if (hasValidXgboost) {
                     // XGBoost 成功：逐漸降低權重
-                    xgbWeight = daysAhead <= 7 ? 0.8 : Math.max(0.4, 0.8 - (daysAhead - 7) * 0.02);
+                    if (daysAhead <= 3) {
+                        xgbWeight = 0.92;
+                    } else if (daysAhead <= 7) {
+                        xgbWeight = 0.88;
+                    } else if (daysAhead <= 14) {
+                        xgbWeight = Math.max(0.72, 0.88 - (daysAhead - 7) * 0.02);
+                    } else {
+                        xgbWeight = Math.max(0.55, 0.74 - (daysAhead - 14) * 0.015);
+                    }
                     value = xgboostBase * xgbWeight + targetMean * (1 - xgbWeight);
                 } else {
                     // XGBoost 失敗：主要使用星期均值
-                    xgbWeight = 0.2;
+                    xgbWeight = 0.35;
                     value = basePrediction * xgbWeight + targetMean * (1 - xgbWeight);
                 }
 
@@ -6170,16 +6467,8 @@ async function generateServerSidePredictions(source = 'auto') {
                 }
 
                 // 應用月份效應
-                value += (monthFactor - 1.0) * targetMean * 0.3;
                 
-                // v4.0.25: 添加隨機擾動模擬真實世界變化
-                // 使用日期作為種子確保可重現
-                const seed = parseInt(dateStr.replace(/-/g, '')) + daysAhead;
-                const pseudoRandom = Math.sin(seed) * 10000 - Math.floor(Math.sin(seed) * 10000);
-                const noiseStd = (dowStds[dow] || 28) * 0.4; // 40% 的歷史標準差
-                const noise = (pseudoRandom - 0.5) * 2 * noiseStd;
-                value += noise;
-
+                // v4.0.25: 使用純訊號混合，避免人工噪音拖累精度
                 adjusted = Math.round(value);
                 predictionMethod = hasValidXgboost ? 'xgboost_hybrid' : 'dowmean_hybrid';
 
@@ -6198,7 +6487,15 @@ async function generateServerSidePredictions(source = 'auto') {
             }
 
             // 置信區間：基於歷史標準差
-            const baseStd = dowStds[dow];
+            const calibrationInfo = calculateCalibrationAdjustment(dow, daysAhead, predictionContext);
+            if (calibrationInfo.adjustment !== 0) {
+                adjusted = Math.round(adjusted + calibrationInfo.adjustment);
+                predictionMethod += '_calibrated';
+            }
+
+            adjusted = Math.round(clampNumber(adjusted, 150, 350));
+
+            const baseStd = dowStds[dow] || 25;
             // 遠期預測不確定性增加
             const uncertaintyMultiplier = 1.0 + daysAhead * 0.03; // 每天增加 3%
             const std = baseStd * uncertaintyMultiplier;
@@ -6223,7 +6520,7 @@ async function generateServerSidePredictions(source = 'auto') {
             let expPrediction = adjusted;
             
             // 計算 AI 對預測的影響量
-            const targetMeanForAI = dowMeans[dow] || 247;
+            const targetMeanForAI = targetMean;
             const aiImpact = aiFactor !== 1.0 ? (aiFactor - 1.0) * targetMeanForAI * 0.15 : 0;
             
             if (aiFactor !== 1.0) {
@@ -6247,15 +6544,35 @@ async function generateServerSidePredictions(source = 'auto') {
                     month: monthFactor,
                     ai: aiFactor,
                     weather: weatherFactor,
+                    baseline: Number(targetMean.toFixed(2)),
+                    recentBlend: Number(adaptiveTarget.recentBlendWeight.toFixed(3)),
+                    calibration: calibrationInfo.adjustment,
                     holiday: holidayFactor  // v4.0.19: 假期因子
                 },
                 weatherInfo,
                 aiInfo,
                 isHoliday,  // v4.0.19: 是否假期
                 anomaly,  // v3.0.85: 異常標記
+                diagnostics: {
+                    predictionMethod,
+                    seasonalBaseline: Number(adaptiveTarget.seasonalBaseline.toFixed(2)),
+                    recentWeekdayMean: Number.isFinite(adaptiveTarget.recentWeekdayMean)
+                        ? Number(adaptiveTarget.recentWeekdayMean.toFixed(2))
+                        : null,
+                    recentBlendWeight: Number(adaptiveTarget.recentBlendWeight.toFixed(3)),
+                    calibration: {
+                        adjustment: calibrationInfo.adjustment,
+                        biasEstimate: Number(calibrationInfo.biasEstimate.toFixed(2)),
+                        horizonDecay: Number(calibrationInfo.horizonDecay.toFixed(3)),
+                        maxAdjustment: calibrationInfo.maxAdjustment
+                    },
+                    bayesianPrediction: Number.isFinite(Number(bayesianResult?.prediction))
+                        ? Number(Number(bayesianResult.prediction).toFixed(2))
+                        : null
+                },
                 // v3.0.86: 雙軌數據
                 dualTrack: {
-                    xgboostBase: basePrediction,
+                    xgboostBase: xgboostBase,
                     production: prodPrediction,
                     experimental: expPrediction,
                     aiFactor: aiFactor,
