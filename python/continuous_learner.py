@@ -65,6 +65,33 @@ def get_db_connection():
         )
     return conn
 
+def normalize_ai_factor_payload(ai_data):
+    """相容 type/event_type 與 impactFactor/factor 欄位"""
+    if not ai_data:
+        return None
+
+    if isinstance(ai_data, list):
+        ai_data = ai_data[0] if len(ai_data) > 0 else None
+    if not isinstance(ai_data, dict):
+        return None
+
+    normalized = dict(ai_data)
+    event_type = normalized.get('event_type') or normalized.get('eventType') or normalized.get('type')
+    factor = normalized.get('factor', normalized.get('impactFactor'))
+
+    try:
+        factor = float(factor) if factor is not None else None
+    except (TypeError, ValueError):
+        factor = None
+
+    normalized['event_type'] = event_type
+    normalized['type'] = event_type
+    normalized['factor'] = factor
+    if factor is not None:
+        normalized['impactFactor'] = factor
+
+    return normalized
+
 # ============================================================
 # Data Collection
 # ============================================================
@@ -206,7 +233,7 @@ def fetch_yesterday_data(date):
     result = cur.fetchone()
     if result and result[0]:
         import json
-        ai_data = result[0]
+        ai_data = normalize_ai_factor_payload(result[0])
         data['ai_factor'] = ai_data
         print(f"   ✅ AI Factors: {json.dumps(ai_data, ensure_ascii=False)}")
 
@@ -327,7 +354,9 @@ def analyze_ai_impact(data, error):
     if not data.get('ai_factor'):
         return None
 
-    ai = data['ai_factor']
+    ai = normalize_ai_factor_payload(data['ai_factor'])
+    if not ai:
+        return None
 
     # 如果 AI factor 存在，檢查它是否改善了預測
     prediction = data.get('prediction', {})
@@ -359,7 +388,7 @@ def save_learning_record(conn, data, metrics, anomaly, weather_impact, ai_impact
 
     prediction = data.get('prediction', {})
     weather = data.get('weather', {})
-    ai = data.get('ai_factor')
+    ai = normalize_ai_factor_payload(data.get('ai_factor'))
 
     cur.execute("""
         INSERT INTO learning_records (

@@ -317,6 +317,37 @@ async function initDatabase() {
         `);
         console.log('✅ Reliability tables initialized');
 
+        // v4.0.28: Per-model prediction comparison table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS model_prediction_runs (
+                id SERIAL PRIMARY KEY,
+                prediction_date DATE NOT NULL DEFAULT CURRENT_DATE,
+                target_date DATE NOT NULL,
+                horizon_days INTEGER DEFAULT 0,
+                model_name VARCHAR(50) NOT NULL,
+                model_version VARCHAR(50),
+                predicted_count NUMERIC(10,2) NOT NULL,
+                actual_count NUMERIC(10,2),
+                abs_error NUMERIC(10,2),
+                mape NUMERIC(10,4),
+                prompt_version VARCHAR(50),
+                input_snapshot JSONB,
+                metadata JSONB,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(target_date, model_name)
+            )
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_model_prediction_runs_target_date
+            ON model_prediction_runs(target_date DESC)
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_model_prediction_runs_model_name
+            ON model_prediction_runs(model_name, target_date DESC)
+        `);
+        console.log('✅ Model comparison table initialized');
+
         // Table for final daily averaged predictions (calculated at end of day)
         await client.query(`
             CREATE TABLE IF NOT EXISTS final_daily_predictions (
@@ -756,6 +787,23 @@ async function calculateAccuracy(targetDate) {
         } catch (err) {
             console.warn(`⚠️ 更新時段準確度失敗 (${targetDate}):`, err.message);
         }
+
+        try {
+            await client.query(`
+                UPDATE model_prediction_runs
+                SET
+                    actual_count = $2,
+                    abs_error = ABS(predicted_count - $2),
+                    mape = CASE
+                        WHEN $2 IS NULL OR $2 = 0 THEN NULL
+                        ELSE ABS(predicted_count - $2) / $2 * 100
+                    END,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE target_date = $1
+            `, [targetDate, actualCount]);
+        } catch (err) {
+            console.warn(`⚠️ 同步 model_prediction_runs 實際值失敗 (${targetDate}):`, err.message);
+        }
         
         return result.rows[0];
     } finally {
@@ -1031,6 +1079,417 @@ async function insertDailyPrediction(targetDate, predictedCount, ci80, ci95, mod
     }
     
     return result.rows[0];
+}
+
+function normalizeModelPredictionNumber(value) {
+    if (value == null || value === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+async function upsertModelPredictionRun({
+    predictionDate = null,
+    targetDate,
+    horizonDays = 0,
+    modelName,
+    modelVersion = null,
+    predictedCount,
+    actualCount = null,
+    promptVersion = null,
+    inputSnapshot = null,
+    metadata = null
+}) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+
+    if (!targetDate || !modelName) {
+        throw new Error('targetDate and modelName are required');
+    }
+
+    const normalizedPredicted = normalizeModelPredictionNumber(predictedCount);
+    if (normalizedPredicted == null) {
+        throw new Error(`Invalid predictedCount for ${modelName} on ${targetDate}`);
+    }
+
+    const normalizedActual = normalizeModelPredictionNumber(actualCount);
+    const absError = normalizedActual == null ? null : Math.abs(normalizedPredicted - normalizedActual);
+    const mape = normalizedActual == null || normalizedActual === 0
+        ? null
+        : Math.abs(normalizedPredicted - normalizedActual) / normalizedActual * 100;
+
+    const query = `
+        INSERT INTO model_prediction_runs (
+            prediction_date,
+            target_date,
+            horizon_days,
+            model_name,
+            model_version,
+            predicted_count,
+            actual_count,
+            abs_error,
+            mape,
+            prompt_version,
+            input_snapshot,
+            metadata
+        )
+        VALUES (
+            COALESCE($1::date, CURRENT_DATE),
+            $2,
+            $3,
+            $4,
+            $5,
+            $6,
+            $7,
+            $8,
+            $9,
+            $10,
+            $11,
+            $12
+        )
+        ON CONFLICT (target_date, model_name) DO UPDATE SET
+            prediction_date = EXCLUDED.prediction_date,
+            horizon_days = EXCLUDED.horizon_days,
+            model_version = COALESCE(EXCLUDED.model_version, model_prediction_runs.model_version),
+            predicted_count = EXCLUDED.predicted_count,
+            actual_count = COALESCE(EXCLUDED.actual_count, model_prediction_runs.actual_count),
+            abs_error = COALESCE(EXCLUDED.abs_error,
+                CASE
+                    WHEN model_prediction_runs.actual_count IS NULL THEN model_prediction_runs.abs_error
+                    ELSE ABS(EXCLUDED.predicted_count - model_prediction_runs.actual_count)
+                END
+            ),
+            mape = COALESCE(EXCLUDED.mape,
+                CASE
+                    WHEN model_prediction_runs.actual_count IS NULL OR model_prediction_runs.actual_count = 0 THEN model_prediction_runs.mape
+                    ELSE ABS(EXCLUDED.predicted_count - model_prediction_runs.actual_count) / model_prediction_runs.actual_count * 100
+                END
+            ),
+            prompt_version = COALESCE(EXCLUDED.prompt_version, model_prediction_runs.prompt_version),
+            input_snapshot = COALESCE(EXCLUDED.input_snapshot, model_prediction_runs.input_snapshot),
+            metadata = COALESCE(EXCLUDED.metadata, model_prediction_runs.metadata),
+            updated_at = CURRENT_TIMESTAMP
+        RETURNING *
+    `;
+
+    const result = await queryWithRetry(query, [
+        predictionDate,
+        targetDate,
+        Math.max(0, Number.parseInt(horizonDays, 10) || 0),
+        modelName,
+        modelVersion,
+        normalizedPredicted,
+        normalizedActual,
+        absError,
+        mape,
+        promptVersion,
+        inputSnapshot ? JSON.stringify(inputSnapshot) : null,
+        metadata ? JSON.stringify(metadata) : null
+    ]);
+
+    return result.rows[0];
+}
+
+async function syncModelPredictionActuals(targetDate = null) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+
+    const params = [];
+    const extraWhere = targetDate ? `AND mpr.target_date = $1` : '';
+    if (targetDate) {
+        params.push(targetDate);
+    }
+
+    const query = `
+        UPDATE model_prediction_runs mpr
+        SET
+            actual_count = ad.patient_count,
+            abs_error = ABS(mpr.predicted_count - ad.patient_count),
+            mape = CASE
+                WHEN ad.patient_count IS NULL OR ad.patient_count = 0 THEN NULL
+                ELSE ABS(mpr.predicted_count - ad.patient_count) / ad.patient_count * 100
+            END,
+            updated_at = CURRENT_TIMESTAMP
+        FROM actual_data ad
+        WHERE ad.date = mpr.target_date
+        ${extraWhere}
+        RETURNING mpr.*
+    `;
+
+    const result = await queryWithRetry(query, params);
+    return result.rows;
+}
+
+async function getModelPredictionRuns(startDate = null, endDate = null) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+
+    const params = [];
+    const conditions = [];
+
+    if (startDate) {
+        params.push(startDate);
+        conditions.push(`target_date >= $${params.length}`);
+    }
+
+    if (endDate) {
+        params.push(endDate);
+        conditions.push(`target_date <= $${params.length}`);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const query = `
+        SELECT
+            prediction_date,
+            target_date,
+            horizon_days,
+            model_name,
+            model_version,
+            predicted_count,
+            actual_count,
+            abs_error,
+            mape,
+            prompt_version,
+            input_snapshot,
+            metadata,
+            created_at,
+            updated_at
+        FROM model_prediction_runs
+        ${whereClause}
+        ORDER BY target_date DESC, model_name ASC
+    `;
+
+    const result = await queryWithRetry(query, params);
+    return result.rows;
+}
+
+async function backfillHistoricalModelPredictionRuns() {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const result = await client.query(`
+            SELECT
+                dp.target_date::date AS target_date,
+                GREATEST((dp.target_date::date - COALESCE(dp.created_at::date, dp.target_date::date)), 0) AS horizon_days,
+                dp.model_version,
+                COALESCE(dp.xgboost_base, dp.prediction_production, fdp.predicted_count, dp.predicted_count)::numeric AS xgboost_pred,
+                COALESCE(dp.prediction_experimental, fdp.predicted_count, dp.predicted_count)::numeric AS xgboost_ai_pred,
+                ad.patient_count::numeric AS actual_count
+            FROM daily_predictions dp
+            LEFT JOIN final_daily_predictions fdp
+                ON fdp.target_date = dp.target_date
+            LEFT JOIN actual_data ad
+                ON ad.date = dp.target_date
+            WHERE COALESCE(dp.xgboost_base, dp.prediction_production, fdp.predicted_count, dp.predicted_count) IS NOT NULL
+        `);
+
+        let upserted = 0;
+        for (const row of result.rows) {
+            const payloads = [
+                {
+                    modelName: 'xgboost',
+                    predictedCount: row.xgboost_pred
+                },
+                {
+                    modelName: 'xgboost_ai',
+                    predictedCount: row.xgboost_ai_pred
+                }
+            ];
+
+            for (const payload of payloads) {
+                const normalizedPredicted = normalizeModelPredictionNumber(payload.predictedCount);
+                if (normalizedPredicted == null) {
+                    continue;
+                }
+
+                const normalizedActual = normalizeModelPredictionNumber(row.actual_count);
+                const absError = normalizedActual == null ? null : Math.abs(normalizedPredicted - normalizedActual);
+                const mape = normalizedActual == null || normalizedActual === 0
+                    ? null
+                    : Math.abs(normalizedPredicted - normalizedActual) / normalizedActual * 100;
+
+                await client.query(`
+                    INSERT INTO model_prediction_runs (
+                        prediction_date,
+                        target_date,
+                        horizon_days,
+                        model_name,
+                        model_version,
+                        predicted_count,
+                        actual_count,
+                        abs_error,
+                        mape,
+                        metadata
+                    )
+                    VALUES (
+                        $1,
+                        $2,
+                        $3,
+                        $4,
+                        $5,
+                        $6,
+                        $7,
+                        $8,
+                        $9,
+                        $10
+                    )
+                    ON CONFLICT (target_date, model_name) DO UPDATE SET
+                        prediction_date = EXCLUDED.prediction_date,
+                        horizon_days = EXCLUDED.horizon_days,
+                        model_version = COALESCE(EXCLUDED.model_version, model_prediction_runs.model_version),
+                        predicted_count = EXCLUDED.predicted_count,
+                        actual_count = COALESCE(EXCLUDED.actual_count, model_prediction_runs.actual_count),
+                        abs_error = COALESCE(EXCLUDED.abs_error, model_prediction_runs.abs_error),
+                        mape = COALESCE(EXCLUDED.mape, model_prediction_runs.mape),
+                        metadata = COALESCE(EXCLUDED.metadata, model_prediction_runs.metadata),
+                        updated_at = CURRENT_TIMESTAMP
+                `, [
+                    row.target_date,
+                    row.target_date,
+                    Math.max(0, Number.parseInt(row.horizon_days, 10) || 0),
+                    payload.modelName,
+                    row.model_version || null,
+                    normalizedPredicted,
+                    normalizedActual,
+                    absError,
+                    mape,
+                    JSON.stringify({ source: 'historical_backfill' })
+                ]);
+                upserted += 1;
+            }
+        }
+
+        await client.query('COMMIT');
+        return { upserted };
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+async function backfillLearningRecordsAIEventType() {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+
+    const query = `
+        UPDATE learning_records lr
+        SET
+            ai_factor = COALESCE(
+                lr.ai_factor,
+                COALESCE(
+                    (dp.ai_factors->>'factor')::numeric,
+                    (dp.ai_factors->>'impactFactor')::numeric,
+                    dp.ai_factor
+                )
+            ),
+            ai_event_type = COALESCE(
+                NULLIF(lr.ai_event_type, ''),
+                NULLIF(COALESCE(dp.ai_factors->>'event_type', dp.ai_factors->>'type'), '')
+            ),
+            ai_description = COALESCE(
+                NULLIF(lr.ai_description, ''),
+                NULLIF(dp.ai_factors->>'description', '')
+            ),
+            processed = FALSE
+        FROM daily_predictions dp
+        WHERE lr.date = dp.target_date
+          AND dp.ai_factors IS NOT NULL
+          AND (
+              lr.ai_event_type IS NULL
+              OR lr.ai_event_type = ''
+              OR lr.ai_description IS NULL
+              OR lr.ai_factor IS NULL
+          )
+        RETURNING lr.date, lr.ai_event_type
+    `;
+
+    const result = await queryWithRetry(query);
+    return result.rows;
+}
+
+async function rebuildAIEventLearning() {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query('TRUNCATE TABLE ai_event_learning RESTART IDENTITY');
+
+        const result = await client.query(`
+            INSERT INTO ai_event_learning (
+                event_type,
+                event_pattern,
+                total_occurrences,
+                avg_ai_factor,
+                avg_actual_impact,
+                avg_actual_impact_pct,
+                correct_predictions,
+                prediction_accuracy,
+                confidence_level,
+                last_occurrence,
+                last_updated
+            )
+            SELECT
+                lr.ai_event_type AS event_type,
+                lr.ai_event_type AS event_pattern,
+                COUNT(*) AS total_occurrences,
+                AVG(lr.ai_factor) AS avg_ai_factor,
+                AVG(lr.prediction_error) AS avg_actual_impact,
+                AVG(
+                    CASE
+                        WHEN lr.actual_attendance IS NULL OR lr.actual_attendance = 0 THEN NULL
+                        ELSE lr.prediction_error / lr.actual_attendance * 100
+                    END
+                ) AS avg_actual_impact_pct,
+                SUM(
+                    CASE
+                        WHEN (lr.ai_factor < 1 AND lr.prediction_error < 0)
+                          OR (lr.ai_factor > 1 AND lr.prediction_error > 0)
+                          OR (ABS(COALESCE(lr.ai_factor, 1) - 1) < 0.01 AND ABS(COALESCE(lr.prediction_error, 0)) < 5)
+                        THEN 1 ELSE 0
+                    END
+                ) AS correct_predictions,
+                AVG(
+                    CASE
+                        WHEN (lr.ai_factor < 1 AND lr.prediction_error < 0)
+                          OR (lr.ai_factor > 1 AND lr.prediction_error > 0)
+                          OR (ABS(COALESCE(lr.ai_factor, 1) - 1) < 0.01 AND ABS(COALESCE(lr.prediction_error, 0)) < 5)
+                        THEN 1.0 ELSE 0.0
+                    END
+                ) AS prediction_accuracy,
+                CASE
+                    WHEN COUNT(*) >= 20 THEN 'high'
+                    WHEN COUNT(*) >= 10 THEN 'medium'
+                    ELSE 'low'
+                END AS confidence_level,
+                MAX(lr.date) AS last_occurrence,
+                NOW() AS last_updated
+            FROM learning_records lr
+            WHERE lr.ai_event_type IS NOT NULL
+              AND lr.actual_attendance IS NOT NULL
+            GROUP BY lr.ai_event_type
+        `);
+
+        await client.query('COMMIT');
+        return { inserted: result.rowCount };
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
 }
 
 // v2.9.88: Insert intraday prediction (NO UNIQUE - keeps all predictions throughout the day)
@@ -2038,6 +2497,12 @@ module.exports = {
     getAIFactorsCache,
     updateAIFactorsCache,
     insertDailyPrediction,
+    upsertModelPredictionRun,
+    syncModelPredictionActuals,
+    getModelPredictionRuns,
+    backfillHistoricalModelPredictionRuns,
+    backfillLearningRecordsAIEventType,
+    rebuildAIEventLearning,
     calculateFinalDailyPrediction,
     getFinalDailyPredictions,
     clearAllData,

@@ -133,6 +133,22 @@ db = require('./database');
 
 if (hasDbConfig) {
     db.initDatabase().then(async () => {
+        try {
+            const backfillResult = await db.backfillHistoricalModelPredictionRuns();
+            const actualSyncResult = await db.syncModelPredictionActuals();
+            console.log(`✅ 模型比較回填完成: model_runs=${backfillResult.upserted}, actual_sync=${actualSyncResult.length}`);
+        } catch (maintenanceErr) {
+            console.warn('⚠️ 模型比較回填失敗:', maintenanceErr.message);
+        }
+
+        try {
+            const learningBackfillResult = await db.backfillLearningRecordsAIEventType();
+            const aiLearningResult = await db.rebuildAIEventLearning();
+            console.log(`✅ AI 事件學習修復完成: ai_event_backfill=${learningBackfillResult.length}, ai_event_learning=${aiLearningResult.inserted}`);
+        } catch (maintenanceErr) {
+            console.warn('⚠️ AI 事件學習修復失敗:', maintenanceErr.message);
+        }
+
         if (!enableStartupDataSync) {
             console.log('?? Startup data sync disabled. Set ENABLE_STARTUP_DATA_SYNC=true to enable automatic CSV import and actual-data backfill.');
             return;
@@ -840,6 +856,377 @@ function calculateAdaptiveTargetMean(dow, monthFactor, predictionContext) {
     };
 }
 
+const MODEL_COMPARISON_LABELS = {
+    xgboost: 'XGBoost',
+    xgboost_ai: 'XGBoost + AI',
+    gpt_5_4: 'GPT-5.4'
+};
+
+const GPT54_PROMPT_VERSION = 'gpt54-arm-v1';
+
+function formatDbDate(value) {
+    if (!value) return '';
+    if (value instanceof Date) {
+        return value.toISOString().split('T')[0];
+    }
+    return String(value).slice(0, 10);
+}
+
+function normalizeAIFactorPayload(factor = null) {
+    if (!factor || typeof factor !== 'object') {
+        return null;
+    }
+
+    const eventType = factor.event_type || factor.eventType || factor.type || null;
+    const rawFactor = Number(factor.factor ?? factor.impactFactor ?? 1.0);
+    const numericFactor = Number.isFinite(rawFactor)
+        ? clampNumber(rawFactor, 0.7, 1.3)
+        : 1.0;
+
+    return {
+        ...factor,
+        type: eventType || factor.type || null,
+        event_type: eventType || null,
+        eventType: eventType || null,
+        factor: numericFactor,
+        impactFactor: numericFactor,
+        description: factor.description || '',
+        confidence: factor.confidence || factor.confidence_level || '中'
+    };
+}
+
+function extractJsonBlock(text) {
+    if (!text || typeof text !== 'string') {
+        return null;
+    }
+
+    const fencedMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fencedMatch && fencedMatch[1]) {
+        return fencedMatch[1].trim();
+    }
+
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+        return text.slice(firstBrace, lastBrace + 1).trim();
+    }
+
+    const firstBracket = text.indexOf('[');
+    const lastBracket = text.lastIndexOf(']');
+    if (firstBracket >= 0 && lastBracket > firstBracket) {
+        return text.slice(firstBracket, lastBracket + 1).trim();
+    }
+
+    return text.trim();
+}
+
+async function loadRecentActualSeries(limit = 28) {
+    if (!db || !db.pool) {
+        return [];
+    }
+
+    const result = await db.pool.query(`
+        SELECT
+            date::text AS date,
+            patient_count::int AS patient_count,
+            EXTRACT(DOW FROM date)::int AS dow
+        FROM actual_data
+        ORDER BY date DESC
+        LIMIT $1
+    `, [limit]);
+
+    return result.rows
+        .slice()
+        .reverse()
+        .map(row => ({
+            date: row.date,
+            patient_count: Number(row.patient_count),
+            dow: Number(row.dow)
+        }));
+}
+
+async function generateGpt54PredictionArm({
+    predictionDate,
+    predictions,
+    predictionContext
+}) {
+    if (!aiService || typeof aiService.callAI !== 'function') {
+        return {};
+    }
+
+    if (!Array.isArray(predictions) || predictions.length === 0) {
+        return {};
+    }
+
+    const recentActuals = await loadRecentActualSeries(28);
+    const targets = predictions.map(pred => ({
+        date: pred.date,
+        horizon_days: Math.max(0, Number.parseInt(pred.horizonDays, 10) || 0),
+        xgboost_base: Math.round(Number(pred.dualTrack?.xgboostBase ?? pred.predicted)),
+        xgboost_ai: Math.round(Number(pred.dualTrack?.experimental ?? pred.predicted)),
+        ai_factor: Number((pred.factors?.ai ?? 1).toFixed(3)),
+        weather_factor: Number((pred.factors?.weather ?? 1).toFixed(3)),
+        is_holiday: Boolean(pred.isHoliday),
+        baseline: Number((pred.factors?.baseline ?? pred.predicted).toFixed(2)),
+        recent_blend: Number((pred.factors?.recentBlend ?? 0).toFixed(3)),
+        weather: pred.weatherInfo ? {
+            max_temp: pred.weatherInfo.maxTemp ?? null,
+            min_temp: pred.weatherInfo.minTemp ?? null,
+            summary: pred.weatherInfo.weather || ''
+        } : null,
+        ai_events: (pred.aiInfo?.factors || [])
+            .map(normalizeAIFactorPayload)
+            .filter(Boolean)
+            .map(item => ({
+                type: item.event_type,
+                factor: item.factor,
+                description: item.description
+            }))
+    }));
+
+    const promptPayload = {
+        prediction_date: predictionDate,
+        context: {
+            hospital: 'North District Hospital AED',
+            timezone: 'Asia/Hong_Kong',
+            overall_mean: Number((predictionContext?.overallMean || 0).toFixed(2)),
+            weekday_means: predictionContext?.dowMeans || {},
+            month_factors: predictionContext?.monthFactors || {},
+            recent_actuals: recentActuals
+        },
+        targets
+    };
+
+    const prompt = [
+        '你是北區醫院急症室人次預測器。',
+        '請只根據提供的 JSON 資料，為每個 target 產生一個獨立預測。',
+        '不要搜尋外部資訊，不要加入額外欄位，不要輸出 markdown。',
+        '輸出必須是單一 JSON 物件，格式如下：',
+        '{"predictions":[{"date":"YYYY-MM-DD","predicted_count":250,"confidence":"low|medium|high","reason":"<=30字"}]}',
+        '規則：',
+        '- predicted_count 必須是 150 到 350 的整數',
+        '- 如不確定，優先貼近 recent_actuals、weekday_means、xgboost_base、xgboost_ai',
+        '- AI 或天氣因素若證據弱，影響要保守',
+        JSON.stringify(promptPayload)
+    ].join('\n');
+
+    const raw = await aiService.callAI(prompt, 'gpt-5.4', 0);
+    const jsonText = extractJsonBlock(raw);
+    const parsed = JSON.parse(jsonText);
+    const predictionList = Array.isArray(parsed?.predictions) ? parsed.predictions : [];
+    const byDate = {};
+
+    for (const item of predictionList) {
+        if (!item || !item.date) {
+            continue;
+        }
+
+        const rawPredictedCount = Number.parseInt(item.predicted_count, 10);
+        if (!Number.isFinite(rawPredictedCount)) {
+            continue;
+        }
+        const predictedCount = clampNumber(rawPredictedCount, 150, 350);
+
+        byDate[item.date] = {
+            predictedCount: Math.round(predictedCount),
+            confidence: item.confidence || 'medium',
+            reason: String(item.reason || '').slice(0, 120)
+        };
+    }
+
+    return byDate;
+}
+
+function buildModelComparisonResponse(rows = []) {
+    const normalizedRows = rows
+        .filter(row => row && row.model_name)
+        .map(row => ({
+            date: formatDbDate(row.target_date),
+            model_name: row.model_name,
+            predicted_count: Number(row.predicted_count),
+            actual_count: row.actual_count == null ? null : Number(row.actual_count),
+            abs_error: row.abs_error == null ? null : Number(row.abs_error),
+            mape: row.mape == null ? null : Number(row.mape)
+        }));
+
+    const byDate = new Map();
+    const byModel = new Map();
+
+    for (const row of normalizedRows) {
+        if (!byDate.has(row.date)) {
+            byDate.set(row.date, { actual_count: row.actual_count, models: {} });
+        }
+        byDate.get(row.date).models[row.model_name] = row;
+
+        if (!byModel.has(row.model_name)) {
+            byModel.set(row.model_name, []);
+        }
+        byModel.get(row.model_name).push(row);
+    }
+
+    const modelStats = new Map();
+    for (const modelName of Object.keys(MODEL_COMPARISON_LABELS)) {
+        modelStats.set(modelName, {
+            model_name: modelName,
+            label: MODEL_COMPARISON_LABELS[modelName],
+            sample_count: 0,
+            mae: null,
+            mape: null,
+            wins: 0,
+            ties: 0,
+            losses: 0,
+            win_rate: null
+        });
+    }
+
+    for (const [modelName, items] of byModel.entries()) {
+        const itemsWithActual = items.filter(item => item.actual_count != null);
+        const stats = modelStats.get(modelName) || {
+            model_name: modelName,
+            label: MODEL_COMPARISON_LABELS[modelName] || modelName,
+            sample_count: 0,
+            mae: null,
+            mape: null,
+            wins: 0,
+            ties: 0,
+            losses: 0,
+            win_rate: null
+        };
+
+        stats.sample_count = itemsWithActual.length;
+        if (itemsWithActual.length > 0) {
+            stats.mae = Number((itemsWithActual.reduce((sum, item) => sum + (item.abs_error ?? Math.abs(item.predicted_count - item.actual_count)), 0) / itemsWithActual.length).toFixed(2));
+
+            const validMape = itemsWithActual
+                .map(item => item.mape ?? (item.actual_count ? Math.abs(item.predicted_count - item.actual_count) / item.actual_count * 100 : null))
+                .filter(value => Number.isFinite(value));
+            stats.mape = validMape.length > 0
+                ? Number((validMape.reduce((sum, value) => sum + value, 0) / validMape.length).toFixed(2))
+                : null;
+        }
+
+        modelStats.set(modelName, stats);
+    }
+
+    for (const { models } of byDate.values()) {
+        const modelRows = Object.values(models).filter(item => item.actual_count != null);
+        if (modelRows.length === 0) {
+            continue;
+        }
+
+        const minError = Math.min(...modelRows.map(item => item.abs_error ?? Math.abs(item.predicted_count - item.actual_count)));
+        const winners = modelRows.filter(item => (item.abs_error ?? Math.abs(item.predicted_count - item.actual_count)) === minError);
+
+        for (const item of modelRows) {
+            const stats = modelStats.get(item.model_name);
+            if (!stats) {
+                continue;
+            }
+
+            if (winners.some(winner => winner.model_name === item.model_name)) {
+                if (winners.length === 1) {
+                    stats.wins += 1;
+                } else {
+                    stats.ties += 1;
+                }
+            } else {
+                stats.losses += 1;
+            }
+        }
+    }
+
+    const models = Array.from(modelStats.values()).map(stats => {
+        const denominator = stats.wins + stats.ties + stats.losses;
+        return {
+            ...stats,
+            win_rate: denominator > 0 ? Number((stats.wins / denominator * 100).toFixed(2)) : null
+        };
+    });
+
+    const pairings = [
+        ['xgboost', 'xgboost_ai'],
+        ['xgboost', 'gpt_5_4'],
+        ['xgboost_ai', 'gpt_5_4']
+    ];
+
+    const pairwise = pairings.map(([baseModel, compareModel]) => {
+        let baseWins = 0;
+        let compareWins = 0;
+        let ties = 0;
+        let sampleCount = 0;
+        let baseAbsTotal = 0;
+        let compareAbsTotal = 0;
+
+        for (const { models } of byDate.values()) {
+            const baseRow = models[baseModel];
+            const compareRow = models[compareModel];
+            if (!baseRow || !compareRow || baseRow.actual_count == null || compareRow.actual_count == null) {
+                continue;
+            }
+
+            sampleCount += 1;
+            const baseError = baseRow.abs_error ?? Math.abs(baseRow.predicted_count - baseRow.actual_count);
+            const compareError = compareRow.abs_error ?? Math.abs(compareRow.predicted_count - compareRow.actual_count);
+            baseAbsTotal += baseError;
+            compareAbsTotal += compareError;
+
+            if (baseError < compareError) {
+                baseWins += 1;
+            } else if (compareError < baseError) {
+                compareWins += 1;
+            } else {
+                ties += 1;
+            }
+        }
+
+        const baseMae = sampleCount > 0 ? baseAbsTotal / sampleCount : null;
+        const compareMae = sampleCount > 0 ? compareAbsTotal / sampleCount : null;
+        const maeImprovementPct = (sampleCount > 0 && baseMae && compareMae != null)
+            ? Number((((baseMae - compareMae) / baseMae) * 100).toFixed(2))
+            : null;
+
+        return {
+            base_model: baseModel,
+            base_label: MODEL_COMPARISON_LABELS[baseModel] || baseModel,
+            compare_model: compareModel,
+            compare_label: MODEL_COMPARISON_LABELS[compareModel] || compareModel,
+            sample_count: sampleCount,
+            base_mae: baseMae == null ? null : Number(baseMae.toFixed(2)),
+            compare_mae: compareMae == null ? null : Number(compareMae.toFixed(2)),
+            mae_improvement_pct: maeImprovementPct,
+            compare_win_rate: sampleCount > 0 ? Number((compareWins / sampleCount * 100).toFixed(2)) : null,
+            compare_wins: compareWins,
+            base_wins: baseWins,
+            ties
+        };
+    });
+
+    const history = Array.from(byDate.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([date, payload]) => ({
+            date,
+            actual_count: payload.actual_count,
+            models: Object.fromEntries(
+                Object.entries(payload.models).map(([modelName, item]) => [
+                    modelName,
+                    {
+                        label: MODEL_COMPARISON_LABELS[modelName] || modelName,
+                        predicted_count: item.predicted_count,
+                        abs_error: item.abs_error,
+                        mape: item.mape
+                    }
+                ])
+            )
+        }));
+
+    return {
+        models,
+        pairwise,
+        history,
+        comparison_days: history.length
+    };
+}
+
 // API handlers
 const apiHandlers = {
     // Upload actual data
@@ -1540,6 +1927,42 @@ const apiHandlers = {
             console.error('❌ 獲取比較數據失敗:', error);
             console.error('錯誤詳情:', error.stack);
             sendJson(res, { error: error.message, stack: error.stack }, 500);
+        }
+    },
+
+    'GET /api/model-comparison': async (req, res) => {
+        if (!db || !db.pool) return sendJson(res, { error: 'Database not configured' }, 503);
+
+        try {
+            const parsedUrl = url.parse(req.url, true);
+            const days = Math.max(1, parseInt(parsedUrl.query.days, 10) || 90);
+            const endDate = parsedUrl.query.endDate || getHKTDate();
+
+            let startDate = parsedUrl.query.startDate;
+            if (!startDate) {
+                const end = new Date(`${endDate}T00:00:00+08:00`);
+                const startMillis = end.getTime() - (days - 1) * 24 * 60 * 60 * 1000;
+                const startHKT = new Date(startMillis + 8 * 60 * 60 * 1000);
+                startDate = startHKT.toISOString().split('T')[0];
+            }
+
+            const rows = await db.getModelPredictionRuns(startDate, endDate);
+            const comparisonRows = rows.filter(row => row.actual_count != null);
+            const response = buildModelComparisonResponse(comparisonRows);
+
+            sendJson(res, {
+                success: true,
+                date_range: {
+                    start_date: startDate,
+                    end_date: endDate
+                },
+                total_rows: rows.length,
+                scored_rows: comparisonRows.length,
+                ...response
+            });
+        } catch (error) {
+            console.error('❌ 獲取模型比較失敗:', error);
+            sendJson(res, { success: false, error: error.message }, 500);
         }
     },
     
@@ -6118,10 +6541,11 @@ async function generateServerSidePredictions(source = 'auto') {
             // 處理 factors_cache 格式（日期 -> 因素映射）
             if (aiCache && aiCache.factors_cache) {
                 for (const [dateStr, factor] of Object.entries(aiCache.factors_cache)) {
-                    if (factor && factor.impactFactor) {
+                    const normalizedFactor = normalizeAIFactorPayload(factor);
+                    if (normalizedFactor && normalizedFactor.impactFactor) {
                         aiFactorsMap[dateStr] = {
-                            impactFactor: Math.max(0.7, Math.min(1.3, factor.impactFactor)),
-                            factors: [factor]
+                            impactFactor: Math.max(0.7, Math.min(1.3, normalizedFactor.impactFactor)),
+                            factors: [normalizedFactor]
                         };
                     }
                 }
@@ -6131,14 +6555,15 @@ async function generateServerSidePredictions(source = 'auto') {
             // 也處理 analysis_data.factors 格式（數組）
             if (aiCache && aiCache.analysis_data && aiCache.analysis_data.factors) {
                 for (const factor of aiCache.analysis_data.factors) {
-                    if (factor.affectedDays) {
-                        for (const day of factor.affectedDays) {
+                    const normalizedFactor = normalizeAIFactorPayload(factor);
+                    if (normalizedFactor && normalizedFactor.affectedDays) {
+                        for (const day of normalizedFactor.affectedDays) {
                             if (!aiFactorsMap[day]) {
                                 aiFactorsMap[day] = { impactFactor: 1.0, factors: [] };
                             }
-                            aiFactorsMap[day].factors.push(factor);
+                            aiFactorsMap[day].factors.push(normalizedFactor);
                             // 累積影響因子（限制範圍 0.7-1.3）
-                            const impact = Math.max(0.7, Math.min(1.3, factor.impactFactor || 1.0));
+                            const impact = Math.max(0.7, Math.min(1.3, normalizedFactor.impactFactor || 1.0));
                             aiFactorsMap[day].impactFactor *= impact;
                             // 限制最終因子範圍
                             aiFactorsMap[day].impactFactor = Math.max(0.7, Math.min(1.3, aiFactorsMap[day].impactFactor));
@@ -6564,6 +6989,7 @@ async function generateServerSidePredictions(source = 'auto') {
             
             predictions.push({
                 date: dateStr,
+                horizonDays: daysAhead,
                 predicted: adjusted,
                 ci80: { low: Math.round(adjusted - 1.28 * std), high: Math.round(adjusted + 1.28 * std) },
                 ci95: { low: Math.round(adjusted - 1.96 * std), high: Math.round(adjusted + 1.96 * std) },
@@ -6623,6 +7049,19 @@ async function generateServerSidePredictions(source = 'auto') {
             console.log('⚠️ 沒有成功的預測，跳過保存');
             return;
         }
+
+        let gptPredictionMap = {};
+        try {
+            gptPredictionMap = await generateGpt54PredictionArm({
+                predictionDate: hk.dateStr,
+                predictions,
+                predictionContext
+            });
+            const gptCount = Object.keys(gptPredictionMap).length;
+            console.log(`🤖 GPT-5.4 預測 arm 已生成 ${gptCount} 天`);
+        } catch (err) {
+            console.warn('⚠️ GPT-5.4 預測 arm 生成失敗:', err.message);
+        }
         
         // 保存預測到數據庫
         let savedCount = 0;
@@ -6640,12 +7079,14 @@ async function generateServerSidePredictions(source = 'auto') {
                 let aiFactorsData = null;
                 if (pred.aiInfo && pred.aiInfo.factors && pred.aiInfo.factors.length > 0) {
                     // 取第一個完整因素作為主要數據（兼容學習系統需要的格式）
-                    const primaryFactor = pred.aiInfo.factors[0];
+                    const primaryFactor = normalizeAIFactorPayload(pred.aiInfo.factors[0]);
                     aiFactorsData = {
-                        type: primaryFactor.type || '未知',
-                        description: primaryFactor.description || '',
-                        confidence: primaryFactor.confidence || '中',
-                        impactFactor: primaryFactor.impactFactor || pred.factors.ai || 1.0
+                        type: primaryFactor?.type || '未知',
+                        event_type: primaryFactor?.event_type || primaryFactor?.type || '未知',
+                        description: primaryFactor?.description || '',
+                        confidence: primaryFactor?.confidence || '中',
+                        factor: primaryFactor?.factor || pred.factors.ai || 1.0,
+                        impactFactor: primaryFactor?.impactFactor || pred.factors.ai || 1.0
                     };
                 }
                 
@@ -6663,6 +7104,71 @@ async function generateServerSidePredictions(source = 'auto') {
                 if (savedCount === 0) {
                     console.log(`📝 首筆預測已保存: ${pred.date} = ${pred.predicted}人, id=${result?.id || 'unknown'}`);
                 }
+
+                const sharedSnapshot = {
+                    date: pred.date,
+                    horizon_days: pred.horizonDays,
+                    xgboost_base: Math.round(pred.dualTrack?.xgboostBase ?? pred.predicted),
+                    xgboost_ai: Math.round(pred.dualTrack?.experimental ?? pred.predicted),
+                    ai_factor: Number((pred.factors.ai ?? 1).toFixed(3)),
+                    weather_factor: Number((pred.factors.weather ?? 1).toFixed(3)),
+                    is_holiday: Boolean(pred.isHoliday),
+                    baseline: pred.factors.baseline,
+                    weather: weatherData,
+                    ai_factor_payload: aiFactorsData
+                };
+
+                await db.upsertModelPredictionRun({
+                    predictionDate: hk.dateStr,
+                    targetDate: pred.date,
+                    horizonDays: pred.horizonDays,
+                    modelName: 'xgboost',
+                    modelVersion: MODEL_VERSION,
+                    predictedCount: pred.dualTrack?.xgboostBase ?? pred.predicted,
+                    inputSnapshot: sharedSnapshot,
+                    metadata: {
+                        source,
+                        arm: 'baseline',
+                        label: MODEL_COMPARISON_LABELS.xgboost
+                    }
+                });
+
+                await db.upsertModelPredictionRun({
+                    predictionDate: hk.dateStr,
+                    targetDate: pred.date,
+                    horizonDays: pred.horizonDays,
+                    modelName: 'xgboost_ai',
+                    modelVersion: MODEL_VERSION,
+                    predictedCount: pred.dualTrack?.experimental ?? pred.predicted,
+                    inputSnapshot: sharedSnapshot,
+                    metadata: {
+                        source,
+                        arm: 'ai_adjusted',
+                        label: MODEL_COMPARISON_LABELS.xgboost_ai
+                    }
+                });
+
+                if (gptPredictionMap[pred.date]) {
+                    const gptPrediction = gptPredictionMap[pred.date];
+                    await db.upsertModelPredictionRun({
+                        predictionDate: hk.dateStr,
+                        targetDate: pred.date,
+                        horizonDays: pred.horizonDays,
+                        modelName: 'gpt_5_4',
+                        modelVersion: 'gpt-5.4',
+                        predictedCount: gptPrediction.predictedCount,
+                        promptVersion: GPT54_PROMPT_VERSION,
+                        inputSnapshot: sharedSnapshot,
+                        metadata: {
+                            source,
+                            arm: 'gpt54_direct',
+                            label: MODEL_COMPARISON_LABELS.gpt_5_4,
+                            confidence: gptPrediction.confidence,
+                            reason: gptPrediction.reason
+                        }
+                    });
+                }
+
                 savedCount++;
             } catch (err) {
                 console.error(`❌ 保存 ${pred.date} 預測失敗:`, err.message, err.stack);

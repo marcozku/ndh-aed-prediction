@@ -395,11 +395,11 @@ const Learning = {
         } else {
             eventsHTML = events.map(e => `
                 <div class="ai-event-item">
-                    <span class="ai-event-name">${e.ai_event || '未知'}</span>
-                    <span class="ai-event-impact ${Number(e.avg_impact || 0) > 0 ? 'positive' : Number(e.avg_impact || 0) < 0 ? 'negative' : ''}">
-                        ${Number(e.avg_impact || 0) > 0 ? '+' : ''}${Number(e.avg_impact || 0).toFixed(1)}
+                    <span class="ai-event-name">${e.event_type || e.event_pattern || e.ai_event || '未知'}</span>
+                    <span class="ai-event-impact ${Number(e.avg_actual_impact_pct ?? e.avg_impact ?? 0) > 0 ? 'positive' : Number(e.avg_actual_impact_pct ?? e.avg_impact ?? 0) < 0 ? 'negative' : ''}">
+                        ${Number(e.avg_actual_impact_pct ?? e.avg_impact ?? 0) > 0 ? '+' : ''}${Number(e.avg_actual_impact_pct ?? e.avg_impact ?? 0).toFixed(1)}%
                     </span>
-                    <span class="ai-event-count">${e.event_count || 0} 次</span>
+                    <span class="ai-event-count">${e.total_occurrences ?? e.event_count ?? 0} 次</span>
                 </div>
             `).join('');
         }

@@ -26,6 +26,25 @@ import json
 # Anomaly Detection
 # ============================================================
 
+def normalize_ai_factor_payload(ai_factor):
+    if not ai_factor or not isinstance(ai_factor, dict):
+        return None
+
+    normalized = dict(ai_factor)
+    event_type = normalized.get('event_type') or normalized.get('eventType') or normalized.get('type')
+    factor = normalized.get('factor', normalized.get('impactFactor', 1.0))
+
+    try:
+        factor = float(factor)
+    except (TypeError, ValueError):
+        factor = 1.0
+
+    normalized['event_type'] = event_type
+    normalized['type'] = event_type
+    normalized['factor'] = factor
+    normalized['impactFactor'] = factor
+    return normalized
+
 def calculate_baseline_stats(conn, days=90):
     """計算基線統計 (過去 N 天的誤差分佈)"""
     cur = conn.cursor()
@@ -64,6 +83,7 @@ def calculate_baseline_stats(conn, days=90):
 
 def classify_anomaly(conn, date, error, weather=None, ai_factor=None):
     """分類異常原因"""
+    ai_factor = normalize_ai_factor_payload(ai_factor)
 
     classification = {
         'type': 'unknown',
@@ -118,7 +138,8 @@ def find_similar_events(conn, current_weather, current_ai, limit=10):
             conditions.append("is_strong_wind = TRUE")
 
     if current_ai:
-        if current_ai.get('event_type'):
+        current_ai = normalize_ai_factor_payload(current_ai)
+        if current_ai and current_ai.get('event_type'):
             conditions.append("ai_event_type = %s")
             params.append(current_ai['event_type'])
 
