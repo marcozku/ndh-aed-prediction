@@ -258,9 +258,9 @@ def update_anomaly_classifications(conn):
         }
 
         ai_factor = {
-            'event_type': row[9],
-            'factor': float(row[10]) if row[10] else None
-        } if row[9] else None
+            'event_type': row[7],
+            'factor': float(row[8]) if row[8] else None
+        } if row[7] else None
 
         # 分類
         classification = classify_anomaly(conn, date, error, weather, ai_factor)
