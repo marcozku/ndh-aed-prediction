@@ -268,6 +268,80 @@ class LearningScheduler {
         });
     }
 
+    extractMissingModule(errorMessage = '') {
+        const match = String(errorMessage).match(/ModuleNotFoundError:\s+No module named ['"]([^'"]+)['"]/);
+        return match ? match[1] : null;
+    }
+
+    executePythonProcess(python, args, options = {}) {
+        return new Promise((resolve, reject) => {
+            const pythonProcess = spawn(python, args, {
+                cwd: path.join(__dirname, '..'),
+                stdio: ['pipe', 'pipe', 'pipe'],
+                ...options
+            });
+
+            let output = '';
+            let errorOutput = '';
+
+            pythonProcess.on('error', (error) => {
+                reject(new Error(`Failed to start Python (${python}): ${error.message}`));
+            });
+
+            pythonProcess.stdout.on('data', (data) => {
+                const text = data.toString();
+                output += text;
+                if (!options.quietStdout) {
+                    console.log(text.trim());
+                }
+            });
+
+            pythonProcess.stderr.on('data', (data) => {
+                const text = data.toString();
+                errorOutput += text;
+                if (options.echoStderr) {
+                    console.error(text.trim());
+                }
+            });
+
+            pythonProcess.on('close', (code) => {
+                if (code === 0) {
+                    resolve({ output, errorOutput });
+                    return;
+                }
+
+                reject(new Error(
+                    `${args[0]} exited with code ${code}\nStderr: ${errorOutput || output}`
+                ));
+            });
+        });
+    }
+
+    async installPythonDependencies(python) {
+        const requirementsPath = path.join(__dirname, '..', 'python', 'requirements.txt');
+        const installAttempts = [
+            ['-m', 'pip', 'install', '-r', requirementsPath, '--break-system-packages'],
+            ['-m', 'pip', 'install', '-r', requirementsPath],
+            ['-m', 'pip', 'install', '--user', '-r', requirementsPath]
+        ];
+
+        let lastError = null;
+        for (const args of installAttempts) {
+            try {
+                console.log(`Installing Python dependencies via: ${python} ${args.join(' ')}`);
+                await this.executePythonProcess(python, args, {
+                    quietStdout: true,
+                    echoStderr: true
+                });
+                return true;
+            } catch (error) {
+                lastError = error;
+            }
+        }
+
+        throw new Error(`Failed to install Python dependencies: ${lastError?.message || 'Unknown error'}`);
+    }
+
     startTask(taskName, trigger = 'scheduler') {
         if (this.isRunning) {
             return {
@@ -441,6 +515,7 @@ class LearningScheduler {
         const scriptPath = path.join(__dirname, '..', 'python', scriptName);
         const pythonCandidates = this.getPythonCandidates();
         const python = await this.detectPythonCommand();
+        let bootstrapAttempted = false;
 
         if (!python) {
             throw new Error(
@@ -451,38 +526,21 @@ class LearningScheduler {
 
         console.log(`Using Python: ${python}`);
 
-        return new Promise((resolve, reject) => {
-            const pythonProcess = spawn(python, [scriptPath, ...args], {
-                cwd: path.join(__dirname, '..'),
-                stdio: ['pipe', 'pipe', 'pipe']
-            });
+        try {
+            const result = await this.executePythonProcess(python, [scriptPath, ...args]);
+            return result.output;
+        } catch (error) {
+            const missingModule = this.extractMissingModule(error.message);
+            if (missingModule && !bootstrapAttempted) {
+                bootstrapAttempted = true;
+                console.warn(`Missing Python module '${missingModule}', attempting runtime dependency bootstrap...`);
+                await this.installPythonDependencies(python);
+                const retryResult = await this.executePythonProcess(python, [scriptPath, ...args]);
+                return retryResult.output;
+            }
 
-            let output = '';
-            let errorOutput = '';
-
-            pythonProcess.on('error', (error) => {
-                reject(new Error(`Failed to start Python (${python}): ${error.message}`));
-            });
-
-            pythonProcess.stdout.on('data', (data) => {
-                const text = data.toString();
-                output += text;
-                console.log(text.trim());
-            });
-
-            pythonProcess.stderr.on('data', (data) => {
-                errorOutput += data.toString();
-            });
-
-            pythonProcess.on('close', (code) => {
-                if (code === 0) {
-                    resolve(output);
-                    return;
-                }
-
-                reject(new Error(`${scriptName} exited with code ${code}\nStderr: ${errorOutput}`));
-            });
-        });
+            throw error;
+        }
     }
 
     getStatus() {
