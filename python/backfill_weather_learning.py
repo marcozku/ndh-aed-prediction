@@ -7,13 +7,14 @@ Backfill weather_history 與 learning_records 的天氣欄位，
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timedelta
 from typing import Iterable, List
 
 from continuous_learner import get_db_connection, upsert_weather_history
 from weather_data_loader import get_weather_data_for_date, has_core_weather_fields
 
 
-def collect_target_dates(conn, start_date=None, end_date=None) -> List:
+def collect_target_dates(conn, start_date=None, end_date=None, only_missing_core: bool = False) -> List:
     clauses = []
     params = []
 
@@ -28,16 +29,65 @@ def collect_target_dates(conn, start_date=None, end_date=None) -> List:
     if clauses:
         where_sql = 'WHERE ' + ' AND '.join(clauses)
 
-    query = f"""
-        SELECT DISTINCT date
-        FROM (
-            SELECT date FROM learning_records
-            UNION
-            SELECT date FROM weather_history
-        ) AS candidate_dates
-        {where_sql}
-        ORDER BY date
-    """
+    if only_missing_core:
+        query = f"""
+            SELECT DISTINCT date
+            FROM (
+                SELECT lr.date
+                FROM learning_records lr
+                LEFT JOIN weather_history wh
+                    ON wh.date = lr.date
+                WHERE
+                    lr.temp_min IS NULL OR
+                    lr.temp_max IS NULL OR
+                    lr.rainfall_mm IS NULL OR
+                    lr.humidity_pct IS NULL OR
+                    lr.pressure_hpa IS NULL OR
+                    wh.date IS NULL OR
+                    wh.temp_min IS NULL OR
+                    wh.temp_max IS NULL OR
+                    wh.temp_mean IS NULL OR
+                    wh.rainfall_mm IS NULL OR
+                    wh.humidity_pct IS NULL OR
+                    wh.pressure_hpa IS NULL
+
+                UNION
+
+                SELECT wh.date
+                FROM weather_history wh
+                LEFT JOIN learning_records lr
+                    ON lr.date = wh.date
+                WHERE
+                    wh.temp_min IS NULL OR
+                    wh.temp_max IS NULL OR
+                    wh.temp_mean IS NULL OR
+                    wh.rainfall_mm IS NULL OR
+                    wh.humidity_pct IS NULL OR
+                    wh.pressure_hpa IS NULL OR
+                    (
+                        lr.date IS NOT NULL AND (
+                            lr.temp_min IS NULL OR
+                            lr.temp_max IS NULL OR
+                            lr.rainfall_mm IS NULL OR
+                            lr.humidity_pct IS NULL OR
+                            lr.pressure_hpa IS NULL
+                        )
+                    )
+            ) AS candidate_dates
+            {where_sql}
+            ORDER BY date
+        """
+    else:
+        query = f"""
+            SELECT DISTINCT date
+            FROM (
+                SELECT date FROM learning_records
+                UNION
+                SELECT date FROM weather_history
+            ) AS candidate_dates
+            {where_sql}
+            ORDER BY date
+        """
 
     cur = conn.cursor()
     cur.execute(query, params)
@@ -111,12 +161,24 @@ def main():
     parser = argparse.ArgumentParser(description='Backfill weather columns for learning data')
     parser.add_argument('--start-date', dest='start_date')
     parser.add_argument('--end-date', dest='end_date')
+    parser.add_argument('--lookback-days', dest='lookback_days', type=int)
+    parser.add_argument('--only-missing-core', dest='only_missing_core', action='store_true')
     args = parser.parse_args()
+
+    if args.lookback_days and not args.start_date:
+        hkt_today = (datetime.utcnow() + timedelta(hours=8)).date()
+        start_date = hkt_today - timedelta(days=max(args.lookback_days - 1, 0))
+        args.start_date = start_date.isoformat()
 
     conn = get_db_connection()
 
     try:
-        dates = collect_target_dates(conn, args.start_date, args.end_date)
+        dates = collect_target_dates(
+            conn,
+            args.start_date,
+            args.end_date,
+            only_missing_core=args.only_missing_core
+        )
         print(f'📅 需要檢查的日期數: {len(dates)}')
 
         result = backfill_dates(conn, dates)

@@ -177,6 +177,24 @@ class LearningScheduler {
         return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' }));
     }
 
+    formatHKTDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    getBackfillDateRange(lookbackDays = 60) {
+        const endDate = this.getHKTDate();
+        const startDate = new Date(endDate);
+        startDate.setDate(startDate.getDate() - Math.max(lookbackDays - 1, 0));
+
+        return {
+            startDate: this.formatHKTDate(startDate),
+            endDate: this.formatHKTDate(endDate)
+        };
+    }
+
     getPythonCandidates() {
         const candidates = new Set();
         const addCandidate = (value) => {
@@ -410,6 +428,12 @@ class LearningScheduler {
 
         try {
             await this.runPythonScript('continuous_learner.py', ['--catch-up']);
+            const recentBackfillRange = this.getBackfillDateRange(60);
+            await this.runPythonScript('backfill_weather_learning.py', [
+                '--start-date', recentBackfillRange.startDate,
+                '--end-date', recentBackfillRange.endDate,
+                '--only-missing-core'
+            ]);
             await this.runPythonScript('anomaly_detector.py');
 
             const duration = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -446,6 +470,7 @@ class LearningScheduler {
         console.log('='.repeat(60));
 
         try {
+            await this.runPythonScript('backfill_weather_learning.py', ['--only-missing-core']);
             await this.runPythonScript('weather_impact_learner.py');
             await this.cacheWeatherForecast(trigger, { nested: true });
             const duration = ((Date.now() - startTime) / 1000).toFixed(1);
