@@ -3565,7 +3565,10 @@ function renderModelComparisonStats(comparisonData) {
     if (models.length === 0) return;
 
     const bestModel = models
-        .filter(model => Number.isFinite(Number(model.mae)))
+        .filter(model => {
+            const sampleCount = Number(model.sample_count) || 0;
+            return sampleCount > 0 && model.mae != null && Number.isFinite(Number(model.mae));
+        })
         .sort((a, b) => Number(a.mae) - Number(b.mae))[0];
 
     const pairwiseSummary = (comparisonData.pairwise || []).map(item => {
