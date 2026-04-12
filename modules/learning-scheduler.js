@@ -16,6 +16,12 @@ class LearningScheduler {
         this.runCount = 0;
         this.schedulerMode = 'inactive';
         this.lastError = null;
+        this.currentTask = null;
+        this.lastStartedAt = null;
+        this.lastCompletedAt = null;
+        this.lastTaskStatus = null;
+        this.lastTaskMessage = null;
+        this.lastDurationMs = null;
     }
 
     start() {
@@ -169,13 +175,65 @@ class LearningScheduler {
         return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' }));
     }
 
-    async runDailyLearning() {
+    startTask(taskName, trigger = 'scheduler') {
         if (this.isRunning) {
-            console.log('Learning already running, skipping');
-            return;
+            return {
+                success: false,
+                task: taskName,
+                status: 'already_running',
+                message: `${this.currentTask || 'learning'} is already running`,
+                currentTask: this.currentTask,
+                startedAt: this.lastStartedAt
+            };
         }
 
         this.isRunning = true;
+        this.currentTask = taskName;
+        this.lastStartedAt = new Date();
+        this.lastTaskStatus = 'running';
+        this.lastTaskMessage = `${taskName} started (${trigger})`;
+        this.lastDurationMs = null;
+        this.lastError = null;
+
+        return null;
+    }
+
+    finishTask(taskName, startTime, result) {
+        const completedAt = new Date();
+        const durationMs = Date.now() - startTime;
+
+        this.lastCompletedAt = completedAt;
+        this.lastDurationMs = durationMs;
+        this.lastRunTime = completedAt;
+        this.lastTaskStatus = result.success ? 'success' : (result.status || 'failed');
+        this.lastTaskMessage = result.message;
+
+        if (result.success) {
+            this.runCount++;
+            this.lastError = null;
+        } else if (result.error) {
+            this.lastError = result.error;
+        }
+
+        this.isRunning = false;
+        this.currentTask = null;
+
+        return {
+            ...result,
+            task: taskName,
+            startedAt: this.lastStartedAt,
+            completedAt,
+            durationMs
+        };
+    }
+
+    async runDailyLearning(trigger = 'scheduler') {
+        const existingRun = this.startTask('daily', trigger);
+        if (existingRun) {
+            console.log('Learning already running, skipping');
+            return existingRun;
+        }
+
         const startTime = Date.now();
 
         console.log('='.repeat(60));
@@ -190,16 +248,31 @@ class LearningScheduler {
             const duration = ((Date.now() - startTime) / 1000).toFixed(1);
             console.log(`Daily learning complete (${duration}s)`);
 
-            this.lastRunTime = new Date();
-            this.runCount++;
+            return this.finishTask('daily', startTime, {
+                success: true,
+                status: 'completed',
+                message: `Daily learning complete (${duration}s)`
+            });
         } catch (error) {
             console.error(`Daily learning failed: ${error.message}`);
-        } finally {
-            this.isRunning = false;
+            return this.finishTask('daily', startTime, {
+                success: false,
+                status: 'failed',
+                message: `Daily learning failed: ${error.message}`,
+                error: error.message
+            });
         }
     }
 
-    async runWeeklyLearning() {
+    async runWeeklyLearning(trigger = 'scheduler') {
+        const existingRun = this.startTask('weekly', trigger);
+        if (existingRun) {
+            console.log('Learning already running, skipping weekly task');
+            return existingRun;
+        }
+
+        const startTime = Date.now();
+
         console.log('='.repeat(60));
         console.log('Running Weekly Learning...');
         console.log(`Time: ${new Date().toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' })}`);
@@ -207,21 +280,67 @@ class LearningScheduler {
 
         try {
             await this.runPythonScript('weather_impact_learner.py');
-            await this.cacheWeatherForecast();
-            console.log('Weekly learning complete');
+            await this.cacheWeatherForecast(trigger, { nested: true });
+            const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+            console.log(`Weekly learning complete (${duration}s)`);
+            return this.finishTask('weekly', startTime, {
+                success: true,
+                status: 'completed',
+                message: `Weekly learning complete (${duration}s)`
+            });
         } catch (error) {
             console.error(`Weekly learning failed: ${error.message}`);
+            return this.finishTask('weekly', startTime, {
+                success: false,
+                status: 'failed',
+                message: `Weekly learning failed: ${error.message}`,
+                error: error.message
+            });
         }
     }
 
-    async cacheWeatherForecast() {
+    async cacheWeatherForecast(trigger = 'scheduler', options = {}) {
+        const nested = Boolean(options?.nested);
+        let startTime = Date.now();
+
+        if (!nested) {
+            const existingRun = this.startTask('forecast', trigger);
+            if (existingRun) {
+                console.log('Learning already running, skipping forecast cache');
+                return existingRun;
+            }
+            startTime = Date.now();
+        }
+
         console.log('Caching weather forecast...');
 
         try {
             await this.runPythonScript('forecast_predictor.py', ['--cache']);
             console.log('Weather forecast cached');
+            if (nested) {
+                return {
+                    success: true,
+                    status: 'completed',
+                    task: 'forecast',
+                    message: 'Weather forecast cached'
+                };
+            }
+            return this.finishTask('forecast', startTime, {
+                success: true,
+                status: 'completed',
+                message: 'Weather forecast cached'
+            });
         } catch (error) {
             console.error(`Forecast cache failed: ${error.message}`);
+            if (nested) {
+                throw error;
+            }
+            return this.finishTask('forecast', startTime, {
+                success: false,
+                status: 'failed',
+                message: `Forecast cache failed: ${error.message}`,
+                error: error.message
+            });
         }
     }
 
@@ -304,6 +423,12 @@ class LearningScheduler {
             scheduledTasks: this.cronJobs.length,
             lastRunTime: this.lastRunTime,
             runCount: this.runCount,
+            currentTask: this.currentTask,
+            lastStartedAt: this.lastStartedAt,
+            lastCompletedAt: this.lastCompletedAt,
+            lastTaskStatus: this.lastTaskStatus,
+            lastTaskMessage: this.lastTaskMessage,
+            lastDurationMs: this.lastDurationMs,
             tasks: this.cronJobs.map(({ name }) => name),
             nextRuns: this.cronJobs.reduce((acc, { name, nextRun }) => {
                 acc[name] = nextRun || null;

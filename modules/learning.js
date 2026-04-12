@@ -76,6 +76,15 @@ const Learning = {
         return isNaN(d.getTime()) ? '' : d.toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' });
     },
 
+    formatSchedulerTask(task) {
+        const labels = {
+            daily: '每日學習',
+            weekly: '每週學習',
+            forecast: '天氣預報快取'
+        };
+        return labels[task] || task || '無';
+    },
+
     /**
      * 帶超時的 fetch
      */
@@ -206,9 +215,9 @@ const Learning = {
                 const data = await r.json();
                 if (data.success) {
                     await this.loadAllData();
-                    return { success: true, message: data.message };
+                    return { success: true, message: data.message, data: data.data || null };
                 }
-                return { success: false, message: data.error || '觸發失敗' };
+                return { success: false, message: data.error || data.message || '觸發失敗', data: data.data || null };
             }
             const response = await fetch('/api/learning/update', {
                 method: 'POST',
@@ -218,9 +227,9 @@ const Learning = {
             const data = await response.json();
             if (data.success) {
                 await this.loadAllData();
-                return { success: true, message: data.message };
+                return { success: true, message: data.message, data: data.data || null };
             }
-            return { success: false, message: data.error || '更新失敗' };
+            return { success: false, message: data.error || data.message || '更新失敗', data: data.data || null };
         } catch (error) {
             return { success: false, message: error.message };
         }
@@ -526,17 +535,26 @@ const Learning = {
         document.querySelectorAll('[data-action="run-learning"]').forEach(btn => {
             btn.addEventListener('click', async () => {
                 btn.disabled = true;
+                if (window.Toast) {
+                    window.Toast.show('已開始手動執行每日學習，請等待完成', 'info', 4000);
+                }
                 btn.textContent = '⏳ 執行中...';
 
                 const result = await this.triggerUpdate('all');
 
                 if (result.success) {
+                    if (window.Toast) {
+                        window.Toast.show(result.message || '每日學習已完成', 'success', 5000);
+                    }
                     btn.textContent = '✅ 完成';
                     setTimeout(() => {
                         btn.disabled = false;
                         btn.textContent = '▶️ 執行';
                     }, 2000);
                 } else {
+                    if (window.Toast) {
+                        window.Toast.show(result.message || '每日學習執行失敗', 'error', 6000);
+                    }
                     btn.textContent = '❌ 失敗';
                     setTimeout(() => {
                         btn.disabled = false;

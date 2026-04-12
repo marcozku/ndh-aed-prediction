@@ -5575,6 +5575,12 @@ const apiHandlers = {
                                 scheduled_tasks: 0,
                                 last_run_time: null,
                                 run_count: 0,
+                                current_task: null,
+                                last_started_at: null,
+                                last_completed_at: null,
+                                last_task_status: null,
+                                last_task_message: null,
+                                last_duration_ms: null,
                                 tasks: [],
                                 next_run: '每日 00:30 HKT',
                                 next_runs: {
@@ -5613,6 +5619,12 @@ const apiHandlers = {
                             scheduled_tasks: status.scheduledTasks || status.tasks?.length || 0,
                             last_run_time: lastRunTime,
                             run_count: status.runCount || 0,
+                            current_task: status.currentTask || null,
+                            last_started_at: status.lastStartedAt || null,
+                            last_completed_at: status.lastCompletedAt || null,
+                            last_task_status: status.lastTaskStatus || null,
+                            last_task_message: status.lastTaskMessage || null,
+                            last_duration_ms: status.lastDurationMs || null,
                             tasks: status.tasks || [],
                             next_run: nextRuns.daily || '每日 00:30 HKT',
                             next_runs: nextRuns,
@@ -5634,6 +5646,12 @@ const apiHandlers = {
                     scheduled_tasks: 0,
                     last_run_time: null,
                     run_count: 0,
+                    current_task: null,
+                    last_started_at: null,
+                    last_completed_at: null,
+                    last_task_status: null,
+                    last_task_message: null,
+                    last_duration_ms: null,
                     tasks: [],
                     next_run: '每日 00:30 HKT',
                     next_runs: {
@@ -5655,20 +5673,31 @@ const apiHandlers = {
             const body = await parseBody(req).catch(() => ({}));
             const { task = 'daily' } = body || {};
             const scheduler = getScheduler();
+            let result;
 
             if (task === 'daily') {
-                scheduler.runDailyLearning();
+                result = await scheduler.runDailyLearning('manual');
             } else if (task === 'weekly') {
-                scheduler.runWeeklyLearning();
+                result = await scheduler.runWeeklyLearning('manual');
             } else if (task === 'forecast') {
-                await scheduler.cacheWeatherForecast();
+                result = await scheduler.cacheWeatherForecast('manual');
             } else {
                 return sendJson(res, { success: false, error: 'Invalid task. Use: daily, weekly, or forecast' }, 400);
             }
 
-            sendJson(res, {
+            if (!result?.success) {
+                const statusCode = result?.status === 'already_running' ? 409 : 500;
+                return sendJson(res, {
+                    success: false,
+                    error: result?.error || result?.message || `Scheduler task '${task}' failed`,
+                    data: result || null
+                }, statusCode);
+            }
+
+            return sendJson(res, {
                 success: true,
-                message: `Scheduler task '${task}' triggered`
+                message: result.message || `Scheduler task '${task}' completed`,
+                data: result
             });
 
         } catch (error) {
