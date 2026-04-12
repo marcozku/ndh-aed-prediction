@@ -2,9 +2,8 @@
  * Main browser entry point.
  * prediction.js owns the prediction UI bootstrap and data refresh flow.
  */
-import './prediction.js';
-import { Learning } from './modules/learning.js';
-import { initUIEnhancements, AlertManager, Toast } from './modules/ui-enhancements.js';
+import { Learning } from './modules/learning.js?v=2';
+import { initUIEnhancements, AlertManager, Toast } from './modules/ui-enhancements.js?v=2';
 
 async function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) {

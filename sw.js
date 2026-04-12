@@ -4,10 +4,10 @@
  * v3.0.85 - 移除硬上限，異常警告
  */
 
-const SW_VERSION = '3.0.99';
-const CACHE_NAME = 'ndh-aed-v3.0.99';
-const STATIC_CACHE = 'ndh-static-v3.0.99';
-const DYNAMIC_CACHE = 'ndh-dynamic-v3.0.99';
+const SW_VERSION = '3.1.00';
+const CACHE_NAME = 'ndh-aed-v3.1.00';
+const STATIC_CACHE = 'ndh-static-v3.1.00';
+const DYNAMIC_CACHE = 'ndh-dynamic-v3.1.00';
 
 // 靜態資源（始終快取）
 const STATIC_ASSETS = [
@@ -258,5 +258,5 @@ self.addEventListener('notificationclick', (event) => {
     );
 });
 
-console.log('[SW] Service Worker 已載入 v3.0.87');
+console.log('[SW] Service Worker 已載入 v' + SW_VERSION);
 

@@ -8671,6 +8671,12 @@ async function refreshPredictions(predictor) {
 // 初始化
 // ============================================
 document.addEventListener('DOMContentLoaded', async () => {
+    if (window.__ndhPredictionBootstrapStarted) {
+        console.warn('⚠️ 偵測到重複的 prediction.js 初始化，已跳過');
+        return;
+    }
+    window.__ndhPredictionBootstrapStarted = true;
+
     console.log('🏥 NDH AED 預測系統初始化...');
     
     // 先創建預測器（使用硬編碼數據作為初始值）
