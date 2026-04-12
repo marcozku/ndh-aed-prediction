@@ -525,8 +525,10 @@ def update_anomaly_if_needed(conn, data, metrics, anomaly):
             %s, %s, %s, %s, %s
         )
         ON CONFLICT (date) DO UPDATE SET
+            anomaly_type = EXCLUDED.anomaly_type,
             prediction_error = EXCLUDED.prediction_error,
-            conditions_json = EXCLUDED.conditions_json
+            conditions_json = EXCLUDED.conditions_json,
+            requires_review = EXCLUDED.requires_review
     """, (
         data['date'],
         anomaly_type,

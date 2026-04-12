@@ -21,6 +21,15 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import os
 import json
+import sys
+
+if sys.platform == 'win32':
+    try:
+        import io
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+    except Exception:
+        pass
 
 # ============================================================
 # Anomaly Detection
@@ -272,10 +281,10 @@ def update_anomaly_classifications(conn):
 
         # 構建天氣和 AI 對象
         weather = {
-            'is_very_cold': row[4] or conditions.get('is_very_cold', False),
-            'is_heavy_rain': row[5] or conditions.get('is_heavy_rain', False),
-            'is_strong_wind': row[6] or conditions.get('is_strong_wind', False),
-            'typhoon_signal': row[7]
+            'is_very_cold': row[3] or conditions.get('is_very_cold', False),
+            'is_heavy_rain': row[4] or conditions.get('is_heavy_rain', False),
+            'is_strong_wind': row[5] or conditions.get('is_strong_wind', False),
+            'typhoon_signal': row[6]
         }
 
         ai_factor = {

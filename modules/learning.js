@@ -362,13 +362,18 @@ const Learning = {
         if (anomalies.length === 0) {
             anomaliesHTML = '<div class="empty-state">🎉 無異常事件</div>';
         } else {
-            anomaliesHTML = anomalies.map(a => `
+            anomaliesHTML = anomalies.map(a => {
+                const dateLabel = a.display_date || this.formatDateHKT(a.date) || String(a.date || '').slice(0, 10) || '--';
+                const typeLabel = a.display_type || a.anomaly_type || '未分類異常';
+                const errorLabel = (a.prediction_error != null && a.prediction_error !== '') ? Number(a.prediction_error).toFixed(1) : '-';
+                return `
                 <div class="anomaly-item">
-                    <span class="anomaly-date">${a.date}</span>
-                    <span class="anomaly-type">${a.anomaly_type || '未知'}</span>
-                    <span class="anomaly-error">${(a.prediction_error != null && a.prediction_error !== '') ? Number(a.prediction_error).toFixed(1) : '-'} 人</span>
+                    <span class="anomaly-date">${dateLabel}</span>
+                    <span class="anomaly-type">${typeLabel}</span>
+                    <span class="anomaly-error">${errorLabel} 人</span>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
 
         return `

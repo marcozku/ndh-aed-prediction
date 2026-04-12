@@ -872,6 +872,44 @@ function formatDbDate(value) {
     return String(value).slice(0, 10);
 }
 
+function resolveLearningAnomalyCategory(row = {}) {
+    const aiEventType = String(row.ai_event_type || '').trim();
+    if (aiEventType) {
+        return 'ai';
+    }
+
+    if (row.is_very_cold || row.is_very_hot || row.is_heavy_rain || row.is_strong_wind) {
+        return 'weather';
+    }
+
+    return 'unclassified';
+}
+
+function resolveLearningAnomalyType(row = {}) {
+    const aiEventType = String(row.ai_event_type || '').trim();
+    if (aiEventType) {
+        return aiEventType;
+    }
+
+    const weatherLabels = [];
+    if (row.is_very_cold) weatherLabels.push('寒冷天氣');
+    if (row.is_very_hot) weatherLabels.push('炎熱天氣');
+    if (row.is_heavy_rain) weatherLabels.push('大雨');
+    if (row.is_strong_wind) weatherLabels.push('強風');
+
+    if (weatherLabels.length > 0) {
+        return weatherLabels.join(' + ');
+    }
+
+    const error = Number(row.prediction_error);
+    if (Number.isFinite(error)) {
+        if (error > 0) return '未分類異常（偏高）';
+        if (error < 0) return '未分類異常（偏低）';
+    }
+
+    return '未分類異常';
+}
+
 function normalizeAIFactorPayload(factor = null) {
     if (!factor || typeof factor !== 'object') {
         return null;
@@ -5816,9 +5854,20 @@ const apiHandlers = {
         try {
             await Promise.race([
                 (async () => {
-                    const result = await db.pool.query(`SELECT date, actual_attendance, final_prediction, prediction_error, error_pct, is_very_cold, is_very_hot, is_heavy_rain, is_strong_wind, ai_event_type, ai_factor, COALESCE(ai_event_type, '未知')::text as anomaly_type FROM learning_records WHERE is_anomaly = TRUE ORDER BY date DESC LIMIT $1 OFFSET $2`, [limit, offset]);
+                    const result = await db.pool.query(`SELECT date, actual_attendance, final_prediction, prediction_error, error_pct, is_very_cold, is_very_hot, is_heavy_rain, is_strong_wind, ai_event_type, ai_factor FROM learning_records WHERE is_anomaly = TRUE ORDER BY date DESC LIMIT $1 OFFSET $2`, [limit, offset]);
                     const countResult = await db.pool.query(`SELECT COUNT(*) FROM learning_records WHERE is_anomaly = TRUE`);
-                    sendJson(res, { success: true, data: { anomalies: result.rows, total: parseInt(countResult.rows[0].count, 10), limit, offset } });
+                    const anomalies = result.rows.map(row => {
+                        const displayType = resolveLearningAnomalyType(row);
+                        return {
+                            ...row,
+                            date: formatDbDate(row.date),
+                            display_date: formatDbDate(row.date),
+                            anomaly_type: displayType,
+                            display_type: displayType,
+                            anomaly_category: resolveLearningAnomalyCategory(row)
+                        };
+                    });
+                    sendJson(res, { success: true, data: { anomalies, total: parseInt(countResult.rows[0].count, 10), limit, offset } });
                 })(),
                 new Promise((_, r) => setTimeout(() => r(new Error('REQUEST_TIMEOUT')), 20000))
             ]);
