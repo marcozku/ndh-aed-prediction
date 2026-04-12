@@ -179,57 +179,399 @@ function convertObjectToTraditional(obj) {
 // 載入環境變數
 require('dotenv').config();
 
-// 多 API 配置（從高級到免費）
+function normalizeBaseUrl(baseUrl, defaultBaseUrl = '') {
+    const value = String(baseUrl || defaultBaseUrl || '').trim();
+    if (!value) {
+        return '';
+    }
+
+    const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+    return withProtocol.replace(/\/+$/, '');
+}
+
+function parsePositiveInt(value, fallbackValue) {
+    const parsed = Number.parseInt(String(value || ''), 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallbackValue;
+}
+
+function getApiHost(baseUrl) {
+    if (!baseUrl) {
+        return '';
+    }
+
+    try {
+        return new URL(baseUrl).host;
+    } catch (error) {
+        return baseUrl;
+    }
+}
+
+function sanitizeApiConfigs() {
+    return Object.fromEntries(
+        Object.entries(API_CONFIGS).map(([name, config]) => [
+            name,
+            {
+                baseUrl: config.baseUrl,
+                fallbackBaseUrl: config.fallbackBaseUrl || '',
+                host: getApiHost(config.baseUrl),
+                fallbackHost: getApiHost(config.fallbackBaseUrl),
+                configured: Boolean(config.apiKey),
+                maxTokens: config.maxTokens
+            }
+        ])
+    );
+}
+
+function isApiConfigEnabled(apiConfigName) {
+    const apiConfig = API_CONFIGS[apiConfigName];
+    return Boolean(apiConfig && apiConfig.baseUrl && apiConfig.apiKey);
+}
+
+const PRIMARY_MODEL = process.env.AI_MODEL || 'gpt-5.4';
+const PRIMARY_FALLBACK_MODEL = process.env.AI_FALLBACK_MODEL || 'gpt-5.4-fast';
+const PRIMARY_BASIC_MODEL = process.env.AI_BASIC_MODEL || 'gpt-5';
+const FREE_DEFAULT_MODEL = process.env.FREE_AI_MODEL || 'gpt-4o-mini';
+const PRIMARY_REASONING_EFFORT = process.env.AI_REASONING_EFFORT || 'none';
+
+// 多 API 配置（主服務優先，免費服務作為備援）
 const API_CONFIGS = {
-    chatanywhere: {
-        host: 'api.chatanywhere.tech',
-        fallbackHost: 'api.chatanywhere.org',
-        apiKey: process.env.CHATANYWHERE_API_KEY || 'sk-hYb2t30UZbEPjt3QXVwBU4wXLvUzxBVL4DiLgbDWhKYIiFQW',
-        maxTokens: 2000
+    primary: {
+        baseUrl: normalizeBaseUrl(
+            process.env.AI_BASE_URL || process.env.CHATANYWHERE_BASE_URL,
+            'https://code.newcli.com/codex/v1'
+        ),
+        fallbackBaseUrl: normalizeBaseUrl(
+            process.env.AI_FALLBACK_BASE_URL || process.env.CHATANYWHERE_FALLBACK_BASE_URL
+        ),
+        apiKey: process.env.AI_API_KEY || process.env.CHATANYWHERE_API_KEY || '',
+        maxTokens: parsePositiveInt(process.env.AI_MAX_TOKENS, 2000)
     },
     free: {
-        host: 'free.v36.cm',
-        fallbackHost: 'free.v36.cm',
-        apiKey: process.env.FREE_API_KEY || 'sk-oMUhVLfAHc6w0IA12bD2Aa5b538f4c6aB0E4971531D64732',
-        maxTokens: 1500  // 免費 API token 限制較嚴
+        baseUrl: normalizeBaseUrl(process.env.FREE_API_BASE_URL, 'https://free.v36.cm/v1'),
+        fallbackBaseUrl: normalizeBaseUrl(
+            process.env.FREE_API_FALLBACK_BASE_URL || process.env.FREE_API_BASE_URL,
+            'https://free.v36.cm/v1'
+        ),
+        apiKey: process.env.FREE_API_KEY || '',
+        maxTokens: parsePositiveInt(process.env.FREE_API_MAX_TOKENS, 1500)  // 免費 API token 限制較嚴
     }
 };
 
 // 當前使用的 API（會自動切換）
-let currentAPIConfig = 'chatanywhere';
-let currentAPIHost = API_CONFIGS.chatanywhere.host;
+let currentAPIConfig = 'primary';
+let currentAPIHost = getApiHost(API_CONFIGS.primary.baseUrl);
 
 // 模型配置（從高級到免費，依次嘗試）
 const MODEL_CONFIG = {
-    // 高級模型（chatanywhere API）- 一天5次
+    // 主模型
     premium: {
-        models: ['gpt-4.1', 'gpt-4o'],
-        dailyLimit: 5,
-        defaultModel: 'gpt-4.1',
-        api: 'chatanywhere'
+        models: [PRIMARY_MODEL],
+        dailyLimit: 9999,
+        defaultModel: PRIMARY_MODEL,
+        api: 'primary'
     },
-    // 中級模型（chatanywhere API）- 一天30次
+    // 次選模型
     standard: {
-        models: ['deepseek-r1', 'deepseek-v3'],
-        dailyLimit: 30,
-        defaultModel: 'deepseek-r1',
-        api: 'chatanywhere'
+        models: [PRIMARY_FALLBACK_MODEL],
+        dailyLimit: 9999,
+        defaultModel: PRIMARY_FALLBACK_MODEL,
+        api: 'primary'
     },
-    // 基礎模型（chatanywhere API）- 一天200次
+    // 基礎模型
     basic: {
-        models: ['gpt-4o-mini'],
-        dailyLimit: 200,
-        defaultModel: 'gpt-4o-mini',
-        api: 'chatanywhere'
+        models: [PRIMARY_BASIC_MODEL],
+        dailyLimit: 9999,
+        defaultModel: PRIMARY_BASIC_MODEL,
+        api: 'primary'
     },
     // 免費模型（free.v36.cm API）- 無限制
     free: {
-        models: ['gpt-4o-mini', 'gpt-3.5-turbo', 'gpt-3.5-turbo-16k'],
+        models: [FREE_DEFAULT_MODEL, 'gpt-3.5-turbo', 'gpt-3.5-turbo-16k'],
         dailyLimit: 9999,
-        defaultModel: 'gpt-4o-mini',
+        defaultModel: FREE_DEFAULT_MODEL,
         api: 'free'
     }
 };
+
+function shouldUseResponsesApi(apiConfigName) {
+    return apiConfigName === 'primary';
+}
+
+function extractTextFromResponseOutput(outputItems = []) {
+    const texts = [];
+
+    for (const item of outputItems) {
+        if (!item || !Array.isArray(item.content)) {
+            continue;
+        }
+
+        for (const contentPart of item.content) {
+            if (contentPart && contentPart.type === 'output_text' && contentPart.text) {
+                texts.push(contentPart.text);
+            }
+        }
+    }
+
+    return texts.join('\n').trim();
+}
+
+function extractTextFromResponsesApiBody(bodyText) {
+    if (!bodyText || typeof bodyText !== 'string') {
+        return '';
+    }
+
+    let completedText = '';
+    let streamedText = '';
+    let currentEvent = '';
+
+    for (const rawLine of bodyText.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line) {
+            continue;
+        }
+
+        if (line.startsWith('event:')) {
+            currentEvent = line.slice(6).trim();
+            continue;
+        }
+
+        if (!line.startsWith('data:')) {
+            continue;
+        }
+
+        const dataText = line.slice(5).trim();
+        if (!dataText || dataText === '[DONE]') {
+            continue;
+        }
+
+        let payload = null;
+        try {
+            payload = JSON.parse(dataText);
+        } catch (error) {
+            continue;
+        }
+
+        if (currentEvent === 'response.output_text.delta' && payload.delta) {
+            streamedText += payload.delta;
+        }
+
+        if (currentEvent === 'response.output_text.done' && payload.text) {
+            completedText = payload.text;
+        }
+
+        if (!completedText && payload.response && Array.isArray(payload.response.output)) {
+            const extracted = extractTextFromResponseOutput(payload.response.output);
+            if (extracted) {
+                completedText = extracted;
+            }
+        }
+    }
+
+    return (completedText || streamedText).trim();
+}
+
+function parseApiErrorMessage(rawText, statusCode) {
+    let errorMsg = `HTTP ${statusCode}`;
+
+    try {
+        const errorData = JSON.parse(rawText);
+        if (errorData.error) {
+            errorMsg = errorData.error.message || errorData.error.code || errorMsg;
+        } else if (errorData.detail) {
+            errorMsg = errorData.detail;
+        }
+    } catch (error) {
+        // 忽略解析錯誤，保留原始 HTTP 狀態
+    }
+
+    return errorMsg;
+}
+
+async function callResponsesApi(prompt, model, temperature, apiConfigName, apiConfig) {
+    const apiBaseUrl = apiConfig.baseUrl;
+    const fallbackBaseUrl = apiConfig.fallbackBaseUrl;
+    const apiKey = apiConfig.apiKey;
+    const maxTokens = apiConfig.maxTokens;
+
+    const body = {
+        model,
+        instructions: '你是香港北區醫院急症室分析助手。只用繁體中文回應。',
+        input: prompt,
+        temperature,
+        max_output_tokens: maxTokens,
+        stream: false,
+        reasoning: {
+            effort: PRIMARY_REASONING_EFFORT
+        },
+        text: {
+            format: { type: 'text' },
+            verbosity: 'medium'
+        }
+    };
+
+    try {
+        const response = await fetch(`${apiBaseUrl}/responses`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify(body)
+        });
+
+        const rawText = await response.text();
+
+        if (!response.ok) {
+            console.error(`❌ AI API HTTP 錯誤 (${model}): ${response.status}`);
+            console.error('響應內容:', rawText.substring(0, 500));
+
+            if (response.status >= 500 && fallbackBaseUrl && apiBaseUrl === apiConfig.baseUrl && fallbackBaseUrl !== apiBaseUrl) {
+                console.warn(`⚠️ 主 API ${apiBaseUrl} 返回錯誤，切換到備用 base URL...`);
+                const fallbackConfig = { ...apiConfig, baseUrl: fallbackBaseUrl };
+                API_CONFIGS[apiConfigName] = fallbackConfig;
+                return callResponsesApi(prompt, model, temperature, apiConfigName, fallbackConfig);
+            }
+
+            throw new Error(`AI API 錯誤: ${parseApiErrorMessage(rawText, response.status)}`);
+        }
+
+        const content = extractTextFromResponsesApiBody(rawText);
+        if (!content) {
+            console.error(`❌ AI API 返回空內容 (${model})`);
+            console.error('完整響應:', rawText.substring(0, 1000));
+            throw new Error('AI API 返回空內容，需要嘗試其他模型');
+        }
+
+        console.log(`📝 AI 回應長度: ${content.length} 字符`);
+        currentAPIConfig = apiConfigName;
+        currentAPIHost = getApiHost(apiBaseUrl);
+        console.log(`✅ API ${apiConfigName} (${currentAPIHost}) 調用成功`);
+        return content;
+    } catch (error) {
+        if (fallbackBaseUrl && apiBaseUrl === apiConfig.baseUrl && fallbackBaseUrl !== apiBaseUrl) {
+            console.warn(`⚠️ 主 API ${apiBaseUrl} 連接失敗，切換到備用 base URL...`);
+            const fallbackConfig = { ...apiConfig, baseUrl: fallbackBaseUrl };
+            API_CONFIGS[apiConfigName] = fallbackConfig;
+            return callResponsesApi(prompt, model, temperature, apiConfigName, fallbackConfig);
+        }
+
+        throw error;
+    }
+}
+
+function callChatCompletionsApi(prompt, model, temperature, apiConfigName, apiConfig) {
+    return new Promise((resolve, reject) => {
+        const apiBaseUrl = apiConfig.baseUrl;
+        const fallbackBaseUrl = apiConfig.fallbackBaseUrl;
+        const apiKey = apiConfig.apiKey;
+        const maxTokens = apiConfig.maxTokens;
+
+        const apiUrl = `${apiBaseUrl}/chat/completions`;
+        const url = new URL(apiUrl);
+        const postData = JSON.stringify({
+            model: model,
+            messages: [
+                {
+                    role: 'system',
+                    content: '你是香港北區醫院急症室分析助手。只用繁體中文回應。'
+                },
+                {
+                    role: 'user',
+                    content: prompt
+                }
+            ],
+            temperature: temperature,
+            max_tokens: maxTokens
+        });
+
+        const requestClient = url.protocol === 'http:' ? http : https;
+        const options = {
+            hostname: url.hostname,
+            port: url.port || (url.protocol === 'http:' ? 80 : 443),
+            path: `${url.pathname}${url.search}`,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Length': Buffer.byteLength(postData)
+            }
+        };
+
+        const req = requestClient.request(options, (res) => {
+            let data = '';
+            
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
+            
+            res.on('end', () => {
+                if (res.statusCode !== 200) {
+                    console.error(`❌ AI API HTTP 錯誤 (${model}): ${res.statusCode}`);
+                    console.error('響應內容:', data.substring(0, 500));
+                    
+                    if (res.statusCode >= 500 && fallbackBaseUrl && apiBaseUrl === apiConfig.baseUrl && fallbackBaseUrl !== apiBaseUrl) {
+                        console.warn(`⚠️ 主 API ${apiBaseUrl} 返回錯誤，切換到備用 base URL...`);
+                        const fallbackConfig = { ...apiConfig, baseUrl: fallbackBaseUrl };
+                        API_CONFIGS[apiConfigName] = fallbackConfig;
+                        return callChatCompletionsApi(prompt, model, temperature, apiConfigName, fallbackConfig).then(resolve).catch(reject);
+                    }
+                    
+                    return reject(new Error(`AI API 錯誤: ${parseApiErrorMessage(data, res.statusCode)}`));
+                }
+                
+                try {
+                    const jsonData = JSON.parse(data);
+                    
+                    if (jsonData.error) {
+                        const errorMsg = jsonData.error.message || jsonData.error.code || '未知錯誤';
+                        console.error(`❌ AI API 返回錯誤 (${model}): ${errorMsg}`, jsonData.error);
+                        return reject(new Error(`AI API 錯誤: ${errorMsg}`));
+                    }
+                    
+                    if (!jsonData.choices || !jsonData.choices[0] || !jsonData.choices[0].message) {
+                        console.error(`❌ AI API 響應格式異常 (${model}):`, jsonData);
+                        return reject(new Error('AI API 響應格式異常'));
+                    }
+                    
+                    const content = jsonData.choices[0].message.content;
+                    if (!content || content.trim().length === 0) {
+                        console.error(`❌ AI API 返回空內容 (${model})`);
+                        console.error('完整響應:', JSON.stringify(jsonData).substring(0, 500));
+                        return reject(new Error('AI API 返回空內容，需要嘗試其他模型'));
+                    }
+                    
+                    if (!content.includes('{') || !content.includes('}')) {
+                        console.warn(`⚠️ AI 回應可能不是 JSON 格式 (${model}):`, content.substring(0, 200));
+                    }
+                    
+                    console.log(`📝 AI 回應長度: ${content.length} 字符`);
+                    currentAPIConfig = apiConfigName;
+                    currentAPIHost = getApiHost(apiBaseUrl);
+                    console.log(`✅ API ${apiConfigName} (${currentAPIHost}) 調用成功`);
+                    resolve(content);
+                } catch (parseError) {
+                    console.error(`❌ 解析 AI 響應失敗 (${model}):`, parseError);
+                    console.error('原始響應:', data.substring(0, 500));
+                    reject(new Error(`解析 AI 響應失敗: ${parseError.message}`));
+                }
+            });
+        });
+
+        req.on('error', (error) => {
+            console.error(`❌ AI API 請求失敗 (${apiConfigName}/${getApiHost(apiBaseUrl)}, ${model}):`, error.message);
+            if (fallbackBaseUrl && apiBaseUrl === apiConfig.baseUrl && fallbackBaseUrl !== apiBaseUrl) {
+                console.warn(`⚠️ 主 API ${apiBaseUrl} 連接失敗，切換到備用 base URL...`);
+                const fallbackConfig = { ...apiConfig, baseUrl: fallbackBaseUrl };
+                API_CONFIGS[apiConfigName] = fallbackConfig;
+                return callChatCompletionsApi(prompt, model, temperature, apiConfigName, fallbackConfig).then(resolve).catch(reject);
+            }
+            reject(error);
+        });
+
+        req.write(postData);
+        req.end();
+    });
+}
 
 // 使用計數器（按日期重置）
 let usageCounters = {
@@ -273,6 +615,13 @@ function getAvailableModel(tier = 'premium') {
         if (tier === 'basic') return getAvailableModel('free');
         return MODEL_CONFIG.free.defaultModel;
     }
+
+    if (!isApiConfigEnabled(config.api)) {
+        if (tier === 'premium') return getAvailableModel('standard');
+        if (tier === 'standard') return getAvailableModel('basic');
+        if (tier === 'basic') return getAvailableModel('free');
+        return null;
+    }
     
     if (usageCounters[tier].count >= config.dailyLimit) {
         // 如果當前層級已用完，嘗試下一層級
@@ -291,42 +640,42 @@ function getAllAvailableModels(excludeModels = []) {
     checkAndResetCounters();
     const models = [];
     
-    // 高級模型（優先級 1）- chatanywhere API
+    // 高級模型（優先級 1）
     const premiumConfig = MODEL_CONFIG.premium;
-    if (usageCounters.premium.count < premiumConfig.dailyLimit) {
+    if (isApiConfigEnabled(premiumConfig.api) && usageCounters.premium.count < premiumConfig.dailyLimit) {
         premiumConfig.models.forEach(model => {
             if (!excludeModels.includes(model + '_premium')) {
-                models.push({ model, tier: 'premium', priority: 1, api: 'chatanywhere' });
+                models.push({ model, tier: 'premium', priority: 1, api: premiumConfig.api });
             }
         });
     }
     
-    // 中級模型（優先級 2）- chatanywhere API
+    // 中級模型（優先級 2）
     const standardConfig = MODEL_CONFIG.standard;
-    if (usageCounters.standard.count < standardConfig.dailyLimit) {
+    if (isApiConfigEnabled(standardConfig.api) && usageCounters.standard.count < standardConfig.dailyLimit) {
         standardConfig.models.forEach(model => {
             if (!excludeModels.includes(model + '_standard')) {
-                models.push({ model, tier: 'standard', priority: 2, api: 'chatanywhere' });
+                models.push({ model, tier: 'standard', priority: 2, api: standardConfig.api });
             }
         });
     }
     
-    // 基礎模型（優先級 3）- chatanywhere API
+    // 基礎模型（優先級 3）
     const basicConfig = MODEL_CONFIG.basic;
-    if (usageCounters.basic.count < basicConfig.dailyLimit) {
+    if (isApiConfigEnabled(basicConfig.api) && usageCounters.basic.count < basicConfig.dailyLimit) {
         basicConfig.models.forEach(model => {
             if (!excludeModels.includes(model + '_basic')) {
-                models.push({ model, tier: 'basic', priority: 3, api: 'chatanywhere' });
+                models.push({ model, tier: 'basic', priority: 3, api: basicConfig.api });
             }
         });
     }
     
     // 免費模型（優先級 4）- free.v36.cm API
     const freeConfig = MODEL_CONFIG.free;
-    if (usageCounters.free.count < freeConfig.dailyLimit) {
+    if (isApiConfigEnabled(freeConfig.api) && usageCounters.free.count < freeConfig.dailyLimit) {
         freeConfig.models.forEach(model => {
             if (!excludeModels.includes(model + '_free')) {
-                models.push({ model, tier: 'free', priority: 4, api: 'free' });
+                models.push({ model, tier: 'free', priority: 4, api: freeConfig.api });
             }
         });
     }
@@ -378,148 +727,24 @@ function getModelTier(model) {
  * @param {string} model - 模型名稱
  * @param {number} temperature - 溫度
  * @param {boolean} skipUsageRecord - 是否跳過使用記錄
- * @param {string} apiConfigName - 使用的 API 配置（chatanywhere 或 free）
+ * @param {string} apiConfigName - 使用的 API 配置（primary 或 free）
  */
-async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord = false, apiConfigName = 'chatanywhere') {
-    return new Promise((resolve, reject) => {
-        try {
-            const tier = getModelTier(model);
-            if (!skipUsageRecord) {
-                recordUsage(tier);
-            }
-            
-            // 根據 API 配置選擇主機和 API Key
-            const apiConfig = API_CONFIGS[apiConfigName] || API_CONFIGS.chatanywhere;
-            const apiHost = apiConfig.host;
-            const apiKey = apiConfig.apiKey;
-            const maxTokens = apiConfig.maxTokens;
-            
-            const apiUrl = `https://${apiHost}/v1/chat/completions`;
-            const url = new URL(apiUrl);
-            const postData = JSON.stringify({
-                model: model,
-                messages: [
-                    {
-                        role: 'system',
-                        content: '你是香港北區醫院急症室分析助手。只用繁體中文回應。'
-                    },
-                    {
-                        role: 'user',
-                        content: prompt
-                    }
-                ],
-                temperature: temperature,
-                max_tokens: maxTokens
-            });
-            
-            const options = {
-                hostname: url.hostname,
-                port: url.port || 443,
-                path: url.pathname,
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Length': Buffer.byteLength(postData)
-                }
-            };
-            
-            const req = https.request(options, (res) => {
-                let data = '';
-                
-                res.on('data', (chunk) => {
-                    data += chunk;
-                });
-                
-                res.on('end', () => {
-                    if (res.statusCode !== 200) {
-                        console.error(`❌ AI API HTTP 錯誤 (${model}): ${res.statusCode}`);
-                        console.error('響應內容:', data.substring(0, 500));
-                        
-                        // 如果主機失敗且還有備用主機，嘗試切換
-                        if (res.statusCode >= 500 && apiHost === apiConfig.host && apiConfig.fallbackHost !== apiConfig.host) {
-                            console.warn(`⚠️ 主 API 主機 ${apiHost} 返回錯誤，切換到備用主機...`);
-                            // 遞歸重試使用備用主機
-                            const fallbackConfig = { ...apiConfig, host: apiConfig.fallbackHost };
-                            API_CONFIGS[apiConfigName] = fallbackConfig;
-                            return callSingleModel(prompt, model, temperature, skipUsageRecord, apiConfigName).then(resolve).catch(reject);
-                        }
-                        
-                        // 嘗試解析錯誤訊息
-                        let errorMsg = `HTTP ${res.statusCode}`;
-                        try {
-                            const errorData = JSON.parse(data);
-                            if (errorData.error) {
-                                errorMsg = errorData.error.message || errorData.error.code || errorMsg;
-                            }
-                        } catch (e) {
-                            // 忽略解析錯誤
-                        }
-                        
-                        return reject(new Error(`AI API 錯誤: ${errorMsg}`));
-                    }
-                    
-                    try {
-                        const jsonData = JSON.parse(data);
-                        
-                        // 檢查是否有錯誤訊息
-                        if (jsonData.error) {
-                            const errorMsg = jsonData.error.message || jsonData.error.code || '未知錯誤';
-                            console.error(`❌ AI API 返回錯誤 (${model}): ${errorMsg}`, jsonData.error);
-                            return reject(new Error(`AI API 錯誤: ${errorMsg}`));
-                        }
-                        
-                        // 檢查是否有響應內容
-                        if (!jsonData.choices || !jsonData.choices[0] || !jsonData.choices[0].message) {
-                            console.error(`❌ AI API 響應格式異常 (${model}):`, jsonData);
-                            return reject(new Error('AI API 響應格式異常'));
-                        }
-                        
-                        // 檢查回應內容是否為空
-                        const content = jsonData.choices[0].message.content;
-                        if (!content || content.trim().length === 0) {
-                            console.error(`❌ AI API 返回空內容 (${model})`);
-                            console.error('完整響應:', JSON.stringify(jsonData).substring(0, 500));
-                            return reject(new Error('AI API 返回空內容，需要嘗試其他模型'));
-                        }
-                        
-                        // 檢查回應是否包含有效的 JSON（基本檢查）
-                        if (!content.includes('{') || !content.includes('}')) {
-                            console.warn(`⚠️ AI 回應可能不是 JSON 格式 (${model}):`, content.substring(0, 200));
-                            // 不拒絕，因為可能是純文本回應，讓上層處理
-                        }
-                        
-                        console.log(`📝 AI 回應長度: ${content.length} 字符`);
-                        
-                        console.log(`✅ API ${apiConfigName} (${apiHost}) 調用成功`);
-                        resolve(jsonData.choices[0].message.content);
-                    } catch (parseError) {
-                        console.error(`❌ 解析 AI 響應失敗 (${model}):`, parseError);
-                        console.error('原始響應:', data.substring(0, 500));
-                        reject(new Error(`解析 AI 響應失敗: ${parseError.message}`));
-                    }
-                });
-            });
-            
-            req.on('error', (error) => {
-                console.error(`❌ AI API 請求失敗 (${apiConfigName}/${apiHost}, ${model}):`, error.message);
-                // 如果是主主機失敗，嘗試切換到備用主機
-                if (apiHost === apiConfig.host && apiConfig.fallbackHost !== apiConfig.host) {
-                    console.warn(`⚠️ 主 API 主機 ${apiHost} 連接失敗，切換到備用主機...`);
-                    const fallbackConfig = { ...apiConfig, host: apiConfig.fallbackHost };
-                    API_CONFIGS[apiConfigName] = fallbackConfig;
-                    return callSingleModel(prompt, model, temperature, skipUsageRecord, apiConfigName).then(resolve).catch(reject);
-                }
-                reject(error);
-            });
-            
-            req.write(postData);
-            req.end();
-        } catch (error) {
-            console.error(`❌ AI API 調用失敗 (${model}):`, error);
-            reject(error);
-        }
-    });
+async function callSingleModel(prompt, model, temperature = 0.7, skipUsageRecord = false, apiConfigName = 'primary') {
+    const tier = getModelTier(model);
+    if (!skipUsageRecord) {
+        recordUsage(tier);
+    }
+
+    const apiConfig = API_CONFIGS[apiConfigName] || API_CONFIGS.primary;
+    if (!apiConfig.baseUrl || !apiConfig.apiKey) {
+        throw new Error(`AI API 未配置完成: ${apiConfigName}`);
+    }
+
+    if (shouldUseResponsesApi(apiConfigName)) {
+        return callResponsesApi(prompt, model, temperature, apiConfigName, apiConfig);
+    }
+
+    return callChatCompletionsApi(prompt, model, temperature, apiConfigName, apiConfig);
 }
 
 /**
@@ -532,12 +757,12 @@ async function callAI(prompt, model = null, temperature = 0.7) {
     
     console.log('🚀 開始調用 AI API，將依次嘗試所有可用模型...');
     
-    // 如果指定了模型，先嘗試指定的模型（默認使用 chatanywhere API）
+    // 如果指定了模型，先嘗試指定的模型（默認使用 primary API）
     if (model) {
         triedModels.push(model + '_specified');
         try {
-            console.log(`🤖 [1/?] 嘗試使用指定模型: ${model} (chatanywhere)`);
-            const result = await callSingleModel(prompt, model, temperature, false, 'chatanywhere');
+            console.log(`🤖 [1/?] 嘗試使用指定模型: ${model} (primary)`);
+            const result = await callSingleModel(prompt, model, temperature, false, 'primary');
             console.log(`✅ 模型 ${model} 調用成功`);
             return result;
         } catch (error) {
@@ -556,7 +781,7 @@ async function callAI(prompt, model = null, temperature = 0.7) {
     let availableModels = getAllAvailableModels(triedModels);
     
     if (availableModels.length === 0) {
-        const errorMsg = '所有 AI 模型今日使用次數已達上限或無可用模型';
+        const errorMsg = '沒有可用的 AI 模型；請檢查 API 金鑰、base URL 或模型設定';
         console.error(`❌ ${errorMsg}`);
         console.error('已嘗試的模型:', triedModels);
         console.error('錯誤記錄:', errors);
@@ -1171,28 +1396,30 @@ function getUsageStats() {
             used: usageCounters.premium.count,
             limit: MODEL_CONFIG.premium.dailyLimit,
             remaining: MODEL_CONFIG.premium.dailyLimit - usageCounters.premium.count,
-            api: 'chatanywhere'
+            api: getApiHost(API_CONFIGS[MODEL_CONFIG.premium.api]?.baseUrl) || MODEL_CONFIG.premium.api
         },
         standard: {
             used: usageCounters.standard.count,
             limit: MODEL_CONFIG.standard.dailyLimit,
             remaining: MODEL_CONFIG.standard.dailyLimit - usageCounters.standard.count,
-            api: 'chatanywhere'
+            api: getApiHost(API_CONFIGS[MODEL_CONFIG.standard.api]?.baseUrl) || MODEL_CONFIG.standard.api
         },
         basic: {
             used: usageCounters.basic.count,
             limit: MODEL_CONFIG.basic.dailyLimit,
             remaining: MODEL_CONFIG.basic.dailyLimit - usageCounters.basic.count,
-            api: 'chatanywhere'
+            api: getApiHost(API_CONFIGS[MODEL_CONFIG.basic.api]?.baseUrl) || MODEL_CONFIG.basic.api
         },
         free: {
             used: usageCounters.free.count,
             limit: MODEL_CONFIG.free.dailyLimit,
             remaining: MODEL_CONFIG.free.dailyLimit - usageCounters.free.count,
-            api: 'free.v36.cm'
+            api: getApiHost(API_CONFIGS[MODEL_CONFIG.free.api]?.baseUrl) || MODEL_CONFIG.free.api
         },
         date: getHKDateStr(),
-        apiConfigs: API_CONFIGS
+        apiHost: currentAPIHost,
+        currentApiConfig: currentAPIConfig,
+        apiConfigs: sanitizeApiConfigs()
     };
 }
 
