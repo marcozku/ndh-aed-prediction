@@ -3801,6 +3801,8 @@ async function initComparisonTable() {
         const table = document.getElementById('comparison-table');
         const loading = document.getElementById('comparison-table-loading');
         const tableHead = table?.querySelector('thead');
+        const recentList = document.getElementById('comparison-recent-list');
+        const tableSummary = document.getElementById('comparison-table-summary');
 
         if (!tableBody || !table) {
             console.error('❌ 找不到比較表格元素');
@@ -3810,7 +3812,7 @@ async function initComparisonTable() {
         if (tableHead) {
             tableHead.innerHTML = `
                 <tr>
-                    <th>日期</th>
+                    <th class="comparison-sticky-cell">日期</th>
                     <th>實際人數</th>
                     <th>XGBoost</th>
                     <th>誤差</th>
@@ -3833,9 +3835,20 @@ async function initComparisonTable() {
 
         if (historyItems.length === 0) {
             if (loading) loading.style.display = 'none';
+            if (recentList) recentList.innerHTML = '';
+            if (tableSummary) tableSummary.textContent = '暫無模型比較數據';
             tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #64748b; padding: var(--space-xl);">暫無模型比較數據</td></tr>';
             if (table) table.style.display = 'table';
             return;
+        }
+
+        const verifiedCount = historyItems.filter(item => item.actual_count != null).length;
+        const pendingCount = historyItems.length - verifiedCount;
+        const latestDate = historyItems[0]?.date;
+        const oldestDate = historyItems[historyItems.length - 1]?.date;
+
+        if (tableSummary) {
+            tableSummary.innerHTML = `最新資料已排最前 · 共 ${historyItems.length} 天（已驗證 ${verifiedCount} 天、待驗證 ${pendingCount} 天）${latestDate && oldestDate ? ` · 範圍 ${formatDateDDMM(latestDate, true)} 至 ${formatDateDDMM(oldestDate, true)}` : ''}`;
         }
 
         const renderPredictionCell = (historyItem, modelName) => {
@@ -3849,6 +3862,45 @@ async function initComparisonTable() {
             return formatSignedComparisonCount(predictedCount - historyItem.actual_count);
         };
 
+        if (recentList) {
+            recentList.innerHTML = historyItems.slice(0, 7).map(historyItem => {
+                const bestModels = getBestComparisonModels(historyItem);
+                const bestModelText = historyItem.actual_count == null
+                    ? '待驗證'
+                    : (bestModels.length > 0 ? bestModels.join(' / ') : '--');
+                const actualText = historyItem.actual_count == null ? '待驗證' : `${formatComparisonCount(historyItem.actual_count)} 人`;
+
+                return `
+                    <article class="comparison-recent-card ${historyItem.actual_count == null ? 'is-pending' : ''}">
+                        <div class="comparison-recent-header">
+                            <div>
+                                <div class="comparison-recent-date">${historyItem.date ? formatDateDDMM(historyItem.date, true) : '--'}</div>
+                                <div class="comparison-recent-actual">實際：${actualText}</div>
+                            </div>
+                            <div class="comparison-recent-badge ${historyItem.actual_count == null ? 'is-pending' : 'is-scored'}">${bestModelText}</div>
+                        </div>
+                        <div class="comparison-recent-models">
+                            ${MODEL_COMPARISON_ORDER.map(modelName => {
+                                const config = getModelComparisonConfig(modelName);
+                                const predictedCount = renderPredictionCell(historyItem, modelName);
+                                const errorText = renderErrorCell(historyItem, modelName);
+
+                                return `
+                                    <div class="comparison-recent-model">
+                                        <div class="comparison-recent-model-head">
+                                            <span class="comparison-recent-model-name">${config.label}</span>
+                                            <span class="comparison-recent-model-value">${predictedCount === '--' ? '--' : `${predictedCount} 人`}</span>
+                                        </div>
+                                        <div class="comparison-recent-model-meta">${historyItem.actual_count == null ? '尚無實際值' : `誤差 ${errorText} 人`}</div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
         tableBody.innerHTML = historyItems.map(historyItem => {
             const bestModels = getBestComparisonModels(historyItem);
             const bestModelText = historyItem.actual_count == null
@@ -3856,8 +3908,8 @@ async function initComparisonTable() {
                 : (bestModels.length > 0 ? bestModels.join(' / ') : '--');
 
             return `
-                <tr>
-                    <td>${historyItem.date ? formatDateDDMM(historyItem.date, true) : '--'}</td>
+                <tr class="${historyItem.actual_count == null ? 'comparison-row-pending' : ''}">
+                    <td class="comparison-sticky-cell">${historyItem.date ? formatDateDDMM(historyItem.date, true) : '--'}</td>
                     <td>${historyItem.actual_count == null ? '--' : formatComparisonCount(historyItem.actual_count)}</td>
                     <td>${renderPredictionCell(historyItem, 'xgboost')}</td>
                     <td>${renderErrorCell(historyItem, 'xgboost')}</td>
@@ -3865,7 +3917,7 @@ async function initComparisonTable() {
                     <td>${renderErrorCell(historyItem, 'xgboost_ai')}</td>
                     <td>${renderPredictionCell(historyItem, 'gpt_5_4')}</td>
                     <td>${renderErrorCell(historyItem, 'gpt_5_4')}</td>
-                    <td>${bestModelText}</td>
+                    <td class="comparison-best-cell">${bestModelText}</td>
                 </tr>
             `;
         }).join('');
