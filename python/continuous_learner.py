@@ -23,11 +23,11 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
+from weather_data_loader import get_weather_data_for_date, has_core_weather_fields
 
 # HKT = UTC+8
 HKT = timezone(timedelta(hours=8))
 import json
-import requests
 
 # Fix Windows encoding
 if sys.platform == 'win32':
@@ -97,67 +97,83 @@ def normalize_ai_factor_payload(ai_data):
 # ============================================================
 
 def fetch_hko_weather(date):
-    """從 HKO API 獲取指定日期的天氣數據"""
+    """從本地快取或 HKO Daily Extract 載入指定日期歷史天氣"""
     try:
-        # HKO Daily Extract API
-        date_str = date.strftime('%Y%m%d')
-        url = f"https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc&date={date_str}"
-
-        response = requests.get(url, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-
-        weather_data = {
-            'temp_min': None,
-            'temp_max': None,
-            'temp_mean': None,
-            'humidity_pct': None,
-            'rainfall_mm': None,
-            'wind_kmh': None,
-            'pressure_hpa': None,
-            'visibility_km': None,
-            'is_very_cold': False,
-            'is_very_hot': False,
-            'is_heavy_rain': False,
-            'is_strong_wind': False,
-            'typhoon_signal': None,
-            'rainstorm_warning': None
-        }
-
-        # 解析溫度
-        if 'temperature' in data and 'data' in data['temperature']:
-            for entry in data['temperature']['data']:
-                if entry.get('place') == 'Hong Kong Observatory':
-                    weather_data['temp_mean'] = float(entry.get('value', 0))
-                    # 根據時間推斷 (簡化處理)
-                    weather_data['temp_max'] = weather_data['temp_mean'] + 3
-                    weather_data['temp_min'] = weather_data['temp_mean'] - 3
-
-        # 解析濕度
-        if 'humidity' in data and 'data' in data['humidity']:
-            for entry in data['humidity']['data']:
-                if entry.get('place') == 'Hong Kong Observatory':
-                    weather_data['humidity_pct'] = float(entry.get('value', 0))
-
-        # 解析雨量
-        if 'rainfall' in data and 'data' in data['rainfall']:
-            for entry in data['rainfall']['data']:
-                if entry.get('place') == 'Hong Kong Observatory':
-                    weather_data['rainfall_mm'] = float(entry.get('max', 0))
-
-        # 計算極端條件標記
-        if weather_data['temp_min']:
-            weather_data['is_very_cold'] = weather_data['temp_min'] <= 12
-            weather_data['is_very_hot'] = weather_data['temp_max'] >= 33 if weather_data['temp_max'] else False
-
-        if weather_data['rainfall_mm']:
-            weather_data['is_heavy_rain'] = weather_data['rainfall_mm'] > 25
-
-        return weather_data
-
+        return get_weather_data_for_date(date)
     except Exception as e:
         print(f"   ⚠️ Failed to fetch HKO weather: {e}")
         return None
+
+
+def upsert_weather_history(cur, date, weather):
+    """寫入或修補 weather_history 單日資料"""
+    cur.execute("""
+        INSERT INTO weather_history (
+            date, temp_min, temp_max, temp_mean,
+            humidity_pct, rainfall_mm, wind_kmh,
+            pressure_hpa, visibility_km, cloud_pct,
+            sunshine_hrs, dew_point, typhoon_signal,
+            rainstorm_warning, cold_warning, hot_warning,
+            is_very_cold, is_very_hot, is_heavy_rain,
+            is_strong_wind, is_low_humidity, is_high_pressure,
+            data_fetch_time
+        ) VALUES (
+            %s, %s, %s, %s,
+            %s, %s, %s,
+            %s, %s, %s,
+            %s, %s, %s,
+            %s, %s, %s,
+            %s, %s, %s,
+            %s, %s, %s,
+            NOW()
+        )
+        ON CONFLICT (date) DO UPDATE SET
+            temp_min = EXCLUDED.temp_min,
+            temp_max = EXCLUDED.temp_max,
+            temp_mean = EXCLUDED.temp_mean,
+            humidity_pct = EXCLUDED.humidity_pct,
+            rainfall_mm = EXCLUDED.rainfall_mm,
+            wind_kmh = EXCLUDED.wind_kmh,
+            pressure_hpa = EXCLUDED.pressure_hpa,
+            visibility_km = EXCLUDED.visibility_km,
+            cloud_pct = EXCLUDED.cloud_pct,
+            sunshine_hrs = EXCLUDED.sunshine_hrs,
+            dew_point = EXCLUDED.dew_point,
+            typhoon_signal = EXCLUDED.typhoon_signal,
+            rainstorm_warning = EXCLUDED.rainstorm_warning,
+            cold_warning = EXCLUDED.cold_warning,
+            hot_warning = EXCLUDED.hot_warning,
+            is_very_cold = EXCLUDED.is_very_cold,
+            is_very_hot = EXCLUDED.is_very_hot,
+            is_heavy_rain = EXCLUDED.is_heavy_rain,
+            is_strong_wind = EXCLUDED.is_strong_wind,
+            is_low_humidity = EXCLUDED.is_low_humidity,
+            is_high_pressure = EXCLUDED.is_high_pressure,
+            data_fetch_time = NOW()
+    """, (
+        date,
+        weather.get('temp_min'),
+        weather.get('temp_max'),
+        weather.get('temp_mean'),
+        weather.get('humidity_pct'),
+        weather.get('rainfall_mm'),
+        weather.get('wind_kmh'),
+        weather.get('pressure_hpa'),
+        weather.get('visibility_km'),
+        weather.get('cloud_pct'),
+        weather.get('sunshine_hrs'),
+        weather.get('dew_point'),
+        weather.get('typhoon_signal'),
+        weather.get('rainstorm_warning'),
+        weather.get('cold_warning'),
+        weather.get('hot_warning'),
+        weather.get('is_very_cold'),
+        weather.get('is_very_hot'),
+        weather.get('is_heavy_rain'),
+        weather.get('is_strong_wind'),
+        weather.get('is_low_humidity'),
+        weather.get('is_high_pressure'),
+    ))
 
 def fetch_yesterday_data(date):
     """獲取指定日期的所有相關數據"""
@@ -250,7 +266,7 @@ def fetch_yesterday_data(date):
     """, (date,))
     result = cur.fetchone()
     if result:
-        data['weather'] = {
+        stored_weather = {
             'temp_min': float(result[0]) if result[0] else None,
             'temp_max': float(result[1]) if result[1] else None,
             'temp_mean': float(result[2]) if result[2] else None,
@@ -265,28 +281,18 @@ def fetch_yesterday_data(date):
             'is_strong_wind': result[11],
             'typhoon_signal': result[12]
         }
-    else:
-        # 嘗試從 HKO API 獲取
-        print("   📡 Fetching weather from HKO API...")
-        data['weather'] = fetch_hko_weather(date)
-        if data['weather']:
-            # 保存到 weather_history
-            w = data['weather']
-            cur.execute("""
-                INSERT INTO weather_history (
-                    date, temp_min, temp_max, temp_mean,
-                    humidity_pct, rainfall_mm, wind_kmh,
-                    pressure_hpa, visibility_km,
-                    is_very_cold, is_very_hot, is_heavy_rain, is_strong_wind
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (date) DO NOTHING
-            """, (
-                date, w['temp_min'], w['temp_max'], w['temp_mean'],
-                w['humidity_pct'], w['rainfall_mm'], w['wind_kmh'],
-                w['pressure_hpa'], w['visibility_km'],
-                w['is_very_cold'], w['is_very_hot'], w['is_heavy_rain'], w['is_strong_wind']
-            ))
+        if has_core_weather_fields(stored_weather):
+            data['weather'] = stored_weather
+
+    if not data['weather']:
+        print("   📡 Fetching historical weather from HKO Daily Extract...")
+        fetched_weather = fetch_hko_weather(date)
+        if fetched_weather and has_core_weather_fields(fetched_weather):
+            upsert_weather_history(cur, date, fetched_weather)
             conn.commit()
+            data['weather'] = fetched_weather
+        else:
+            print(f"   ⚠️ Historical weather unavailable for {date}")
 
     cur.close()
     conn.close()
@@ -428,8 +434,27 @@ def save_learning_record(conn, data, metrics, anomaly, weather_impact, ai_impact
             %s, %s, %s
         )
         ON CONFLICT (date) DO UPDATE SET
+            xgboost_base_pred = EXCLUDED.xgboost_base_pred,
+            final_prediction = EXCLUDED.final_prediction,
             actual_attendance = EXCLUDED.actual_attendance,
             prediction_error = EXCLUDED.prediction_error,
+            error_pct = EXCLUDED.error_pct,
+            temp_min = EXCLUDED.temp_min,
+            temp_max = EXCLUDED.temp_max,
+            rainfall_mm = EXCLUDED.rainfall_mm,
+            wind_kmh = EXCLUDED.wind_kmh,
+            humidity_pct = EXCLUDED.humidity_pct,
+            pressure_hpa = EXCLUDED.pressure_hpa,
+            is_very_cold = EXCLUDED.is_very_cold,
+            is_very_hot = EXCLUDED.is_very_hot,
+            is_heavy_rain = EXCLUDED.is_heavy_rain,
+            is_strong_wind = EXCLUDED.is_strong_wind,
+            typhoon_signal = EXCLUDED.typhoon_signal,
+            ai_factor = EXCLUDED.ai_factor,
+            ai_event_type = EXCLUDED.ai_event_type,
+            ai_description = EXCLUDED.ai_description,
+            weather_impact_learned = EXCLUDED.weather_impact_learned,
+            ai_impact_learned = EXCLUDED.ai_impact_learned,
             is_anomaly = EXCLUDED.is_anomaly,
             processed = FALSE
     """, (
@@ -446,10 +471,10 @@ def save_learning_record(conn, data, metrics, anomaly, weather_impact, ai_impact
         weather.get('wind_kmh'),
         weather.get('humidity_pct'),
         weather.get('pressure_hpa'),
-        weather.get('is_very_cold', False) if weather else False,
-        weather.get('is_very_hot', False) if weather else False,
-        weather.get('is_heavy_rain', False) if weather else False,
-        weather.get('is_strong_wind', False) if weather else False,
+        weather.get('is_very_cold') if weather else None,
+        weather.get('is_very_hot') if weather else None,
+        weather.get('is_heavy_rain') if weather else None,
+        weather.get('is_strong_wind') if weather else None,
         weather.get('typhoon_signal') if weather else None,
 
         ai.get('factor') if ai else None,
