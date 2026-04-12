@@ -242,7 +242,12 @@ def update_anomaly_classifications(conn):
         conditions_json = row[2]
 
         # 解析條件
-        conditions = json.loads(conditions_json) if conditions_json else {}
+        if isinstance(conditions_json, dict):
+            conditions = conditions_json
+        elif isinstance(conditions_json, str):
+            conditions = json.loads(conditions_json) if conditions_json else {}
+        else:
+            conditions = {}
 
         # 構建天氣和 AI 對象
         weather = {
