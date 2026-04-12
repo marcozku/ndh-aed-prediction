@@ -73,6 +73,34 @@ def collect_target_dates(conn, start_date=None, end_date=None, only_missing_core
                             lr.pressure_hpa IS NULL
                         )
                     )
+
+                UNION
+
+                SELECT a.date
+                FROM actual_data a
+                LEFT JOIN weather_history wh
+                    ON wh.date = a.date
+                LEFT JOIN learning_records lr
+                    ON lr.date = a.date
+                WHERE
+                    a.patient_count IS NOT NULL AND (
+                        wh.date IS NULL OR
+                        wh.temp_min IS NULL OR
+                        wh.temp_max IS NULL OR
+                        wh.temp_mean IS NULL OR
+                        wh.rainfall_mm IS NULL OR
+                        wh.humidity_pct IS NULL OR
+                        wh.pressure_hpa IS NULL OR
+                        (
+                            lr.date IS NOT NULL AND (
+                                lr.temp_min IS NULL OR
+                                lr.temp_max IS NULL OR
+                                lr.rainfall_mm IS NULL OR
+                                lr.humidity_pct IS NULL OR
+                                lr.pressure_hpa IS NULL
+                            )
+                        )
+                    )
             ) AS candidate_dates
             {where_sql}
             ORDER BY date
@@ -84,6 +112,8 @@ def collect_target_dates(conn, start_date=None, end_date=None, only_missing_core
                 SELECT date FROM learning_records
                 UNION
                 SELECT date FROM weather_history
+                UNION
+                SELECT date FROM actual_data
             ) AS candidate_dates
             {where_sql}
             ORDER BY date
@@ -163,6 +193,7 @@ def main():
     parser.add_argument('--end-date', dest='end_date')
     parser.add_argument('--lookback-days', dest='lookback_days', type=int)
     parser.add_argument('--only-missing-core', dest='only_missing_core', action='store_true')
+    parser.add_argument('--max-dates', dest='max_dates', type=int)
     args = parser.parse_args()
 
     if args.lookback_days and not args.start_date:
@@ -179,6 +210,11 @@ def main():
             args.end_date,
             only_missing_core=args.only_missing_core
         )
+
+        if args.max_dates and args.max_dates > 0:
+            dates = dates[:args.max_dates]
+            print(f'📦 限制本次最多追補日期數: {args.max_dates}')
+
         print(f'📅 需要檢查的日期數: {len(dates)}')
 
         result = backfill_dates(conn, dates)

@@ -621,9 +621,9 @@ body::before {
     font-weight: 600;
     color: var(--accent-success);
     white-space: nowrap;
-    width: 320px; /* 固定寬度防止跳動 */
-    min-width: 320px;
-    max-width: 320px;
+    width: min(320px, 100%); /* 保留穩定寬度，但在窄屏時不超出卡片 */
+    min-width: 0;
+    max-width: 100%;
     font-variant-numeric: tabular-nums; /* 使用等寬數字 */
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; /* 等寬字體 */
     letter-spacing: 0.02em;
@@ -1019,7 +1019,7 @@ body::before {
 
 .training-status-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
     gap: var(--space-lg);
 }
 
@@ -2385,7 +2385,7 @@ section h2 {
     width: 100%;
     max-width: 100%;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
     gap: var(--space-md);
     margin-bottom: var(--space-lg);
     box-sizing: border-box;
@@ -3653,7 +3653,7 @@ section h2 {
 
 .comparison-recent-list {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
     gap: 12px;
     margin-top: 12px;
     margin-bottom: 12px;
@@ -6453,7 +6453,7 @@ section h2 {
 
 .learning-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
     gap: var(--space-md);
 }
 
@@ -8551,5 +8551,192 @@ html, body {
 
 .confidence-source.training {
     color: var(--warning-color, #f59e0b);
+}
+
+/* ============================================
+   iPhone Card Boundary Hardening
+   Keep every card and its content inside the viewport
+   ============================================ */
+@media (max-width: 430px) {
+    .app-container {
+        padding-left: max(8px, env(safe-area-inset-left, 0px)) !important;
+        padding-right: max(8px, env(safe-area-inset-right, 0px)) !important;
+    }
+
+    .app-header,
+    .prediction-card,
+    .chart-card,
+    .stats-card,
+    .factors-container,
+    .factor-card,
+    .forecast-day-card,
+    .model-status-card,
+    .learning-card,
+    .algo-card,
+    .comparison-recent-card,
+    .timeline-item,
+    .timeline-chart-wrapper,
+    .weather-impact-card,
+    .training-status-container,
+    .dual-track-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+    }
+
+    .app-header *,
+    .prediction-card *,
+    .chart-card *,
+    .factors-container *,
+    .learning-card *,
+    .model-status-card *,
+    .comparison-recent-card *,
+    .timeline-item *,
+    .algo-card *,
+    .dual-track-container * {
+        min-width: 0;
+    }
+
+    .header-title,
+    .header-subtitle,
+    .card-title,
+    .section-title,
+    .datetime-text,
+    .current-datetime,
+    .weather-desc,
+    .weather-detail-item,
+    .comparison-table-summary,
+    .comparison-scroll-hint,
+    .comparison-status-chip,
+    .comparison-error-chip,
+    .comparison-recent-badge,
+    .comparison-recent-date,
+    .comparison-recent-actual,
+    .comparison-recent-model-name,
+    .comparison-recent-model-value,
+    .model-status-badge,
+    .model-detail-label,
+    .model-detail-value,
+    .impact-name,
+    .impact-value,
+    .impact-samples,
+    .anomaly-date,
+    .anomaly-type,
+    .anomaly-error,
+    .timeline-version,
+    .timeline-content,
+    .timeline-changes,
+    .factor-type,
+    .factor-description,
+    .affected-days-list,
+    .source-text,
+    .source-link,
+    .bayesian-title,
+    .source-name,
+    .source-weight,
+    .source-value,
+    .source-factor {
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+
+    .header-title,
+    .header-subtitle {
+        text-wrap: balance;
+    }
+
+    .current-datetime {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        justify-content: center;
+        text-align: center;
+        line-height: 1.35;
+        padding: 8px 12px !important;
+    }
+
+    .weather-display {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        display: flex !important;
+        gap: 8px !important;
+        padding: 10px 12px !important;
+        justify-content: center;
+    }
+
+    .weather-details {
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+    }
+
+    .weather-detail-item {
+        max-width: 100%;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .prediction-type-label,
+    .realtime-value-container,
+    .bayesian-header,
+    .source-header,
+    .source-details,
+    .factor-header,
+    .comparison-recent-header,
+    .comparison-recent-model-head,
+    .model-status-header,
+    .model-detail-item,
+    .impact-item,
+    .anomaly-item,
+    .timeline-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-xs);
+    }
+
+    .realtime-value,
+    .weather-display,
+    .status-badges {
+        flex-wrap: wrap;
+    }
+
+    .realtime-time,
+    .factor-impact,
+    .comparison-recent-badge,
+    .model-status-badge {
+        align-self: flex-start;
+    }
+
+    .factors-grid,
+    .learning-grid,
+    .comparison-recent-list,
+    .training-status-grid,
+    .timeline-main-container {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .factors-table,
+    .comparison-table-container {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    #history-date-range,
+    .volatility-date-select {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0 !important;
+    }
+
+    .algorithm-content [style*="grid-template-columns"],
+    .dual-track-container [style*="grid-template-columns"],
+    .modal-content [style*="grid-template-columns"] {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
 }
 

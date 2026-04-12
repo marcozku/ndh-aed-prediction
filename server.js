@@ -1290,8 +1290,20 @@ function buildModelComparisonResponse(rows = []) {
 
 const WEATHER_HISTORY_SYNC_LOOKBACK_DAYS = Math.max(7, parseInt(process.env.WEATHER_HISTORY_SYNC_LOOKBACK_DAYS || '90', 10) || 90);
 const WEATHER_HISTORY_SYNC_COOLDOWN_MS = Math.max(60 * 1000, parseInt(process.env.WEATHER_HISTORY_SYNC_COOLDOWN_MS || String(30 * 60 * 1000), 10) || (30 * 60 * 1000));
+const WEATHER_HISTORY_HISTORICAL_SYNC_COOLDOWN_MS = Math.max(10 * 60 * 1000, parseInt(process.env.WEATHER_HISTORY_HISTORICAL_SYNC_COOLDOWN_MS || String(6 * 60 * 60 * 1000), 10) || (6 * 60 * 60 * 1000));
+const WEATHER_HISTORY_HISTORICAL_BATCH_SIZE = Math.max(1, parseInt(process.env.WEATHER_HISTORY_HISTORICAL_BATCH_SIZE || '45', 10) || 45);
+const WEATHER_HISTORY_MIN_SYNC_DATE = '1900-01-01';
 
 const weatherHistorySyncState = {
+    promise: null,
+    lastAttemptAt: null,
+    lastSuccessAt: null,
+    lastError: null,
+    lastTrigger: null,
+    lastResult: null
+};
+
+const weatherHistoryHistoricalSyncState = {
     promise: null,
     lastAttemptAt: null,
     lastSuccessAt: null,
@@ -1313,7 +1325,21 @@ function getRecentDateRange(lookbackDays = WEATHER_HISTORY_SYNC_LOOKBACK_DAYS) {
     };
 }
 
-async function getWeatherSyncSummary(startDate) {
+function shiftIsoDate(dateStr, deltaDays = 0) {
+    if (!dateStr) return '';
+    const [year, month, day] = String(dateStr).slice(0, 10).split('-').map(Number);
+    if (!year || !month || !day) return '';
+    const shifted = new Date(Date.UTC(year, month - 1, day));
+    shifted.setUTCDate(shifted.getUTCDate() + (Number(deltaDays) || 0));
+    return shifted.toISOString().slice(0, 10);
+}
+
+function getHistoricalWeatherSyncEndDate(lookbackDays = WEATHER_HISTORY_SYNC_LOOKBACK_DAYS) {
+    const { startDate } = getRecentDateRange(lookbackDays);
+    return shiftIsoDate(startDate, -1);
+}
+
+async function getWeatherSyncSummary(startDate, endDate = null) {
     if (!db || !db.pool) {
         return {
             missingCount: 0,
@@ -1330,6 +1356,7 @@ async function getWeatherSyncSummary(startDate) {
             LEFT JOIN weather_history wh
                 ON wh.date = a.date
             WHERE a.date >= $1::date
+              AND ($2::date IS NULL OR a.date <= $2::date)
               AND a.patient_count IS NOT NULL
               AND (
                   wh.date IS NULL OR
@@ -1346,6 +1373,7 @@ async function getWeatherSyncSummary(startDate) {
             SELECT lr.date
             FROM learning_records lr
             WHERE lr.date >= $1::date
+              AND ($2::date IS NULL OR lr.date <= $2::date)
               AND (
                   lr.temp_min IS NULL OR
                   lr.temp_max IS NULL OR
@@ -1370,7 +1398,7 @@ async function getWeatherSyncSummary(startDate) {
                     pressure_hpa IS NOT NULL
             ) AS latest_weather_date
         FROM missing_dates
-    `, [startDate]);
+    `, [startDate, endDate]);
 
     const row = result.rows[0] || {};
     return {
@@ -1464,6 +1492,14 @@ async function ensureWeatherHistorySync(options = {}) {
             weatherHistorySyncState.lastResult = result;
 
             console.log(`✅ 天氣歷史同步完成 (${reason})：缺失 ${summaryBefore.missingCount} → ${summaryAfter.missingCount}`);
+            setTimeout(() => {
+                ensureHistoricalWeatherHistoryCatchUp({
+                    reason: `${reason}-historical`,
+                    lookbackDays
+                }).catch((historicalError) => {
+                    console.warn(`⚠️ 背景歷史天氣追補失敗 (${reason}): ${historicalError.message}`);
+                });
+            }, 0);
             return result;
         } catch (error) {
             weatherHistorySyncState.lastError = error.message;
@@ -1486,6 +1522,127 @@ async function ensureWeatherHistorySync(options = {}) {
     })();
 
     weatherHistorySyncState.promise = taskPromise;
+    return taskPromise;
+}
+
+async function ensureHistoricalWeatherHistoryCatchUp(options = {}) {
+    const {
+        reason = 'unknown',
+        lookbackDays = WEATHER_HISTORY_SYNC_LOOKBACK_DAYS,
+        batchSize = WEATHER_HISTORY_HISTORICAL_BATCH_SIZE,
+        force = false
+    } = options;
+
+    if (!db || !db.pool) {
+        return {
+            success: false,
+            skipped: true,
+            reason: 'database unavailable'
+        };
+    }
+
+    if (weatherHistoryHistoricalSyncState.promise) {
+        console.log(`🕰️ 歷史天氣追補進行中，重用現有任務 (${reason})`);
+        return weatherHistoryHistoricalSyncState.promise;
+    }
+
+    const historicalEndDate = getHistoricalWeatherSyncEndDate(lookbackDays);
+    if (!historicalEndDate || historicalEndDate < WEATHER_HISTORY_MIN_SYNC_DATE) {
+        return {
+            success: true,
+            skipped: true,
+            reason: 'historical-range-empty'
+        };
+    }
+
+    const summaryBefore = await getWeatherSyncSummary(WEATHER_HISTORY_MIN_SYNC_DATE, historicalEndDate);
+    const now = Date.now();
+    const recentlyAttempted = weatherHistoryHistoricalSyncState.lastAttemptAt &&
+        (now - weatherHistoryHistoricalSyncState.lastAttemptAt < WEATHER_HISTORY_HISTORICAL_SYNC_COOLDOWN_MS);
+
+    if (!force) {
+        if (summaryBefore.missingCount === 0) {
+            return {
+                success: true,
+                skipped: true,
+                reason: 'historical-up-to-date',
+                startDate: WEATHER_HISTORY_MIN_SYNC_DATE,
+                endDate: historicalEndDate,
+                summary: summaryBefore
+            };
+        }
+
+        if (recentlyAttempted) {
+            return {
+                success: false,
+                skipped: true,
+                reason: 'historical-cooldown',
+                startDate: WEATHER_HISTORY_MIN_SYNC_DATE,
+                endDate: historicalEndDate,
+                batchSize,
+                summary: summaryBefore,
+                lastError: weatherHistoryHistoricalSyncState.lastError,
+                lastAttemptAt: weatherHistoryHistoricalSyncState.lastAttemptAt
+            };
+        }
+    }
+
+    weatherHistoryHistoricalSyncState.lastAttemptAt = now;
+    weatherHistoryHistoricalSyncState.lastTrigger = reason;
+
+    const taskPromise = (async () => {
+        try {
+            const { getScheduler } = require('./modules/learning-scheduler');
+            const scheduler = getScheduler();
+
+            console.log(`🕰️ 開始追補較舊天氣歷史資料 (${reason})：截至 ${historicalEndDate}，缺失 ${summaryBefore.missingCount} 天，最早缺口 ${summaryBefore.earliestMissingDate || '未知'}`);
+            const output = await scheduler.runPythonScript('backfill_weather_learning.py', [
+                '--end-date', historicalEndDate,
+                '--only-missing-core',
+                '--max-dates', String(Math.max(1, Number(batchSize) || WEATHER_HISTORY_HISTORICAL_BATCH_SIZE))
+            ]);
+
+            const summaryAfter = await getWeatherSyncSummary(WEATHER_HISTORY_MIN_SYNC_DATE, historicalEndDate);
+            const result = {
+                success: true,
+                skipped: false,
+                startDate: WEATHER_HISTORY_MIN_SYNC_DATE,
+                endDate: historicalEndDate,
+                batchSize,
+                reason,
+                summaryBefore,
+                summaryAfter,
+                output
+            };
+
+            weatherHistoryHistoricalSyncState.lastSuccessAt = Date.now();
+            weatherHistoryHistoricalSyncState.lastError = null;
+            weatherHistoryHistoricalSyncState.lastResult = result;
+
+            console.log(`✅ 歷史天氣追補完成 (${reason})：缺失 ${summaryBefore.missingCount} → ${summaryAfter.missingCount}`);
+            return result;
+        } catch (error) {
+            weatherHistoryHistoricalSyncState.lastError = error.message;
+            const result = {
+                success: false,
+                skipped: false,
+                startDate: WEATHER_HISTORY_MIN_SYNC_DATE,
+                endDate: historicalEndDate,
+                batchSize,
+                reason,
+                summaryBefore,
+                error: error.message
+            };
+            weatherHistoryHistoricalSyncState.lastResult = result;
+
+            console.warn(`⚠️ 歷史天氣追補失敗 (${reason}): ${error.message}`);
+            return result;
+        } finally {
+            weatherHistoryHistoricalSyncState.promise = null;
+        }
+    })();
+
+    weatherHistoryHistoricalSyncState.promise = taskPromise;
     return taskPromise;
 }
 
@@ -7585,12 +7742,25 @@ server.listen(PORT, async () => {
             const learningScheduler = getScheduler();
             learningScheduler.start();
             console.log(`📚 Learning Scheduler started`);
-            ensureWeatherHistorySync({
-                reason: 'startup',
-                lookbackDays: WEATHER_HISTORY_SYNC_LOOKBACK_DAYS
-            }).catch((syncError) => {
-                console.warn(`⚠️ 啟動時天氣歷史同步失敗: ${syncError.message}`);
-            });
+            (async () => {
+                try {
+                    await ensureWeatherHistorySync({
+                        reason: 'startup',
+                        lookbackDays: WEATHER_HISTORY_SYNC_LOOKBACK_DAYS
+                    });
+                } catch (syncError) {
+                    console.warn(`⚠️ 啟動時近期天氣同步失敗: ${syncError.message}`);
+                }
+
+                try {
+                    await ensureHistoricalWeatherHistoryCatchUp({
+                        reason: 'startup-historical',
+                        lookbackDays: WEATHER_HISTORY_SYNC_LOOKBACK_DAYS
+                    });
+                } catch (historicalError) {
+                    console.warn(`⚠️ 啟動時歷史天氣追補失敗: ${historicalError.message}`);
+                }
+            })();
         } catch (e) {
             console.log(`⚠️ Learning Scheduler not available: ${e.message}`);
         }

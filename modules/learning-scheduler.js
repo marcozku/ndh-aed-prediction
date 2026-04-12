@@ -9,6 +9,9 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+const WEATHER_HISTORY_RECENT_LOOKBACK_DAYS = Math.max(7, parseInt(process.env.WEATHER_HISTORY_SYNC_LOOKBACK_DAYS || '60', 10) || 60);
+const WEATHER_HISTORY_HISTORICAL_DAILY_BATCH_SIZE = Math.max(0, parseInt(process.env.WEATHER_HISTORY_HISTORICAL_DAILY_BATCH_SIZE || '30', 10) || 30);
+
 class LearningScheduler {
     constructor() {
         this.isRunning = false;
@@ -192,6 +195,51 @@ class LearningScheduler {
         return {
             startDate: this.formatHKTDate(startDate),
             endDate: this.formatHKTDate(endDate)
+        };
+    }
+
+    shiftDateString(dateStr, deltaDays = 0) {
+        const [year, month, day] = String(dateStr || '').slice(0, 10).split('-').map(Number);
+        if (!year || !month || !day) {
+            return '';
+        }
+        const shifted = new Date(Date.UTC(year, month - 1, day));
+        shifted.setUTCDate(shifted.getUTCDate() + (Number(deltaDays) || 0));
+        return shifted.toISOString().slice(0, 10);
+    }
+
+    async runHistoricalWeatherCatchUp(maxDates, lookbackDays = WEATHER_HISTORY_RECENT_LOOKBACK_DAYS) {
+        const safeMaxDates = Math.max(0, Number(maxDates) || 0);
+        if (safeMaxDates <= 0) {
+            return {
+                success: true,
+                skipped: true,
+                reason: 'historical-batch-disabled'
+            };
+        }
+
+        const recentBackfillRange = this.getBackfillDateRange(lookbackDays);
+        const historicalEndDate = this.shiftDateString(recentBackfillRange.startDate, -1);
+        if (!historicalEndDate) {
+            return {
+                success: true,
+                skipped: true,
+                reason: 'historical-range-empty'
+            };
+        }
+
+        console.log(`🕰️ Running historical weather catch-up: <= ${historicalEndDate}, batch ${safeMaxDates} dates`);
+        await this.runPythonScript('backfill_weather_learning.py', [
+            '--end-date', historicalEndDate,
+            '--only-missing-core',
+            '--max-dates', String(safeMaxDates)
+        ]);
+
+        return {
+            success: true,
+            skipped: false,
+            endDate: historicalEndDate,
+            batchSize: safeMaxDates
         };
     }
 
@@ -428,12 +476,13 @@ class LearningScheduler {
 
         try {
             await this.runPythonScript('continuous_learner.py', ['--catch-up']);
-            const recentBackfillRange = this.getBackfillDateRange(60);
+            const recentBackfillRange = this.getBackfillDateRange(WEATHER_HISTORY_RECENT_LOOKBACK_DAYS);
             await this.runPythonScript('backfill_weather_learning.py', [
                 '--start-date', recentBackfillRange.startDate,
                 '--end-date', recentBackfillRange.endDate,
                 '--only-missing-core'
             ]);
+            await this.runHistoricalWeatherCatchUp(WEATHER_HISTORY_HISTORICAL_DAILY_BATCH_SIZE, WEATHER_HISTORY_RECENT_LOOKBACK_DAYS);
             await this.runPythonScript('anomaly_detector.py');
 
             const duration = ((Date.now() - startTime) / 1000).toFixed(1);
