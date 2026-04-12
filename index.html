@@ -19,7 +19,7 @@
     <link rel="manifest" href="/manifest.json?v=8">
     
     <title>NDH AED 預測系統</title>
-    <link rel="stylesheet" href="styles.css?v=10">
+    <link rel="stylesheet" href="styles.css?v=11">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
@@ -576,11 +576,18 @@
             </div>
 
             <!-- 詳細比較數據表格 -->
-            <div class="chart-card full-width comparison-section">
+            <div class="chart-card full-width comparison-section" id="comparison-details-section">
                 <h3 class="chart-title">多模型比較明細</h3>
                 <div class="comparison-table-toolbar">
                     <div class="comparison-table-summary" id="comparison-table-summary">最近資料會排最前，完整資料可向下及左右滑動查看。</div>
-                    <div class="comparison-scroll-hint">手機可左右滑睇全部欄位</div>
+                    <div class="comparison-view-controls" id="comparison-view-controls" aria-label="比較卡片範圍切換">
+                        <button type="button" class="comparison-view-btn" data-limit="7">最近 7</button>
+                        <button type="button" class="comparison-view-btn active" data-limit="14">最近 14</button>
+                        <button type="button" class="comparison-view-btn" data-limit="30">最近 30</button>
+                        <button type="button" class="comparison-view-btn" data-limit="all">全部</button>
+                    </div>
+                    <div class="comparison-scroll-hint" id="comparison-scroll-hint">桌面可直接 scroll 全部表格，手機預設只顯示卡片</div>
+                    <button type="button" class="comparison-table-toggle" id="comparison-table-toggle" aria-expanded="false">展開全部表格</button>
                 </div>
                 <div class="comparison-recent-list" id="comparison-recent-list"></div>
                 <div class="comparison-table-container" id="comparison-table-container">
@@ -927,7 +934,7 @@
     <!-- Pragmatic Bayesian 預測融合模組 (v3.0.38) -->
     <script src="modules/pragmatic-bayesian.js?v=2"></script>
     <!-- 原始預測邏輯（保留所有功能） -->
-    <script src="prediction.js?v=19"></script>
+    <script src="prediction.js?v=20"></script>
     <!-- 模組化包裝層 -->
     <script type="module" src="app.js?v=8"></script>
     

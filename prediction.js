@@ -2244,10 +2244,12 @@ async function initHistoryChart(range = currentHistoryRange, pageOffset = 0) {
         updateLoadingProgress('history', 20);
         // 從數據庫獲取數據（根據時間範圍和分頁偏移量）
         const { startDate, endDate } = getDateRangeWithOffset(range, pageOffset);
+        const isAllRange = range === '全部';
         console.log(`📅 查詢歷史數據：範圍=${range}, pageOffset=${pageOffset}, ${startDate} 至 ${endDate}`);
         
         // 如果日期範圍為 null（表示過早，超出數據庫範圍），顯示提示並禁用導航
-        if (!startDate || !endDate) {
+        // 「全部」範圍會刻意傳回 null 以表示不限制日期，不應在此被當成邊界錯誤
+        if (!isAllRange && (!startDate || !endDate)) {
             console.warn(`⚠️ 日期範圍無效或過早 (範圍=${range}, pageOffset=${pageOffset})`);
             
             // 安全銷毀任何現有圖表
@@ -3457,6 +3459,14 @@ const MODEL_COMPARISON_CONFIG = {
 };
 
 const MODEL_COMPARISON_ORDER = Object.keys(MODEL_COMPARISON_CONFIG);
+const MODEL_COMPARISON_TABLE_PAST_DAYS = 5000;
+const MODEL_COMPARISON_TABLE_FUTURE_DAYS = 30;
+const DEFAULT_COMPARISON_CARD_LIMIT = 14;
+
+let comparisonTableDataCache = null;
+let comparisonCardLimit = DEFAULT_COMPARISON_CARD_LIMIT;
+let comparisonTableExpanded = false;
+let comparisonTableControlsInitialized = false;
 
 function getModelComparisonConfig(modelName) {
     return MODEL_COMPARISON_CONFIG[modelName] || {
@@ -3484,6 +3494,35 @@ function formatSignedComparisonCount(value) {
     if (!Number.isFinite(numericValue)) return '--';
     const roundedValue = Math.round(numericValue);
     return `${roundedValue > 0 ? '+' : ''}${roundedValue}`;
+}
+
+function getComparisonCardLimitLabel(limit = comparisonCardLimit) {
+    return limit === 'all' ? '全部' : `最近 ${limit}`;
+}
+
+function filterComparisonHistoryItems(items = [], limit = comparisonCardLimit) {
+    if (limit === 'all') {
+        return items.slice();
+    }
+
+    const normalizedLimit = Number(limit);
+    if (!Number.isFinite(normalizedLimit) || normalizedLimit <= 0) {
+        return items.slice();
+    }
+
+    return items.slice(0, normalizedLimit);
+}
+
+function getComparisonModelCssClass(modelName) {
+    return `model-${String(modelName || '').replace(/_/g, '-')}`;
+}
+
+function getComparisonErrorState(absError) {
+    const numericError = Number(absError);
+    if (!Number.isFinite(numericError)) return 'is-pending';
+    if (numericError <= 10) return 'is-good';
+    if (numericError <= 25) return 'is-medium';
+    return 'is-bad';
 }
 
 function getModelComparisonRange(pastDays = 30, futureDays = 30) {
@@ -3534,7 +3573,7 @@ async function fetchModelComparisonData(options = {}) {
     }
 }
 
-function getBestComparisonModels(historyItem = {}) {
+function getBestComparisonModelNames(historyItem = {}) {
     if (historyItem.actual_count == null) return [];
 
     const candidates = MODEL_COMPARISON_ORDER
@@ -3543,7 +3582,7 @@ function getBestComparisonModels(historyItem = {}) {
             if (!modelData || modelData.predicted_count == null) return null;
 
             return {
-                label: getModelComparisonConfig(modelName).label,
+                modelName,
                 absError: modelData.abs_error ?? Math.abs(modelData.predicted_count - historyItem.actual_count)
             };
         })
@@ -3552,7 +3591,100 @@ function getBestComparisonModels(historyItem = {}) {
     if (candidates.length === 0) return [];
 
     const minError = Math.min(...candidates.map(item => item.absError));
-    return candidates.filter(item => item.absError === minError).map(item => item.label);
+    return candidates.filter(item => item.absError === minError).map(item => item.modelName);
+}
+
+function getBestComparisonModels(historyItem = {}) {
+    return getBestComparisonModelNames(historyItem)
+        .map(modelName => getModelComparisonConfig(modelName).label);
+}
+
+function getComparisonBestModelStatus(historyItem = {}) {
+    if (historyItem.actual_count == null) {
+        return {
+            text: '待驗證',
+            className: 'status-pending',
+            title: '尚未有實際人數，暫時未能判斷最佳模型'
+        };
+    }
+
+    const bestModelNames = getBestComparisonModelNames(historyItem);
+    if (bestModelNames.length === 0) {
+        return {
+            text: '--',
+            className: 'status-neutral',
+            title: '暫無可比較模型'
+        };
+    }
+
+    if (bestModelNames.length === 1) {
+        const modelName = bestModelNames[0];
+        return {
+            text: getModelComparisonConfig(modelName).label,
+            className: getComparisonModelCssClass(modelName),
+            title: `最佳模型：${getModelComparisonConfig(modelName).label}`
+        };
+    }
+
+    const labels = bestModelNames.map(modelName => getModelComparisonConfig(modelName).label);
+    return {
+        text: `並列：${labels.join(' / ')}`,
+        className: 'status-tie',
+        title: `並列最佳模型：${labels.join(' / ')}`
+    };
+}
+
+function getComparisonActualDisplay(historyItem = {}) {
+    if (historyItem.actual_count == null) {
+        return {
+            text: '待驗證',
+            className: 'comparison-status-chip status-pending'
+        };
+    }
+
+    return {
+        text: `${formatComparisonCount(historyItem.actual_count)} 人`,
+        className: 'comparison-actual-value'
+    };
+}
+
+function getComparisonPredictionDisplay(historyItem = {}, modelName) {
+    const predictedCount = historyItem.models?.[modelName]?.predicted_count;
+    if (predictedCount == null) {
+        return {
+            text: '--',
+            className: 'comparison-value-muted'
+        };
+    }
+
+    return {
+        text: `${formatComparisonCount(predictedCount)} 人`,
+        className: 'comparison-actual-value'
+    };
+}
+
+function getComparisonErrorDisplay(historyItem = {}, modelName) {
+    const predictedCount = historyItem.models?.[modelName]?.predicted_count;
+    if (predictedCount == null) {
+        return {
+            text: '--',
+            className: 'comparison-value-muted'
+        };
+    }
+
+    if (historyItem.actual_count == null) {
+        return {
+            text: '待驗證',
+            className: 'comparison-error-chip is-pending'
+        };
+    }
+
+    const signedError = predictedCount - historyItem.actual_count;
+    const absError = Math.abs(signedError);
+    return {
+        text: `${formatSignedComparisonCount(signedError)} 人`,
+        className: `comparison-error-chip ${getComparisonErrorState(absError)}`
+    };
 }
 
 function renderModelComparisonStats(comparisonData) {
@@ -3798,142 +3930,216 @@ async function initComparisonChart() {
 }
 
 // 初始化詳細比較表格
+function updateComparisonTableControlsUI() {
+    const viewButtons = document.querySelectorAll('.comparison-view-btn');
+    viewButtons.forEach(button => {
+        const isActive = button.dataset.limit === String(comparisonCardLimit);
+        button.classList.toggle('active', isActive);
+        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+
+    const toggleButton = document.getElementById('comparison-table-toggle');
+    const detailsSection = document.getElementById('comparison-details-section');
+    if (detailsSection) {
+        detailsSection.classList.toggle('comparison-table-expanded', comparisonTableExpanded);
+    }
+
+    if (toggleButton) {
+        toggleButton.textContent = comparisonTableExpanded ? '收起完整表格' : '展開全部表格';
+        toggleButton.setAttribute('aria-expanded', comparisonTableExpanded ? 'true' : 'false');
+    }
+}
+
+function setComparisonTableExpanded(expanded) {
+    comparisonTableExpanded = !!expanded;
+    updateComparisonTableControlsUI();
+}
+
+function initComparisonTableControls() {
+    if (comparisonTableControlsInitialized) {
+        updateComparisonTableControlsUI();
+        return;
+    }
+
+    const viewButtons = document.querySelectorAll('.comparison-view-btn');
+    viewButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const { limit } = button.dataset;
+            comparisonCardLimit = limit === 'all' ? 'all' : (Number(limit) || DEFAULT_COMPARISON_CARD_LIMIT);
+            updateComparisonTableControlsUI();
+            if (comparisonTableDataCache) {
+                renderComparisonTableView(comparisonTableDataCache);
+            }
+        });
+    });
+
+    const toggleButton = document.getElementById('comparison-table-toggle');
+    if (toggleButton) {
+        toggleButton.addEventListener('click', () => {
+            setComparisonTableExpanded(!comparisonTableExpanded);
+        });
+    }
+
+    comparisonTableControlsInitialized = true;
+    updateComparisonTableControlsUI();
+}
+
+function renderComparisonTableView(comparisonData) {
+    const tableBody = document.getElementById('comparison-table-body');
+    const table = document.getElementById('comparison-table');
+    const loading = document.getElementById('comparison-table-loading');
+    const tableHead = table?.querySelector('thead');
+    const recentList = document.getElementById('comparison-recent-list');
+    const tableSummary = document.getElementById('comparison-table-summary');
+    const scrollHint = document.getElementById('comparison-scroll-hint');
+
+    if (!tableBody || !table) {
+        console.error('❌ 找不到比較表格元素');
+        return;
+    }
+
+    if (tableHead) {
+        tableHead.innerHTML = `
+            <tr>
+                <th class="comparison-sticky-cell">日期</th>
+                <th>實際人數</th>
+                <th>XGBoost</th>
+                <th>誤差</th>
+                <th>XGBoost + AI</th>
+                <th>誤差</th>
+                <th>GPT-5.4</th>
+                <th>誤差</th>
+                <th>最佳模型</th>
+            </tr>
+        `;
+    }
+
+    const historyItems = (comparisonData?.full_history || comparisonData?.history || [])
+        .slice()
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+    const filteredHistoryItems = filterComparisonHistoryItems(historyItems);
+
+    if (historyItems.length === 0) {
+        if (loading) loading.style.display = 'none';
+        if (recentList) recentList.innerHTML = '';
+        if (tableSummary) tableSummary.textContent = '暫無模型比較數據';
+        if (scrollHint) scrollHint.textContent = '暫無可展開的完整資料';
+        tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #64748b; padding: var(--space-xl);">暫無模型比較數據</td></tr>';
+        if (table) table.style.display = 'table';
+        return;
+    }
+
+    const verifiedCount = historyItems.filter(item => item.actual_count != null).length;
+    const pendingCount = historyItems.length - verifiedCount;
+    const latestDate = historyItems[0]?.date;
+    const oldestDate = historyItems[historyItems.length - 1]?.date;
+    const rangeText = latestDate && oldestDate
+        ? ` · 範圍 ${formatDateDDMM(latestDate, true)} 至 ${formatDateDDMM(oldestDate, true)}`
+        : '';
+
+    if (tableSummary) {
+        tableSummary.innerHTML = `卡片檢視：${getComparisonCardLimitLabel()}（${filteredHistoryItems.length} 天） · 全部資料 ${historyItems.length} 天（已驗證 ${verifiedCount} 天、待驗證 ${pendingCount} 天）${rangeText}`;
+    }
+
+    if (scrollHint) {
+        scrollHint.textContent = filteredHistoryItems.length === historyItems.length
+            ? '完整資料已在卡片及表格同步顯示；表格可上下及左右 scroll'
+            : `卡片先顯示 ${getComparisonCardLimitLabel()}，下方表格保留全部 ${historyItems.length} 天資料`;
+    }
+
+    if (recentList) {
+        recentList.innerHTML = filteredHistoryItems.map(historyItem => {
+            const bestStatus = getComparisonBestModelStatus(historyItem);
+            const actualDisplay = getComparisonActualDisplay(historyItem);
+
+            return `
+                <article class="comparison-recent-card ${historyItem.actual_count == null ? 'is-pending' : ''}">
+                    <div class="comparison-recent-header">
+                        <div>
+                            <div class="comparison-recent-date">${historyItem.date ? formatDateDDMM(historyItem.date, true) : '--'}</div>
+                            <div class="comparison-recent-actual">實際：<span class="${actualDisplay.className}">${actualDisplay.text}</span></div>
+                        </div>
+                        <div class="comparison-recent-badge comparison-status-chip ${bestStatus.className}" title="${bestStatus.title}">${bestStatus.text}</div>
+                    </div>
+                    <div class="comparison-recent-models">
+                        ${MODEL_COMPARISON_ORDER.map(modelName => {
+                            const config = getModelComparisonConfig(modelName);
+                            const predictedDisplay = getComparisonPredictionDisplay(historyItem, modelName);
+                            const errorDisplay = getComparisonErrorDisplay(historyItem, modelName);
+
+                            return `
+                                <div class="comparison-recent-model ${getComparisonModelCssClass(modelName)}">
+                                    <div class="comparison-recent-model-head">
+                                        <span class="comparison-recent-model-name">${config.label}</span>
+                                        <span class="${predictedDisplay.className}">${predictedDisplay.text}</span>
+                                    </div>
+                                    <div class="comparison-recent-model-meta"><span class="${errorDisplay.className}">${errorDisplay.text}</span></div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </article>
+            `;
+        }).join('');
+    }
+
+    tableBody.innerHTML = historyItems.map(historyItem => {
+        const actualDisplay = getComparisonActualDisplay(historyItem);
+        const bestStatus = getComparisonBestModelStatus(historyItem);
+        const xgboostPrediction = getComparisonPredictionDisplay(historyItem, 'xgboost');
+        const xgboostError = getComparisonErrorDisplay(historyItem, 'xgboost');
+        const xgboostAiPrediction = getComparisonPredictionDisplay(historyItem, 'xgboost_ai');
+        const xgboostAiError = getComparisonErrorDisplay(historyItem, 'xgboost_ai');
+        const gptPrediction = getComparisonPredictionDisplay(historyItem, 'gpt_5_4');
+        const gptError = getComparisonErrorDisplay(historyItem, 'gpt_5_4');
+
+        return `
+            <tr class="${historyItem.actual_count == null ? 'comparison-row-pending' : ''}">
+                <td class="comparison-sticky-cell">${historyItem.date ? formatDateDDMM(historyItem.date, true) : '--'}</td>
+                <td><span class="${actualDisplay.className}">${actualDisplay.text}</span></td>
+                <td><span class="${xgboostPrediction.className}">${xgboostPrediction.text}</span></td>
+                <td><span class="${xgboostError.className}">${xgboostError.text}</span></td>
+                <td><span class="${xgboostAiPrediction.className}">${xgboostAiPrediction.text}</span></td>
+                <td><span class="${xgboostAiError.className}">${xgboostAiError.text}</span></td>
+                <td><span class="${gptPrediction.className}">${gptPrediction.text}</span></td>
+                <td><span class="${gptError.className}">${gptError.text}</span></td>
+                <td class="comparison-best-cell"><span class="comparison-status-chip ${bestStatus.className}" title="${bestStatus.title}">${bestStatus.text}</span></td>
+            </tr>
+        `;
+    }).join('');
+
+    if (loading) loading.style.display = 'none';
+    if (table) table.style.display = 'table';
+}
+
 async function initComparisonTable() {
     try {
-        const tableBody = document.getElementById('comparison-table-body');
+        initComparisonTableControls();
+
         const table = document.getElementById('comparison-table');
         const loading = document.getElementById('comparison-table-loading');
-        const tableHead = table?.querySelector('thead');
-        const recentList = document.getElementById('comparison-recent-list');
-        const tableSummary = document.getElementById('comparison-table-summary');
-
-        if (!tableBody || !table) {
-            console.error('❌ 找不到比較表格元素');
-            return;
-        }
-
-        if (tableHead) {
-            tableHead.innerHTML = `
-                <tr>
-                    <th class="comparison-sticky-cell">日期</th>
-                    <th>實際人數</th>
-                    <th>XGBoost</th>
-                    <th>誤差</th>
-                    <th>XGBoost + AI</th>
-                    <th>誤差</th>
-                    <th>GPT-5.4</th>
-                    <th>誤差</th>
-                    <th>最佳模型</th>
-                </tr>
-            `;
-        }
-
         if (loading) loading.style.display = 'block';
         if (table) table.style.display = 'none';
 
-        const comparisonData = await fetchModelComparisonData({ pastDays: 30, futureDays: 30 });
-        const historyItems = (comparisonData.full_history || comparisonData.history || [])
-            .slice()
-            .sort((a, b) => new Date(b.date) - new Date(a.date));
+        const comparisonData = await fetchModelComparisonData({
+            pastDays: MODEL_COMPARISON_TABLE_PAST_DAYS,
+            futureDays: MODEL_COMPARISON_TABLE_FUTURE_DAYS
+        });
+        comparisonTableDataCache = comparisonData;
+        renderComparisonTableView(comparisonData);
 
-        if (historyItems.length === 0) {
-            if (loading) loading.style.display = 'none';
-            if (recentList) recentList.innerHTML = '';
-            if (tableSummary) tableSummary.textContent = '暫無模型比較數據';
-            tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #64748b; padding: var(--space-xl);">暫無模型比較數據</td></tr>';
-            if (table) table.style.display = 'table';
-            return;
-        }
-
-        const verifiedCount = historyItems.filter(item => item.actual_count != null).length;
-        const pendingCount = historyItems.length - verifiedCount;
-        const latestDate = historyItems[0]?.date;
-        const oldestDate = historyItems[historyItems.length - 1]?.date;
-
-        if (tableSummary) {
-            tableSummary.innerHTML = `最新資料已排最前 · 共 ${historyItems.length} 天（已驗證 ${verifiedCount} 天、待驗證 ${pendingCount} 天）${latestDate && oldestDate ? ` · 範圍 ${formatDateDDMM(latestDate, true)} 至 ${formatDateDDMM(oldestDate, true)}` : ''}`;
-        }
-
-        const renderPredictionCell = (historyItem, modelName) => {
-            const predictedCount = historyItem.models?.[modelName]?.predicted_count;
-            return predictedCount == null ? '--' : formatComparisonCount(predictedCount);
-        };
-
-        const renderErrorCell = (historyItem, modelName) => {
-            const predictedCount = historyItem.models?.[modelName]?.predicted_count;
-            if (historyItem.actual_count == null || predictedCount == null) return '--';
-            return formatSignedComparisonCount(predictedCount - historyItem.actual_count);
-        };
-
-        if (recentList) {
-            recentList.innerHTML = historyItems.slice(0, 7).map(historyItem => {
-                const bestModels = getBestComparisonModels(historyItem);
-                const bestModelText = historyItem.actual_count == null
-                    ? '待驗證'
-                    : (bestModels.length > 0 ? bestModels.join(' / ') : '--');
-                const actualText = historyItem.actual_count == null ? '待驗證' : `${formatComparisonCount(historyItem.actual_count)} 人`;
-
-                return `
-                    <article class="comparison-recent-card ${historyItem.actual_count == null ? 'is-pending' : ''}">
-                        <div class="comparison-recent-header">
-                            <div>
-                                <div class="comparison-recent-date">${historyItem.date ? formatDateDDMM(historyItem.date, true) : '--'}</div>
-                                <div class="comparison-recent-actual">實際：${actualText}</div>
-                            </div>
-                            <div class="comparison-recent-badge ${historyItem.actual_count == null ? 'is-pending' : 'is-scored'}">${bestModelText}</div>
-                        </div>
-                        <div class="comparison-recent-models">
-                            ${MODEL_COMPARISON_ORDER.map(modelName => {
-                                const config = getModelComparisonConfig(modelName);
-                                const predictedCount = renderPredictionCell(historyItem, modelName);
-                                const errorText = renderErrorCell(historyItem, modelName);
-
-                                return `
-                                    <div class="comparison-recent-model">
-                                        <div class="comparison-recent-model-head">
-                                            <span class="comparison-recent-model-name">${config.label}</span>
-                                            <span class="comparison-recent-model-value">${predictedCount === '--' ? '--' : `${predictedCount} 人`}</span>
-                                        </div>
-                                        <div class="comparison-recent-model-meta">${historyItem.actual_count == null ? '尚無實際值' : `誤差 ${errorText} 人`}</div>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    </article>
-                `;
-            }).join('');
-        }
-
-        tableBody.innerHTML = historyItems.map(historyItem => {
-            const bestModels = getBestComparisonModels(historyItem);
-            const bestModelText = historyItem.actual_count == null
-                ? '待驗證'
-                : (bestModels.length > 0 ? bestModels.join(' / ') : '--');
-
-            return `
-                <tr class="${historyItem.actual_count == null ? 'comparison-row-pending' : ''}">
-                    <td class="comparison-sticky-cell">${historyItem.date ? formatDateDDMM(historyItem.date, true) : '--'}</td>
-                    <td>${historyItem.actual_count == null ? '--' : formatComparisonCount(historyItem.actual_count)}</td>
-                    <td>${renderPredictionCell(historyItem, 'xgboost')}</td>
-                    <td>${renderErrorCell(historyItem, 'xgboost')}</td>
-                    <td>${renderPredictionCell(historyItem, 'xgboost_ai')}</td>
-                    <td>${renderErrorCell(historyItem, 'xgboost_ai')}</td>
-                    <td>${renderPredictionCell(historyItem, 'gpt_5_4')}</td>
-                    <td>${renderErrorCell(historyItem, 'gpt_5_4')}</td>
-                    <td class="comparison-best-cell">${bestModelText}</td>
-                </tr>
-            `;
-        }).join('');
-
-        if (loading) loading.style.display = 'none';
-        if (table) table.style.display = 'table';
-        console.log(`✅ 多模型比較表格已載入（共 ${historyItems.length} 天）`);
+        const totalRows = comparisonData?.full_history?.length || comparisonData?.history?.length || 0;
+        console.log(`✅ 多模型比較表格已載入（全部 ${totalRows} 天，卡片顯示 ${getComparisonCardLimitLabel()}）`);
     } catch (error) {
         console.error('❌ 詳細比較表格載入失敗:', error);
         const loading = document.getElementById('comparison-table-loading');
         const table = document.getElementById('comparison-table');
+        const tableSummary = document.getElementById('comparison-table-summary');
+        const scrollHint = document.getElementById('comparison-scroll-hint');
         if (loading) loading.style.display = 'none';
         if (table) table.style.display = 'table';
+        if (tableSummary) tableSummary.textContent = `比較明細載入失敗：${error.message}`;
+        if (scrollHint) scrollHint.textContent = '請稍後重試或手動刷新';
     }
 }
 
@@ -7221,6 +7427,15 @@ async function fetchComparisonData(limit = 100, refresh = false) {
 }
 
 // 計算時間範圍的開始日期（帶分頁偏移）
+function getHistoryMinDate() {
+    const fallbackDate = new Date('2014-12-01T00:00:00+08:00');
+    const rawMinDate = dbStatus?.date_range?.min_date;
+    if (!rawMinDate) return fallbackDate;
+
+    const parsedDate = new Date(rawMinDate);
+    return Number.isNaN(parsedDate.getTime()) ? fallbackDate : parsedDate;
+}
+
 function getDateRangeWithOffset(range, pageOffset = 0) {
     const hk = getHKTime();
     const today = new Date(`${hk.dateStr}T00:00:00+08:00`);
@@ -7287,8 +7502,7 @@ function getDateRangeWithOffset(range, pageOffset = 0) {
         const newEnd = new Date(end.getTime() - offsetMs);
         
         // 確保日期不會太早（數據庫可能沒有那麼早的數據）
-        // 假設數據庫最早有2014-12-01的數據（根據用戶之前的說明）
-        const minDate = new Date('2014-12-01');
+        const minDate = getHistoryMinDate();
         
         // 檢查計算的範圍是否完全在數據庫範圍內
         if (newEnd < minDate) {
