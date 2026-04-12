@@ -3450,6 +3450,173 @@ function calculateAccuracyStats(comparisonData) {
     };
 }
 
+const MODEL_COMPARISON_CONFIG = {
+    xgboost: { label: 'XGBoost', borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.12)', borderDash: [6, 4] },
+    xgboost_ai: { label: 'XGBoost + AI', borderColor: '#059669', backgroundColor: 'rgba(5, 150, 105, 0.12)', borderDash: [] },
+    gpt_5_4: { label: 'GPT-5.4', borderColor: '#ea580c', backgroundColor: 'rgba(234, 88, 12, 0.12)', borderDash: [2, 4] }
+};
+
+const MODEL_COMPARISON_ORDER = Object.keys(MODEL_COMPARISON_CONFIG);
+
+function getModelComparisonConfig(modelName) {
+    return MODEL_COMPARISON_CONFIG[modelName] || {
+        label: modelName,
+        borderColor: '#64748b',
+        backgroundColor: 'rgba(100, 116, 139, 0.12)',
+        borderDash: []
+    };
+}
+
+function formatComparisonMetric(value, digits = 2, suffix = '') {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) return '--';
+    return `${numericValue.toFixed(digits)}${suffix}`;
+}
+
+function formatComparisonCount(value) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) return '--';
+    return Math.round(numericValue);
+}
+
+function formatSignedComparisonCount(value) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) return '--';
+    const roundedValue = Math.round(numericValue);
+    return `${roundedValue > 0 ? '+' : ''}${roundedValue}`;
+}
+
+function getModelComparisonRange(pastDays = 30, futureDays = 30) {
+    const hk = getHKTime();
+    const today = new Date(`${hk.dateStr}T00:00:00+08:00`);
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - Math.max(0, pastDays - 1));
+
+    const endDate = new Date(today);
+    endDate.setDate(endDate.getDate() + Math.max(0, futureDays));
+
+    return {
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0]
+    };
+}
+
+async function fetchModelComparisonData(options = {}) {
+    try {
+        const { pastDays = 30, futureDays = 30 } = options;
+        const range = getModelComparisonRange(pastDays, futureDays);
+        const params = new URLSearchParams({
+            startDate: range.startDate,
+            endDate: range.endDate
+        });
+        const response = await fetch(`/api/model-comparison?${params.toString()}`, {
+            cache: 'no-store'
+        });
+        const result = await response.json();
+
+        if (!result.success) {
+            return { success: false, models: [], pairwise: [], history: [], full_history: [] };
+        }
+
+        const sortByDate = (items = []) => items.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+        const orderMap = new Map(MODEL_COMPARISON_ORDER.map((name, index) => [name, index]));
+
+        return {
+            ...result,
+            models: (result.models || []).slice().sort((a, b) => (orderMap.get(a.model_name) ?? 99) - (orderMap.get(b.model_name) ?? 99)),
+            pairwise: (result.pairwise || []).slice().sort((a, b) => (orderMap.get(a.compare_model) ?? 99) - (orderMap.get(b.compare_model) ?? 99)),
+            history: sortByDate(result.history || []),
+            full_history: sortByDate(result.full_history || result.history || [])
+        };
+    } catch (error) {
+        console.error('❌ 獲取模型比較數據失敗:', error);
+        return { success: false, models: [], pairwise: [], history: [], full_history: [] };
+    }
+}
+
+function getBestComparisonModels(historyItem = {}) {
+    if (historyItem.actual_count == null) return [];
+
+    const candidates = MODEL_COMPARISON_ORDER
+        .map(modelName => {
+            const modelData = historyItem.models?.[modelName];
+            if (!modelData || modelData.predicted_count == null) return null;
+
+            return {
+                label: getModelComparisonConfig(modelName).label,
+                absError: modelData.abs_error ?? Math.abs(modelData.predicted_count - historyItem.actual_count)
+            };
+        })
+        .filter(Boolean);
+
+    if (candidates.length === 0) return [];
+
+    const minError = Math.min(...candidates.map(item => item.absError));
+    return candidates.filter(item => item.absError === minError).map(item => item.label);
+}
+
+function renderModelComparisonStats(comparisonData) {
+    const chartCard = document.querySelector('.chart-card.full-width.comparison-section');
+    const chartContainer = document.getElementById('comparison-chart-container');
+    if (!chartCard || !chartContainer) return;
+
+    chartCard.querySelector('.accuracy-stats')?.remove();
+    const models = Array.isArray(comparisonData?.models) ? comparisonData.models : [];
+    if (models.length === 0) return;
+
+    const bestModel = models
+        .filter(model => Number.isFinite(Number(model.mae)))
+        .sort((a, b) => Number(a.mae) - Number(b.mae))[0];
+
+    const pairwiseSummary = (comparisonData.pairwise || []).map(item => {
+        if (!item || !item.compare_label || !item.base_label) return '';
+        if (!item.sample_count) return `${item.compare_label} vs ${item.base_label}：待驗證`;
+        return `${item.compare_label} vs ${item.base_label}：勝率 ${formatComparisonMetric(item.compare_win_rate, 2, '%')} · MAE 改善 ${formatComparisonMetric(item.mae_improvement_pct, 2, '%')} · n=${item.sample_count}`;
+    }).filter(Boolean);
+
+    const dateRange = comparisonData.date_range || {};
+    const periodText = dateRange.start_date && dateRange.end_date
+        ? `${formatDateDDMM(dateRange.start_date, true)} - ${formatDateDDMM(dateRange.end_date, true)}`
+        : '--';
+
+    const statsEl = document.createElement('div');
+    statsEl.className = 'accuracy-stats';
+    statsEl.innerHTML = `
+        ${models.map(model => {
+            const config = getModelComparisonConfig(model.model_name);
+            const sampleCount = Number(model.sample_count) || 0;
+            const pendingCount = Number(model.pending_count) || 0;
+            const statusText = sampleCount > 0 ? `MAE ${formatComparisonMetric(model.mae, 2)} 人` : '待驗證';
+
+            return `
+                <div style="padding: 12px; background: rgba(255, 255, 255, 0.62); border-radius: 10px; border-top: 3px solid ${config.borderColor}; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px;">
+                        <div style="font-size: 0.78rem; font-weight: 700; color: #0f172a;">${config.label}</div>
+                        <div style="font-size: 0.68rem; color: #64748b;">n=${sampleCount}</div>
+                    </div>
+                    <div style="font-size: 1rem; font-weight: 800; color: ${sampleCount > 0 ? '#0f172a' : '#ea580c'}; margin-bottom: 6px;">
+                        ${statusText}
+                    </div>
+                    <div style="font-size: 0.7rem; line-height: 1.6; color: #475569;">
+                        MAPE：${sampleCount > 0 ? formatComparisonMetric(model.mape, 2, '%') : '--'}<br>
+                        Win rate：${sampleCount > 0 ? formatComparisonMetric(model.win_rate, 2, '%') : '--'}<br>
+                        待驗證：${pendingCount}
+                    </div>
+                </div>
+            `;
+        }).join('')}
+        <div style="grid-column: 1 / -1; padding: 12px; background: rgba(255, 255, 255, 0.52); border-radius: 10px; color: #334155; line-height: 1.6; font-size: 0.75rem;">
+            <div style="font-weight: 700; color: #0f172a; margin-bottom: 6px;">比較摘要</div>
+            <div>期間：${periodText}</div>
+            <div>已評估：${comparisonData.comparison_days || 0} 天 · 待驗證預測：${comparisonData.pending_rows || 0} 筆</div>
+            <div>目前 MAE 最佳：${bestModel ? `${bestModel.label} (${formatComparisonMetric(bestModel.mae, 2)} 人)` : '尚未產生已驗證結果'}</div>
+            ${pairwiseSummary.length > 0 ? `<div style="margin-top: 6px;">${pairwiseSummary.join('<br>')}</div>` : ''}
+        </div>
+    `;
+
+    chartCard.insertBefore(statsEl, chartContainer);
+}
+
 // 初始化實際vs預測對比圖
 async function initComparisonChart() {
     try {
@@ -3460,313 +3627,123 @@ async function initComparisonChart() {
             handleChartLoadingError('comparison', new Error('找不到 comparison-chart canvas'));
             return;
         }
-        
+
         updateLoadingProgress('comparison', 20);
-        // 從數據庫獲取比較數據（首次載入時刷新最近 7 天的 final_daily_predictions）
-        const comparisonData = await fetchComparisonData(100, true);
-        
-        if (comparisonData.length === 0) {
-            console.warn('⚠️ 沒有比較數據');
-            // 顯示錯誤訊息和添加數據按鈕
+        const comparisonData = await fetchModelComparisonData({ pastDays: 30, futureDays: 30 });
+        const historyItems = comparisonData.full_history || comparisonData.history || [];
+
+        if (historyItems.length === 0) {
             const loadingEl = document.getElementById('comparison-chart-loading');
             const addBtn = document.getElementById('add-actual-data-btn');
             if (loadingEl) {
-                loadingEl.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">暫無比較數據<br><small>點擊上方按鈕添加 1/12 到 12/12 的實際數據</small></div>';
+                loadingEl.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">暫無模型比較數據</div>';
             }
-            if (addBtn) {
-                addBtn.style.display = 'block';
-            }
+            if (addBtn) addBtn.style.display = 'block';
             updateLoadingProgress('comparison', 0);
             return;
         }
-        
-        // 如果有數據，隱藏按鈕
+
         const addBtn = document.getElementById('add-actual-data-btn');
-        if (addBtn) {
-            addBtn.style.display = 'none';
-        }
-        
-        // 過濾出有效的比較數據（必須同時有實際和預測）
-        const validComparisonData = comparisonData.filter(d => d.actual != null && d.predicted != null);
-        
-        if (validComparisonData.length === 0) {
-            console.warn('⚠️ 沒有有效的比較數據（需要同時有實際和預測數據）');
-            const loadingEl = document.getElementById('comparison-chart-loading');
-            if (loadingEl) {
-                loadingEl.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">暫無有效的比較數據<br><small>需要同時有實際數據和預測數據</small></div>';
-            }
-            if (addBtn) {
-                addBtn.style.display = 'block';
-            }
-            updateLoadingProgress('comparison', 0);
-            return;
-        }
-        
+        if (addBtn) addBtn.style.display = 'none';
+
         updateLoadingProgress('comparison', 40);
         const comparisonCtx = comparisonCanvas.getContext('2d');
-        
-        // 日期標籤
-        const labels = validComparisonData.map(d => formatDateDDMM(d.date, false));
-        
+        const labels = historyItems.map(item => formatDateDDMM(item.date, false));
+
         updateLoadingProgress('comparison', 60);
-        
-        // 安全銷毀任何現有圖表（包括變量和 canvas 實例）
         safeDestroyChart(comparisonChart, 'comparison-chart');
         comparisonChart = null;
-        
-        // 計算整體準確度統計
-        const accuracyStats = calculateAccuracyStats(validComparisonData);
-        
-        // 在圖表容器外部（chart-card 內部）顯示準確度統計，避免與圖表重疊
-        const chartCard = document.querySelector('.comparison-section');
-        const chartContainer = document.getElementById('comparison-chart-container');
-        if (chartCard && chartContainer) {
-            // 移除舊的統計顯示（如果存在，可能在容器內或容器外）
-            const oldStatsInContainer = chartContainer.querySelector('.accuracy-stats');
-            const oldStatsInCard = chartCard.querySelector('.accuracy-stats');
-            if (oldStatsInContainer) oldStatsInContainer.remove();
-            if (oldStatsInCard) oldStatsInCard.remove();
-            
-            // 創建新的統計顯示
-            if (accuracyStats.totalCount > 0) {
-                const statsEl = document.createElement('div');
-                statsEl.className = 'accuracy-stats';
-                // 根據屏幕寬度動態設置列數
-                const screenWidth = window.innerWidth;
-                let gridColumns = 'repeat(3, 1fr)';
-                let gap = '12px';
-                let padding = '16px';
-                
-                if (screenWidth <= 600) {
-                    gridColumns = 'repeat(2, 1fr)';
-                    gap = '8px';
-                    padding = '10px';
-                } else if (screenWidth <= 700) {
-                    gridColumns = 'repeat(2, 1fr)'; // 小於700px改為2列
-                    gap = '8px';
-                    padding = '10px';
-                } else if (screenWidth <= 900) {
-                    gridColumns = 'repeat(3, 1fr)';
-                    gap = '8px';
-                    padding = '10px';
-                } else if (screenWidth <= 1200) {
-                    gridColumns = 'repeat(3, 1fr)';
-                    gap = '10px';
-                    padding = '12px';
-                }
-                
-                    // 根據屏幕寬度設置最大高度（減少高度以節省空間）
-                    let maxHeight = '160px'; // 默認桌面：3列
-                    if (screenWidth <= 480) {
-                        maxHeight = '200px'; // 小屏幕：2列
-                    } else if (screenWidth <= 700) {
-                        maxHeight = '180px'; // 2列布局
-                    } else if (screenWidth <= 900) {
-                        maxHeight = '140px'; // 平板：3列
-                    } else if (screenWidth <= 1200) {
-                        maxHeight = '150px'; // 中等屏幕：3列
-                    }
-                
-                statsEl.style.cssText = `
-                    background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.05) 100%);
-                    border-radius: 8px;
-                    padding: ${padding};
-                    margin-bottom: 12px;
-                    display: grid;
-                    grid-template-columns: ${gridColumns};
-                    gap: ${gap};
-                    font-size: 0.85rem;
-                    width: 100%;
-                    max-width: 100%;
-                    box-sizing: border-box;
-                    overflow: visible;
-                    max-height: ${maxHeight};
-                    position: relative;
-                    z-index: 1;
-                `;
-                // 世界級標記
-                const worldClassBadge = accuracyStats.isWorldClass 
-                    ? '<span style="background: #059669; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; margin-left: 4px;">🏆 世界級</span>'
-                    : '';
-                
-                statsEl.innerHTML = `
-                    <div style="text-align: center; padding: 8px; background: rgba(255, 255, 255, 0.5); border-radius: 6px;">
-                        <div style="color: #64748b; font-size: 0.7rem; margin-bottom: 6px; font-weight: 500;">MAE</div>
-                        <div style="color: ${accuracyStats.isWorldClassMAE ? '#059669' : '#dc2626'}; font-weight: 700; font-size: 1.1rem; margin-bottom: 4px;">
-                            ${accuracyStats.mae} 人 ${accuracyStats.isWorldClassMAE ? '🏆' : ''}
-                        </div>
-                        <div style="color: #94a3b8; font-size: 0.6rem; line-height: 1.3;">
-                            世界最佳: ${accuracyStats.worldBestMAE}<br>
-                            ${accuracyStats.maeGap > 0 ? `<span style="color: #dc2626;">+${accuracyStats.maeGap}</span>` : '<span style="color: #059669;">已超越</span>'}
-                        </div>
-                    </div>
-                    <div style="text-align: center; padding: 8px; background: rgba(255, 255, 255, 0.5); border-radius: 6px;">
-                        <div style="color: #64748b; font-size: 0.7rem; margin-bottom: 6px; font-weight: 500;">MAPE</div>
-                        <div style="color: ${accuracyStats.isWorldClassMAPE ? '#059669' : '#dc2626'}; font-weight: 700; font-size: 1.1rem; margin-bottom: 4px;">
-                            ${accuracyStats.mape}% ${accuracyStats.isWorldClassMAPE ? '🏆' : ''}
-                        </div>
-                        <div style="color: #94a3b8; font-size: 0.6rem; line-height: 1.3;">
-                            目標: ${accuracyStats.worldBestMAPE}%<br>
-                            ${accuracyStats.mapeGap > 0 ? `<span style="color: #dc2626;">+${accuracyStats.mapeGap}%</span>` : '<span style="color: #059669;">已達標</span>'}
-                        </div>
-                    </div>
-                    <div style="text-align: center; padding: 8px; background: rgba(255, 255, 255, 0.5); border-radius: 6px;">
-                        <div style="color: #64748b; font-size: 0.7rem; margin-bottom: 6px; font-weight: 500;">平均準確度</div>
-                        <div style="color: #059669; font-weight: 700; font-size: 1.1rem;">${accuracyStats.avgAccuracy}%</div>
-                    </div>
-                    <div style="text-align: center; padding: 8px; background: rgba(255, 255, 255, 0.5); border-radius: 6px;">
-                        <div style="color: #64748b; font-size: 0.7rem; margin-bottom: 6px; font-weight: 500;">80% CI</div>
-                        <div style="color: #2563eb; font-weight: 700; font-size: 1.1rem;">${accuracyStats.ci80Coverage}%</div>
-                    </div>
-                    <div style="text-align: center; padding: 8px; background: rgba(255, 255, 255, 0.5); border-radius: 6px;">
-                        <div style="color: #64748b; font-size: 0.7rem; margin-bottom: 6px; font-weight: 500;">95% CI</div>
-                        <div style="color: ${accuracyStats.isWorldClassCI95 ? '#059669' : '#7c3aed'}; font-weight: 700; font-size: 1.1rem; margin-bottom: 4px;">
-                            ${accuracyStats.ci95Coverage}% ${accuracyStats.isWorldClassCI95 ? '🏆' : ''}
-                        </div>
-                        <div style="color: #94a3b8; font-size: 0.6rem; line-height: 1.3;">
-                            目標: ${accuracyStats.worldBestCI95}%<br>
-                            ${accuracyStats.ci95Gap > 0 ? `<span style="color: #dc2626;">-${accuracyStats.ci95Gap}%</span>` : '<span style="color: #059669;">已達標</span>'}
-                        </div>
-                    </div>
-                    <div style="text-align: center; padding: 8px; background: rgba(255, 255, 255, 0.5); border-radius: 6px;">
-                        <div style="color: #64748b; font-size: 0.7rem; margin-bottom: 6px; font-weight: 500;">數據點數</div>
-                        <div style="color: #1e293b; font-weight: 700; font-size: 1.1rem;">${accuracyStats.totalCount}</div>
-                    </div>
-                `;
-                
-                // 如果達到世界級水準，添加特殊標記
-                if (accuracyStats.isWorldClass) {
-                    const worldClassBanner = document.createElement('div');
-                    worldClassBanner.style.cssText = `
-                        background: linear-gradient(135deg, #059669 0%, #10b981 100%);
-                        color: white;
-                        padding: 8px 12px;
-                        border-radius: 6px;
-                        margin-top: 8px;
-                        text-align: center;
-                        font-size: 0.8rem;
-                        font-weight: 600;
-                    `;
-                    worldClassBanner.textContent = '🏆 達到世界級準確度水準！';
-                    statsEl.appendChild(worldClassBanner);
-                }
-                // 將統計信息插入到 chart-card 內部，但在 chart-container 之前，避免與圖表重疊
-                // 確保 stats 在標題之後，圖表容器之前
-                const titleElement = chartCard.querySelector('h3');
-                if (titleElement && titleElement.nextSibling) {
-                    // 插入到標題之後
-                    titleElement.parentNode.insertBefore(statsEl, titleElement.nextSibling);
-                } else {
-                    // 如果找不到標題，插入到容器之前
-                    chartCard.insertBefore(statsEl, chartContainer);
-                }
-                
-                // 確保統計信息有足夠空間顯示所有內容
-                statsEl.style.marginBottom = '16px';
-                statsEl.style.overflow = 'visible'; // 允許所有內容顯示
-            }
+        renderModelComparisonStats(comparisonData);
+
+        const datasets = [{
+            label: '實際人數',
+            modelName: 'actual',
+            data: historyItems.map(item => item.actual_count ?? null),
+            borderColor: '#1e293b',
+            backgroundColor: 'rgba(30, 41, 59, 0.08)',
+            borderWidth: 2.5,
+            fill: false,
+            tension: 0.35,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            spanGaps: false
+        }];
+
+        for (const modelName of MODEL_COMPARISON_ORDER) {
+            const config = getModelComparisonConfig(modelName);
+            const values = historyItems.map(item => item.models?.[modelName]?.predicted_count ?? null);
+            if (!values.some(value => value != null)) continue;
+
+            datasets.push({
+                label: config.label,
+                modelName,
+                data: values,
+                borderColor: config.borderColor,
+                backgroundColor: config.backgroundColor,
+                borderWidth: 2,
+                borderDash: config.borderDash,
+                fill: false,
+                tension: 0.35,
+                pointRadius: 2,
+                pointHoverRadius: 5,
+                spanGaps: true
+            });
         }
-        
+
         comparisonChart = new Chart(comparisonCtx, {
             type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: '實際人數',
-                        data: validComparisonData.map(d => d.actual || null),
-                        borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        borderWidth: 2,
-                        fill: false,
-                        tension: 0.4,
-                        pointRadius: 3,
-                        pointHoverRadius: 6
-                    },
-                    {
-                        label: '預測人數',
-                        data: validComparisonData.map(d => d.predicted || null),
-                        borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        borderWidth: 2,
-                        borderDash: [5, 5],
-                        fill: false,
-                        tension: 0.4,
-                        pointRadius: 3,
-                        pointHoverRadius: 6
-                    },
-                    {
-                        label: '80% CI 上限',
-                        data: validComparisonData.map(d => d.ci80_high || null),
-                        borderColor: 'rgba(156, 163, 175, 0.5)',
-                        backgroundColor: 'rgba(156, 163, 175, 0.05)',
-                        borderWidth: 1,
-                        borderDash: [2, 2],
-                        fill: '-1',
-                        pointRadius: 0
-                    },
-                    {
-                        label: '80% CI 下限',
-                        data: validComparisonData.map(d => d.ci80_low || null),
-                        borderColor: 'rgba(34, 197, 94, 0.5)',
-                        backgroundColor: 'rgba(34, 197, 94, 0.05)',
-                        borderWidth: 1,
-                        borderDash: [2, 2],
-                        fill: false,
-                        pointRadius: 0
-                    }
-                ]
-            },
+            data: { labels, datasets },
             options: {
                 ...professionalOptions,
                 responsive: true,
-                maintainAspectRatio: false, // 不保持寬高比，填充容器
-                aspectRatio: undefined, // 不使用 aspectRatio，使用容器高度
-                resizeDelay: 0, // 立即響應尺寸變化
-                layout: {
-                    padding: getComparisonChartPadding() // 使用響應式 padding，確保 X 軸標籤完整顯示
-                },
+                maintainAspectRatio: false,
+                aspectRatio: undefined,
+                resizeDelay: 0,
+                layout: { padding: getComparisonChartPadding() },
                 plugins: {
                     ...professionalOptions.plugins,
                     tooltip: {
                         ...professionalOptions.plugins.tooltip,
                         callbacks: {
-                            title: function(items) {
+                            title(items) {
                                 const idx = items[0].dataIndex;
-                                return formatDateDDMM(validComparisonData[idx].date, true);
+                                return formatDateDDMM(historyItems[idx].date, true);
                             },
-                            afterBody: function(items) {
-                                const idx = items[0].dataIndex;
-                                const data = validComparisonData[idx];
-                                
-                                if (!data.actual || !data.predicted) return '';
-                                
-                                const error = data.error || (data.predicted - data.actual);
-                                const errorRate = data.error_percentage || ((error / data.actual) * 100).toFixed(2);
-                                const accuracy = (100 - Math.abs(parseFloat(errorRate))).toFixed(2);
-                                const inCI80 = data.within_ci80 !== undefined ? data.within_ci80 : 
-                                    (data.ci80_low && data.ci80_high && data.actual >= data.ci80_low && data.actual <= data.ci80_high);
-                                const inCI95 = data.within_ci95 !== undefined ? data.within_ci95 :
-                                    (data.ci95_low && data.ci95_high && data.actual >= data.ci95_low && data.actual <= data.ci95_high);
-                                
-                                let tooltipText = '\n━━━━━━━━━━━━━━━━━━━━\n';
-                                tooltipText += '📊 準確度資訊：\n';
-                                tooltipText += `誤差：${error > 0 ? '+' : ''}${error} 人\n`;
-                                tooltipText += `誤差率：${errorRate > 0 ? '+' : ''}${errorRate}%\n`;
-                                tooltipText += `準確度：${accuracy}%\n`;
-                                tooltipText += `80% CI：${inCI80 ? '✅ 在範圍內' : '❌ 超出範圍'}\n`;
-                                tooltipText += `95% CI：${inCI95 ? '✅ 在範圍內' : '❌ 超出範圍'}`;
-                                
-                                return tooltipText;
+                            label(context) {
+                                const value = context.raw;
+                                if (value == null) return null;
+                                if (context.dataset.modelName === 'actual') {
+                                    return `實際人數：${formatComparisonCount(value)} 人`;
+                                }
+
+                                const row = historyItems[context.dataIndex];
+                                const modelData = row.models?.[context.dataset.modelName];
+                                let text = `${context.dataset.label}：${formatComparisonCount(value)} 人`;
+                                if (row.actual_count != null && modelData) {
+                                    const signedError = value - row.actual_count;
+                                    const mape = modelData.mape ?? (row.actual_count ? Math.abs(signedError) / row.actual_count * 100 : null);
+                                    text += ` · 誤差 ${formatSignedComparisonCount(signedError)} · MAPE ${formatComparisonMetric(mape, 2, '%')}`;
+                                } else {
+                                    text += ' · 待驗證';
+                                }
+                                return text;
+                            },
+                            afterBody(items) {
+                                const row = historyItems[items[0].dataIndex];
+                                if (row.actual_count == null) {
+                                    return '尚無實際人數，屬待驗證預測';
+                                }
+                                const bestModels = getBestComparisonModels(row);
+                                return bestModels.length > 0 ? `最佳模型：${bestModels.join(' / ')}` : '';
                             }
                         }
                     },
                     legend: {
                         ...professionalOptions.plugins.legend,
-                        onHover: function(e) {
+                        onHover(e) {
                             e.native.target.style.cursor = 'pointer';
                         },
-                        onLeave: function(e) {
+                        onLeave(e) {
                             e.native.target.style.cursor = 'default';
                         }
                     }
@@ -3778,9 +3755,9 @@ async function initComparisonChart() {
                             ...professionalOptions.scales.x.ticks,
                             autoSkip: true,
                             maxTicksLimit: getResponsiveMaxTicksLimit(),
-                            maxRotation: 45, // 旋轉標籤以避免重疊
+                            maxRotation: 45,
                             minRotation: 0,
-                            padding: 10 // X 軸標籤的 padding
+                            padding: 10
                         },
                         grid: {
                             ...professionalOptions.scales.x.grid,
@@ -3798,81 +3775,20 @@ async function initComparisonChart() {
                 }
             }
         });
-        
+
         updateLoadingProgress('comparison', 90);
         updateLoadingProgress('comparison', 100);
-        
-        // 完成載入並顯示圖表
         completeChartLoading('comparison');
-        
-        // 使用統一的簡單 resize 邏輯（類似 factors-container）
+
         setTimeout(() => {
             setupChartResize(comparisonChart, 'comparison-chart-container');
-            // 設置對比圖表的特殊 padding
-            if (comparisonChart) {
+            if (comparisonChart?.options?.scales?.x?.ticks) {
                 comparisonChart.options.layout.padding = getComparisonChartPadding();
-                if (comparisonChart.options.scales && comparisonChart.options.scales.x && comparisonChart.options.scales.x.ticks) {
-                    comparisonChart.options.scales.x.ticks.maxTicksLimit = getResponsiveMaxTicksLimit();
-                }
+                comparisonChart.options.scales.x.ticks.maxTicksLimit = getResponsiveMaxTicksLimit();
             }
         }, 100);
-        
-        // 只在窗口 resize 時更新 accuracy-stats 的布局（不觸發圖表 resize）
-        let resizeTimeout;
-        const handleResize = () => {
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => {
-                // 只更新 accuracy-stats 的布局
-                const statsEl = document.querySelector('#comparison-chart-container .accuracy-stats');
-                if (statsEl) {
-                    const screenWidth = window.innerWidth;
-                    let gridColumns = 'repeat(3, 1fr)';
-                    let gap = '10px';
-                    let padding = '12px';
-                    
-                    if (screenWidth <= 600) {
-                        gridColumns = 'repeat(2, 1fr)';
-                        gap = '8px';
-                        padding = '10px';
-                    } else if (screenWidth <= 700) {
-                        gridColumns = 'repeat(2, 1fr)';
-                        gap = '8px';
-                        padding = '10px';
-                    } else if (screenWidth <= 900) {
-                        gridColumns = 'repeat(3, 1fr)';
-                        gap = '8px';
-                        padding = '10px';
-                    } else if (screenWidth <= 1200) {
-                        gridColumns = 'repeat(3, 1fr)';
-                        gap = '10px';
-                        padding = '12px';
-                    }
-                    
-                    // 根據屏幕寬度設置最大高度
-                    let maxHeight = '160px';
-                    if (screenWidth <= 480) {
-                        maxHeight = '200px';
-                    } else if (screenWidth <= 700) {
-                        maxHeight = '180px';
-                    } else if (screenWidth <= 900) {
-                        maxHeight = '140px';
-                    } else if (screenWidth <= 1200) {
-                        maxHeight = '150px';
-                    }
-                    
-                    statsEl.style.gridTemplateColumns = gridColumns;
-                    statsEl.style.gap = gap;
-                    statsEl.style.padding = padding;
-                    statsEl.style.maxHeight = maxHeight;
-                    statsEl.style.position = 'relative';
-                    statsEl.style.zIndex = '1';
-                }
-            }, 200);
-        };
-        
-        // 只在窗口真正 resize 時監聽（不觸發圖表 resize，只更新 stats 布局）
-        window.addEventListener('resize', handleResize, { passive: true });
-        console.log(`✅ 實際vs預測對比圖已載入 (${validComparisonData.length} 筆有效數據，總共 ${comparisonData.length} 筆)`);
+
+        console.log(`✅ 多模型比較圖已載入（歷史/待驗證共 ${historyItems.length} 天，已評估 ${comparisonData.comparison_days || 0} 天）`);
     } catch (error) {
         handleChartLoadingError('comparison', error);
     }
@@ -3884,130 +3800,79 @@ async function initComparisonTable() {
         const tableBody = document.getElementById('comparison-table-body');
         const table = document.getElementById('comparison-table');
         const loading = document.getElementById('comparison-table-loading');
-        
+        const tableHead = table?.querySelector('thead');
+
         if (!tableBody || !table) {
             console.error('❌ 找不到比較表格元素');
             return;
         }
-        
+
+        if (tableHead) {
+            tableHead.innerHTML = `
+                <tr>
+                    <th>日期</th>
+                    <th>實際人數</th>
+                    <th>XGBoost</th>
+                    <th>誤差</th>
+                    <th>XGBoost + AI</th>
+                    <th>誤差</th>
+                    <th>GPT-5.4</th>
+                    <th>誤差</th>
+                    <th>最佳模型</th>
+                </tr>
+            `;
+        }
+
         if (loading) loading.style.display = 'block';
         if (table) table.style.display = 'none';
-        
-        // 從數據庫獲取比較數據
-        const comparisonData = await fetchComparisonData(100);
-        
-        // 過濾出有效的比較數據（必須同時有實際和預測）
-        const validComparisonData = comparisonData.filter(d => d.actual != null && d.predicted != null);
-        
-        if (validComparisonData.length === 0) {
-            console.warn('⚠️ 沒有有效的比較數據（需要同時有實際和預測數據）');
+
+        const comparisonData = await fetchModelComparisonData({ pastDays: 30, futureDays: 30 });
+        const historyItems = (comparisonData.full_history || comparisonData.history || [])
+            .slice()
+            .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        if (historyItems.length === 0) {
             if (loading) loading.style.display = 'none';
-            tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #64748b; padding: var(--space-xl);">暫無數據<br><small>需要同時有實際數據和預測數據</small></td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #64748b; padding: var(--space-xl);">暫無模型比較數據</td></tr>';
             if (table) table.style.display = 'table';
             return;
         }
-        
-        // 生成表格行
-        tableBody.innerHTML = validComparisonData.map(d => {
-            // 強制確保正確提取日期和實際人數
-            // 優先使用明確的字段名
-            let dateValue = d.date || d.Date || d.target_date || null;
-            let actualValue = d.actual !== undefined && d.actual !== null ? d.actual : 
-                               (d.patient_count !== undefined && d.patient_count !== null ? d.patient_count : 
-                               (d.attendance !== undefined && d.attendance !== null ? d.attendance : null));
-            
-            // 強制驗證：如果 date 字段是數字（在合理範圍內），而 actual 是日期字符串，則交換
-            // 這是一個安全檢查，確保數據正確
-            if (dateValue !== null && typeof dateValue === 'number' && dateValue >= 100 && dateValue <= 1000) {
-                // date 是數字，可能是實際人數
-                if (actualValue !== null && typeof actualValue === 'string' && 
-                    (actualValue.match(/^\d{4}-\d{2}-\d{2}/) || actualValue.match(/^\d{2}\/\d{2}\/\d{4}/))) {
-                    // actual 是日期字符串，確認錯位，交換
-                    console.warn('⚠️ 強制修復數據錯位:', { 
-                        originalDate: dateValue, 
-                        originalActual: actualValue 
-                    });
-                    const temp = dateValue;
-                    dateValue = actualValue;
-                    actualValue = temp;
-                }
-            }
-            
-            // 再次驗證：確保 date 是日期格式，actual 是數字
-            if (dateValue !== null && typeof dateValue === 'number') {
-                console.error('❌ 日期字段仍然是數字，數據可能有問題:', { dateValue, actualValue, allData: d });
-            }
-            if (actualValue !== null && typeof actualValue === 'string' && 
-                (actualValue.match(/^\d{4}-\d{2}-\d{2}/) || actualValue.match(/^\d{2}\/\d{2}\/\d{4}/))) {
-                console.error('❌ 實際人數字段仍然是日期字符串，數據可能有問題:', { dateValue, actualValue, allData: d });
-            }
-            
-            // 檢測並修復數據錯位問題
-            // 檢查：如果 date 字段是數字（100-1000範圍，可能是實際人數），而 actual 是日期字符串，則交換
-            const isDateValueNumber = dateValue !== null && typeof dateValue === 'number' && 
-                                      dateValue >= 100 && dateValue <= 1000; // 合理的實際人數範圍
-            const isActualValueDateString = actualValue !== null && typeof actualValue === 'string' && 
-                                           (actualValue.match(/^\d{4}-\d{2}-\d{2}/) || 
-                                            actualValue.match(/^\d{2}\/\d{2}\/\d{4}/) ||
-                                            actualValue.match(/^\d{4}-\d{2}-\d{2}T/)); // 支持 ISO 格式
-            const isDateValueDateString = dateValue !== null && typeof dateValue === 'string' && 
-                                         (dateValue.match(/^\d{4}-\d{2}-\d{2}/) || 
-                                          dateValue.match(/^\d{2}\/\d{2}\/\d{4}/) ||
-                                          dateValue.match(/^\d{4}-\d{2}-\d{2}T/)); // 支持 ISO 格式
-            const isActualValueNumber = actualValue !== null && typeof actualValue === 'number' && 
-                                       actualValue >= 100 && actualValue <= 1000; // 合理的實際人數範圍
-            
-            // 如果 date 是數字（可能是實際人數），而 actual 是日期字符串，則交換
-            if (isDateValueNumber && isActualValueDateString) {
-                console.warn('⚠️ 檢測到數據錯位（date是數字，actual是日期），正在修復:', { 
-                    originalDate: dateValue, 
-                    originalActual: actualValue,
-                    swapped: true
-                });
-                const temp = dateValue;
-                dateValue = actualValue;
-                actualValue = temp;
-            }
-            // 如果 date 是日期字符串，而 actual 是數字，這是正確的，不需要交換
-            // 但如果 date 是日期字符串，而 actual 也是日期字符串，可能有問題
-            else if (isDateValueDateString && isActualValueDateString) {
-                console.warn('⚠️ 兩個字段都是日期字符串，可能有問題:', d);
-            }
-            // 如果 date 是數字，而 actual 也是數字，可能是兩個都錯位了
-            else if (isDateValueNumber && isActualValueNumber) {
-                console.warn('⚠️ 兩個字段都是數字，可能有問題:', d);
-            }
-            // 如果 date 是字符串但不是日期格式，而 actual 是數字，可能是 date 字段有問題
-            else if (dateValue !== null && typeof dateValue === 'string' && !isDateValueDateString && isActualValueNumber) {
-                console.warn('⚠️ date 字段是字符串但不是日期格式，actual 是數字:', d);
-            }
-            
-            let finalDate = dateValue;
-            let finalActual = actualValue;
-            
-            const error = d.error || (d.predicted && finalActual ? d.predicted - finalActual : null);
-            const errorRate = d.error_percentage || (error && finalActual ? ((error / finalActual) * 100).toFixed(2) : null);
-            const ci80 = d.ci80_low && d.ci80_high ? `${d.ci80_low}-${d.ci80_high}` : '--';
-            const ci95 = d.ci95_low && d.ci95_high ? `${d.ci95_low}-${d.ci95_high}` : '--';
-            const accuracy = errorRate ? (100 - Math.abs(parseFloat(errorRate))).toFixed(2) + '%' : '--';
-            
+
+        const renderPredictionCell = (historyItem, modelName) => {
+            const predictedCount = historyItem.models?.[modelName]?.predicted_count;
+            return predictedCount == null ? '--' : formatComparisonCount(predictedCount);
+        };
+
+        const renderErrorCell = (historyItem, modelName) => {
+            const predictedCount = historyItem.models?.[modelName]?.predicted_count;
+            if (historyItem.actual_count == null || predictedCount == null) return '--';
+            return formatSignedComparisonCount(predictedCount - historyItem.actual_count);
+        };
+
+        tableBody.innerHTML = historyItems.map(historyItem => {
+            const bestModels = getBestComparisonModels(historyItem);
+            const bestModelText = historyItem.actual_count == null
+                ? '待驗證'
+                : (bestModels.length > 0 ? bestModels.join(' / ') : '--');
+
             return `
                 <tr>
-                    <td>${finalDate ? formatDateDDMM(finalDate, true) : '--'}</td>
-                    <td>${finalActual ?? '--'}</td>
-                    <td>${d.predicted || '--'}</td>
-                    <td>${error !== null ? (error > 0 ? '+' : '') + error : '--'}</td>
-                    <td>${errorRate !== null ? (errorRate > 0 ? '+' : '') + errorRate + '%' : '--'}</td>
-                    <td>${ci80}</td>
-                    <td>${ci95}</td>
-                    <td>${accuracy}</td>
+                    <td>${historyItem.date ? formatDateDDMM(historyItem.date, true) : '--'}</td>
+                    <td>${historyItem.actual_count == null ? '--' : formatComparisonCount(historyItem.actual_count)}</td>
+                    <td>${renderPredictionCell(historyItem, 'xgboost')}</td>
+                    <td>${renderErrorCell(historyItem, 'xgboost')}</td>
+                    <td>${renderPredictionCell(historyItem, 'xgboost_ai')}</td>
+                    <td>${renderErrorCell(historyItem, 'xgboost_ai')}</td>
+                    <td>${renderPredictionCell(historyItem, 'gpt_5_4')}</td>
+                    <td>${renderErrorCell(historyItem, 'gpt_5_4')}</td>
+                    <td>${bestModelText}</td>
                 </tr>
             `;
         }).join('');
-        
+
         if (loading) loading.style.display = 'none';
         if (table) table.style.display = 'table';
-        console.log(`✅ 詳細比較表格已載入 (${validComparisonData.length} 筆有效數據，總共 ${comparisonData.length} 筆)`);
+        console.log(`✅ 多模型比較表格已載入（共 ${historyItems.length} 天）`);
     } catch (error) {
         console.error('❌ 詳細比較表格載入失敗:', error);
         const loading = document.getElementById('comparison-table-loading');

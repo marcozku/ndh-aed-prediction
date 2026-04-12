@@ -79,6 +79,36 @@ export async function fetchComparisonData(limit = 100, refresh = false) {
 }
 
 /**
+ * 獲取多模型比較數據
+ */
+export async function fetchModelComparisonData({ days = 90, startDate = null, endDate = null } = {}) {
+    try {
+        const params = new URLSearchParams();
+        if (startDate) params.append('startDate', startDate);
+        if (endDate) params.append('endDate', endDate);
+        if (!startDate || !endDate) params.append('days', days);
+
+        const url = `/api/model-comparison?${params.toString()}`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('獲取多模型比較數據失敗:', error);
+        return {
+            success: false,
+            models: [],
+            pairwise: [],
+            history: [],
+            full_history: []
+        };
+    }
+}
+
+/**
  * 添加實際數據
  */
 export async function addActualData(date, attendance) {

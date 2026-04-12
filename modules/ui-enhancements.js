@@ -1658,76 +1658,104 @@ const AccuracyChart = {
         }
         
         try {
-            const response = await fetch('/api/comparison?limit=30');
+            const response = await fetch('/api/model-comparison?days=45', { cache: 'no-store' });
             const result = await response.json();
-            const data = result.data || [];
+            const data = result.history || [];
             
             if (data.length === 0) {
                 loading.innerHTML = '<div style="text-align: center; color: var(--text-secondary);">暫無準確度數據</div>';
                 return;
             }
-            
-            const labels = data.map(d => d.date).reverse();
-            const accuracies = data.map(d => {
-                // API 回傳 error_percentage 是字串格式
-                // error_percentage = (predicted - actual) / actual * 100
-                // 可能是負數（預測偏低）或正數（預測偏高）
-                if (d.error_percentage !== undefined && d.error_percentage !== null) {
-                    const errorPct = parseFloat(d.error_percentage);
-                    // 使用絕對值計算準確度
-                    const accuracy = 100 - Math.abs(errorPct);
-                    return Math.max(0, Math.min(100, accuracy));
+
+            const labels = data.map(d => d.date);
+            const modelConfigs = [
+                { key: 'xgboost', label: 'XGBoost', color: '#2563eb', background: 'rgba(37, 99, 235, 0.10)', dash: [6, 4] },
+                { key: 'xgboost_ai', label: 'XGBoost + AI', color: '#059669', background: 'rgba(5, 150, 105, 0.10)', dash: [] },
+                { key: 'gpt_5_4', label: 'GPT-5.4', color: '#ea580c', background: 'rgba(234, 88, 12, 0.10)', dash: [2, 4] }
+            ];
+
+            const datasets = modelConfigs.map(config => {
+                const values = data.map(item => {
+                    const model = item.models?.[config.key];
+                    if (!model || item.actual_count == null) {
+                        return null;
+                    }
+
+                    const mape = Number.isFinite(Number(model.mape))
+                        ? Number(model.mape)
+                        : (item.actual_count ? Math.abs(model.predicted_count - item.actual_count) / item.actual_count * 100 : null);
+
+                    if (!Number.isFinite(mape)) {
+                        return null;
+                    }
+
+                    return Math.max(0, Math.min(100, 100 - mape));
+                });
+
+                if (!values.some(value => value != null)) {
+                    return null;
                 }
-                if (d.accuracy) return parseFloat(d.accuracy);
-                // 從 actual vs predicted 計算
-                if (d.actual && d.predicted) {
-                    const error = Math.abs(d.actual - d.predicted) / d.actual * 100;
-                    return Math.max(0, Math.min(100, 100 - error));
-                }
-                return null; // 無資料時返回 null
-            }).reverse();
-            
-            console.log('📊 AccuracyChart 原始數據:', accuracies.map(a => a?.toFixed(2)));
-            
-            // 過濾掉 null 值
-            const validData = labels.map((label, i) => ({ label, accuracy: accuracies[i] }))
-                .filter(d => d.accuracy !== null);
-            
-            if (validData.length === 0) {
+
+                return {
+                    label: config.label,
+                    data: values,
+                    borderColor: config.color,
+                    backgroundColor: config.background,
+                    fill: false,
+                    tension: 0.35,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    spanGaps: true,
+                    borderDash: config.dash,
+                    modelKey: config.key
+                };
+            }).filter(Boolean);
+
+            console.log('📊 AccuracyChart 模型數據:', datasets.map(dataset => ({
+                label: dataset.label,
+                points: dataset.data.filter(value => value != null).length
+            })));
+
+            if (datasets.length === 0) {
                 loading.innerHTML = '<div style="text-align: center; color: var(--text-secondary);">暫無準確度數據</div>';
                 return;
             }
-            
+
             loading.style.display = 'none';
             canvas.style.display = 'block';
-            
+
+            if (this.chart) {
+                this.chart.destroy();
+                this.chart = null;
+            }
+
             const ctx = canvas.getContext('2d');
             this.chart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: validData.map(d => d.label),
-                    datasets: [{
-                        label: '準確度 %',
-                        data: validData.map(d => d.accuracy),
-                        borderColor: '#4f46e5',
-                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 3
-                    }]
+                    labels,
+                    datasets
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { display: false },
+                        legend: { display: datasets.length > 1 },
                         tooltip: {
                             callbacks: {
-                                title: ctx => ctx[0].label,
-                                label: ctx => `準確度: ${ctx.raw.toFixed(2)}%`,
-                                afterLabel: ctx => {
-                                    const errorPct = (100 - ctx.raw).toFixed(2);
-                                    return `誤差率: ${errorPct}%`;
+                                title: context => context[0].label,
+                                label: context => {
+                                    if (context.raw == null) {
+                                        return `${context.dataset.label}: --`;
+                                    }
+                                    return `${context.dataset.label}: ${context.raw.toFixed(2)}%`;
+                                },
+                                afterLabel: context => {
+                                    if (context.raw == null) {
+                                        return '尚無已驗證實際值';
+                                    }
+                                    const errorPct = (100 - context.raw).toFixed(2);
+                                    return `MAPE: ${errorPct}%`;
                                 }
                             }
                         }

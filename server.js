@@ -1076,6 +1076,7 @@ async function generateGpt54PredictionArm({
 }
 
 function buildModelComparisonResponse(rows = []) {
+    const orderedModelNames = Object.keys(MODEL_COMPARISON_LABELS);
     const normalizedRows = rows
         .filter(row => row && row.model_name)
         .map(row => ({
@@ -1094,7 +1095,11 @@ function buildModelComparisonResponse(rows = []) {
         if (!byDate.has(row.date)) {
             byDate.set(row.date, { actual_count: row.actual_count, models: {} });
         }
-        byDate.get(row.date).models[row.model_name] = row;
+        const dateBucket = byDate.get(row.date);
+        if (dateBucket.actual_count == null && row.actual_count != null) {
+            dateBucket.actual_count = row.actual_count;
+        }
+        dateBucket.models[row.model_name] = row;
 
         if (!byModel.has(row.model_name)) {
             byModel.set(row.model_name, []);
@@ -1103,11 +1108,13 @@ function buildModelComparisonResponse(rows = []) {
     }
 
     const modelStats = new Map();
-    for (const modelName of Object.keys(MODEL_COMPARISON_LABELS)) {
+    for (const modelName of orderedModelNames) {
         modelStats.set(modelName, {
             model_name: modelName,
             label: MODEL_COMPARISON_LABELS[modelName],
+            total_count: 0,
             sample_count: 0,
+            pending_count: 0,
             mae: null,
             mape: null,
             wins: 0,
@@ -1122,7 +1129,9 @@ function buildModelComparisonResponse(rows = []) {
         const stats = modelStats.get(modelName) || {
             model_name: modelName,
             label: MODEL_COMPARISON_LABELS[modelName] || modelName,
+            total_count: 0,
             sample_count: 0,
+            pending_count: 0,
             mae: null,
             mape: null,
             wins: 0,
@@ -1131,7 +1140,9 @@ function buildModelComparisonResponse(rows = []) {
             win_rate: null
         };
 
+        stats.total_count = items.length;
         stats.sample_count = itemsWithActual.length;
+        stats.pending_count = Math.max(0, items.length - itemsWithActual.length);
         if (itemsWithActual.length > 0) {
             stats.mae = Number((itemsWithActual.reduce((sum, item) => sum + (item.abs_error ?? Math.abs(item.predicted_count - item.actual_count)), 0) / itemsWithActual.length).toFixed(2));
 
@@ -1173,7 +1184,8 @@ function buildModelComparisonResponse(rows = []) {
         }
     }
 
-    const models = Array.from(modelStats.values()).map(stats => {
+    const models = orderedModelNames.map(modelName => {
+        const stats = modelStats.get(modelName);
         const denominator = stats.wins + stats.ties + stats.losses;
         return {
             ...stats,
@@ -1219,7 +1231,7 @@ function buildModelComparisonResponse(rows = []) {
 
         const baseMae = sampleCount > 0 ? baseAbsTotal / sampleCount : null;
         const compareMae = sampleCount > 0 ? compareAbsTotal / sampleCount : null;
-        const maeImprovementPct = (sampleCount > 0 && baseMae && compareMae != null)
+        const maeImprovementPct = (sampleCount > 0 && baseMae != null && compareMae != null && baseMae !== 0)
             ? Number((((baseMae - compareMae) / baseMae) * 100).toFixed(2))
             : null;
 
@@ -1239,29 +1251,40 @@ function buildModelComparisonResponse(rows = []) {
         };
     });
 
-    const history = Array.from(byDate.entries())
+    const fullHistory = Array.from(byDate.entries())
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([date, payload]) => ({
             date,
             actual_count: payload.actual_count,
+            has_actual: payload.actual_count != null,
             models: Object.fromEntries(
-                Object.entries(payload.models).map(([modelName, item]) => [
-                    modelName,
-                    {
-                        label: MODEL_COMPARISON_LABELS[modelName] || modelName,
-                        predicted_count: item.predicted_count,
-                        abs_error: item.abs_error,
-                        mape: item.mape
-                    }
-                ])
+                orderedModelNames
+                    .filter(modelName => payload.models[modelName])
+                    .map(modelName => {
+                        const item = payload.models[modelName];
+                        return [
+                            modelName,
+                            {
+                                label: MODEL_COMPARISON_LABELS[modelName] || modelName,
+                                predicted_count: item.predicted_count,
+                                abs_error: item.abs_error,
+                                mape: item.mape
+                            }
+                        ];
+                    })
             )
         }));
+
+    const scoredHistory = fullHistory.filter(entry => entry.actual_count != null);
 
     return {
         models,
         pairwise,
-        history,
-        comparison_days: history.length
+        history: scoredHistory,
+        scored_history: scoredHistory,
+        full_history: fullHistory,
+        comparison_days: scoredHistory.length,
+        history_days: fullHistory.length
     };
 }
 
@@ -1986,7 +2009,7 @@ const apiHandlers = {
 
             const rows = await db.getModelPredictionRuns(startDate, endDate);
             const comparisonRows = rows.filter(row => row.actual_count != null);
-            const response = buildModelComparisonResponse(comparisonRows);
+            const response = buildModelComparisonResponse(rows);
 
             sendJson(res, {
                 success: true,
@@ -1996,6 +2019,7 @@ const apiHandlers = {
                 },
                 total_rows: rows.length,
                 scored_rows: comparisonRows.length,
+                pending_rows: Math.max(0, rows.length - comparisonRows.length),
                 ...response
             });
         } catch (error) {

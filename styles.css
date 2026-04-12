@@ -3603,6 +3603,7 @@ section h2 {
 
 .comparison-table {
     width: 100%;
+    min-width: 820px;
     border-collapse: collapse;
     border-spacing: 0;
     font-size: clamp(0.75rem, 1.6vw, 0.9rem);
@@ -3661,7 +3662,7 @@ section h2 {
     }
     
     .comparison-table {
-        min-width: 500px;
+        min-width: 760px;
         font-size: 0.7rem;
     }
 
@@ -3682,7 +3683,7 @@ section h2 {
     }
     
     .comparison-table {
-        min-width: 450px;
+        min-width: 720px;
         font-size: 0.7rem;
     }
     

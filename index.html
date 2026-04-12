@@ -561,7 +561,7 @@
             <!-- 實際 vs 預測對比圖 -->
             <div class="chart-card full-width comparison-section">
                 <div class="comparison-header">
-                    <h3 class="chart-title">實際 vs 預測對比</h3>
+                    <h3 class="chart-title">實際與多模型預測對比</h3>
                     <button id="add-actual-data-btn" class="add-data-btn" style="display: none;" onclick="triggerAddActualData()">
                         📊 添加實際數據
                     </button>
@@ -577,7 +577,7 @@
 
             <!-- 詳細比較數據表格 -->
             <div class="chart-card full-width comparison-section">
-                <h3 class="chart-title">詳細比較數據</h3>
+                <h3 class="chart-title">多模型比較明細</h3>
                 <div class="comparison-table-container" id="comparison-table-container">
                     <div class="chart-loading" id="comparison-table-loading">
                         <div class="loading-spinner"></div>
@@ -588,12 +588,13 @@
                             <tr>
                                 <th>日期</th>
                                 <th>實際人數</th>
-                                <th>預測人數</th>
+                                <th>XGBoost</th>
                                 <th>誤差</th>
-                                <th>誤差率</th>
-                                <th>80% CI</th>
-                                <th>95% CI</th>
-                                <th>準確度</th>
+                                <th>XGBoost + AI</th>
+                                <th>誤差</th>
+                                <th>GPT-5.4</th>
+                                <th>誤差</th>
+                                <th>最佳模型</th>
                             </tr>
                         </thead>
                         <tbody id="comparison-table-body"></tbody>
@@ -921,9 +922,9 @@
     <!-- Pragmatic Bayesian 預測融合模組 (v3.0.38) -->
     <script src="modules/pragmatic-bayesian.js?v=2"></script>
     <!-- 原始預測邏輯（保留所有功能） -->
-    <script src="prediction.js?v=17"></script>
+    <script src="prediction.js?v=18"></script>
     <!-- 模組化包裝層 -->
-    <script type="module" src="app.js?v=7"></script>
+    <script type="module" src="app.js?v=8"></script>
     
     <!-- v3.0.84: Mobile Bottom Navigation with Hamburger Menu -->
     <nav class="mobile-bottom-nav" aria-label="Mobile navigation">

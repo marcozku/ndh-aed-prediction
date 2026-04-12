@@ -30,6 +30,34 @@ export class API {
         }
     }
 
+    static async getModelComparisonData({ days = 90, startDate = null, endDate = null } = {}) {
+        try {
+            const params = new URLSearchParams();
+            if (startDate) params.append('startDate', startDate);
+            if (endDate) params.append('endDate', endDate);
+            if (!startDate || !endDate) params.append('days', days);
+
+            const response = await fetch(`/api/model-comparison?${params.toString()}`);
+            const result = await response.json();
+            return result.success ? result : {
+                success: false,
+                models: [],
+                pairwise: [],
+                history: [],
+                full_history: []
+            };
+        } catch (error) {
+            console.error('獲取多模型比較數據失敗:', error);
+            return {
+                success: false,
+                models: [],
+                pairwise: [],
+                history: [],
+                full_history: []
+            };
+        }
+    }
+
     static async updateAIFactors(force = false) {
         try {
             const response = await fetch('/api/ai-analyze');
