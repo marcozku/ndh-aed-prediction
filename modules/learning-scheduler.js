@@ -5,8 +5,9 @@
  * is available and falls back to lightweight timer checks otherwise.
  */
 
-const { spawn, spawnSync } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 
 class LearningScheduler {
     constructor() {
@@ -22,6 +23,7 @@ class LearningScheduler {
         this.lastTaskStatus = null;
         this.lastTaskMessage = null;
         this.lastDurationMs = null;
+        this.pythonCommand = null;
     }
 
     start() {
@@ -173,6 +175,97 @@ class LearningScheduler {
 
     getHKTDate() {
         return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' }));
+    }
+
+    getPythonCandidates() {
+        const candidates = new Set();
+        const addCandidate = (value) => {
+            if (!value || typeof value !== 'string') return;
+            const trimmed = value.trim();
+            if (!trimmed) return;
+            candidates.add(trimmed);
+        };
+
+        [
+            process.env.PYTHON,
+            'python3',
+            'python',
+            'python3.11',
+            'python3.10',
+            'python311',
+            'py'
+        ].forEach(addCandidate);
+
+        const pathDirs = (process.env.PATH || '')
+            .split(path.delimiter)
+            .map(dir => dir && dir.trim())
+            .filter(Boolean);
+
+        const commonDirs = [
+            ...pathDirs,
+            '/usr/bin',
+            '/usr/local/bin',
+            '/opt/venv/bin',
+            '/nix/var/nix/profiles/default/bin',
+            '/nix/profile/bin'
+        ];
+
+        const seenDirs = new Set();
+        for (const dir of commonDirs) {
+            if (seenDirs.has(dir)) continue;
+            seenDirs.add(dir);
+
+            try {
+                if (!fs.existsSync(dir)) continue;
+                const entries = fs.readdirSync(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                    if (!entry.isFile() && !entry.isSymbolicLink()) continue;
+                    const name = entry.name;
+                    if (/^(python(\d+(\.\d+)?)?|py)(\.exe)?$/i.test(name)) {
+                        addCandidate(path.join(dir, name));
+                    }
+                }
+            } catch (_) {
+                // Ignore unreadable directories.
+            }
+        }
+
+        return Array.from(candidates);
+    }
+
+    detectPythonCommand() {
+        if (this.pythonCommand) {
+            return Promise.resolve(this.pythonCommand);
+        }
+
+        const candidates = this.getPythonCandidates();
+
+        return new Promise((resolve) => {
+            const tryCommand = (index) => {
+                if (index >= candidates.length) {
+                    resolve(null);
+                    return;
+                }
+
+                const command = candidates[index];
+                const python = spawn(command, ['--version'], { stdio: 'pipe' });
+
+                python.on('close', (code) => {
+                    if (code === 0) {
+                        this.pythonCommand = command;
+                        resolve(command);
+                        return;
+                    }
+                    tryCommand(index + 1);
+                });
+
+                python.on('error', () => {
+                    tryCommand(index + 1);
+                });
+            };
+
+            tryCommand(0);
+        });
     }
 
     startTask(taskName, trigger = 'scheduler') {
@@ -344,44 +437,21 @@ class LearningScheduler {
         }
     }
 
-    runPythonScript(scriptName, args = []) {
+    async runPythonScript(scriptName, args = []) {
+        const scriptPath = path.join(__dirname, '..', 'python', scriptName);
+        const pythonCandidates = this.getPythonCandidates();
+        const python = await this.detectPythonCommand();
+
+        if (!python) {
+            throw new Error(
+                `Python not found. Tried: ${pythonCandidates.join(', ')}\n` +
+                'Fix: Set PYTHON environment variable or install Python'
+            );
+        }
+
+        console.log(`Using Python: ${python}`);
+
         return new Promise((resolve, reject) => {
-            const scriptPath = path.join(__dirname, '..', 'python', scriptName);
-            const pythonCommands = [
-                process.env.PYTHON,
-                'python3',
-                'python',
-                '/usr/bin/python3',
-                '/usr/local/bin/python3'
-            ].filter(Boolean);
-
-            let python = null;
-            let lastError = null;
-
-            for (const command of pythonCommands) {
-                try {
-                    const testResult = spawnSync(command, ['--version'], {
-                        stdio: 'pipe',
-                        timeout: 5000
-                    });
-                    if (testResult.error === null && testResult.status === 0) {
-                        python = command;
-                        console.log(`Using Python: ${command}`);
-                        break;
-                    }
-                } catch (error) {
-                    lastError = error;
-                }
-            }
-
-            if (!python) {
-                return reject(new Error(
-                    `Python not found. Tried: ${pythonCommands.join(', ')}\n` +
-                    `Error: ${lastError?.message || 'Unknown'}\n` +
-                    'Fix: Set PYTHON environment variable or install Python'
-                ));
-            }
-
             const pythonProcess = spawn(python, [scriptPath, ...args], {
                 cwd: path.join(__dirname, '..'),
                 stdio: ['pipe', 'pipe', 'pipe']

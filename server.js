@@ -5686,12 +5686,11 @@ const apiHandlers = {
             }
 
             if (!result?.success) {
-                const statusCode = result?.status === 'already_running' ? 409 : 500;
                 return sendJson(res, {
                     success: false,
                     error: result?.error || result?.message || `Scheduler task '${task}' failed`,
                     data: result || null
-                }, statusCode);
+                });
             }
 
             return sendJson(res, {
