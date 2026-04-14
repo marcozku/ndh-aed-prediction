@@ -194,7 +194,7 @@
                     </div>
                     
                     <!-- v3.0.39: Bayesian 預測分解 -->
-                    <div class="bayesian-breakdown" id="bayesian-breakdown">
+                    <div class="bayesian-breakdown" id="bayesian-breakdown" style="display: none;">
                         <div class="bayesian-header">
                             <span class="bayesian-title">🎯 Pragmatic Bayesian 融合</span>
                             <span class="bayesian-toggle" id="bayesian-toggle" title="展開/收起">▼</span>
@@ -730,7 +730,7 @@
         <footer class="app-footer" role="contentinfo">
             <p id="data-source-info" style="cursor: pointer; text-decoration: underline;" data-lang-key="footer-source">數據來源：載入中...</p>
             <p id="last-update-info" class="last-update-info"></p>
-            <p id="model-version-info">預測模型版本 5.0.00 · DB-only Direct Multi-Horizon · 香港時間 HKT</p>
+            <p id="model-version-info">應用版本 5.0.01 · 模型 5.0.00 · DB-only Direct Multi-Horizon · 香港時間 HKT</p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2026 Marco Ma. All Rights Reserved.</p>
             <div class="footer-links">
                 <a href="/api/docs" class="footer-link" data-lang-key="footer-api">API 文檔</a>
@@ -822,6 +822,9 @@
                     </div>
                     <p style="font-size: 0.8em; color: var(--text-secondary); margin-top: 8px;">
                         ✅ actual_data only · 4 個 horizon bucket · baseline gate · 無 recursive / noise / heuristic blending
+                    </p>
+                    <p style="font-size: 0.78em; color: var(--text-tertiary); margin-top: 6px;">
+                        ℹ️ 介面呈現已同步 direct serving：Bayesian breakdown 預設隱藏，卡片與時間線只保留公式相關資訊與 metadata。
                     </p>
                 </div>
                 <div class="methodology-section">

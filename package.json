@@ -1,7 +1,7 @@
 {
   "name": "ndh-aed-prediction",
-  "version": "5.0.00",
-  "description": "NDH AED 病人數量預測系統 v5.0.00 - DB-only direct multi-horizon serving with baseline gate",
+  "version": "5.0.01",
+  "description": "NDH AED 病人數量預測系統 v5.0.01 - UI polished for DB-only direct multi-horizon serving with baseline gate",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

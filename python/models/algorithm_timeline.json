@@ -811,7 +811,8 @@
         "以 actual_data 建立 DB-only walk-forward 評估",
         "加入 baseline gate，模型必須優於 last / weekday_mean / seasonal baseline",
         "分 bucket 訓練與部署：H0/H1、H2-H7、H8-H14、H15-H30",
-        "production 數值不再被 Bayesian / AI / 天氣 / holiday heuristic 二次改寫"
+        "production 數值不再被 Bayesian / AI / 天氣 / holiday heuristic 二次改寫",
+        "前端 direct serving UI 已同步整理：Bayesian breakdown 預設隱藏，mobile cards / timeline / range selector 排版更一致"
       ],
       "metrics": {
         "mae": 17.9395,
@@ -957,5 +958,5 @@
       "relevance": "維度災難、偏差-方差權衡理論"
     }
   ],
-  "last_updated": "2026-04-14T23:10:00+08:00"
+  "last_updated": "2026-04-14T23:30:00+08:00"
 }

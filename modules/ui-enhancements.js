@@ -1091,9 +1091,14 @@ const MethodologyModal = {
             
             html += `
                 <div class="timeline-item ${isLatest ? 'latest' : ''}">
-                    <div class="timeline-version">${item.version}${isLatest ? ' 🆕' : ''}</div>
                     <div class="timeline-info">
-                        <div class="timeline-date">${item.date}</div>
+                        <div class="timeline-head">
+                            <div class="timeline-version">
+                                ${item.version}
+                                ${isLatest ? '<span class="timeline-new-badge">NEW</span>' : ''}
+                            </div>
+                            <div class="timeline-date">${item.date}</div>
+                        </div>
                         <div class="timeline-desc">${item.description}</div>
                         <div class="timeline-metrics">
                             <span class="timeline-metric ${maeImproved ? 'improved' : ''}">
@@ -1452,9 +1457,14 @@ const MainPageTimeline = {
             
             html += `
                 <div class="timeline-item ${isLatest ? 'latest' : ''}">
-                    <div class="timeline-version">${item.version}${isLatest ? ' 🆕' : ''}</div>
                     <div class="timeline-info">
-                        <div class="timeline-date">${item.date}</div>
+                        <div class="timeline-head">
+                            <div class="timeline-version">
+                                ${item.version}
+                                ${isLatest ? '<span class="timeline-new-badge">NEW</span>' : ''}
+                            </div>
+                            <div class="timeline-date">${item.date}</div>
+                        </div>
                         <div class="timeline-desc">${item.description}</div>
                         <div class="timeline-metrics">
                             <span class="timeline-metric ${maeImproved ? 'improved' : ''}">

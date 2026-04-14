@@ -9911,6 +9911,7 @@ function initAlgorithmContent() {
                 <div>• 今日與未來 30 天都直接走同一套 horizon bundle，輸出 bucket、operational horizon、baseline reference 與信賴區間。</div>
                 <div>• 前端只顯示 metadata，不再二次改寫 production prediction。</div>
                 <div>• App 內時間線會同步目前模型檔的最新 metrics。</div>
+                <div>• v5.0.01 UI polish 只整理 graphs / cards / timeline 呈現，不改 production formula 與評估數值。</div>
             </div>
         </div>
     `;
