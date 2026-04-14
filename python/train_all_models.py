@@ -1,6 +1,6 @@
 """
-訓練 XGBoost 模型的主腳本
-v3.2.01: 使用 opt10 模型（最佳 10 特徵 + Optuna 優化，MAE: 2.85）
+訓練 direct multi-horizon XGBoost 模型的主腳本
+v5.0.00: DB-only walk-forward + baseline gate + 分 horizon serving
 """
 import subprocess
 import sys
@@ -181,12 +181,12 @@ def main():
     os.makedirs(models_dir, exist_ok=True)
     print(f"📁 模型目錄: {models_dir}")
     
-    print("🚀 開始訓練 XGBoost opt10 模型...")
-    print("v3.2.01: 最佳 10 特徵 + Optuna 優化 (預期 MAE: 2.85)")
-    print("預計需要 5-10 分鐘（取決於數據量和硬件）\n")
+    print("🚀 開始訓練 direct multi-horizon XGBoost 模型...")
+    print("v5.0.00: DB-only walk-forward + baseline gate + 分 horizon 直接預測")
+    print("預計需要 3-8 分鐘（取決於數據量和硬件）\n")
     
     scripts = [
-        'train_opt10_model.py'  # v3.2.01: 使用 opt10 模型 (最佳 10 特徵 + Optuna 優化)
+        'train_horizon_models.py'
     ]
     
     results = {}
@@ -235,8 +235,22 @@ def main():
     print("📁 模型文件檢查:")
     print(f"{'='*60}")
     model_files = {
-        'XGBoost opt10': ['xgboost_opt10_model.json', 'xgboost_opt10_features.json', 'xgboost_opt10_metrics.json'],  # v3.2.01: opt10 模型文件
-        'XGBoost (legacy)': ['xgboost_model.json', 'xgboost_features.json', 'xgboost_metrics.json']  # 舊模型，僅作備份
+        'Direct Horizon Bundle': [
+            'horizon_model_bundle.json',
+            'horizon_short_model.json',
+            'horizon_h7_model.json',
+            'horizon_h14_model.json',
+            'horizon_h30_model.json',
+            'horizon_walk_forward_report.json',
+            'xgboost_metrics.json'
+        ],
+        'Legacy Backups': [
+            'xgboost_opt10_model.json',
+            'xgboost_opt10_features.json',
+            'xgboost_opt10_metrics.json',
+            'xgboost_model.json',
+            'xgboost_features.json'
+        ]
     }
     
     all_files_exist = True
@@ -286,7 +300,7 @@ def main():
         print(f"✅ 所有模型文件完整")
         print(f"⏱️  總訓練時間: {total_elapsed_minutes:.2f} 分鐘")
         print(f"📦 總文件大小: {format_file_size(total_file_size)}")
-        print(f"\n💡 現在可以使用 ensemble_predict.py 進行預測（XGBoost opt10 模型，MAE: 2.85）")
+        print(f"\n💡 現在可以使用 predict.py / rolling_predict.py 進行 DB-only direct multi-horizon 預測（baseline gate 已通過）")
         print(f"{'='*60}\n")
         sys.exit(0)
     else:

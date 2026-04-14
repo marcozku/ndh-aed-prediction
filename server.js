@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '4.0.27'; // v4.0.27: 移除人工噪音並加入自適應基線校準
+const MODEL_VERSION = '5.0.00'; // v5.0.00: DB-only direct multi-horizon + baseline gate
 
 // ============================================
 // HKT 時間工具函數
@@ -6949,8 +6949,8 @@ function scheduleDailyStatsReset() {
 }
 
 // ============================================================
-// 伺服器端自動預測（每 30 分鐘執行一次，僅使用 XGBoost）
-// v3.0.65: 新增 source 參數區分自動預測 vs 手動刷新
+// 伺服器端自動預測（每 30 分鐘執行一次，DB-only direct multi-horizon）
+// v5.0.00: 生產數值只使用 actual_data 訓練出的 direct horizon 模型
 // ============================================================
 async function generateServerSidePredictions(source = 'auto') {
     const startTime = Date.now();
@@ -6960,9 +6960,177 @@ async function generateServerSidePredictions(source = 'auto') {
     }
     
     const hk = getHKTime();
-    console.log(`\n🔮 [${hk.dateStr} ${String(hk.hour).padStart(2, '0')}:${String(hk.minute).padStart(2, '0')} HKT] 開始伺服器端自動預測（XGBoost）...`);
+    console.log(`\n🔮 [${hk.dateStr} ${String(hk.hour).padStart(2, '0')}:${String(hk.minute).padStart(2, '0')} HKT] 開始伺服器端自動預測（DB-only direct multi-horizon）...`);
     
     try {
+        {
+            const { EnsemblePredictor } = require('./modules/ensemble-predictor');
+            const ensemblePredictor = new EnsemblePredictor();
+            if (!ensemblePredictor.isModelAvailable()) {
+                console.log('⚠️ Direct multi-horizon 模型未訓練，跳過自動預測。請先運行 python/train_all_models.py');
+                return;
+            }
+
+            const forecastWindow = 31;
+            const rollingResult = await ensemblePredictor.rollingForecast(hk.dateStr, forecastWindow);
+            const rawPredictions = Array.isArray(rollingResult?.predictions) ? rollingResult.predictions : [];
+
+            const normalizeInterval = (interval, fallbackPrediction, fallbackWidth) => ({
+                low: Math.round(Number(interval?.low ?? interval?.lower ?? (fallbackPrediction - fallbackWidth))),
+                high: Math.round(Number(interval?.high ?? interval?.upper ?? (fallbackPrediction + fallbackWidth)))
+            });
+
+            const predictions = rawPredictions
+                .slice(0, forecastWindow)
+                .map((pred, index) => {
+                    const predicted = Math.round(Number(pred.prediction ?? pred.predicted ?? pred.predicted_count));
+                    if (!pred.date || !Number.isFinite(predicted)) {
+                        return null;
+                    }
+
+                    const horizonDays = Number.isFinite(Number(pred.horizon_days))
+                        ? Number(pred.horizon_days)
+                        : Number.isFinite(Number(pred.day_ahead))
+                            ? Number(pred.day_ahead)
+                            : index;
+
+                    const operationalHorizon = Number.isFinite(Number(pred.operational_horizon))
+                        ? Number(pred.operational_horizon)
+                        : Math.max(1, horizonDays);
+
+                    const ci80 = normalizeInterval(pred.ci80, predicted, 18);
+                    const ci95 = normalizeInterval(pred.ci95, predicted, 28);
+
+                    return {
+                        date: pred.date,
+                        horizonDays,
+                        operationalHorizon,
+                        bucket: pred.bucket || null,
+                        bucketLabel: pred.bucket_label || null,
+                        predicted,
+                        ci80,
+                        ci95,
+                        baselineReference: pred.baseline_reference || null,
+                        diagnostics: {
+                            predictionMethod: 'direct_multi_horizon',
+                            source: rollingResult?.source || 'database_only',
+                            modelType: rollingResult?.model_type || 'horizon_direct_xgboost',
+                            bundleVersion: rollingResult?.version || MODEL_VERSION
+                        },
+                        dualTrack: {
+                            xgboostBase: predicted,
+                            production: predicted,
+                            experimental: predicted,
+                            aiFactor: 1.0,
+                            weatherFactor: 1.0,
+                            disabled: true
+                        }
+                    };
+                })
+                .filter(Boolean);
+
+            if (predictions.length === 0) {
+                console.log('⚠️ 沒有成功的 DB-only 預測結果，跳過保存');
+                return;
+            }
+
+            console.log(`✅ Direct multi-horizon 預測完成: ${predictions.length} 天`);
+            console.log(`📊 今日預測: ${predictions[0].predicted} 人 (${predictions[0].date})`);
+            if (predictions[1]) {
+                console.log(`📊 明日預測: ${predictions[1].predicted} 人 (${predictions[1].date})`);
+            }
+
+            let savedCount = 0;
+            for (const pred of predictions) {
+                try {
+                    const result = await db.insertDailyPrediction(
+                        pred.date,
+                        pred.predicted,
+                        pred.ci80,
+                        pred.ci95,
+                        MODEL_VERSION,
+                        null,
+                        null,
+                        source,
+                        pred.dualTrack
+                    );
+                    if (savedCount === 0) {
+                        console.log(`📝 首筆預測已保存: ${pred.date} = ${pred.predicted}人, id=${result?.id || 'unknown'}`);
+                    }
+
+                    const sharedSnapshot = {
+                        date: pred.date,
+                        horizon_days: pred.horizonDays,
+                        operational_horizon: pred.operationalHorizon,
+                        model_family: 'horizon_direct_xgboost',
+                        bucket: pred.bucket,
+                        bucket_label: pred.bucketLabel,
+                        baseline_reference: pred.baselineReference,
+                        ci80: pred.ci80,
+                        ci95: pred.ci95,
+                        serving_mode: 'direct_db_only',
+                        dual_track_disabled: true
+                    };
+
+                    await db.upsertModelPredictionRun({
+                        predictionDate: hk.dateStr,
+                        targetDate: pred.date,
+                        horizonDays: pred.horizonDays,
+                        modelName: 'xgboost',
+                        modelVersion: MODEL_VERSION,
+                        predictedCount: pred.predicted,
+                        inputSnapshot: sharedSnapshot,
+                        metadata: {
+                            source,
+                            arm: 'direct_horizon',
+                            label: MODEL_COMPARISON_LABELS.xgboost,
+                            model_family: 'horizon_direct_xgboost',
+                            serving_mode: 'direct_db_only',
+                            dual_track_disabled: true
+                        }
+                    });
+
+                    await db.upsertModelPredictionRun({
+                        predictionDate: hk.dateStr,
+                        targetDate: pred.date,
+                        horizonDays: pred.horizonDays,
+                        modelName: 'xgboost_ai',
+                        modelVersion: MODEL_VERSION,
+                        predictedCount: pred.predicted,
+                        inputSnapshot: sharedSnapshot,
+                        metadata: {
+                            source,
+                            arm: 'compat_mirror',
+                            label: MODEL_COMPARISON_LABELS.xgboost_ai,
+                            model_family: 'horizon_direct_xgboost',
+                            serving_mode: 'direct_db_only',
+                            dual_track_disabled: true,
+                            heuristic_removed: true
+                        }
+                    });
+
+                    savedCount++;
+                } catch (err) {
+                    console.error(`❌ 保存 ${pred.date} 預測失敗:`, err.message, err.stack);
+                }
+            }
+
+            const duration = Date.now() - startTime;
+            console.log(`✅ 伺服器端自動預測完成：已保存 ${savedCount}/${predictions.length} 筆預測（v${MODEL_VERSION}，耗時 ${(duration/1000).toFixed(1)}s）`);
+            if (predictions.length > 0) {
+                console.log(`   今日預測: ${predictions[0].predicted} 人 (${predictions[0].date})`);
+                console.log(`   明日預測: ${predictions[1]?.predicted || 'N/A'} 人 (${predictions[1]?.date || 'N/A'})`);
+            }
+
+            autoPredictStats.todayCount++;
+            autoPredictStats.lastRunTime = new Date().toISOString();
+            autoPredictStats.lastRunSuccess = true;
+            autoPredictStats.lastRunDuration = duration;
+            autoPredictStats.totalSuccessCount++;
+            await saveAutoPredictStatsToDB();
+            return;
+        }
+
         // 檢查 XGBoost 模型是否可用
         let ensemblePredictor = null;
         let pythonCommand = 'python';
@@ -7699,6 +7867,18 @@ async function syncModelMetricsFromFile() {
         if (fileDate > dbDate) {
             console.log('📊 檢測到文件 metrics 較新，同步到數據庫...');
             await db.saveModelMetrics('xgboost', {
+                mae: fileMetrics.mae,
+                rmse: fileMetrics.rmse,
+                mape: fileMetrics.mape,
+                r2: fileMetrics.r2,
+                training_date: fileMetrics.training_date,
+                data_count: fileMetrics.data_count,
+                train_count: fileMetrics.train_count,
+                test_count: fileMetrics.test_count,
+                feature_count: fileMetrics.feature_count,
+                ai_factors_count: fileMetrics.ai_factors_count || 0
+            });
+            await db.saveModelMetrics('horizon_direct', {
                 mae: fileMetrics.mae,
                 rmse: fileMetrics.rmse,
                 mape: fileMetrics.mape,

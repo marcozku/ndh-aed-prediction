@@ -6,7 +6,7 @@ class EnsemblePredictor {
     constructor() {
         this.pythonScript = path.join(__dirname, '../python/predict.py');
         this.modelsDir = path.join(__dirname, '../python/models');
-        this.preferredModel = 'opt10';
+        this.preferredModel = 'horizon_direct';
         this.pythonCommand = null;
     }
 
@@ -176,6 +176,18 @@ class EnsemblePredictor {
         return Number.isNaN(parsed.getTime()) ? new Date(0) : parsed;
     }
 
+    isHorizonModelAvailable() {
+        const requiredFiles = [
+            'horizon_model_bundle.json',
+            'horizon_short_model.json',
+            'horizon_h7_model.json',
+            'horizon_h14_model.json',
+            'horizon_h30_model.json'
+        ];
+
+        return requiredFiles.every((file) => fs.existsSync(path.join(this.modelsDir, file)));
+    }
+
     isOpt10ModelAvailable() {
         const requiredFiles = [
             'xgboost_opt10_model.json',
@@ -195,6 +207,11 @@ class EnsemblePredictor {
     }
 
     isModelAvailable() {
+        if (this.isHorizonModelAvailable()) {
+            this.preferredModel = 'horizon_direct';
+            return true;
+        }
+
         if (this.isOpt10ModelAvailable()) {
             this.preferredModel = 'opt10';
             return true;
@@ -261,6 +278,17 @@ class EnsemblePredictor {
 
     getModelStatus() {
         const modelFiles = {
+            horizon_direct: {
+                model: 'horizon_model_bundle.json',
+                metrics: 'xgboost_metrics.json',
+                required: [
+                    'horizon_short_model.json',
+                    'horizon_h7_model.json',
+                    'horizon_h14_model.json',
+                    'horizon_h30_model.json',
+                    'horizon_walk_forward_report.json'
+                ]
+            },
             opt10: {
                 model: 'xgboost_opt10_model.json',
                 features: 'xgboost_opt10_features.json',
@@ -290,9 +318,21 @@ class EnsemblePredictor {
             };
 
             for (const [fileKey, fileName] of Object.entries(files)) {
+                if (Array.isArray(fileName)) {
+                    continue;
+                }
                 const filePath = path.join(this.modelsDir, fileName);
                 modelDetails[modelKey].requiredFiles[fileKey] = {
                     name: fileName,
+                    exists: fs.existsSync(filePath),
+                    path: filePath
+                };
+            }
+
+            for (const requiredName of files.required || []) {
+                const filePath = path.join(this.modelsDir, requiredName);
+                modelDetails[modelKey].requiredFiles[requiredName] = {
+                    name: requiredName,
                     exists: fs.existsSync(filePath),
                     path: filePath
                 };
@@ -310,7 +350,9 @@ class EnsemblePredictor {
             }
         }
 
-        const currentModel = this.isOpt10ModelAvailable() ? 'opt10' : 'xgboost';
+        const currentModel = this.isHorizonModelAvailable()
+            ? 'horizon_direct'
+            : (this.isOpt10ModelAvailable() ? 'opt10' : 'xgboost');
 
         return {
             available: this.isModelAvailable(),
@@ -318,6 +360,7 @@ class EnsemblePredictor {
             models,
             modelsDir: this.modelsDir,
             details: modelDetails,
+            horizon_direct: modelDetails.horizon_direct || null,
             opt10: modelDetails.opt10 || null,
             xgboost: modelDetails.xgboost || null,
             current: modelDetails[currentModel] || null,
@@ -336,7 +379,18 @@ class EnsemblePredictor {
 
         try {
             const db = require('../database');
-            const dbMetrics = await db.getModelMetrics(currentModel);
+            const metricCandidates = currentModel === 'horizon_direct'
+                ? ['horizon_direct', 'xgboost']
+                : [currentModel];
+            let dbMetrics = null;
+
+            for (const modelName of metricCandidates) {
+                const candidate = await db.getModelMetrics(modelName);
+                if (candidate && candidate.mae !== null) {
+                    dbMetrics = candidate;
+                    break;
+                }
+            }
 
             if (dbMetrics && dbMetrics.mae !== null) {
                 const dbDate = this.parseMetricDate(dbMetrics.training_date);
@@ -392,10 +446,9 @@ class EnsemblePredictor {
         }
 
         return new Promise((resolve, reject) => {
-            const ensemblePredictScript = path.join(__dirname, '../python/ensemble_predict.py');
+            const rollingPredictScript = path.join(__dirname, '../python/rolling_predict.py');
             const args = [
-                ensemblePredictScript,
-                '--rolling',
+                rollingPredictScript,
                 startDate,
                 String(days)
             ];
@@ -404,7 +457,7 @@ class EnsemblePredictor {
                 args.push(historicalDataPath);
             }
 
-            console.log(`開始 ${days} 天滾動預測 (起始 ${startDate})`);
+            console.log(`開始 ${days} 天 direct multi-horizon 預測 (起始 ${startDate})`);
 
             const python = spawn(pythonCommand, args, {
                 cwd: path.join(__dirname, '..'),

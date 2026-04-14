@@ -730,7 +730,7 @@
         <footer class="app-footer" role="contentinfo">
             <p id="data-source-info" style="cursor: pointer; text-decoration: underline;" data-lang-key="footer-source">數據來源：載入中...</p>
             <p id="last-update-info" class="last-update-info"></p>
-            <p id="model-version-info">預測模型版本 4.0.07 · UI 優化版 · 香港時間 HKT</p>
+            <p id="model-version-info">預測模型版本 5.0.00 · DB-only Direct Multi-Horizon · 香港時間 HKT</p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2026 Marco Ma. All Rights Reserved.</p>
             <div class="footer-links">
                 <a href="/api/docs" class="footer-link" data-lang-key="footer-api">API 文檔</a>
@@ -816,12 +816,12 @@
             </div>
             <div class="methodology-content">
                 <div class="methodology-section">
-                    <h4>🎯 核心算法 (v3.0.97)</h4>
+                    <h4>🎯 核心算法 (v5.0.00)</h4>
                     <div class="formula-box">
-                        <code>預測 = XGBoost(Lag特徵) + Bayesian融合 + 後處理</code>
+                        <code>預測 = DirectHorizon_XGBoost(DB-only, walk-forward, baseline-gated)</code>
                     </div>
                     <p style="font-size: 0.8em; color: var(--text-secondary); margin-top: 8px;">
-                        ✅ 3年滑動窗口 (排除COVID) · 🔬 MASE評分 · 📊 Evidence-Based
+                        ✅ actual_data only · 4 個 horizon bucket · baseline gate · 無 recursive / noise / heuristic blending
                     </p>
                 </div>
                 <div class="methodology-section">
@@ -858,10 +858,10 @@
                 <div class="methodology-section">
                     <h4>🔥 關鍵特徵</h4>
                     <ul class="feature-list">
-                        <li><strong>EWMA7/14</strong>：指數加權移動平均（佔 90% 重要性）</li>
-                        <li><strong>星期效應</strong>：週一最高、週末最低</li>
-                        <li><strong>AI 因子</strong>：實時事件分析調整</li>
-                        <li><strong>天氣因子</strong>：溫度、濕度、降雨</li>
+                        <li><strong>Lag / Rolling Stats</strong>：lag2 / lag7 / lag14 / lag28 / lag56 + roll / ewma / std</li>
+                        <li><strong>Calendar Signals</strong>：target weekday、month、day-of-month、weekend、cyclical encoding</li>
+                        <li><strong>Holiday Distance</strong>：是否假期、距離上個/下個香港公眾假期</li>
+                        <li><strong>Serving Split</strong>：H0/H1、H2-H7、H8-H14、H15-H30 分 bucket 直接預測</li>
                     </ul>
                 </div>
                 <div class="methodology-section">
@@ -934,7 +934,7 @@
     <!-- Pragmatic Bayesian 預測融合模組 (v3.0.38) -->
     <script src="modules/pragmatic-bayesian.js?v=2"></script>
     <!-- 原始預測邏輯（保留所有功能） -->
-    <script src="prediction.js?v=20"></script>
+    <script src="prediction.js?v=21"></script>
     <!-- 模組化包裝層 -->
     <script type="module" src="app.js?v=8"></script>
     

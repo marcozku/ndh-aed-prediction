@@ -1,24 +1,66 @@
 {
-  "mae": 18.193805694580078,
-  "rmse": 23.641412433184644,
-  "mape": 7.172722931020556,
-  "r2": 0.1972687840461731,
-  "adj_r2": 0.17781649286797052,
-  "mean_error": -7.745796984574926,
-  "std_error": 22.336495402269414,
-  "training_date": "2026-01-06 12:32:29 HKT",
-  "data_count": 3171,
-  "train_count": 2536,
-  "test_count": 635,
-  "feature_count": 15,
+  "version": "5.0.00",
+  "model_name": "horizon_direct_xgboost",
+  "mae": 17.9395,
+  "rmse": 23.6128,
+  "mape": 7.8076,
+  "r2": null,
+  "training_date": "2026-04-14T22:52:05",
+  "data_count": 4152,
+  "train_count": 39180,
+  "test_count": 5400,
+  "feature_count": 39,
   "ai_factors_count": 0,
-  "cv_mae_mean": 18.916070302327473,
-  "cv_mae_std": 0.28816951433002774,
-  "cv_rmse_mean": 24.19566008423499,
-  "cv_rmse_std": 0.3218100899457023,
-  "cv_mape_mean": 7.438791049218398,
-  "cv_mape_std": 0.3601323554687671,
-  "time_series_validation": true,
-  "version": "2.9.52",
-  "optuna_optimized": false
+  "baseline_gate_passed": true,
+  "best_baseline_mae": 19.865,
+  "buckets": {
+    "short": {
+      "mae": 17.4747,
+      "best_baseline": {
+        "name": "weekday_mean",
+        "mae": 19.7565
+      },
+      "gate": {
+        "passed": true,
+        "margin_required": 0.01,
+        "improvement_vs_best_baseline": 2.2818
+      }
+    },
+    "h7": {
+      "mae": 18.2508,
+      "best_baseline": {
+        "name": "weekday_mean",
+        "mae": 19.8415
+      },
+      "gate": {
+        "passed": true,
+        "margin_required": 0.01,
+        "improvement_vs_best_baseline": 1.5907
+      }
+    },
+    "h14": {
+      "mae": 17.9392,
+      "best_baseline": {
+        "name": "weekday_mean",
+        "mae": 19.6952
+      },
+      "gate": {
+        "passed": true,
+        "margin_required": 0.01,
+        "improvement_vs_best_baseline": 1.756
+      }
+    },
+    "h30": {
+      "mae": 17.9005,
+      "best_baseline": {
+        "name": "weekday_mean",
+        "mae": 19.9601
+      },
+      "gate": {
+        "passed": true,
+        "margin_required": 0.01,
+        "improvement_vs_best_baseline": 2.0596
+      }
+    }
+  }
 }

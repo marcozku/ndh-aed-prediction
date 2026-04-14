@@ -1,0 +1,983 @@
+{
+  "version": "5.0.00",
+  "model_family": "horizon_direct_xgboost",
+  "generated_at": "2026-04-14T22:52:05",
+  "source": {
+    "table": "actual_data",
+    "rows": 4152,
+    "min_date": "2014-12-01",
+    "max_date": "2026-04-13"
+  },
+  "recent_rows": 1600,
+  "validation_cutoffs": 180,
+  "gate_margin": 0.01,
+  "buckets": {
+    "short": {
+      "label": "H0/H1",
+      "train_rows": 2612,
+      "validation_rows": 360,
+      "validation_cutoff_start": "2025-09-16",
+      "metrics": {
+        "mae": 17.4747,
+        "rmse": 23.6033,
+        "mape": 7.5931,
+        "bias": 3.8678
+      },
+      "baseline_metrics": {
+        "last": {
+          "mae": 28.85,
+          "rmse": 37.9046,
+          "mape": 11.9511,
+          "bias": 0.5278
+        },
+        "weekday_mean": {
+          "mae": 19.7565,
+          "rmse": 26.2177,
+          "mape": 8.6293,
+          "bias": 7.113
+        },
+        "seasonal": {
+          "mae": 21.3083,
+          "rmse": 29.5639,
+          "mape": 9.0851,
+          "bias": 1.4194
+        }
+      },
+      "best_baseline": {
+        "name": "weekday_mean",
+        "mae": 19.7565
+      },
+      "gate": {
+        "passed": true,
+        "margin_required": 0.01,
+        "improvement_vs_best_baseline": 2.2818
+      },
+      "residual_ci": {
+        "ci80": {
+          "low_offset": -27.8312,
+          "high_offset": 23.5019
+        },
+        "ci95": {
+          "low_offset": -59.5695,
+          "high_offset": 39.716
+        }
+      },
+      "per_horizon": {
+        "1": {
+          "metrics": {
+            "mae": 17.2799,
+            "rmse": 23.3644,
+            "mape": 7.4907,
+            "bias": 3.7254
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -26.9548,
+              "high_offset": 23.5551
+            },
+            "ci95": {
+              "low_offset": -57.1068,
+              "high_offset": 39.4427
+            }
+          }
+        },
+        "2": {
+          "metrics": {
+            "mae": 17.6694,
+            "rmse": 23.8397,
+            "mape": 7.6955,
+            "bias": 4.0101
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -27.8312,
+              "high_offset": 21.4115
+            },
+            "ci95": {
+              "low_offset": -58.3466,
+              "high_offset": 39.4483
+            }
+          }
+        }
+      },
+      "top_features": [
+        {
+          "feature": "dow_recent_mean",
+          "importance": 0.171286
+        },
+        {
+          "feature": "roll28",
+          "importance": 0.147734
+        },
+        {
+          "feature": "ewma28",
+          "importance": 0.089885
+        },
+        {
+          "feature": "target_is_weekend",
+          "importance": 0.082424
+        },
+        {
+          "feature": "roll7",
+          "importance": 0.069704
+        },
+        {
+          "feature": "roll56",
+          "importance": 0.048745
+        },
+        {
+          "feature": "ewma14",
+          "importance": 0.040251
+        },
+        {
+          "feature": "ewma7",
+          "importance": 0.038354
+        },
+        {
+          "feature": "target_dow",
+          "importance": 0.027025
+        },
+        {
+          "feature": "roll14",
+          "importance": 0.025322
+        },
+        {
+          "feature": "seasonal_baseline",
+          "importance": 0.020014
+        },
+        {
+          "feature": "last_value",
+          "importance": 0.019669
+        }
+      ],
+      "best_iteration": 76,
+      "model_file": "horizon_short_model.json"
+    },
+    "h7": {
+      "label": "H2-H7",
+      "train_rows": 6530,
+      "validation_rows": 900,
+      "validation_cutoff_start": "2025-09-16",
+      "metrics": {
+        "mae": 18.2508,
+        "rmse": 24.3028,
+        "mape": 7.9678,
+        "bias": 5.4754
+      },
+      "baseline_metrics": {
+        "last": {
+          "mae": 27.4467,
+          "rmse": 36.2835,
+          "mape": 11.6086,
+          "bias": 0.8222
+        },
+        "weekday_mean": {
+          "mae": 19.8415,
+          "rmse": 26.2737,
+          "mape": 8.6686,
+          "bias": 6.9894
+        },
+        "seasonal": {
+          "mae": 21.5544,
+          "rmse": 29.7626,
+          "mape": 9.1835,
+          "bias": 1.0344
+        }
+      },
+      "best_baseline": {
+        "name": "weekday_mean",
+        "mae": 19.8415
+      },
+      "gate": {
+        "passed": true,
+        "margin_required": 0.01,
+        "improvement_vs_best_baseline": 1.5907
+      },
+      "residual_ci": {
+        "ci80": {
+          "low_offset": -31.0216,
+          "high_offset": 23.6761
+        },
+        "ci95": {
+          "low_offset": -63.4658,
+          "high_offset": 40.5137
+        }
+      },
+      "per_horizon": {
+        "3": {
+          "metrics": {
+            "mae": 18.0267,
+            "rmse": 24.0305,
+            "mape": 7.8787,
+            "bias": 5.2786
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -29.8966,
+              "high_offset": 23.9803
+            },
+            "ci95": {
+              "low_offset": -58.3718,
+              "high_offset": 39.7488
+            }
+          }
+        },
+        "4": {
+          "metrics": {
+            "mae": 18.2154,
+            "rmse": 24.1325,
+            "mape": 7.9438,
+            "bias": 5.2014
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -30.3173,
+              "high_offset": 22.9706
+            },
+            "ci95": {
+              "low_offset": -57.0161,
+              "high_offset": 39.7822
+            }
+          }
+        },
+        "5": {
+          "metrics": {
+            "mae": 18.1912,
+            "rmse": 24.3314,
+            "mape": 7.9374,
+            "bias": 5.518
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -31.1991,
+              "high_offset": 22.422
+            },
+            "ci95": {
+              "low_offset": -58.8767,
+              "high_offset": 41.2441
+            }
+          }
+        },
+        "6": {
+          "metrics": {
+            "mae": 18.438,
+            "rmse": 24.4939,
+            "mape": 8.0512,
+            "bias": 5.6228
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -31.5794,
+              "high_offset": 23.2769
+            },
+            "ci95": {
+              "low_offset": -58.9038,
+              "high_offset": 40.1305
+            }
+          }
+        },
+        "7": {
+          "metrics": {
+            "mae": 18.383,
+            "rmse": 24.5216,
+            "mape": 8.0275,
+            "bias": 5.7562
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -32.5027,
+              "high_offset": 24.0208
+            },
+            "ci95": {
+              "low_offset": -59.6389,
+              "high_offset": 39.6604
+            }
+          }
+        }
+      },
+      "top_features": [
+        {
+          "feature": "ewma14",
+          "importance": 0.280559
+        },
+        {
+          "feature": "dow_recent_mean",
+          "importance": 0.132614
+        },
+        {
+          "feature": "roll28",
+          "importance": 0.087344
+        },
+        {
+          "feature": "roll56",
+          "importance": 0.080359
+        },
+        {
+          "feature": "target_is_weekend",
+          "importance": 0.073316
+        },
+        {
+          "feature": "ewma7",
+          "importance": 0.032943
+        },
+        {
+          "feature": "seasonal_baseline",
+          "importance": 0.022004
+        },
+        {
+          "feature": "target_dow",
+          "importance": 0.021413
+        },
+        {
+          "feature": "trend_14_56",
+          "importance": 0.017939
+        },
+        {
+          "feature": "roll7",
+          "importance": 0.017641
+        },
+        {
+          "feature": "days_since_prev_holiday",
+          "importance": 0.016867
+        },
+        {
+          "feature": "roll14",
+          "importance": 0.016262
+        }
+      ],
+      "best_iteration": 89,
+      "model_file": "horizon_h7_model.json"
+    },
+    "h14": {
+      "label": "H8-H14",
+      "train_rows": 9142,
+      "validation_rows": 1260,
+      "validation_cutoff_start": "2025-09-16",
+      "metrics": {
+        "mae": 17.9392,
+        "rmse": 23.3581,
+        "mape": 7.7141,
+        "bias": 5.5778
+      },
+      "baseline_metrics": {
+        "last": {
+          "mae": 28.3587,
+          "rmse": 36.298,
+          "mape": 11.8656,
+          "bias": 0.8286
+        },
+        "weekday_mean": {
+          "mae": 19.6952,
+          "rmse": 25.5154,
+          "mape": 8.4933,
+          "bias": 7.1152
+        },
+        "seasonal": {
+          "mae": 24.9222,
+          "rmse": 32.7665,
+          "mape": 10.3635,
+          "bias": 1.2349
+        }
+      },
+      "best_baseline": {
+        "name": "weekday_mean",
+        "mae": 19.6952
+      },
+      "gate": {
+        "passed": true,
+        "margin_required": 0.01,
+        "improvement_vs_best_baseline": 1.756
+      },
+      "residual_ci": {
+        "ci80": {
+          "low_offset": -32.862,
+          "high_offset": 23.2395
+        },
+        "ci95": {
+          "low_offset": -54.3769,
+          "high_offset": 37.894
+        }
+      },
+      "per_horizon": {
+        "8": {
+          "metrics": {
+            "mae": 18.4095,
+            "rmse": 24.2508,
+            "mape": 8.0065,
+            "bias": 5.7058
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -33.4583,
+              "high_offset": 22.2278
+            },
+            "ci95": {
+              "low_offset": -55.2962,
+              "high_offset": 38.7607
+            }
+          }
+        },
+        "9": {
+          "metrics": {
+            "mae": 17.9739,
+            "rmse": 23.3954,
+            "mape": 7.6954,
+            "bias": 5.1893
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -31.8495,
+              "high_offset": 23.5566
+            },
+            "ci95": {
+              "low_offset": -52.7445,
+              "high_offset": 38.756
+            }
+          }
+        },
+        "10": {
+          "metrics": {
+            "mae": 17.7995,
+            "rmse": 23.1077,
+            "mape": 7.6572,
+            "bias": 5.6155
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -33.4073,
+              "high_offset": 23.2878
+            },
+            "ci95": {
+              "low_offset": -50.8204,
+              "high_offset": 36.3819
+            }
+          }
+        },
+        "11": {
+          "metrics": {
+            "mae": 17.974,
+            "rmse": 23.2844,
+            "mape": 7.7174,
+            "bias": 5.6352
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -32.0533,
+              "high_offset": 23.1544
+            },
+            "ci95": {
+              "low_offset": -51.6408,
+              "high_offset": 37.0088
+            }
+          }
+        },
+        "12": {
+          "metrics": {
+            "mae": 17.7327,
+            "rmse": 23.0431,
+            "mape": 7.6107,
+            "bias": 5.5818
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -30.9019,
+              "high_offset": 21.39
+            },
+            "ci95": {
+              "low_offset": -52.1032,
+              "high_offset": 36.8046
+            }
+          }
+        },
+        "13": {
+          "metrics": {
+            "mae": 17.815,
+            "rmse": 23.1214,
+            "mape": 7.6366,
+            "bias": 5.5221
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -32.0875,
+              "high_offset": 22.9652
+            },
+            "ci95": {
+              "low_offset": -51.5038,
+              "high_offset": 37.894
+            }
+          }
+        },
+        "14": {
+          "metrics": {
+            "mae": 17.8694,
+            "rmse": 23.2822,
+            "mape": 7.6745,
+            "bias": 5.7951
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -33.3578,
+              "high_offset": 23.2254
+            },
+            "ci95": {
+              "low_offset": -51.0433,
+              "high_offset": 37.1395
+            }
+          }
+        }
+      },
+      "top_features": [
+        {
+          "feature": "roll14",
+          "importance": 0.353149
+        },
+        {
+          "feature": "roll28",
+          "importance": 0.171192
+        },
+        {
+          "feature": "dow_recent_mean",
+          "importance": 0.08085
+        },
+        {
+          "feature": "ewma28",
+          "importance": 0.03086
+        },
+        {
+          "feature": "target_dow",
+          "importance": 0.028097
+        },
+        {
+          "feature": "roll56",
+          "importance": 0.027303
+        },
+        {
+          "feature": "target_is_weekend",
+          "importance": 0.026075
+        },
+        {
+          "feature": "target_dow_cos",
+          "importance": 0.024721
+        },
+        {
+          "feature": "trend_14_56",
+          "importance": 0.018126
+        },
+        {
+          "feature": "days_since_prev_holiday",
+          "importance": 0.016498
+        },
+        {
+          "feature": "target_month",
+          "importance": 0.015774
+        },
+        {
+          "feature": "seasonal_baseline",
+          "importance": 0.015408
+        }
+      ],
+      "best_iteration": 131,
+      "model_file": "horizon_h14_model.json"
+    },
+    "h30": {
+      "label": "H15-H30",
+      "train_rows": 20896,
+      "validation_rows": 2880,
+      "validation_cutoff_start": "2025-09-16",
+      "metrics": {
+        "mae": 17.9005,
+        "rmse": 23.5097,
+        "mape": 7.8253,
+        "bias": 7.4855
+      },
+      "baseline_metrics": {
+        "last": {
+          "mae": 28.5958,
+          "rmse": 36.5854,
+          "mape": 12.0507,
+          "bias": 2.9375
+        },
+        "weekday_mean": {
+          "mae": 19.9601,
+          "rmse": 25.7706,
+          "mape": 8.7339,
+          "bias": 9.2615
+        },
+        "seasonal": {
+          "mae": 23.849,
+          "rmse": 30.9014,
+          "mape": 10.0791,
+          "bias": 3.4045
+        }
+      },
+      "best_baseline": {
+        "name": "weekday_mean",
+        "mae": 19.9601
+      },
+      "gate": {
+        "passed": true,
+        "margin_required": 0.01,
+        "improvement_vs_best_baseline": 2.0596
+      },
+      "residual_ci": {
+        "ci80": {
+          "low_offset": -36.3947,
+          "high_offset": 20.4921
+        },
+        "ci95": {
+          "low_offset": -56.4089,
+          "high_offset": 33.8631
+        }
+      },
+      "per_horizon": {
+        "15": {
+          "metrics": {
+            "mae": 17.4546,
+            "rmse": 23.0953,
+            "mape": 7.5532,
+            "bias": 5.62
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -33.7799,
+              "high_offset": 22.0312
+            },
+            "ci95": {
+              "low_offset": -50.2134,
+              "high_offset": 37.2963
+            }
+          }
+        },
+        "16": {
+          "metrics": {
+            "mae": 17.2527,
+            "rmse": 22.7056,
+            "mape": 7.483,
+            "bias": 5.5772
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -33.4024,
+              "high_offset": 23.5994
+            },
+            "ci95": {
+              "low_offset": -50.1233,
+              "high_offset": 32.3275
+            }
+          }
+        },
+        "17": {
+          "metrics": {
+            "mae": 17.5245,
+            "rmse": 22.8987,
+            "mape": 7.6002,
+            "bias": 5.8132
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -33.3212,
+              "high_offset": 23.7057
+            },
+            "ci95": {
+              "low_offset": -51.3938,
+              "high_offset": 33.6992
+            }
+          }
+        },
+        "18": {
+          "metrics": {
+            "mae": 17.6247,
+            "rmse": 22.9236,
+            "mape": 7.6511,
+            "bias": 6.0766
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -35.2657,
+              "high_offset": 20.8013
+            },
+            "ci95": {
+              "low_offset": -52.0142,
+              "high_offset": 33.3524
+            }
+          }
+        },
+        "19": {
+          "metrics": {
+            "mae": 17.7141,
+            "rmse": 23.2576,
+            "mape": 7.7163,
+            "bias": 6.5601
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -35.8522,
+              "high_offset": 20.6786
+            },
+            "ci95": {
+              "low_offset": -52.2147,
+              "high_offset": 33.5471
+            }
+          }
+        },
+        "20": {
+          "metrics": {
+            "mae": 17.6789,
+            "rmse": 23.2916,
+            "mape": 7.7129,
+            "bias": 6.7659
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -37.1527,
+              "high_offset": 19.5661
+            },
+            "ci95": {
+              "low_offset": -51.8696,
+              "high_offset": 32.2558
+            }
+          }
+        },
+        "21": {
+          "metrics": {
+            "mae": 17.6203,
+            "rmse": 23.2828,
+            "mape": 7.6891,
+            "bias": 6.9943
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -37.3568,
+              "high_offset": 19.2436
+            },
+            "ci95": {
+              "low_offset": -52.5757,
+              "high_offset": 31.0025
+            }
+          }
+        },
+        "22": {
+          "metrics": {
+            "mae": 18.2218,
+            "rmse": 23.8792,
+            "mape": 7.9552,
+            "bias": 7.3852
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -36.8759,
+              "high_offset": 19.6982
+            },
+            "ci95": {
+              "low_offset": -54.6413,
+              "high_offset": 32.3059
+            }
+          }
+        },
+        "23": {
+          "metrics": {
+            "mae": 17.9998,
+            "rmse": 23.731,
+            "mape": 7.8774,
+            "bias": 7.5648
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -36.8359,
+              "high_offset": 19.3644
+            },
+            "ci95": {
+              "low_offset": -54.4549,
+              "high_offset": 33.3964
+            }
+          }
+        },
+        "24": {
+          "metrics": {
+            "mae": 18.2409,
+            "rmse": 23.9815,
+            "mape": 7.9896,
+            "bias": 7.9374
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -36.028,
+              "high_offset": 20.612
+            },
+            "ci95": {
+              "low_offset": -54.1826,
+              "high_offset": 33.3382
+            }
+          }
+        },
+        "25": {
+          "metrics": {
+            "mae": 18.1569,
+            "rmse": 23.8115,
+            "mape": 7.9681,
+            "bias": 8.3378
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -35.9875,
+              "high_offset": 18.6249
+            },
+            "ci95": {
+              "low_offset": -54.2758,
+              "high_offset": 31.5995
+            }
+          }
+        },
+        "26": {
+          "metrics": {
+            "mae": 18.1771,
+            "rmse": 23.9409,
+            "mape": 7.9759,
+            "bias": 8.5145
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -36.2291,
+              "high_offset": 20.5296
+            },
+            "ci95": {
+              "low_offset": -54.9519,
+              "high_offset": 32.498
+            }
+          }
+        },
+        "27": {
+          "metrics": {
+            "mae": 18.0454,
+            "rmse": 23.8269,
+            "mape": 7.927,
+            "bias": 8.6635
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -36.3947,
+              "high_offset": 20.6164
+            },
+            "ci95": {
+              "low_offset": -55.1816,
+              "high_offset": 32.0855
+            }
+          }
+        },
+        "28": {
+          "metrics": {
+            "mae": 17.9488,
+            "rmse": 23.6746,
+            "mape": 7.9057,
+            "bias": 9.0574
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -36.0837,
+              "high_offset": 19.7236
+            },
+            "ci95": {
+              "low_offset": -55.5421,
+              "high_offset": 31.9708
+            }
+          }
+        },
+        "29": {
+          "metrics": {
+            "mae": 18.3181,
+            "rmse": 23.8991,
+            "mape": 8.0669,
+            "bias": 9.2994
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -37.6199,
+              "high_offset": 18.1994
+            },
+            "ci95": {
+              "low_offset": -55.5089,
+              "high_offset": 33.8454
+            }
+          }
+        },
+        "30": {
+          "metrics": {
+            "mae": 18.429,
+            "rmse": 23.8962,
+            "mape": 8.1325,
+            "bias": 9.6003
+          },
+          "residual_ci": {
+            "ci80": {
+              "low_offset": -36.9382,
+              "high_offset": 18.6227
+            },
+            "ci95": {
+              "low_offset": -55.0504,
+              "high_offset": 34.4623
+            }
+          }
+        }
+      },
+      "top_features": [
+        {
+          "feature": "roll14",
+          "importance": 0.348404
+        },
+        {
+          "feature": "ewma14",
+          "importance": 0.177168
+        },
+        {
+          "feature": "roll28",
+          "importance": 0.099116
+        },
+        {
+          "feature": "target_is_weekend",
+          "importance": 0.073855
+        },
+        {
+          "feature": "dow_recent_mean",
+          "importance": 0.037261
+        },
+        {
+          "feature": "ewma28",
+          "importance": 0.026853
+        },
+        {
+          "feature": "target_dow",
+          "importance": 0.024011
+        },
+        {
+          "feature": "dow_gap",
+          "importance": 0.015953
+        },
+        {
+          "feature": "recent_mean_84",
+          "importance": 0.014796
+        },
+        {
+          "feature": "trend_14_56",
+          "importance": 0.014576
+        },
+        {
+          "feature": "target_dow_cos",
+          "importance": 0.01283
+        },
+        {
+          "feature": "origin_month",
+          "importance": 0.01254
+        }
+      ],
+      "best_iteration": 102,
+      "model_file": "horizon_h30_model.json"
+    }
+  },
+  "summary": {
+    "mae": 17.9395,
+    "rmse": 23.6128,
+    "mape": 7.8076,
+    "best_baseline_mae": 19.865,
+    "gate_passed": true
+  }
+}

@@ -800,6 +800,54 @@
       ],
       "research": "長期預測能力測試與驗證",
       "improvement": "預測範圍擴展 4.3 倍 (7 天 → 30 天)"
+    },
+    {
+      "version": "5.0.00",
+      "date": "2026-04-14",
+      "description": "🧠 DB-only direct multi-horizon serving + baseline gate",
+      "changes": [
+        "移除 random noise 與多餘 heuristic blending",
+        "訓練與 serving 改為 direct multi-horizon，不再 recursive rollout",
+        "以 actual_data 建立 DB-only walk-forward 評估",
+        "加入 baseline gate，模型必須優於 last / weekday_mean / seasonal baseline",
+        "分 bucket 訓練與部署：H0/H1、H2-H7、H8-H14、H15-H30",
+        "production 數值不再被 Bayesian / AI / 天氣 / holiday heuristic 二次改寫"
+      ],
+      "metrics": {
+        "mae": 17.9395,
+        "mape": 7.8076,
+        "rmse": 23.6128,
+        "r2": null,
+        "feature_count": 39,
+        "best_baseline_mae": 19.865,
+        "gate_passed": true,
+        "data_points": 4152,
+        "note": "指標來自 xgboost_metrics.json 與 DB-only walk-forward；API 會以目前模型檔覆蓋最新數值"
+      },
+      "bucket_metrics": {
+        "short": {
+          "label": "H0/H1",
+          "mae": 17.4747
+        },
+        "h7": {
+          "label": "H2-H7",
+          "mae": 18.2508
+        },
+        "h14": {
+          "label": "H8-H14",
+          "mae": 17.9392
+        },
+        "h30": {
+          "label": "H15-H30",
+          "mae": 17.9005
+        }
+      },
+      "rationale": [
+        "單一模型跨所有 horizon 會把短期與長期誤差結構混在一起",
+        "直接輸出各 horizon bucket 可避免 recursive rollout 累積誤差",
+        "只接受 DB-only walk-forward 可避免被前端/後端 heuristic 製造虛高精度"
+      ],
+      "improvement": "相對最佳 baseline MAE 19.865 再改善約 9.7%"
     }
   ],
   "references": [
@@ -909,5 +957,5 @@
       "relevance": "維度災難、偏差-方差權衡理論"
     }
   ],
-  "last_updated": "2026-01-30T22:50:00+08:00"
+  "last_updated": "2026-04-14T23:10:00+08:00"
 }

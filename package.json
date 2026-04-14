@@ -1,7 +1,7 @@
 {
   "name": "ndh-aed-prediction",
-  "version": "4.0.25",
-  "description": "NDH AED 病人數量預測系統 v4.0.25 - 修復 Railway 預測持平（server.js 混合策略）",
+  "version": "5.0.00",
+  "description": "NDH AED 病人數量預測系統 v5.0.00 - DB-only direct multi-horizon serving with baseline gate",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

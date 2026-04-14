@@ -148,94 +148,53 @@ async function getXGBoostPrediction(targetDate) {
 // predictorInstance: 預測器實例，用於獲取元數據
 // v3.0.38: 使用 Pragmatic Bayesian 融合 XGBoost、AI、天氣因素
 async function getXGBoostPredictionWithMetadata(dateStr, predictorInstance, weatherData = null, aiFactor = null) {
-    // 獲取統計方法的元數據（因子分解等）
-    const statPred = predictorInstance.predict(dateStr, weatherData, aiFactor);
+    void weatherData;
+    void aiFactor;
+
+    // 只保留日曆/節日等展示性元數據，不再在前端重算 production 數值
+    const statPred = predictorInstance.predict(dateStr, null, null);
     
     // 嘗試獲取 XGBoost 預測
     const xgbResult = await getXGBoostPrediction(dateStr);
     
     if (xgbResult && xgbResult.prediction) {
-        // 計算 AI 因子（與伺服器邏輯一致）
-        let aiFactorMultiplier = 1.0;
-        if (aiFactor && aiFactor.impactFactor) {
-            aiFactorMultiplier = Math.max(0.7, Math.min(1.3, aiFactor.impactFactor));
-        }
-        
-        // 計算天氣因子（與伺服器邏輯一致）
-        let weatherFactorMultiplier = 1.0;
-        if (weatherData) {
-            if (weatherData.temperature < 15) {
-                weatherFactorMultiplier *= 1.0 + (15 - weatherData.temperature) * 0.01;
-            }
-            if (weatherData.humidity > 80) {
-                weatherFactorMultiplier *= 1.0 + (weatherData.humidity - 80) * 0.002;
-            }
-            if (weatherData.rainfall > 5) {
-                weatherFactorMultiplier *= 1.0 + Math.min(weatherData.rainfall, 50) * 0.003;
-            }
-            weatherFactorMultiplier = Math.max(0.85, Math.min(1.15, weatherFactorMultiplier));
-        }
-        
-        // v3.0.38: Pragmatic Bayesian 融合
-        let adjustedPrediction;
-        let bayesianResult = null;
-        let predictionMethod = 'pragmatic_bayesian';
-        
-        if (typeof PragmaticBayesianPredictor !== 'undefined') {
-            // 瀏覽器環境：使用 Pragmatic Bayesian
-            try {
-                const bayesian = new PragmaticBayesianPredictor({ baseStd: 15 });
-                bayesianResult = bayesian.predict(xgbResult.prediction, aiFactorMultiplier, weatherFactorMultiplier);
-                adjustedPrediction = bayesianResult.prediction;
-                
-                console.log(`🎯 Bayesian 融合: base=${xgbResult.prediction}, ` + 
-                    `AI=${aiFactorMultiplier.toFixed(2)} (w=${bayesianResult.weights.ai.toFixed(2)}), ` +
-                    `Weather=${weatherFactorMultiplier.toFixed(2)} (w=${bayesianResult.weights.weather.toFixed(2)}) → ${adjustedPrediction}`);
-            } catch (e) {
-                console.warn('⚠️ Bayesian 融合失敗，使用乘法:', e.message);
-                adjustedPrediction = Math.round(xgbResult.prediction * aiFactorMultiplier * weatherFactorMultiplier);
-                predictionMethod = 'multiplicative';
-            }
-        } else {
-            // PragmaticBayesianPredictor 不可用，使用乘法
-            adjustedPrediction = Math.round(xgbResult.prediction * aiFactorMultiplier * weatherFactorMultiplier);
-            predictionMethod = 'multiplicative';
-            console.log(`📊 乘法融合: base=${xgbResult.prediction}, AI=${aiFactorMultiplier.toFixed(2)}, Weather=${weatherFactorMultiplier.toFixed(2)} → ${adjustedPrediction}`);
-        }
-        
-        // 調整置信區間
-        let adjustedCi80, adjustedCi95;
-        if (bayesianResult) {
-            adjustedCi80 = { lower: bayesianResult.ci80.low, upper: bayesianResult.ci80.high };
-            adjustedCi95 = { lower: bayesianResult.ci95.low, upper: bayesianResult.ci95.high };
-        } else {
-            adjustedCi80 = xgbResult.ci80 ? {
-                lower: Math.round(xgbResult.ci80.lower * aiFactorMultiplier * weatherFactorMultiplier),
-                upper: Math.round(xgbResult.ci80.upper * aiFactorMultiplier * weatherFactorMultiplier)
-            } : statPred.ci80;
-            adjustedCi95 = xgbResult.ci95 ? {
-                lower: Math.round(xgbResult.ci95.lower * aiFactorMultiplier * weatherFactorMultiplier),
-                upper: Math.round(xgbResult.ci95.upper * aiFactorMultiplier * weatherFactorMultiplier)
-            } : statPred.ci95;
-        }
-        
-        // v3.0.76: 應用極端條件後處理調整
-        const finalPrediction = applyExtremeConditionAdjustments(adjustedPrediction, weatherData, currentAQHI);
+        const metadata = xgbResult.metadata || {};
+        const directPrediction = Math.round(Number(xgbResult.prediction));
+        const directCi80 = xgbResult.ci80 ? {
+            lower: Math.round(xgbResult.ci80.lower ?? xgbResult.ci80.low),
+            upper: Math.round(xgbResult.ci80.upper ?? xgbResult.ci80.high)
+        } : statPred.ci80;
+        const directCi95 = xgbResult.ci95 ? {
+            lower: Math.round(xgbResult.ci95.lower ?? xgbResult.ci95.low),
+            upper: Math.round(xgbResult.ci95.upper ?? xgbResult.ci95.high)
+        } : statPred.ci95;
         
         return {
             ...statPred,
-            predicted: finalPrediction,
+            prediction: directPrediction,
+            predicted: directPrediction,
             basePrediction: xgbResult.prediction,
-            adjustedPrediction: adjustedPrediction, // Bayesian 融合後的值
-            aiFactorMultiplier,
-            weatherFactorMultiplier,
-            ci80: adjustedCi80,
-            ci95: adjustedCi95,
-            method: 'xgboost',
-            predictionMethod,
-            bayesianWeights: bayesianResult?.weights || null,
+            adjustedPrediction: directPrediction,
+            aiFactorMultiplier: 1.0,
+            weatherFactorMultiplier: 1.0,
+            aiFactor: 1.0,
+            weatherFactor: 1.0,
+            ci80: directCi80,
+            ci95: directCi95,
+            method: 'horizon_direct',
+            predictionMethod: 'direct_multi_horizon',
+            bayesianWeights: null,
             xgboostUsed: true,
-            extremeAdjusted: finalPrediction !== adjustedPrediction
+            extremeAdjusted: false,
+            formulaMode: 'direct_db_only',
+            metadata,
+            bucket: metadata.bucket || null,
+            bucketLabel: metadata.bucket_label || null,
+            operationalHorizon: metadata.operational_horizon || null,
+            baselineReference: metadata.baseline_reference || null,
+            bestBaseline: metadata.best_baseline || null,
+            baselineGate: metadata.baseline_gate || null,
+            latestActualDate: metadata.latest_actual_date || null
         };
     }
     
@@ -9675,6 +9634,11 @@ function renderTrainingStatus(data) {
 function updateBayesianBreakdown(todayPred) {
     const container = document.getElementById('bayesian-breakdown');
     if (!container) return;
+
+    if (todayPred?.formulaMode === 'direct_db_only' || todayPred?.predictionMethod === 'direct_multi_horizon') {
+        container.style.display = 'none';
+        return;
+    }
     
     // 檢查是否使用了 Pragmatic Bayesian
     if (!todayPred.bayesianWeights && typeof PragmaticBayesianPredictor !== 'undefined') {
@@ -9878,6 +9842,80 @@ function initAlgorithmContent() {
         console.warn('⚠️ 找不到 algorithm-content 元素');
         return;
     }
+
+    algorithmContentEl.innerHTML = `
+        <div class="algo-card" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(59, 130, 246, 0.08)); padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid rgba(34, 197, 94, 0.25);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
+                <h4 style="margin: 0; color: #22c55e; font-size: 1rem;">🧠 NDH AED 預測算法 v5.0.00</h4>
+                <span style="font-size: 0.72rem; color: var(--text-tertiary); background: var(--bg-tertiary); padding: 4px 8px; border-radius: 6px;">DB-only Direct Multi-Horizon</span>
+            </div>
+            <div style="background: var(--bg-primary); padding: 12px; border-radius: 10px; margin-bottom: 12px;">
+                <div style="font-family: 'Fira Code', monospace; font-size: 0.8rem; color: #22c55e; text-align: center;">
+                    prediction(target_date) = model_bucket(horizon, calendar, lags, rolling_stats, holiday_distance)
+                </div>
+                <div style="font-size: 0.72rem; color: var(--text-secondary); text-align: center; margin-top: 8px;">
+                    來源只用 <code>actual_data</code> + 香港公眾假期日曆，不再使用 recursive rollout、random noise、Bayesian/AI/weather heuristic 調值。
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px;">
+                    <div style="font-size: 0.76rem; color: #22c55e; font-weight: 600; margin-bottom: 6px;">H0/H1</div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.6;">Bucket <code>short</code> 專責 horizon 1-2</div>
+                </div>
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px;">
+                    <div style="font-size: 0.76rem; color: #3b82f6; font-weight: 600; margin-bottom: 6px;">H2-H7</div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.6;">Bucket <code>h7</code> 專責 horizon 3-7</div>
+                </div>
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px;">
+                    <div style="font-size: 0.76rem; color: #f59e0b; font-weight: 600; margin-bottom: 6px;">H8-H14</div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.6;">Bucket <code>h14</code> 專責 horizon 8-14</div>
+                </div>
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px;">
+                    <div style="font-size: 0.76rem; color: #8b5cf6; font-weight: 600; margin-bottom: 6px;">H15-H30</div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.6;">Bucket <code>h30</code> 專責 horizon 15-30</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="algo-card" style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+            <h4 style="margin: 0 0 12px 0; color: var(--text-primary); font-size: 0.95rem;">📏 驗證與 Gate</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #22c55e; font-weight: 600; margin-bottom: 6px;">Walk-forward only</div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.6;">每個 bucket 都用 DB-only walk-forward 切片驗證，不再接受只在訓練集或人工回放上好看的數字。</div>
+                </div>
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #3b82f6; font-weight: 600; margin-bottom: 6px;">Baseline gate</div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.6;">模型必須贏過 <code>last</code> / <code>weekday_mean</code> / <code>seasonal</code> baseline，否則不應部署。</div>
+                </div>
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #f59e0b; font-weight: 600; margin-bottom: 6px;">最新訓練摘要</div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.6;">目前模型檔：MAE 17.94 · MAPE 7.81% · Best baseline MAE 19.87 · Gate = Pass</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="algo-card" style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+            <h4 style="margin: 0 0 12px 0; color: var(--text-primary); font-size: 0.95rem;">🧹 已移除的舊邏輯</h4>
+            <div style="font-size: 0.73rem; color: var(--text-secondary); line-height: 1.8;">
+                <div>• 不再使用 recursive multi-step rollout</div>
+                <div>• 不再對預測值注入 random noise</div>
+                <div>• 不再在 server/browser 端加 Bayesian、AI、天氣、holiday heuristic 去改 production 數值</div>
+                <div>• 不再用長 horizon 混同一個模型硬做回歸均值</div>
+            </div>
+        </div>
+
+        <div class="algo-card" style="background: var(--bg-secondary); padding: 16px; border-radius: 12px;">
+            <h4 style="margin: 0 0 12px 0; color: var(--text-primary); font-size: 0.95rem;">📌 Serving 原則</h4>
+            <div style="font-size: 0.73rem; color: var(--text-secondary); line-height: 1.8;">
+                <div>• 今日與未來 30 天都直接走同一套 horizon bundle，輸出 bucket、operational horizon、baseline reference 與信賴區間。</div>
+                <div>• 前端只顯示 metadata，不再二次改寫 production prediction。</div>
+                <div>• App 內時間線會同步目前模型檔的最新 metrics。</div>
+            </div>
+        </div>
+    `;
+    console.log('✅ 算法說明內容已初始化 (v5.0.00 DB-only direct multi-horizon)');
+    return;
     
     algorithmContentEl.innerHTML = `
         <!-- ==================== 第一部分：核心公式概覽 ==================== -->
