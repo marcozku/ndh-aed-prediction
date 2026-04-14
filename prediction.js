@@ -6108,10 +6108,108 @@ async function saveDailyPrediction(prediction, weatherData, aiFactor) {
     }
 }
 
+function isDirectServingPrediction(prediction) {
+    return prediction?.formulaMode === 'direct_db_only' || prediction?.predictionMethod === 'direct_multi_horizon';
+}
+
+function formatBaselineName(name) {
+    const baselineNames = {
+        last: 'Last Value',
+        weekday_mean: 'Weekday Mean',
+        seasonal: 'Seasonal'
+    };
+    return baselineNames[name] || name || '--';
+}
+
+function updatePrimaryPredictionChrome({
+    labelText,
+    badgeText,
+    badgeTitle,
+    metaLabel,
+    metaValue,
+    metaLevel = 'medium',
+    metaTitle = '',
+    showMeta = true
+}) {
+    const labelEl = document.getElementById('primary-prediction-label');
+    if (labelEl) {
+        labelEl.textContent = labelText;
+    }
+
+    const badgeEl = document.getElementById('smoothing-method');
+    if (badgeEl) {
+        badgeEl.textContent = badgeText || '--';
+        badgeEl.title = badgeTitle || badgeText || '';
+        badgeEl.style.display = badgeText ? 'inline-flex' : 'none';
+    }
+
+    const metaIndicator = document.getElementById('stability-indicator');
+    const metaLabelEl = document.getElementById('primary-metadata-label');
+    const metaValueEl = document.getElementById('stability-value');
+
+    if (metaIndicator) {
+        metaIndicator.style.display = showMeta ? 'flex' : 'none';
+    }
+
+    if (metaLabelEl) {
+        metaLabelEl.textContent = metaLabel;
+    }
+
+    if (metaValueEl) {
+        metaValueEl.textContent = metaValue;
+        metaValueEl.className = `stability-value ${metaLevel}`;
+        metaValueEl.title = metaTitle || '';
+    }
+}
+
+function displayDirectServingAsMain(todayPred) {
+    const gate = todayPred?.baselineGate || {};
+    const gatePassed = gate?.passed !== false;
+    const bucketLabel = todayPred?.bucketLabel || (todayPred?.operationalHorizon ? `H${todayPred.operationalHorizon}` : 'Direct');
+    const bestBaselineName = todayPred?.bestBaseline?.name || todayPred?.baselineReference?.name || null;
+    const bestBaselineLabel = formatBaselineName(bestBaselineName);
+    const improvement = Number.isFinite(Number(gate?.improvement_vs_best_baseline))
+        ? Number(gate.improvement_vs_best_baseline).toFixed(2)
+        : null;
+
+    updatePrimaryPredictionChrome({
+        labelText: 'Production 預測',
+        badgeText: `DB-only · ${bucketLabel}`,
+        badgeTitle: [
+            'DB-only direct multi-horizon serving',
+            todayPred?.operationalHorizon ? `Operational horizon H${todayPred.operationalHorizon}` : null,
+            todayPred?.latestActualDate ? `Latest actual ${todayPred.latestActualDate}` : null
+        ].filter(Boolean).join(' | '),
+        metaLabel: 'Baseline Gate',
+        metaValue: gatePassed ? '通過' : '未通過',
+        metaLevel: gatePassed ? 'high' : 'low',
+        metaTitle: [
+            bestBaselineLabel !== '--' ? `最佳 baseline: ${bestBaselineLabel}` : null,
+            improvement ? `改善 MAE: ${improvement}` : null
+        ].filter(Boolean).join(' | '),
+        showMeta: true
+    });
+
+    document.getElementById('today-predicted').textContent = todayPred.predicted;
+    document.getElementById('today-ci80').textContent = `${todayPred.ci80.lower} - ${todayPred.ci80.upper} 人`;
+    document.getElementById('today-ci95').textContent = `${todayPred.ci95.lower} - ${todayPred.ci95.upper} 人`;
+
+    const diffEl = document.getElementById('realtime-diff');
+    if (diffEl) {
+        diffEl.textContent = '= 主預測';
+        diffEl.className = 'realtime-diff neutral';
+    }
+}
+
 // ============================================
-// 獲取並顯示平滑預測
+// 顯示主預測數字
 // ============================================
 async function fetchAndDisplaySmoothedPrediction(targetDate, realtimePred) {
+    if (isDirectServingPrediction(realtimePred)) {
+        displayDirectServingAsMain(realtimePred);
+        return;
+    }
+
     try {
         const response = await fetch(`/api/smoothing-methods?date=${targetDate}`);
         
@@ -6130,20 +6228,23 @@ async function fetchAndDisplaySmoothedPrediction(targetDate, realtimePred) {
             return;
         }
         
-        // 有平滑數據，顯示綜合預測
+        // 舊模式：有平滑數據，顯示綜合預測
         const smoothedValue = data.recommended.value;
         const smoothingMethod = formatSmoothingMethod(data.recommended.method);
         const stability = data.stability;
         
+        updatePrimaryPredictionChrome({
+            labelText: '綜合預測',
+            badgeText: smoothingMethod,
+            badgeTitle: data.recommended.reason || '平滑方法',
+            metaLabel: '穩定性',
+            metaValue: '--',
+            metaLevel: 'medium',
+            showMeta: true
+        });
+
         // 更新主預測數字（平滑後的值）
         document.getElementById('today-predicted').textContent = smoothedValue;
-        
-        // 更新平滑方法標籤
-        const methodEl = document.getElementById('smoothing-method');
-        if (methodEl) {
-            methodEl.textContent = smoothingMethod;
-            methodEl.title = data.recommended.reason || '平滑方法';
-        }
         
         // 更新穩定性指標
         const stabilityEl = document.getElementById('stability-value');
@@ -6200,17 +6301,15 @@ async function fetchAndDisplaySmoothedPrediction(targetDate, realtimePred) {
 
 // 顯示實時預測為主要數字（當沒有平滑數據時）
 function displayRealtimeAsMain(realtimePred) {
-    // 隱藏穩定性指標
-    const stabilityIndicator = document.getElementById('stability-indicator');
-    if (stabilityIndicator) {
-        stabilityIndicator.style.display = 'none';
-    }
-    
-    // 更新方法標籤
-    const methodEl = document.getElementById('smoothing-method');
-    if (methodEl) {
-        methodEl.textContent = '實時計算';
-    }
+    updatePrimaryPredictionChrome({
+        labelText: '即時預測',
+        badgeText: 'Fallback',
+        badgeTitle: '未取得綜合/production 結果，退回即時計算',
+        metaLabel: 'Serving',
+        metaValue: '--',
+        metaLevel: 'medium',
+        showMeta: false
+    });
     
     // 差異顯示為一致
     const diffEl = document.getElementById('realtime-diff');
@@ -9911,7 +10010,7 @@ function initAlgorithmContent() {
                 <div>• 今日與未來 30 天都直接走同一套 horizon bundle，輸出 bucket、operational horizon、baseline reference 與信賴區間。</div>
                 <div>• 前端只顯示 metadata，不再二次改寫 production prediction。</div>
                 <div>• App 內時間線會同步目前模型檔的最新 metrics。</div>
-                <div>• v5.0.01 UI polish 只整理 graphs / cards / timeline 呈現，不改 production formula 與評估數值。</div>
+                <div>• v5.0.02 UI alignment：主卡直接顯示 Production / bucket / gate，不再把 direct serving 包成平滑結果。</div>
             </div>
         </div>
     `;
@@ -10360,8 +10459,6 @@ function initAlgorithmContent() {
 // 載入算法說明 - 調用原有的詳細版本
 function loadAlgorithmDescription() {
     initAlgorithmContent();
-    // 載入當前平滑方法
-    loadCurrentSmoothingMethod();
 }
 
 // v3.0.98: 載入當前使用的平滑方法

@@ -145,12 +145,12 @@
                         <span class="date-badge" id="today-date">--</span>
                     </div>
                     
-                    <!-- 平滑後最終預測 -->
+                    <!-- Production 預測（DB-only direct serving） -->
                     <div class="smoothed-prediction-section">
                         <div class="prediction-type-label">
                             <span class="label-icon">📊</span>
-                            <span class="label-text" data-lang-key="combined-prediction">綜合預測</span>
-                            <span class="smoothing-method" id="smoothing-method" title="平滑方法">--</span>
+                            <span class="label-text" id="primary-prediction-label">Production 預測</span>
+                            <span class="smoothing-method" id="smoothing-method" title="Serving 資訊">DB-only</span>
                         </div>
                         <div class="prediction-value-container">
                             <div class="prediction-value">
@@ -159,7 +159,7 @@
                             </div>
                         </div>
                         <div class="stability-indicator" id="stability-indicator">
-                            <span class="stability-label" data-lang-key="stability">穩定性</span>
+                            <span class="stability-label" id="primary-metadata-label">Baseline Gate</span>
                             <span class="stability-value" id="stability-value">--</span>
                         </div>
                     </div>
@@ -614,7 +614,7 @@
                 </div>
             </div>
 
-            <!-- v2.9.88: 預測波動圖表 - 顯示當天所有預測點 vs 最終平滑值 -->
+            <!-- v2.9.88: 預測波動圖表 - 顯示當天所有預測點 vs 最終 production 值 -->
             <div class="chart-card full-width prediction-volatility-section">
                 <div class="volatility-header">
                     <h3 class="chart-title">📊 預測波動分析</h3>
@@ -627,7 +627,7 @@
                         </button>
                     </div>
                 </div>
-                <p class="chart-description">顯示選定日期內所有預測點的變化，與最終平滑預測值和實際值的對比</p>
+                <p class="chart-description">顯示選定日期內所有預測點的變化，與最終 production 預測值和實際值的對比</p>
                 <div class="chart-container" id="volatility-chart-container" style="height: 300px;">
                     <div class="chart-loading" id="volatility-chart-loading">
                         <div class="loading-spinner"></div>
@@ -730,7 +730,7 @@
         <footer class="app-footer" role="contentinfo">
             <p id="data-source-info" style="cursor: pointer; text-decoration: underline;" data-lang-key="footer-source">數據來源：載入中...</p>
             <p id="last-update-info" class="last-update-info"></p>
-            <p id="model-version-info">應用版本 5.0.01 · 模型 5.0.00 · DB-only Direct Multi-Horizon · 香港時間 HKT</p>
+            <p id="model-version-info">應用版本 5.0.02 · 模型 5.0.00 · DB-only Direct Multi-Horizon · 香港時間 HKT</p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2026 Marco Ma. All Rights Reserved.</p>
             <div class="footer-links">
                 <a href="/api/docs" class="footer-link" data-lang-key="footer-api">API 文檔</a>
@@ -824,7 +824,7 @@
                         ✅ actual_data only · 4 個 horizon bucket · baseline gate · 無 recursive / noise / heuristic blending
                     </p>
                     <p style="font-size: 0.78em; color: var(--text-tertiary); margin-top: 6px;">
-                        ℹ️ 介面呈現已同步 direct serving：Bayesian breakdown 預設隱藏，卡片與時間線只保留公式相關資訊與 metadata。
+                        ℹ️ 介面呈現已同步 direct serving：主卡顯示 Production / bucket / gate，Bayesian breakdown 預設隱藏，卡片與時間線只保留公式相關資訊與 metadata。
                     </p>
                 </div>
                 <div class="methodology-section">
