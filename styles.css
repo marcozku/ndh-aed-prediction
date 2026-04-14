@@ -8965,3 +8965,161 @@ html, body {
     }
 }
 
+/* ============================================
+   Final Confidence / Mobile Alignment v5.0.03
+   ============================================ */
+.header-title {
+    white-space: normal;
+    text-wrap: balance;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+
+.header-subtitle {
+    white-space: normal;
+    text-wrap: balance;
+}
+
+.confidence-dashboard,
+.confidence-grid {
+    overflow: visible !important;
+}
+
+.confidence-item {
+    overflow: visible;
+    z-index: 0;
+}
+
+.confidence-item:hover,
+.confidence-item:focus-within {
+    transform: scale(1.03);
+    z-index: 30;
+}
+
+.confidence-tooltip {
+    width: min(320px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
+}
+
+.confidence-item:hover .confidence-tooltip,
+.confidence-item:focus-within .confidence-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(-8px);
+}
+
+@media (max-width: 430px) {
+    .sticky-nav {
+        height: calc(52px + env(safe-area-inset-top, 0px)) !important;
+    }
+
+    body {
+        padding-top: calc(52px + env(safe-area-inset-top, 0px)) !important;
+    }
+
+    .nav-container {
+        height: 52px;
+        padding-left: max(8px, env(safe-area-inset-left, 0px));
+        padding-right: max(8px, env(safe-area-inset-right, 0px));
+        gap: 6px;
+    }
+
+    .nav-brand {
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .nav-logo {
+        height: 28px;
+    }
+
+    .nav-actions {
+        gap: 6px;
+    }
+
+    .nav-action-btn {
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+        min-height: 34px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+    }
+
+    .header-title {
+        font-size: clamp(1.15rem, 5.6vw, 1.45rem) !important;
+        line-height: 1.15;
+        letter-spacing: -0.02em;
+    }
+
+    .header-subtitle {
+        font-size: clamp(0.68rem, 2.8vw, 0.82rem) !important;
+        line-height: 1.4;
+    }
+
+    .comparison-view-controls {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .comparison-view-btn,
+    .comparison-table-toggle {
+        width: 100%;
+        min-width: 0;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .comparison-table-summary,
+    .comparison-scroll-hint {
+        white-space: normal;
+        line-height: 1.45;
+    }
+
+    .confidence-tooltip {
+        bottom: calc(100% + 10px);
+        width: min(280px, calc(100vw - 24px));
+        max-width: calc(100vw - 24px);
+    }
+}
+
+@media (max-width: 380px) {
+    .app-container {
+        padding-left: max(8px, env(safe-area-inset-left, 0px)) !important;
+        padding-right: max(8px, env(safe-area-inset-right, 0px)) !important;
+    }
+
+    .nav-container {
+        padding-left: max(8px, env(safe-area-inset-left, 0px));
+        padding-right: max(8px, env(safe-area-inset-right, 0px));
+    }
+
+    .nav-actions {
+        gap: 4px;
+    }
+
+    #history-time-range {
+        display: grid !important;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 6px !important;
+        overflow: visible !important;
+        padding: 6px !important;
+        margin-bottom: var(--space-md);
+        scroll-snap-type: none;
+        scroll-padding-inline: 0;
+    }
+
+    #history-time-range .time-range-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-width: 0;
+        padding: 7px 0 !important;
+        font-size: 0.7rem !important;
+        line-height: 1.1;
+        text-align: center;
+    }
+}
+

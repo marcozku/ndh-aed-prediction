@@ -457,6 +457,9 @@ function buildModelDiagnosticsRecommendations(status, pythonInfo) {
 
 function normalizeMetricsPayload(metrics = {}) {
     const toNumber = (value) => {
+        if (value === null || value === undefined || value === '') {
+            return null;
+        }
         const num = Number(value);
         return Number.isFinite(num) ? num : null;
     };
@@ -477,6 +480,44 @@ function normalizeMetricsPayload(metrics = {}) {
         ai_factors_count: toNumber(metrics.ai_factors_count),
         baseline_mae: toNumber(metrics.baseline_mae),
         improvement_vs_baseline: metrics.improvement_vs_baseline || null
+    };
+}
+
+function calculateFitScore(mae, mape, naiveMAE = 18.3) {
+    const normalizedMAE = Number(mae);
+    const normalizedMAPE = Number(mape);
+
+    if (!Number.isFinite(normalizedMAE) || !Number.isFinite(normalizedMAPE) || !Number.isFinite(naiveMAE) || naiveMAE <= 0) {
+        return null;
+    }
+
+    const mase = normalizedMAE / naiveMAE;
+
+    let skillScore;
+    if (mase <= 0.5) {
+        skillScore = 100;
+    } else if (mase < 1.0) {
+        skillScore = Math.round(100 - (mase - 0.5) * 100);
+    } else if (mase < 1.5) {
+        skillScore = Math.round(50 - (mase - 1.0) * 100);
+    } else {
+        skillScore = 0;
+    }
+
+    let mapeScore;
+    if (normalizedMAPE < 5) mapeScore = 100;
+    else if (normalizedMAPE < 8) mapeScore = 85;
+    else if (normalizedMAPE < 10) mapeScore = 70;
+    else if (normalizedMAPE < 12) mapeScore = 60;
+    else if (normalizedMAPE < 15) mapeScore = 50;
+    else mapeScore = Math.max(0, 40 - (normalizedMAPE - 15) * 2);
+
+    return {
+        modelFit: Math.round(skillScore * 0.6 + mapeScore * 0.4),
+        mase: parseFloat(mase.toFixed(3)),
+        skillScore,
+        mapeScore,
+        naiveMAE
     };
 }
 
@@ -5568,7 +5609,7 @@ const apiHandlers = {
                     details.trainingMAE = metrics.mae;
                     details.trainingMAPE = metrics.mape;
                     details.trainingRMSE = metrics.rmse;
-                    details.trainingR2 = metrics.r2 || null;
+                    details.trainingR2 = metrics.r2 !== undefined && metrics.r2 !== null ? Number(metrics.r2) : null;
                     details.trainingDate = metrics.training_date;
                     details.featureCount = metrics.feature_count;
                 } else {
@@ -5590,7 +5631,7 @@ const apiHandlers = {
                     details.trainingMAE = trainingMetrics.mae;
                     details.trainingMAPE = trainingMetrics.mape;
                     details.trainingRMSE = trainingMetrics.rmse;
-                    details.trainingR2 = trainingMetrics.r2 || null;
+                    details.trainingR2 = trainingMetrics.r2 !== undefined && trainingMetrics.r2 !== null ? Number(trainingMetrics.r2) : null;
                     details.trainingDate = trainingMetrics.training_date;
                     details.featureCount = trainingMetrics.feature_count;
                     details.modelExists = true;
@@ -5623,6 +5664,7 @@ const apiHandlers = {
                         liveMAE = parseFloat(errorResult.rows[0].mae);
                         liveMAPE = parseFloat(errorResult.rows[0].mape);
                         liveRMSE = parseFloat(errorResult.rows[0].rmse) || null;
+                        details.liveSource = 'daily_predictions';
                         details.liveMAE = liveMAE;
                         details.liveMAPE = liveMAPE;
                         details.liveRMSE = liveRMSE;
@@ -5667,93 +5709,24 @@ const apiHandlers = {
                 }
             }
 
-            if (liveMAE !== null && liveMAPE !== null) {
-                // 使用實時誤差計算
-                const NAIVE_MAE = 18.3;
-                const mase = liveMAE / NAIVE_MAE;
+            const fitMetrics = (liveMAE !== null && liveMAPE !== null)
+                ? calculateFitScore(liveMAE, liveMAPE)
+                : (trainingMetrics ? calculateFitScore(trainingMetrics.mae, trainingMetrics.mape) : null);
 
-                let skillScore;
-                if (mase <= 0.5) {
-                    skillScore = 100;
-                } else if (mase < 1.0) {
-                    skillScore = Math.round(100 - (mase - 0.5) * 100);
-                } else if (mase < 1.5) {
-                    skillScore = Math.round(50 - (mase - 1.0) * 100);
+            if (fitMetrics) {
+                modelFit = fitMetrics.modelFit;
+                details.mase = fitMetrics.mase;
+                details.skillScore = fitMetrics.skillScore;
+                details.naiveMAE = fitMetrics.naiveMAE;
+
+                if (liveMAE !== null && liveMAPE !== null) {
+                    details.fitSource = 'live';
                 } else {
-                    skillScore = 0;
+                    details.fitSource = 'training';
                 }
-
-                let mapeScore;
-                if (liveMAPE < 5) mapeScore = 100;
-                else if (liveMAPE < 8) mapeScore = 85;
-                else if (liveMAPE < 10) mapeScore = 70;
-                else if (liveMAPE < 12) mapeScore = 60;
-                else if (liveMAPE < 15) mapeScore = 50;
-                else mapeScore = Math.max(0, 40 - (liveMAPE - 15) * 2);
-
-                modelFit = Math.round(skillScore * 0.6 + mapeScore * 0.4);
-                details.fitSource = 'live';
-                details.mase = parseFloat(mase.toFixed(3));
-                details.skillScore = skillScore;
-                details.naiveMAE = NAIVE_MAE;
-            } else if (trainingMetrics) {
-                // 回退到訓練指標
-                const NAIVE_MAE = 18.3;
-                const mase = trainingMetrics.mae / NAIVE_MAE;
-
-                let skillScore;
-                if (mase <= 0.5) {
-                    skillScore = 100;
-                } else if (mase < 1.0) {
-                    skillScore = Math.round(100 - (mase - 0.5) * 100);
-                } else if (mase < 1.5) {
-                    skillScore = Math.round(50 - (mase - 1.0) * 100);
-                } else {
-                    skillScore = 0;
-                }
-
-                let mapeScore;
-                if (trainingMetrics.mape < 5) mapeScore = 100;
-                else if (trainingMetrics.mape < 8) mapeScore = 85;
-                else if (trainingMetrics.mape < 10) mapeScore = 70;
-                else if (trainingMetrics.mape < 12) mapeScore = 60;
-                else if (trainingMetrics.mape < 15) mapeScore = 50;
-                else mapeScore = Math.max(0, 40 - (trainingMetrics.mape - 15) * 2);
-
-                modelFit = Math.round(skillScore * 0.6 + mapeScore * 0.4);
-                details.fitSource = 'training';
-                details.mase = parseFloat(mase.toFixed(3));
-                details.skillScore = skillScore;
-                details.naiveMAE = NAIVE_MAE;
             } else {
                 modelFit = 0;
                 details.fitSource = 'none';
-            }
-
-            // 5. 近期準確度（保留向後兼容）
-            if (trainingMetrics && trainingMetrics.mae !== null && trainingMetrics.mape !== null) {
-                const NAIVE_MAE = 18.3;
-                const mase = trainingMetrics.mae / NAIVE_MAE;
-
-                let skillScore;
-                if (mase <= 0.5) skillScore = 100;
-                else if (mase < 1.0) skillScore = Math.round(100 - (mase - 0.5) * 100);
-                else if (mase < 1.5) skillScore = Math.round(50 - (mase - 1.0) * 100);
-                else skillScore = 0;
-
-                let mapeScore;
-                if (trainingMetrics.mape < 5) mapeScore = 100;
-                else if (trainingMetrics.mape < 8) mapeScore = 85;
-                else if (trainingMetrics.mape < 10) mapeScore = 70;
-                else if (trainingMetrics.mape < 12) mapeScore = 60;
-                else if (trainingMetrics.mape < 15) mapeScore = 50;
-                else mapeScore = Math.max(0, 40 - (trainingMetrics.mape - 15) * 2);
-
-                modelFit = Math.round(skillScore * 0.6 + mapeScore * 0.4);
-                details.fitSource = 'training';
-                details.mase = parseFloat(mase.toFixed(3));
-                details.skillScore = skillScore;
-                details.naiveMAE = NAIVE_MAE;
             }
 
             recentAccuracy = liveMAPE !== null ? Math.round(100 - liveMAPE) : (trainingMetrics ? Math.round(100 - trainingMetrics.mape) : 85);

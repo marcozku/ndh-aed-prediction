@@ -620,6 +620,7 @@ const ConfidenceDashboard = {
                     <div class="confidence-detail-item">🎯 MAE: ${maeDisplay} 人</div>
                     <div class="confidence-detail-item">📈 MAPE: ${mapeDisplay}</div>
                     ${details.liveFromDate && details.liveToDate ? `<div class="confidence-detail-dates">${details.liveFromDate} ~ ${details.liveToDate}</div>` : ''}
+                    ${sourceInfo}
                 </div>
                 <div class="confidence-detail-section">
                     <div class="confidence-section-title">訓練指標（模型潛力）</div>
@@ -1291,10 +1292,11 @@ const MethodologyModal = {
             if (!response.ok) throw new Error('Failed to fetch model diagnostics');
             
             const result = await response.json();
-            // v3.2.02: 優先使用當前模型的 metrics（opt10 優先於 xgboost）
+            // v5.0.03: 優先使用 API 已正規化的 currentMetrics，避免 direct model 的 null 指標被誤顯示為 0
             const modelStatus = result.data?.modelStatus;
-            const currentModel = modelStatus?.currentModel || 'xgboost';
-            const metrics = modelStatus?.[currentModel]?.metrics ||
+            const currentModel = result.data?.currentModel || modelStatus?.currentModel || 'xgboost';
+            const metrics = result.data?.currentMetrics ||
+                           modelStatus?.[currentModel]?.metrics ||
                            modelStatus?.details?.[currentModel]?.metrics ||
                            modelStatus?.opt10?.metrics ||
                            modelStatus?.details?.opt10?.metrics ||
@@ -1310,15 +1312,19 @@ const MethodologyModal = {
                 const mapeEl = document.getElementById('methodology-mape');
                 const trainDateEl = document.getElementById('methodology-train-date');
                 const dataCountEl = document.getElementById('methodology-data-count');
+                const isDirectModel = currentModel === 'horizon_direct' || String(metrics.model_name || '').includes('horizon_direct');
                 
-                if (r2El && metrics.r2 !== undefined && metrics.r2 !== null) {
-                    r2El.textContent = (metrics.r2 * 100).toFixed(1);
+                if (r2El) {
+                    const r2Value = Number(metrics.r2);
+                    r2El.textContent = Number.isFinite(r2Value) && !isDirectModel
+                        ? `${(r2Value * 100).toFixed(1)}%`
+                        : '不適用';
                 }
-                if (maeEl && metrics.mae !== undefined) {
-                    maeEl.textContent = metrics.mae.toFixed(2);
+                if (maeEl && Number.isFinite(Number(metrics.mae))) {
+                    maeEl.textContent = Number(metrics.mae).toFixed(2);
                 }
-                if (mapeEl && metrics.mape !== undefined) {
-                    mapeEl.textContent = metrics.mape.toFixed(2);
+                if (mapeEl && Number.isFinite(Number(metrics.mape))) {
+                    mapeEl.textContent = Number(metrics.mape).toFixed(2);
                 }
                 if (trainDateEl && metrics.training_date) {
                     // v3.0.84: 處理 "2026-01-05 05:03:00 HKT" 格式
@@ -1354,7 +1360,7 @@ const MethodologyModal = {
                 }
                 
                 this.metricsLoaded = true;
-                console.log('📊 方法論模型指標已更新:', metrics);
+                console.log(`📊 方法論模型指標已更新 (${currentModel}):`, metrics);
             }
         } catch (error) {
             console.error('❌ 載入模型指標失敗:', error);

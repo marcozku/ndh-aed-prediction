@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <!-- 使用 Service Worker 控制快取策略，允許瀏覽器快取 -->
-    <meta name="description" content="NDH AED 病人數量預測系統 - 北區醫院急症室人流預測">
+    <meta name="description" content="NDH AED 病人數量預測系統 v5.0.03 - DB-only direct multi-horizon、walk-forward 驗證、baseline gate 與一致化 mobile UI">
     <meta name="theme-color" content="#f8fafc" id="theme-color-meta">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -19,7 +19,7 @@
     <link rel="manifest" href="/manifest.json?v=8">
     
     <title>NDH AED 預測系統</title>
-    <link rel="stylesheet" href="styles.css?v=11">
+    <link rel="stylesheet" href="styles.css?v=12">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
@@ -357,13 +357,14 @@
                 </div>
                 <div class="confidence-item">
                     <div class="confidence-tooltip">
-                        <div class="confidence-tooltip-title">🤖 模型擬合計算公式</div>
+                        <div class="confidence-tooltip-title">🤖 驗證表現計算公式</div>
                         <div class="confidence-tooltip-formula">
-                            擬合度 = R² × 100%
+                            表現分數 = 0.6 × baseline skill + 0.4 × MAPE score
                         </div>
-                        • R² = 模型解釋變異的比例<br>
-                        • 訓練 R² = 0.958（95.8%）<br>
-                        • 100% = 完美擬合歷史數據
+                        • baseline skill：以 MAE 相對 naive baseline 的優勢換算<br>
+                        • MAPE score：以近期百分比誤差分級換算<br>
+                        • 優先用最近已驗證資料，沒有才退回訓練摘要<br>
+                        • direct multi-horizon serving 不以 R² 作主要生產指標
                     </div>
                     <div class="confidence-gauge" id="gauge-model-fit">
                         <svg viewBox="0 0 100 50">
@@ -372,7 +373,7 @@
                         </svg>
                         <span class="gauge-value" id="gauge-value-model">--%</span>
                     </div>
-                    <span class="confidence-label" data-lang-key="conf-model">模型擬合</span>
+                    <span class="confidence-label" data-lang-key="conf-model">驗證表現</span>
                 </div>
                 <div class="confidence-item">
                     <div class="confidence-tooltip">
@@ -397,9 +398,9 @@
                     <div class="confidence-tooltip">
                         <div class="confidence-tooltip-title">📈 綜合置信度計算公式</div>
                         <div class="confidence-tooltip-formula">
-                            綜合 = 數據×30% + 擬合×40% + 準確×30%
+                            綜合 = 數據×30% + 表現×40% + 準確×30%
                         </div>
-                        • 模型擬合權重最高（40%）<br>
+                        • 驗證表現權重最高（40%）<br>
                         • >90% = 高置信度 ✅<br>
                         • 70-90% = 中等 ⚡<br>
                         • <70% = 需審查 ⚠️
@@ -579,14 +580,14 @@
             <div class="chart-card full-width comparison-section" id="comparison-details-section">
                 <h3 class="chart-title">多模型比較明細</h3>
                 <div class="comparison-table-toolbar">
-                    <div class="comparison-table-summary" id="comparison-table-summary">最近資料會排最前，完整資料可向下及左右滑動查看。</div>
+                    <div class="comparison-table-summary" id="comparison-table-summary">卡片檢視優先顯示最近已驗證比較日；完整資料（含待驗證）可向下及左右滑動查看。</div>
                     <div class="comparison-view-controls" id="comparison-view-controls" aria-label="比較卡片範圍切換">
                         <button type="button" class="comparison-view-btn" data-limit="7">最近 7</button>
                         <button type="button" class="comparison-view-btn active" data-limit="14">最近 14</button>
                         <button type="button" class="comparison-view-btn" data-limit="30">最近 30</button>
                         <button type="button" class="comparison-view-btn" data-limit="all">全部</button>
                     </div>
-                    <div class="comparison-scroll-hint" id="comparison-scroll-hint">桌面可直接 scroll 全部表格，手機預設只顯示卡片</div>
+                    <div class="comparison-scroll-hint" id="comparison-scroll-hint">桌面可直接 scroll 全部表格，手機預設先顯示已驗證卡片</div>
                     <button type="button" class="comparison-table-toggle" id="comparison-table-toggle" aria-expanded="false">展開全部表格</button>
                 </div>
                 <div class="comparison-recent-list" id="comparison-recent-list"></div>
@@ -730,7 +731,7 @@
         <footer class="app-footer" role="contentinfo">
             <p id="data-source-info" style="cursor: pointer; text-decoration: underline;" data-lang-key="footer-source">數據來源：載入中...</p>
             <p id="last-update-info" class="last-update-info"></p>
-            <p id="model-version-info">應用版本 5.0.02 · 模型 5.0.00 · DB-only Direct Multi-Horizon · 香港時間 HKT</p>
+            <p id="model-version-info">應用版本 5.0.03 · 模型 5.0.00 · DB-only Direct Multi-Horizon · walk-forward / baseline gate · 香港時間 HKT</p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2026 Marco Ma. All Rights Reserved.</p>
             <div class="footer-links">
                 <a href="/api/docs" class="footer-link" data-lang-key="footer-api">API 文檔</a>
@@ -830,10 +831,13 @@
                 <div class="methodology-section">
                     <h4>📊 模型性能</h4>
                     <ul>
-                        <li><strong>R²</strong>：<span id="methodology-r2">--</span>%</li>
+                        <li><strong>R²</strong>：<span id="methodology-r2">不適用</span></li>
                         <li><strong>MAE</strong>：<span id="methodology-mae">--</span> 人</li>
                         <li><strong>MAPE</strong>：<span id="methodology-mape">--</span>%</li>
                     </ul>
+                    <p style="margin-top: 8px; font-size: 0.8em; color: var(--text-secondary);">
+                        Direct multi-horizon serving 以 DB-only walk-forward、MAE / MAPE 與 baseline gate 作主要評估；R² 不作為此模式的生產判斷依據。
+                    </p>
                     <p style="margin-top: 8px; font-size: 0.85em; color: var(--text-secondary);">
                         訓練：<span id="methodology-train-date">--</span> · <span id="methodology-data-count">--</span> 筆數據
                     </p>
@@ -937,9 +941,9 @@
     <!-- Pragmatic Bayesian 預測融合模組 (v3.0.38) -->
     <script src="modules/pragmatic-bayesian.js?v=2"></script>
     <!-- 原始預測邏輯（保留所有功能） -->
-    <script src="prediction.js?v=21"></script>
+    <script src="prediction.js?v=22"></script>
     <!-- 模組化包裝層 -->
-    <script type="module" src="app.js?v=8"></script>
+    <script type="module" src="app.js?v=9"></script>
     
     <!-- v3.0.84: Mobile Bottom Navigation with Hamburger Menu -->
     <nav class="mobile-bottom-nav" aria-label="Mobile navigation">

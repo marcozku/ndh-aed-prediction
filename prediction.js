@@ -3459,6 +3459,12 @@ function getComparisonCardLimitLabel(limit = comparisonCardLimit) {
     return limit === 'all' ? '全部' : `最近 ${limit}`;
 }
 
+function getSortedComparisonHistoryItems(items = []) {
+    return items
+        .slice()
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+}
+
 function filterComparisonHistoryItems(items = [], limit = comparisonCardLimit) {
     if (limit === 'all') {
         return items.slice();
@@ -3973,10 +3979,10 @@ function renderComparisonTableView(comparisonData) {
         `;
     }
 
-    const historyItems = (comparisonData?.full_history || comparisonData?.history || [])
-        .slice()
-        .sort((a, b) => new Date(b.date) - new Date(a.date));
-    const filteredHistoryItems = filterComparisonHistoryItems(historyItems);
+    const historyItems = getSortedComparisonHistoryItems(comparisonData?.full_history || comparisonData?.history || []);
+    const scoredHistoryItems = getSortedComparisonHistoryItems(comparisonData?.history || []);
+    const comparisonCardSource = scoredHistoryItems.length > 0 ? scoredHistoryItems : historyItems;
+    const filteredHistoryItems = filterComparisonHistoryItems(comparisonCardSource);
 
     if (historyItems.length === 0) {
         if (loading) loading.style.display = 'none';
@@ -3997,13 +4003,24 @@ function renderComparisonTableView(comparisonData) {
         : '';
 
     if (tableSummary) {
-        tableSummary.innerHTML = `卡片檢視：${getComparisonCardLimitLabel()}（${filteredHistoryItems.length} 天） · 全部資料 ${historyItems.length} 天（已驗證 ${verifiedCount} 天、待驗證 ${pendingCount} 天）${rangeText}`;
+        const cardScopeLabel = scoredHistoryItems.length > 0 ? '已驗證比較日' : '待驗證預測日';
+        const cardRangeText = comparisonCardLimit === 'all'
+            ? `全部${cardScopeLabel}`
+            : `${getComparisonCardLimitLabel()} 個${cardScopeLabel}`;
+        tableSummary.innerHTML = `卡片檢視：${cardRangeText}（${filteredHistoryItems.length} 天） · 全部資料 ${historyItems.length} 天（已驗證 ${verifiedCount} 天、待驗證 ${pendingCount} 天）${rangeText}`;
     }
 
     if (scrollHint) {
-        scrollHint.textContent = filteredHistoryItems.length === historyItems.length
-            ? '完整資料已在卡片及表格同步顯示；表格可上下及左右 scroll'
-            : `卡片先顯示 ${getComparisonCardLimitLabel()}，下方表格保留全部 ${historyItems.length} 天資料`;
+        if (scoredHistoryItems.length > 0) {
+            const cardHintText = comparisonCardLimit === 'all'
+                ? '全部已驗證比較日'
+                : `${getComparisonCardLimitLabel()}個已驗證比較日`;
+            scrollHint.textContent = filteredHistoryItems.length === scoredHistoryItems.length && pendingCount === 0
+                ? '卡片與表格都在顯示全部已驗證資料；表格可上下及左右 scroll'
+                : `卡片先顯示${cardHintText}，下方表格保留全部 ${historyItems.length} 天資料（含待驗證）`;
+        } else {
+            scrollHint.textContent = '目前尚未累積可比較實際值，卡片暫時顯示最新待驗證預測；完整資料仍可在下方表格查看';
+        }
     }
 
     if (recentList) {
@@ -10010,7 +10027,7 @@ function initAlgorithmContent() {
                 <div>• 今日與未來 30 天都直接走同一套 horizon bundle，輸出 bucket、operational horizon、baseline reference 與信賴區間。</div>
                 <div>• 前端只顯示 metadata，不再二次改寫 production prediction。</div>
                 <div>• App 內時間線會同步目前模型檔的最新 metrics。</div>
-                <div>• v5.0.02 UI alignment：主卡直接顯示 Production / bucket / gate，不再把 direct serving 包成平滑結果。</div>
+                <div>• v5.0.03 UI / methodology alignment：模型置信度改按 baseline skill + MAPE 呈現；最近 7 卡片改為最近已驗證比較日；mobile range selector / nav / tooltip 排版同步收斂。</div>
             </div>
         </div>
     `;
