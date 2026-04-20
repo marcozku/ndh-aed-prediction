@@ -1,7 +1,7 @@
 {
   "name": "ndh-aed-prediction",
-  "version": "5.1.00",
-  "description": "NDH AED 病人數量預測系統 v5.1.00 - World-class professional UI redesign: unified cards, muted palette, 5+More nav, SVG icons, accessibility, mobile-first refinements",
+  "version": "5.1.01",
+  "description": "NDH AED 病人數量預測系統 v5.1.01 - Fix theme icon visibility, More dropdown cache, comparison badge overflow, mobile chart heights, card containment",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

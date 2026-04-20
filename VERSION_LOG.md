@@ -1,5 +1,32 @@
 # 版本更新日誌
 
+## v5.1.01 - 2026-04-21 HKT
+**🐛 v5.1.00 redesign 回報問題修復**
+
+### 問題
+1. 桌面版「切換深色模式」SVG 圖標看不到（color 未繼承）
+2. 「更多」下拉無反應（ui-enhancements.js?v=4 被瀏覽器/SW 快取，新的 setupMoreDropdown 未載入）
+3. 比較卡片中「並列：XGBoost / XGBoost + AI」badge 超出卡片邊界
+4. iPhone 版圖表過小（v5.1.00 過度設置 `max-height: 280px`）
+5. iPhone 多個卡片超出螢幕邊界
+
+### 修復
+- **Theme icon 可見**：`.nav-action-btn` 補 `color: var(--text-secondary)`，SVG `currentColor` 才能 resolve
+- **Cache bust**：`ui-enhancements.js?v=4 → v=5`、`app.js?v=9 → v=10`、`styles.css?v=13 → v=14`、SW cache 到 v5.1.01
+- **Badge 超出**：`.comparison-recent-header` 允許換行，badge `flex: 0 1 auto`、`white-space: normal`，520px 以下 badge 換行到新一列
+- **圖表高度**：移除 v5.1.00 加的 `max-height: 280px !important`（與既有 `min(45vh, 480px)` mobile 規則衝突），只保留 canvas 100% 填充
+- **卡片溢出**：所有 card variants 統一加 `min-width: 0 / max-width: 100% / overflow: hidden / overflow-wrap: anywhere`，prediction-card 改為 `overflow-x: hidden; overflow-y: visible` 保留 tooltip
+- **極窄螢幕**：`.big-number` 在 ≤380px 時改用 `clamp(2.75rem, 16vw, 4rem)` 避免溢出
+
+### 檔案
+- `styles.css` — 新增/微調 override 區塊
+- `app.js` — ui-enhancements import 版本 +1
+- `index.html` — styles.css / app.js cache bust
+- `sw.js` — SW + cache 版本 → 5.1.01
+- `package.json` — 5.1.00 → 5.1.01
+
+---
+
 ## v5.1.00 - 2026-04-21 HKT
 **🎨 World-class UI/UX 專業重設計**
 

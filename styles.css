@@ -9274,6 +9274,26 @@ html, body {
     }
 }
 
+/* Nav action button icon color (v5.1.01: fix invisible SVG on desktop) */
+.nav-action-btn {
+    color: var(--text-secondary);
+}
+.nav-action-btn:hover {
+    color: var(--accent-primary);
+}
+.nav-action-btn > svg {
+    display: block;
+    width: 20px;
+    height: 20px;
+    pointer-events: none;
+}
+
+/* Nav link SVG icons */
+.nav-link > svg.nav-ico {
+    flex-shrink: 0;
+    display: inline-block;
+}
+
 /* Mobile bottom nav padding — prevent content from being hidden */
 @media (max-width: 768px) {
     body {
@@ -9301,12 +9321,93 @@ html, body {
     }
 }
 
-/* Compact charts on mobile to reduce excessive scroll */
+/* Chart mobile refinement (v5.1.01: keep existing generous heights,
+   just make sure canvas never exceeds container) */
 @media (max-width: 768px) {
-    #charts-section .chart-card { padding: var(--space-md); }
-    #charts-section .chart-container,
-    #charts-section canvas {
-        max-height: 280px !important;
+    #charts-section .chart-card {
+        padding: var(--space-md);
+    }
+    #charts-section .chart-container canvas {
+        width: 100% !important;
+        height: 100% !important;
+    }
+}
+
+/* Comparison recent card badge — allow wrap so "並列：XGBoost / XGBoost + AI" fits */
+.comparison-recent-header {
+    flex-wrap: wrap;
+}
+.comparison-recent-badge {
+    flex: 0 1 auto !important;
+    max-width: 100%;
+    white-space: normal !important;
+    text-align: center;
+    line-height: 1.25;
+    word-break: keep-all;
+}
+@media (max-width: 520px) {
+    .comparison-recent-badge {
+        flex: 1 1 100% !important;
+        order: 2;
+        margin-top: 8px;
+    }
+}
+
+/* Card & content containment — prevent horizontal overflow on narrow iPhones */
+.app-container,
+.prediction-container,
+.prediction-card,
+.stats-card,
+.chart-card,
+.forecast-card,
+.confidence-card,
+.factor-card,
+.comparison-recent-card {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.prediction-card,
+.stats-card,
+.chart-card,
+.forecast-card,
+.confidence-card,
+.factor-card {
+    overflow: hidden;
+}
+
+/* Prediction card can keep tooltips visible; only cap x-overflow */
+.prediction-card {
+    overflow-x: hidden;
+    overflow-y: visible;
+}
+
+/* Ensure every long word inside cards wraps */
+.prediction-card,
+.stats-card,
+.chart-card,
+.forecast-card,
+.confidence-card,
+.factor-card,
+.comparison-recent-card,
+.comparison-recent-model,
+.card-title,
+.stat-label,
+.stat-value {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+/* Big number should never shrink below available width */
+.big-number {
+    max-width: 100%;
+    word-break: keep-all;
+    white-space: nowrap;
+}
+@media (max-width: 380px) {
+    .big-number {
+        font-size: clamp(2.75rem, 16vw, 4rem);
     }
 }
 
@@ -9323,6 +9424,7 @@ html, body {
     align-items: center;
     justify-content: center;
 }
+.back-to-top svg { stroke: currentColor; fill: none; }
 .back-to-top:hover {
     background: var(--accent-primary-hover) !important;
     transform: translateY(-2px);
