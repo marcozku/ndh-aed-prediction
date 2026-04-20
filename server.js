@@ -119,6 +119,62 @@ try {
     console.warn('⚠️ AI 服務模組載入失敗（客戶端環境）:', err.message);
 }
 
+// v5.2.0 — In-memory cache + circuit breaker layer
+// These modules are side-effect free: if they throw at require time,
+// handlers still execute their original logic (see safeCacheHandler).
+let cacheLayer = null;
+let breakerLayer = null;
+let aiBreaker = null;
+try {
+    cacheLayer = require('./modules/cache-layer');
+    breakerLayer = require('./modules/circuit-breaker');
+    cacheLayer.startPeriodicLog();
+    console.log('✅ 快取層 + 斷路器已啟用');
+} catch (err) {
+    console.warn('⚠️ 快取/斷路器模組載入失敗，將繞過：', err.message);
+}
+
+// Wrap an async handler with caching. If cacheLayer failed to load,
+// the handler runs unchanged — the feature is strictly additive.
+function withCache(bucket, keyFn, handler) {
+    if (!cacheLayer) return handler;
+    return cacheLayer.cachedJsonHandler(bucket, keyFn, handler);
+}
+
+// Build a URL-based cache key for GET handlers — normalises query
+// order so ?a=1&b=2 and ?b=2&a=1 share the same cache entry.
+function urlKey(req) {
+    try {
+        const u = url.parse(req.url, true);
+        const sorted = Object.keys(u.query || {}).sort().map(k => `${k}=${u.query[k]}`).join('&');
+        return `${u.pathname}?${sorted}`;
+    } catch {
+        return req.url;
+    }
+}
+
+// Wrap the AI news/events analysis call with a breaker. If GPT is
+// slow or down, we fast-fail and let the handler return a cached or
+// empty factors list instead of blocking the user for 90 seconds.
+if (aiService && breakerLayer && typeof aiService.searchRelevantNewsAndEvents === 'function') {
+    const originalSearch = aiService.searchRelevantNewsAndEvents.bind(aiService);
+    aiBreaker = breakerLayer.createBreaker(
+        'ai.searchRelevantNewsAndEvents',
+        originalSearch,
+        {
+            timeout: 60_000,                 // 60s hard ceiling; the handler adds its own 90s safety
+            errorThresholdPercentage: 60,
+            resetTimeout: 45_000,
+            volumeThreshold: 3,
+            fallback: () => ({
+                factors: [],
+                summary: 'AI 服務暫時降級中，請稍後再試',
+                degraded: true
+            })
+        }
+    );
+}
+
 // Database connection (嘗試初始化，database.js 會檢查所有可用的環境變數)
 let db = null;
 // 檢查是否有任何數據庫環境變數
@@ -6565,6 +6621,119 @@ const apiHandlers = {
     }
 };
 
+// ============================================================
+// v5.2.0 — Attach cache wrappers + observability endpoints
+// Wrap known-idempotent GET handlers so repeated calls hit the
+// in-memory cache instead of the DB. Mutation POST handlers keep
+// their original implementation; they invalidate the short buckets
+// at the end of the dispatcher (see invalidateAfterMutation below).
+// ============================================================
+if (cacheLayer) {
+    const cacheSpecs = [
+        // bucket, route, rationale
+        ['api-short',  'GET /api/model-comparison'],
+        ['api-short',  'GET /api/future-predictions'],
+        ['api-short',  'GET /api/accuracy-history'],
+        ['api-short',  'GET /api/recent-accuracy'],
+        ['api-medium', 'GET /api/model-performance'],
+        ['api-medium', 'GET /api/performance-comparison'],
+        ['api-medium', 'GET /api/weather-correlation'],
+        ['api-long',   'GET /api/weather-impact'],
+        ['api-short',  'GET /api/ai-factors-cache'],
+        ['api-short',  'GET /api/comparison'],
+        ['api-short',  'GET /api/auto-predict-stats']
+    ];
+    for (const [bucket, route] of cacheSpecs) {
+        const orig = apiHandlers[route];
+        if (typeof orig === 'function') {
+            apiHandlers[route] = withCache(bucket, urlKey, orig);
+        }
+    }
+
+    // Rewire the AI analyze handler to go through the breaker so a
+    // hanging GPT upstream can't starve the event loop. Keeps the
+    // original timeout logic as a belt-and-braces safety net.
+    if (aiBreaker && apiHandlers['GET /api/ai-analyze']) {
+        const aiRoute = apiHandlers['GET /api/ai-analyze'];
+        apiHandlers['GET /api/ai-analyze'] = async (req, res) => {
+            // Cache AI results for 10 minutes — GPT output is expensive
+            // and users rarely care about sub-10-min freshness here.
+            const cacheLayerMod = cacheLayer;
+            const key = 'ai:latest-factors';
+            try {
+                const cached = cacheLayerMod.getCache('ai-analysis').get(key);
+                if (cached) {
+                    res.writeHead(200, { 'Content-Type': 'application/json', 'X-Cache': 'HIT', 'X-Cache-Bucket': 'ai-analysis' });
+                    return res.end(JSON.stringify(cached));
+                }
+            } catch (e) { /* fall through */ }
+
+            try {
+                const analysis = await aiBreaker.fire();
+                const payload = { success: !analysis.degraded, ...analysis, timestamp: getHKTTime() + ' HKT' };
+                if (!analysis.degraded) {
+                    try { cacheLayerMod.getCache('ai-analysis').set(key, payload); } catch (e) { /* noop */ }
+                }
+                if (!res.headersSent) {
+                    res.writeHead(analysis.degraded ? 503 : 200, { 'Content-Type': 'application/json', 'X-Cache': 'MISS' });
+                    res.end(JSON.stringify(payload));
+                }
+            } catch (err) {
+                // Breaker rejected or upstream exploded — fall back to original handler so existing timeout/error plumbing still runs
+                console.warn('⚠️ AI breaker path failed, falling back to direct handler:', err.message);
+                return aiRoute(req, res);
+            }
+        };
+    }
+
+    // Cache observability endpoint — pings are cheap; call from
+    // Railway CLI with curl to see hit rates grow over time.
+    apiHandlers['GET /api/cache-stats'] = async (req, res) => {
+        const payload = {
+            success: true,
+            timestamp: getHKTTime() + ' HKT',
+            cache: cacheLayer.getStats(),
+            breakers: breakerLayer ? breakerLayer.getBreakerStats() : {}
+        };
+        sendJson(res, payload);
+    };
+
+    apiHandlers['POST /api/cache-invalidate'] = async (req, res) => {
+        const { bucket } = req.query || {};
+        const n = bucket ? cacheLayer.invalidate(bucket) : cacheLayer.invalidateAll();
+        sendJson(res, { success: true, cleared: n, bucket: bucket || 'all' });
+    };
+}
+
+// After any data-changing POST, blow away the short/medium caches so
+// the next read reflects reality. Long-lived caches (weather-impact
+// with 15-min TTL, AI analysis with 2h TTL) don't need invalidation
+// — they're already bounded by time and mutations don't touch them.
+const MUTATION_ROUTES = new Set([
+    'POST /api/predictions',
+    'POST /api/daily-predictions',
+    'POST /api/calculate-final-prediction',
+    'POST /api/actual-data',
+    'POST /api/auto-add-actual-data',
+    'POST /api/cleanup-intraday',
+    'POST /api/trigger-prediction',
+    'POST /api/generate-predictions',
+    'POST /api/import-csv',
+    'POST /api/upload-csv',
+    'POST /api/clear-and-reimport',
+    'POST /api/auto-import-csv',
+    'POST /api/add-december-data',
+    'POST /api/seed-historical',
+    'POST /api/ensemble-predict'
+]);
+function invalidateAfterMutation(routeKey) {
+    if (cacheLayer && MUTATION_ROUTES.has(routeKey)) {
+        try {
+            cacheLayer.invalidateOnDataChange();
+        } catch (e) { /* noop */ }
+    }
+}
+
 const server = http.createServer(async (req, res) => {
     // 全局錯誤處理 - 確保所有錯誤都返回 JSON
     const handleError = (err, statusCode = 500) => {
@@ -6600,11 +6769,13 @@ const server = http.createServer(async (req, res) => {
         if (apiHandlers[routeKey]) {
             try {
                 await apiHandlers[routeKey](req, res);
+                // v5.2.0: flush cached reads after any mutation
+                invalidateAfterMutation(routeKey);
             } catch (error) {
                 console.error('API Error:', error);
                 console.error('錯誤堆棧:', error.stack);
                 if (!res.headersSent) {
-                    sendJson(res, { 
+                    sendJson(res, {
                         success: false,
                         error: error.message || '內部服務器錯誤',
                         errorType: error.name || 'Error'

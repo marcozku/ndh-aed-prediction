@@ -1,5 +1,75 @@
 # 版本更新日誌
 
+## v5.2.00 - 2026-04-21 HKT
+**⚡ In-memory cache 層 + opossum 斷路器（preparing for Railway log 瓶頸分析）**
+
+### 為什麼不用 Redis
+單一 Railway instance、已有 DB indexes+views、Service Worker 已快取前端 API 回應。瓶頸更可能在 Python XGBoost spawn 和 GPT-5.4 呼叫，而非 DB 讀取。先上零基礎設施的 in-memory 方案，看 Railway 日誌再決定是否需要 Redis。
+
+### 新增依賴
+- `lru-cache@11` — 高效 LRU + TTL
+- `opossum@5` — Node.js 標準斷路器
+
+### modules/cache-layer.js
+5 個命名桶（可獨立調整 TTL + max size）：
+| Bucket | TTL | 用途 |
+|---|---|---|
+| `api-short` | 1 min | 高頻讀取、快變數據（model-comparison / accuracy / predictions） |
+| `api-medium` | 5 min | 訓練/性能視圖（model-performance / performance-comparison / weather-correlation） |
+| `api-long` | 15 min | 穩定分析（weather-impact） |
+| `weather-ext` | 10 min | HKO 外部 API 保留位 |
+| `ai-analysis` | 2 h | GPT 結果 |
+
+關鍵特性：
+- **Request coalescing**：同 key 的多個並發請求只跑 1 次上游（avoid stampede）
+- **Per-bucket 統計**：hits / misses / sets / errors / coalesced / hit_rate
+- **定期日誌**：每 10 分鐘自動打印 cache 效能（`📊 [cache] uptime=Xs hits=Y misses=Z hit_rate=P%`）讓 Railway logs 看得到
+- **安全降級**：模組載入失敗時 handlers 自動繞過回到原邏輯
+
+### modules/circuit-breaker.js
+- 包裝 opossum，每個 breaker 自帶 stdout 事件日誌（OPEN / HALF_OPEN / CLOSED / reject / timeout / failure）
+- 支援 fallback 函數（例如 AI 掛掉時回退到空 factors + 降級標記）
+
+### 已連接的 handler
+11 個 GET handler 自動快取（`withCache` wrapper）：
+- `/api/model-comparison`, `/api/future-predictions`, `/api/accuracy-history`, `/api/recent-accuracy` → api-short
+- `/api/model-performance`, `/api/performance-comparison`, `/api/weather-correlation` → api-medium
+- `/api/weather-impact` → api-long
+- `/api/ai-factors-cache`, `/api/comparison`, `/api/auto-predict-stats` → api-short
+
+### AI 服務斷路器
+- `aiService.searchRelevantNewsAndEvents` 包斷路器：60s timeout、60% 錯誤門檻、45s 冷卻、3 次呼叫才啟用
+- 斷路器 OPEN 時 `/api/ai-analyze` 立即回 503 + 降級訊息，避免等 90s 超時
+- GPT 成功結果也進 `ai-analysis` bucket（2 h TTL）減少重複呼叫
+
+### Mutation 快取失效
+16 個 POST mutation route 自動 invalidate `api-short` + `api-medium` bucket，保證資料變更後下一次讀取是 fresh 的。
+
+### 觀察端點
+- `GET /api/cache-stats` — 即時看 hit rate 和 breaker 狀態
+- `POST /api/cache-invalidate?bucket=<name>` — 手動清特定 bucket（或全清）
+
+### Smoke test
+- 並發 3 個同 key 呼叫 → 上游只跑 1 次（coalesced=2）✓
+- 兩次呼叫 `/api/model-performance` → hits=1, misses=1, hit_rate=50% ✓
+- Breaker 成功呼叫 → state=closed, success_rate=1 ✓
+
+### 如何用 Railway logs 找瓶頸
+1. 部署後觀察每 10 分鐘的 `📊 [cache]` 日誌
+2. 若 hit_rate 高（>70%）→ 快取有用，繼續運行
+3. 若看到 `🔴 [breaker] OPEN` → AI 或外部服務在掛
+4. 若 hit_rate 低 → 瓶頸不在這些 endpoint，檢查 Python spawn / DB query plan
+
+如果單 instance 撐不住再上 Redis（跨實例共享 + 分散式 lock + pub/sub）。
+
+### 檔案
+- `modules/cache-layer.js` — 新檔 ~230 行
+- `modules/circuit-breaker.js` — 新檔 ~75 行
+- `server.js` — 新增 cache/breaker 初始化、11 個 handler 包裝、AI breaker 路徑、/api/cache-stats、mutation invalidation
+- `package.json` — 依賴 + 版本 5.1.05 → 5.2.00
+
+---
+
 ## v5.1.05 - 2026-04-21 HKT
 **🎯 找到真正元兇：mobile chart-card 8px margin 導致卡片右偏**
 

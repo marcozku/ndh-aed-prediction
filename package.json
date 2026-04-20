@@ -1,7 +1,7 @@
 {
   "name": "ndh-aed-prediction",
-  "version": "5.1.05",
-  "description": "NDH AED 病人數量預測系統 v5.1.05 - Remove 8px margin that was shifting chart/training/algorithm cards off app-container's edge on mobile",
+  "version": "5.2.00",
+  "description": "NDH AED 病人數量預測系統 v5.2.00 - In-memory cache layer (lru-cache) + opossum circuit breaker for AI service, /api/cache-stats for Railway log observability",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -27,8 +27,10 @@
   "dependencies": {
     "chinese-conv": "^1.1.0",
     "dotenv": "^17.2.3",
+    "lru-cache": "^11.3.5",
     "marked": "^15.0.12",
     "node-cron": "^3.0.3",
+    "opossum": "^5.0.1",
     "pdfkit": "^0.17.2",
     "pg": "^8.16.3",
     "puppeteer": "^24.34.0"
