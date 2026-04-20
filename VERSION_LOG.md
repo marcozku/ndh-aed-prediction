@@ -1,5 +1,48 @@
 # 版本更新日誌
 
+## v5.1.03 - 2026-04-21 HKT
+**🐛 手機版晚期區塊卡片溢出修復**
+
+### 問題
+用戶回報 iPhone 上從「未來 30 天預測趨勢」以下的卡片全部超出螢幕邊界：
+- 未來 30 天預測
+- 多模型預測對比
+- 預測波動分析
+- 模型訓練狀態
+- 預測算法
+（前幾個今日預測 / 7日預測卡片正常）
+
+### 原因
+v5.1.01 的 card containment 只覆蓋 `.prediction-card / .stats-card / .chart-card / .forecast-card / .confidence-card / .factor-card` 這六個 class。
+
+晚期區塊使用**不同的 section 容器 class**：
+- `.forecast-section` > `.forecast-cards` > `.forecast-day-card`
+- `.prediction-volatility-section`（屬 chart-card 但 volatility-header / controls / stats 內沒 min-width: 0）
+- `.model-training-section` > `.training-status-container`
+- `.algorithm-timeline-section` > `.timeline-main-container`
+- `.algorithm-section` > `.algorithm-content`（動態生成）
+- `.dual-track-section` > `.dual-track-container`
+
+這些都沒被之前的 rule 覆蓋，內容可能 push 出 flex/grid track。
+
+### 修復 (styles.css 底部新增 v5.1.03 區塊)
+1. **Section 級 containment**：所有 `section` 直屬 `.app-container` 的、加上 dashboard/learning/factors 等一併 `max-width: 100% / min-width: 0 / overflow-x: hidden`
+2. **Section 直屬子元素**：所有 container/content wrapper 統一套 `max-width: 100% / min-width: 0`
+3. **Forecast 卡片網格**：`repeat(auto-fit, minmax(140px, 1fr))`，≤480px 改為 2 欄，≤360px 改為 1 欄
+4. **Volatility section**：`volatility-header / controls / stat-row` 全部 `flex-wrap: wrap`，≤520px stat items 100% 寬
+5. **Section header 與 header-actions**：`flex-wrap: wrap` + `gap: 8px` 避免按鈕 push 出
+6. **Timeline chart wrapper**：`canvas` 強制 `max-width: 100% !important`
+7. **表格與 pre/code**：所有 `section` 內的表格變 `display: block + overflow-x: auto` 成為 scroll-island；`pre/code` 自動換行
+8. **全域 `img/canvas/svg max-width: 100%`**
+9. **≤768px 最終保險**：`html/body/.app-container overflow-x: hidden`、所有 `section > *` 獲得 `min-width: 0`
+
+### 檔案
+- `styles.css` — 底部新增 100+ 行 containment 規則
+- `index.html` — styles.css?v=15→16、版本號 5.1.02→5.1.03
+- `sw.js`、`package.json` — 版本同步 5.1.03
+
+---
+
 ## v5.1.02 - 2026-04-21 HKT
 **🐛 對比圖 tooltip 手機體驗修復**
 

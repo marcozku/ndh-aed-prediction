@@ -1,7 +1,7 @@
 {
   "name": "ndh-aed-prediction",
-  "version": "5.1.02",
-  "description": "NDH AED 病人數量預測系統 v5.1.02 - Fix Chart.js tooltip alignment + mobile tooltip dismiss (touchend/scroll)",
+  "version": "5.1.03",
+  "description": "NDH AED 病人數量預測系統 v5.1.03 - Global section containment so 30-day trend, volatility, training, timeline and algorithm sections no longer exceed iPhone viewport",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

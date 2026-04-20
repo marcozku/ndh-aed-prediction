@@ -1,13 +1,13 @@
 /**
  * NDH AED 預測系統 - Service Worker
  * 提供離線支援和快取管理
- * v5.1.02 - Chart.js tooltip alignment + mobile dismiss (touchend/scroll)
+ * v5.1.03 - Global section containment so late sections no longer exceed iPhone viewport
  */
 
-const SW_VERSION = '5.1.02';
-const CACHE_NAME = 'ndh-aed-v5.1.02';
-const STATIC_CACHE = 'ndh-static-v5.1.02';
-const DYNAMIC_CACHE = 'ndh-dynamic-v5.1.02';
+const SW_VERSION = '5.1.03';
+const CACHE_NAME = 'ndh-aed-v5.1.03';
+const STATIC_CACHE = 'ndh-static-v5.1.03';
+const DYNAMIC_CACHE = 'ndh-dynamic-v5.1.03';
 
 // 靜態資源（始終快取）
 const STATIC_ASSETS = [
