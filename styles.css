@@ -7349,11 +7349,11 @@ a:hover {
     .model-training-section,
     .algorithm-section {
         background: var(--bg-card);
-        border-radius: 16px;
+        border-radius: var(--card-radius);
         border: none;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04), 
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04),
                     0 4px 12px rgba(0,0,0,0.04);
-        margin: var(--space-sm);
+        /* margin removed in v5.1.05 — was pushing chart-card 8px off app-container's edge */
         overflow: hidden;
     }
     

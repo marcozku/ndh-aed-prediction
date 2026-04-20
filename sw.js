@@ -1,13 +1,13 @@
 /**
  * NDH AED 預測系統 - Service Worker
  * 提供離線支援和快取管理
- * v5.1.04 - Uniform section boundaries: matching radius, padding, horizontal overflow hardened
+ * v5.1.05 - Remove rogue mobile margin shifting chart/training/algorithm cards off-edge
  */
 
-const SW_VERSION = '5.1.04';
-const CACHE_NAME = 'ndh-aed-v5.1.04';
-const STATIC_CACHE = 'ndh-static-v5.1.04';
-const DYNAMIC_CACHE = 'ndh-dynamic-v5.1.04';
+const SW_VERSION = '5.1.05';
+const CACHE_NAME = 'ndh-aed-v5.1.05';
+const STATIC_CACHE = 'ndh-static-v5.1.05';
+const DYNAMIC_CACHE = 'ndh-dynamic-v5.1.05';
 
 // 靜態資源（始終快取）
 const STATIC_ASSETS = [

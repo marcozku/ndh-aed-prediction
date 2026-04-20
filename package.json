@@ -1,7 +1,7 @@
 {
   "name": "ndh-aed-prediction",
-  "version": "5.1.04",
-  "description": "NDH AED 病人數量預測系統 v5.1.04 - Uniform section boundaries: matching border-radius, padding, horizontal overflow hardened",
+  "version": "5.1.05",
+  "description": "NDH AED 病人數量預測系統 v5.1.05 - Remove 8px margin that was shifting chart/training/algorithm cards off app-container's edge on mobile",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

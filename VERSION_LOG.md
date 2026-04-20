@@ -1,5 +1,45 @@
 # 版本更新日誌
 
+## v5.1.05 - 2026-04-21 HKT
+**🎯 找到真正元兇：mobile chart-card 8px margin 導致卡片右偏**
+
+### 用戶回報
+v5.1.04 後 chart-card 仍然超出 app-header 右邊界。
+
+### Puppeteer 實測（iPhone 15 Pro 393px viewport）
+- `.app-header`: left=8, right=385, width=377 ✓
+- `.main-prediction-card`: left=8, right=385 ✓
+- **`.chart-card`: left=16, right=393, width=377 ✗** ← 整個卡片向右偏移 8px 直抵視窗邊緣
+- 原因：`getBoundingClientRect` 顯示卡片有 `margin-left: 8px` + `margin-right: 8px`
+
+### 元兇
+[styles.css:7356](styles.css#L7356) 在 `@media (max-width: 768px)` 區塊內：
+
+```css
+.prediction-container, .chart-card, .card, .ai-factors-panel,
+.confidence-grid, .model-training-section, .algorithm-section {
+    background: var(--bg-card);
+    border-radius: 16px;
+    margin: var(--space-sm);   /* ← 8px margin all sides！這就是兇手 */
+    ...
+}
+```
+
+這個規則把 chart-card / model-training-section / algorithm-section 的 margin 設為 8px，在 mobile 下等同於把卡片整個推離 app-container padding 邊緣 8px，加上右邊 8px margin 讓卡片**寬度超出容器邊界**。
+
+### 修復
+刪除 `margin: var(--space-sm)`，改用 `var(--card-radius)` 統一圓角。
+
+### Puppeteer 驗證修復後
+所有卡片現在都是 `left=8, right=385, width=377` — 完全對齊！
+
+### 檔案
+- `styles.css` — [7356](styles.css#L7356) 刪 margin，border-radius 改 var
+- `index.html` — styles.css?v=17→18、版本號 5.1.04→5.1.05
+- `sw.js`、`package.json` — 同步 5.1.05
+
+---
+
 ## v5.1.04 - 2026-04-21 HKT
 **🎨 所有區塊外邊界與圓角統一（header 邊界為基準）**
 
