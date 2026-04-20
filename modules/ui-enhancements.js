@@ -31,24 +31,32 @@ const ThemeManager = {
     
     setTheme(theme, save = true) {
         document.documentElement.setAttribute('data-theme', theme);
-        
+
         // 更新主題色 meta 標籤
         const metaThemeColor = document.getElementById('theme-color-meta');
         if (metaThemeColor) {
-            metaThemeColor.content = theme === 'dark' ? '#0f0f10' : '#f8fafc';
+            metaThemeColor.content = theme === 'dark' ? '#0b0d10' : '#f7f8fa';
         }
-        
-        // 更新切換按鈕圖標
-        const themeIcon = document.querySelector('#theme-toggle .theme-icon');
-        if (themeIcon) {
-            themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+
+        // 更新切換按鈕圖標 (v5.1.0: SVG-based)
+        const moonIcon = document.querySelector('#theme-toggle .theme-icon-moon');
+        const sunIcon = document.querySelector('#theme-toggle .theme-icon-sun');
+        if (moonIcon && sunIcon) {
+            moonIcon.style.display = theme === 'dark' ? 'none' : '';
+            sunIcon.style.display = theme === 'dark' ? '' : 'none';
+        } else {
+            // Fallback for legacy emoji span
+            const themeIcon = document.querySelector('#theme-toggle .theme-icon');
+            if (themeIcon && themeIcon.tagName !== 'svg' && !themeIcon.classList.contains('theme-icon-moon')) {
+                themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+            }
         }
-        
+
         if (save) {
             localStorage.setItem('ndh-theme', theme);
-            Toast.show(theme === 'dark' ? '🌙 深色模式已啟用' : '☀️ 淺色模式已啟用', 'info');
+            Toast.show(theme === 'dark' ? '深色模式已啟用' : '淺色模式已啟用', 'info');
         }
-        
+
         // 更新圖表主題（如果存在）
         this.updateCharts(theme);
     },
@@ -94,6 +102,50 @@ const NavManager = {
         this.setupNavLinks();
         this.setupBackToTop();
         this.setupHamburgerMenu();
+        this.setupMoreDropdown();
+    },
+
+    setupMoreDropdown() {
+        const btn = document.getElementById('nav-more-btn');
+        const menu = document.getElementById('nav-more-menu');
+        const wrap = document.getElementById('nav-more');
+        if (!btn || !menu || !wrap) return;
+
+        const close = () => {
+            menu.classList.remove('open');
+            btn.setAttribute('aria-expanded', 'false');
+        };
+        const open = () => {
+            menu.classList.add('open');
+            btn.setAttribute('aria-expanded', 'true');
+        };
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (menu.classList.contains('open')) close(); else open();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!wrap.contains(e.target)) close();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') close();
+        });
+
+        // Close on item click (let the nav-link scroll-to run first)
+        menu.querySelectorAll('a').forEach(a => {
+            a.addEventListener('click', () => setTimeout(close, 50));
+        });
+
+        // Reflect active state on More button when any secondary section is active
+        const secondary = new Set(['#factors-section', '#confidence-dashboard', '#timeline-section', '#dual-track-section', '#learning-section']);
+        const updateActive = () => {
+            const anyActive = Array.from(menu.querySelectorAll('a')).some(a => a.classList.contains('active'));
+            btn.classList.toggle('active', anyActive);
+        };
+        const mo = new MutationObserver(updateActive);
+        menu.querySelectorAll('a').forEach(a => mo.observe(a, { attributes: true, attributeFilter: ['class'] }));
     },
     
     setupStickyNav() {

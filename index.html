@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <!-- 使用 Service Worker 控制快取策略，允許瀏覽器快取 -->
-    <meta name="description" content="NDH AED 病人數量預測系統 v5.0.03 - DB-only direct multi-horizon、walk-forward 驗證、baseline gate 與一致化 mobile UI">
-    <meta name="theme-color" content="#f8fafc" id="theme-color-meta">
+    <meta name="description" content="NDH AED 病人數量預測系統 v5.1.00 - Professional UI redesign, unified cards, 5+More navigation, SVG icons, accessibility, mobile-first refinements">
+    <meta name="theme-color" content="#f7f8fa" id="theme-color-meta">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="北區醫院預測">
@@ -19,11 +19,34 @@
     <link rel="manifest" href="/manifest.json?v=8">
     
     <title>NDH AED 預測系統</title>
-    <link rel="stylesheet" href="styles.css?v=12">
+    <link rel="stylesheet" href="styles.css?v=13">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
 <body>
+    <!-- SVG Icon Sprite (v5.1.0 redesign) -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+        <defs>
+            <symbol id="i-today" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+            <symbol id="i-forecast" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></symbol>
+            <symbol id="i-trend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></symbol>
+            <symbol id="i-algorithm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+            <symbol id="i-training" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/><path d="M4 10h2M4 14h2M18 10h2M18 14h2M10 4v2M14 4v2M10 18v2M14 18v2"/></symbol>
+            <symbol id="i-factors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></symbol>
+            <symbol id="i-confidence" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18a9 9 0 1 1 18 0"/><path d="M12 18l5-6"/></symbol>
+            <symbol id="i-timeline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h16"/><circle cx="19" cy="12" r="2"/></symbol>
+            <symbol id="i-dual" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></symbol>
+            <symbol id="i-learning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a4 4 0 0 0-4 4v1a3 3 0 0 0-2 3 3 3 0 0 0 2 3 3 3 0 0 0 1.5 2.6A3 3 0 0 0 12 20a3 3 0 0 0 2.5-2.4A3 3 0 0 0 16 15a3 3 0 0 0 2-3 3 3 0 0 0-2-3V8a4 4 0 0 0-4-4z"/><path d="M12 8v12"/></symbol>
+            <symbol id="i-more" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></symbol>
+            <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2H4.5L6 16z"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
+            <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.3L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.3L3 16"/><path d="M3 21v-5h5"/></symbol>
+            <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/></symbol>
+            <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/></symbol>
+            <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></symbol>
+            <symbol id="i-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+        </defs>
+    </svg>
+
     <!-- Sticky Navigation Bar -->
     <nav class="sticky-nav" id="sticky-nav" role="navigation" aria-label="主導航">
         <div class="nav-container">
@@ -33,55 +56,65 @@
             </div>
             <div class="nav-links">
                 <a href="#today-section" class="nav-link active" data-section="today" aria-label="今日預測">
-                    <span class="nav-icon">📊</span>
+                    <svg class="nav-ico" width="18" height="18" aria-hidden="true"><use href="#i-today"/></svg>
                     <span class="nav-text" data-lang-key="nav-today">今日</span>
                 </a>
-                <a href="#factors-section" class="nav-link" data-section="factors" aria-label="影響因素">
-                    <span class="nav-icon">🎯</span>
-                    <span class="nav-text">因素</span>
-                </a>
                 <a href="#forecast-section" class="nav-link" data-section="forecast" aria-label="7日預測">
-                    <span class="nav-icon">📅</span>
+                    <svg class="nav-ico" width="18" height="18" aria-hidden="true"><use href="#i-forecast"/></svg>
                     <span class="nav-text" data-lang-key="nav-forecast">7日</span>
                 </a>
-                <a href="#confidence-dashboard" class="nav-link" data-section="confidence" aria-label="置信度">
-                    <span class="nav-icon">🎚️</span>
-                    <span class="nav-text">置信</span>
-                </a>
                 <a href="#charts-section" class="nav-link" data-section="charts" aria-label="歷史趨勢">
-                    <span class="nav-icon">📈</span>
+                    <svg class="nav-ico" width="18" height="18" aria-hidden="true"><use href="#i-trend"/></svg>
                     <span class="nav-text" data-lang-key="nav-history">趨勢</span>
                 </a>
-                <a href="#model-training-section" class="nav-link" data-section="training" aria-label="模型訓練">
-                    <span class="nav-icon">🤖</span>
-                    <span class="nav-text" data-lang-key="nav-training">訓練</span>
-                </a>
-                <a href="#timeline-section" class="nav-link" data-section="timeline" aria-label="算法時間線">
-                    <span class="nav-icon">📜</span>
-                    <span class="nav-text">時間線</span>
-                </a>
                 <a href="#algorithm-section" class="nav-link" data-section="algorithm" aria-label="預測算法">
-                    <span class="nav-icon">📐</span>
+                    <svg class="nav-ico" width="18" height="18" aria-hidden="true"><use href="#i-algorithm"/></svg>
                     <span class="nav-text">算法</span>
                 </a>
-                <a href="#dual-track-section" class="nav-link" data-section="dual-track" aria-label="雙軌預測">
-                    <span class="nav-icon">🔬</span>
-                    <span class="nav-text">雙軌</span>
+                <a href="#model-training-section" class="nav-link" data-section="training" aria-label="模型訓練">
+                    <svg class="nav-ico" width="18" height="18" aria-hidden="true"><use href="#i-training"/></svg>
+                    <span class="nav-text" data-lang-key="nav-training">訓練</span>
                 </a>
-                <a href="#learning-section" class="nav-link" data-section="learning" aria-label="自動學習">
-                    <span class="nav-icon">🧠</span>
-                    <span class="nav-text">學習</span>
-                </a>
+                <div class="nav-more" id="nav-more">
+                    <button class="nav-link nav-more-btn" id="nav-more-btn" aria-haspopup="true" aria-expanded="false" aria-label="更多功能">
+                        <svg class="nav-ico" width="18" height="18" aria-hidden="true"><use href="#i-more"/></svg>
+                        <span class="nav-text">更多</span>
+                        <svg class="nav-ico nav-chev" width="14" height="14" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+                    </button>
+                    <div class="nav-more-menu" id="nav-more-menu" role="menu">
+                        <a href="#factors-section" class="nav-link nav-more-item" data-section="factors" role="menuitem" aria-label="影響因素">
+                            <svg class="nav-ico" width="18" height="18" aria-hidden="true"><use href="#i-factors"/></svg>
+                            <span class="nav-text">影響因素</span>
+                        </a>
+                        <a href="#confidence-dashboard" class="nav-link nav-more-item" data-section="confidence" role="menuitem" aria-label="置信度">
+                            <svg class="nav-ico" width="18" height="18" aria-hidden="true"><use href="#i-confidence"/></svg>
+                            <span class="nav-text">置信度</span>
+                        </a>
+                        <a href="#timeline-section" class="nav-link nav-more-item" data-section="timeline" role="menuitem" aria-label="算法時間線">
+                            <svg class="nav-ico" width="18" height="18" aria-hidden="true"><use href="#i-timeline"/></svg>
+                            <span class="nav-text">演進時間線</span>
+                        </a>
+                        <a href="#dual-track-section" class="nav-link nav-more-item" data-section="dual-track" role="menuitem" aria-label="雙軌預測">
+                            <svg class="nav-ico" width="18" height="18" aria-hidden="true"><use href="#i-dual"/></svg>
+                            <span class="nav-text">雙軌預測</span>
+                        </a>
+                        <a href="#learning-section" class="nav-link nav-more-item" data-section="learning" role="menuitem" aria-label="自動學習">
+                            <svg class="nav-ico" width="18" height="18" aria-hidden="true"><use href="#i-learning"/></svg>
+                            <span class="nav-text">自動學習</span>
+                        </a>
+                    </div>
+                </div>
             </div>
             <div class="nav-actions">
                 <button class="nav-action-btn" id="notify-btn" title="通知設定" aria-label="通知設定">
-                    <span>🔔</span>
+                    <svg width="20" height="20" aria-hidden="true"><use href="#i-bell"/></svg>
                 </button>
                 <button class="nav-action-btn" id="force-refresh-btn" title="強制刷新 (清除快取)" aria-label="強制刷新">
-                    <span>🔄</span>
+                    <svg width="20" height="20" aria-hidden="true"><use href="#i-refresh"/></svg>
                 </button>
                 <button class="nav-action-btn" id="theme-toggle" title="切換主題 (Ctrl+D)" aria-label="切換深色模式">
-                    <span class="theme-icon">🌙</span>
+                    <svg class="theme-icon theme-icon-moon" width="20" height="20" aria-hidden="true"><use href="#i-moon"/></svg>
+                    <svg class="theme-icon theme-icon-sun" width="20" height="20" aria-hidden="true" style="display:none"><use href="#i-sun"/></svg>
                 </button>
             </div>
         </div>
@@ -89,7 +122,7 @@
 
     <!-- Back to Top Button -->
     <button class="back-to-top" id="back-to-top" title="返回頂部 (Home)" aria-label="返回頂部">
-        <span>↑</span>
+        <svg width="20" height="20" aria-hidden="true"><use href="#i-arrow-up"/></svg>
     </button>
 
     <!-- Notification Toast Container -->
@@ -731,7 +764,7 @@
         <footer class="app-footer" role="contentinfo">
             <p id="data-source-info" style="cursor: pointer; text-decoration: underline;" data-lang-key="footer-source">數據來源：載入中...</p>
             <p id="last-update-info" class="last-update-info"></p>
-            <p id="model-version-info">應用版本 5.0.03 · 模型 5.0.00 · DB-only Direct Multi-Horizon · walk-forward / baseline gate · 香港時間 HKT</p>
+            <p id="model-version-info">應用版本 5.1.00 · 模型 5.0.00 · DB-only Direct Multi-Horizon · walk-forward / baseline gate · 香港時間 HKT</p>
             <p style="margin-top: var(--space-sm); color: var(--text-tertiary); font-size: 0.85rem;">© 2026 Marco Ma. All Rights Reserved.</p>
             <div class="footer-links">
                 <a href="/api/docs" class="footer-link" data-lang-key="footer-api">API 文檔</a>
@@ -962,44 +995,46 @@
                     <button class="mobile-menu-close" id="mobile-menu-close" aria-label="關閉選單">✕</button>
                 </div>
                 <div class="mobile-menu-grid">
+                    <div class="mobile-menu-group-label">主要</div>
                     <a href="#today-section" class="mobile-menu-item" data-section="today">
-                        <span class="menu-item-icon">📊</span>
+                        <svg class="menu-item-icon" width="22" height="22" aria-hidden="true"><use href="#i-today"/></svg>
                         <span class="menu-item-text">今日預測</span>
                     </a>
-                    <a href="#factors-section" class="mobile-menu-item" data-section="factors">
-                        <span class="menu-item-icon">🎯</span>
-                        <span class="menu-item-text">影響因素</span>
-                    </a>
                     <a href="#forecast-section" class="mobile-menu-item" data-section="forecast">
-                        <span class="menu-item-icon">📅</span>
+                        <svg class="menu-item-icon" width="22" height="22" aria-hidden="true"><use href="#i-forecast"/></svg>
                         <span class="menu-item-text">7日預測</span>
                     </a>
-                    <a href="#confidence-dashboard" class="mobile-menu-item" data-section="confidence">
-                        <span class="menu-item-icon">🎚️</span>
-                        <span class="menu-item-text">置信度</span>
-                    </a>
                     <a href="#charts-section" class="mobile-menu-item" data-section="charts">
-                        <span class="menu-item-icon">📈</span>
+                        <svg class="menu-item-icon" width="22" height="22" aria-hidden="true"><use href="#i-trend"/></svg>
                         <span class="menu-item-text">趨勢圖表</span>
                     </a>
-                    <a href="#model-training-section" class="mobile-menu-item" data-section="training">
-                        <span class="menu-item-icon">🤖</span>
-                        <span class="menu-item-text">模型訓練</span>
-                    </a>
-                    <a href="#timeline-section" class="mobile-menu-item" data-section="timeline">
-                        <span class="menu-item-icon">📜</span>
-                        <span class="menu-item-text">演進時間線</span>
-                    </a>
                     <a href="#algorithm-section" class="mobile-menu-item" data-section="algorithm">
-                        <span class="menu-item-icon">📐</span>
+                        <svg class="menu-item-icon" width="22" height="22" aria-hidden="true"><use href="#i-algorithm"/></svg>
                         <span class="menu-item-text">算法說明</span>
                     </a>
+                    <a href="#model-training-section" class="mobile-menu-item" data-section="training">
+                        <svg class="menu-item-icon" width="22" height="22" aria-hidden="true"><use href="#i-training"/></svg>
+                        <span class="menu-item-text">模型訓練</span>
+                    </a>
+                    <div class="mobile-menu-group-label">進階</div>
+                    <a href="#factors-section" class="mobile-menu-item" data-section="factors">
+                        <svg class="menu-item-icon" width="22" height="22" aria-hidden="true"><use href="#i-factors"/></svg>
+                        <span class="menu-item-text">影響因素</span>
+                    </a>
+                    <a href="#confidence-dashboard" class="mobile-menu-item" data-section="confidence">
+                        <svg class="menu-item-icon" width="22" height="22" aria-hidden="true"><use href="#i-confidence"/></svg>
+                        <span class="menu-item-text">置信度</span>
+                    </a>
+                    <a href="#timeline-section" class="mobile-menu-item" data-section="timeline">
+                        <svg class="menu-item-icon" width="22" height="22" aria-hidden="true"><use href="#i-timeline"/></svg>
+                        <span class="menu-item-text">演進時間線</span>
+                    </a>
                     <a href="#dual-track-section" class="mobile-menu-item" data-section="dual-track">
-                        <span class="menu-item-icon">🔬</span>
+                        <svg class="menu-item-icon" width="22" height="22" aria-hidden="true"><use href="#i-dual"/></svg>
                         <span class="menu-item-text">雙軌預測</span>
                     </a>
                     <a href="#learning-section" class="mobile-menu-item" data-section="learning">
-                        <span class="menu-item-icon">🧠</span>
+                        <svg class="menu-item-icon" width="22" height="22" aria-hidden="true"><use href="#i-learning"/></svg>
                         <span class="menu-item-text">自動學習</span>
                     </a>
                 </div>

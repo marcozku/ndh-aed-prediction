@@ -1,13 +1,13 @@
 /**
  * NDH AED 預測系統 - Service Worker
  * 提供離線支援和快取管理
- * v3.1.04 - 修正 confidence / comparison / mobile UI 與 direct serving 語意一致性
+ * v5.1.00 - World-class UI/UX redesign: unified cards, 5+More nav, SVG icons, typography scale
  */
 
-const SW_VERSION = '3.1.04';
-const CACHE_NAME = 'ndh-aed-v3.1.04';
-const STATIC_CACHE = 'ndh-static-v3.1.04';
-const DYNAMIC_CACHE = 'ndh-dynamic-v3.1.04';
+const SW_VERSION = '5.1.00';
+const CACHE_NAME = 'ndh-aed-v5.1.00';
+const STATIC_CACHE = 'ndh-static-v5.1.00';
+const DYNAMIC_CACHE = 'ndh-dynamic-v5.1.00';
 
 // 靜態資源（始終快取）
 const STATIC_ASSETS = [

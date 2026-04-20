@@ -1,5 +1,80 @@
 # 版本更新日誌
 
+## v5.1.00 - 2026-04-21 HKT
+**🎨 World-class UI/UX 專業重設計**
+
+### 設計目標
+- Professional、beautiful、tidy、clean
+- Mobile + Desktop 一流體驗
+- 參考：Linear / Notion / Apple Health / Stripe Dashboard
+
+### 改動總覽
+
+**1. 設計 Token 重構 (styles.css:1-151)**
+- 多色紫色漸變 → 沉穩 slate + 單一藍色 accent (#2563eb)
+- Gradient 從 3-stop 改為 same-hue 2-stop
+- Shadows 降低 opacity 使陰影更克制
+- Dark mode 使用柔和的 #0b0d10 背景 + #60a5fa accent
+
+**2. 移除視覺噪音**
+- 刪除 `numberPulse` + `numberGlow` 動畫（數字不再跳動）
+- 刪除 `ambientShift` 背景動畫
+- 刪除 `pulseAlert` + `blink` 閃爍動畫（可及性修正）
+- 刪除卡片裝飾性 `::before / ::after` 偽元素
+- `.big-number` 改為實色 + tabular-nums（醫院 context 不應有浮誇動效）
+- `.nav-title` 改為實色
+- 新增全域 `prefers-reduced-motion: reduce` 支持
+
+**3. 導航重構（5 + More 下拉）**
+- 10 項平級 → 5 主 + More 下拉：今日 / 7日 / 趨勢 / 算法 / 訓練 + More
+- More 內含：影響因素 / 置信度 / 演進時間線 / 雙軌預測 / 自動學習
+- Emoji icons → 統一 stroke SVG（`<symbol>` sprite 於 body 頂端一次性定義）
+- Chevron 隨下拉旋轉
+- 子項激活時 More 按鈕高亮（MutationObserver）
+- ESC 鍵關閉下拉，點外部自動關閉
+- 手機菜單分組：主要 / 進階
+
+**4. 卡片系統統一**
+- `.prediction-card / .stats-card / .chart-card / .forecast-card / .confidence-card / .factor-card` 共享統一樣式
+- 取消 glass morphism (`backdrop-filter` 全數改為 none)
+- 統一 padding、border、radius、box-shadow
+- 取消 hover 時 `transform: scale()`，改為僅 border/shadow 變化
+
+**5. 手機 UX 修復**
+- `body` 底部 padding 加 `calc(72px + env(safe-area-inset-bottom))` 避免底部導航蓋住內容
+- `.back-to-top` 上移至 `84px + safe-area`
+- Nav link / action button 最小 44×44px (WCAG 2.5.5)
+- Status badges 允許換行，不再截斷
+- 圖表區手機最大高度 280px 減少滾動
+
+**6. Typography Scale**
+- 新增 `--fs-display / --fs-h1 / --fs-h2 / --fs-h3 / --fs-body / --fs-sm / --fs-xs` tokens
+- 新增 `--fw-regular / --fw-medium / --fw-semibold / --fw-bold` tokens
+- 全局 `font-weight: 900` → 700，`800` → 600
+- 所有標題語意化 + tabular-nums 數字對齊
+
+**7. 其他細節**
+- Date badge 從 gradient 改為淺藍背景 + 實色文字
+- Sticky nav 更克制的玻璃效果
+- 對照表手機版 sticky 首列 + min-width 560px 水平滾動
+- Theme toggle 改為 SVG 雙圖標（moon/sun 切換顯示）
+- Back-to-top 按鈕 solid blue, 44×44px 圓形
+
+**檔案改動**
+- `index.html` — 新增 SVG sprite、重構 nav、grouped 手機菜單、更新版本號
+- `styles.css` — 重寫設計 tokens、移除動畫、新增 card override 區塊、typography、mobile fixes、nav-more dropdown
+- `modules/ui-enhancements.js` — SVG theme icon toggle、setupMoreDropdown
+- `package.json` — 5.0.03 → 5.1.00
+- `VERSION_LOG.md` — 本更新日誌
+
+**可靠性保證**
+- 保留所有 `id / data-section / data-lang-key`，scroll-spy 與 i18n 不破
+- 保留所有 API、database、Chart.js 綁定
+- 每階段獨立可回滾
+- HTML 標籤平衡、CSS 括號平衡、JS 語法通過
+
+---
+
 ## v4.0.25 - 2026-01-31 HKT
 **🔧 修復 Railway 預測持平問題（server.js 混合策略）**
 
