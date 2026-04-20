@@ -1,13 +1,13 @@
 /**
  * NDH AED 預測系統 - Service Worker
  * 提供離線支援和快取管理
- * v5.1.01 - Fix theme icon visibility, More dropdown cache, comparison badge, mobile card containment
+ * v5.1.02 - Chart.js tooltip alignment + mobile dismiss (touchend/scroll)
  */
 
-const SW_VERSION = '5.1.01';
-const CACHE_NAME = 'ndh-aed-v5.1.01';
-const STATIC_CACHE = 'ndh-static-v5.1.01';
-const DYNAMIC_CACHE = 'ndh-dynamic-v5.1.01';
+const SW_VERSION = '5.1.02';
+const CACHE_NAME = 'ndh-aed-v5.1.02';
+const STATIC_CACHE = 'ndh-static-v5.1.02';
+const DYNAMIC_CACHE = 'ndh-dynamic-v5.1.02';
 
 // 靜態資源（始終快取）
 const STATIC_ASSETS = [

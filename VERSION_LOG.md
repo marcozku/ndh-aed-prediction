@@ -1,5 +1,38 @@
 # 版本更新日誌
 
+## v5.1.02 - 2026-04-21 HKT
+**🐛 對比圖 tooltip 手機體驗修復**
+
+### 問題
+在「實際與多模型預測對比」區塊：
+1. Hover tooltip 對不準當天數據點
+2. 手機版 tooltip 蓋住圖表
+3. 手機版 tooltip 不會消失，無法看到圖表
+
+### 原因
+- `professionalOptions.plugins.tooltip` 強制 `xAlign: 'center'` + `yAlign: 'bottom'`，讓 tooltip 總是黏在資料點下方，遮擋圖表
+- `interaction.mode = 'index'` 但沒有 `axis: 'x'`，觸控時定位不精確
+- 手機 touchend 不會觸發 mouseleave，Chart.js tooltip 停留不消失
+
+### 修復 (prediction.js)
+1. **Tooltip 精準對齊**：
+   - `interaction: { intersect: false, mode: 'index', axis: 'x' }` — 按 x 軸對齊最近資料點
+   - 移除 `xAlign: 'center' / yAlign: 'bottom'` 強制偏移 — Chart.js 自動避邊
+   - `caretSize: 6`, `caretPadding: 8` — 箭頭明確指向資料點
+2. **手機 tooltip 自動消失**：
+   - `touchend` 監聽：點到 canvas 以外就清除所有圖表的 active state
+   - `scroll` 監聽：滾動 150ms 後清除 tooltip（避免捲動時 tooltip 飄移）
+3. **手機 tooltip 更緊湊**：
+   - 手機 padding 從 10px 降到 8px，darker background (0.96) 對比更強
+
+### 檔案
+- `prediction.js` — professionalOptions.tooltip、DOMContentLoaded 新增 tooltip dismiss helper
+- `index.html` — prediction.js?v=22→23、styles.css?v=14→15、版本號
+- `sw.js` — SW + cache → v5.1.02
+- `package.json` — 5.1.01 → 5.1.02
+
+---
+
 ## v5.1.01 - 2026-04-21 HKT
 **🐛 v5.1.00 redesign 回報問題修復**
 

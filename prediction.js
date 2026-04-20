@@ -1288,7 +1288,8 @@ const professionalOptions = {
     maintainAspectRatio: false,
     interaction: {
         intersect: false,
-        mode: 'index'
+        mode: 'index',
+        axis: 'x'
     },
     layout: {
         padding: getResponsivePadding(),
@@ -1315,29 +1316,32 @@ const professionalOptions = {
         },
         tooltip: {
             enabled: true,
-            backgroundColor: 'rgba(30, 41, 59, 0.95)',
+            // v5.1.02: 正確對齊 hover 點 + 手機版體驗
+            mode: 'index',
+            intersect: false,
+            axis: 'x',
+            position: 'nearest',
+            backgroundColor: 'rgba(15, 23, 42, 0.96)',
             titleColor: '#fff',
-            bodyColor: 'rgba(255,255,255,0.85)',
-            borderColor: 'rgba(255, 255, 255, 0.1)',
+            bodyColor: 'rgba(255,255,255,0.92)',
+            borderColor: 'rgba(255, 255, 255, 0.08)',
             borderWidth: 1,
             cornerRadius: 10,
-            padding: window.innerWidth <= 600 ? 10 : 12, // 響應式 padding
+            padding: window.innerWidth <= 600 ? 8 : 12,
             boxPadding: 4,
             usePointStyle: true,
-            titleFont: { 
-                size: window.innerWidth <= 600 ? 12 : 13, 
-                weight: 700 
+            titleFont: {
+                size: window.innerWidth <= 600 ? 12 : 13,
+                weight: 700
             },
-            bodyFont: { 
-                size: window.innerWidth <= 600 ? 11 : 12, 
-                weight: 500 
+            bodyFont: {
+                size: window.innerWidth <= 600 ? 11 : 12,
+                weight: 500
             },
             displayColors: true,
-            // 確保工具提示不會被裁剪，自動調整位置
-            position: 'nearest',
-            xAlign: 'center',
-            yAlign: 'bottom',
-            // 確保工具提示在正確的 z-index 層級
+            caretSize: 6,
+            caretPadding: 8,
+            // 不再強制 xAlign / yAlign — 讓 Chart.js 自行避開邊界
             external: null
         }
     },
@@ -8887,7 +8891,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.__ndhPredictionBootstrapStarted = true;
 
     console.log('🏥 NDH AED 預測系統初始化...');
-    
+
+    // v5.1.02: 手機 touchend 關閉 Chart.js tooltip（否則 tooltip 會卡在圖上）
+    const dismissAllChartTooltips = (exceptCanvas) => {
+        const charts = [
+            typeof forecastChart !== 'undefined' ? forecastChart : null,
+            typeof dowChart !== 'undefined' ? dowChart : null,
+            typeof monthChart !== 'undefined' ? monthChart : null,
+            typeof historyChart !== 'undefined' ? historyChart : null,
+            typeof comparisonChart !== 'undefined' ? comparisonChart : null,
+            typeof accuracyChart !== 'undefined' ? accuracyChart : null,
+            typeof weatherChart !== 'undefined' ? weatherChart : null
+        ].filter(Boolean);
+        charts.forEach(c => {
+            try {
+                if (exceptCanvas && c.canvas === exceptCanvas) return;
+                c.setActiveElements([]);
+                c.tooltip?.setActiveElements([], { x: 0, y: 0 });
+                c.update('none');
+            } catch (e) { /* noop */ }
+        });
+    };
+    const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    if (isTouch) {
+        document.addEventListener('touchend', (e) => {
+            const tappedCanvas = e.target && e.target.tagName === 'CANVAS' ? e.target : null;
+            dismissAllChartTooltips(tappedCanvas);
+        }, { passive: true });
+        // Also dismiss when scrolling (common intent: leave the chart)
+        let scrollTimer = null;
+        window.addEventListener('scroll', () => {
+            if (scrollTimer) clearTimeout(scrollTimer);
+            scrollTimer = setTimeout(() => dismissAllChartTooltips(null), 150);
+        }, { passive: true });
+    }
+
     // 先創建預測器（使用硬編碼數據作為初始值）
     const predictor = new NDHAttendancePredictor();
     
