@@ -1,7 +1,7 @@
 {
   "name": "ndh-aed-prediction",
-  "version": "5.1.03",
-  "description": "NDH AED 病人數量預測系統 v5.1.03 - Global section containment so 30-day trend, volatility, training, timeline and algorithm sections no longer exceed iPhone viewport",
+  "version": "5.1.04",
+  "description": "NDH AED 病人數量預測系統 v5.1.04 - Uniform section boundaries: matching border-radius, padding, horizontal overflow hardened",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

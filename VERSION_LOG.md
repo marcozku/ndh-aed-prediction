@@ -1,5 +1,29 @@
 # 版本更新日誌
 
+## v5.1.04 - 2026-04-21 HKT
+**🎨 所有區塊外邊界與圓角統一（header 邊界為基準）**
+
+### 問題
+用戶比對兩張截圖：
+- 圖 1（正確）：`.app-header` 卡片左右邊界有合理 margin，36px 圓角
+- 圖 2（需修）：`.chart-card`（模型準確度趨勢、天氣影響分析）卡片右邊界更靠近螢幕邊、20px 圓角
+
+視覺上兩種卡片的「外邊界」與「圓角視覺 footprint」不一致：header 的大圓角讓它看起來有較大內縮，chart 卡片小圓角看起來貼邊。
+
+### 修復 (styles.css v5.1.04 block)
+1. **統一卡片圓角**：新增 `--card-radius: clamp(18px, 4vw, 24px)`，`app-header / prediction-card / chart-card / 所有 card variants / prediction-volatility-section / comparison-table-wrapper` 全部套用 `border-radius: var(--card-radius) !important`
+2. **統一內距**：所有 card 變體 `padding: clamp(16px, 3vw, 24px) !important`；`app-header` 也同樣標準化
+3. **Section 級對齊**：所有 top-level section `margin: 0 auto; width: 100%`，mobile 下 `padding-left/right: 0 !important`（外距歸 `.app-container` 管），保證所有區塊外邊界同一 x
+4. **水平溢出硬化**：`html, body` 全域 `overflow-x: hidden !important; max-width: 100vw !important`（不限 viewport），避免任何元素把頁面推出螢幕造成 sides 不一致
+5. **移除 app-header 頂部漸層線** (`::before content: none`)，避免與卡片邊界視覺衝突
+
+### 檔案
+- `styles.css` — 底部新增 ~70 行 uniform 區塊
+- `index.html` — styles.css?v=16→17、版本號 5.1.03→5.1.04
+- `sw.js`、`package.json` — 同步 5.1.04
+
+---
+
 ## v5.1.03 - 2026-04-21 HKT
 **🐛 手機版晚期區塊卡片溢出修復**
 

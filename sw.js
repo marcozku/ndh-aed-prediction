@@ -1,13 +1,13 @@
 /**
  * NDH AED 預測系統 - Service Worker
  * 提供離線支援和快取管理
- * v5.1.03 - Global section containment so late sections no longer exceed iPhone viewport
+ * v5.1.04 - Uniform section boundaries: matching radius, padding, horizontal overflow hardened
  */
 
-const SW_VERSION = '5.1.03';
-const CACHE_NAME = 'ndh-aed-v5.1.03';
-const STATIC_CACHE = 'ndh-static-v5.1.03';
-const DYNAMIC_CACHE = 'ndh-dynamic-v5.1.03';
+const SW_VERSION = '5.1.04';
+const CACHE_NAME = 'ndh-aed-v5.1.04';
+const STATIC_CACHE = 'ndh-static-v5.1.04';
+const DYNAMIC_CACHE = 'ndh-dynamic-v5.1.04';
 
 // 靜態資源（始終快取）
 const STATIC_ASSETS = [

@@ -9672,3 +9672,144 @@ img, canvas, svg {
     }
 }
 
+/* ============================================================
+   v5.1.04 — Uniform section alignment
+   Make every top-level section (header, prediction, forecast,
+   charts, training, timeline, algorithm, dual-track, learning,
+   confidence, factors) have the SAME outer left/right edge and
+   the SAME corner radius on mobile, so card boundaries line up
+   visually — the header card's boundary is the reference.
+   ============================================================ */
+
+/* Consistent responsive side padding for every section under
+   .app-container. This guarantees every section's outer edge
+   lands at the same x. */
+.app-header,
+.prediction-section,
+.today-section,
+.forecast-section,
+.charts-section,
+.confidence-dashboard,
+.factors-section,
+.model-training-section,
+.algorithm-timeline-section,
+.algorithm-section,
+.dual-track-section,
+.learning-section {
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+}
+
+/* Unify card corner radius so header card and chart/prediction cards
+   share the same visual silhouette. */
+:root {
+    --card-radius: clamp(18px, 4vw, 24px);
+}
+
+.app-header,
+.prediction-card,
+.stats-card,
+.chart-card,
+.forecast-card,
+.forecast-day-card,
+.confidence-card,
+.factor-card,
+.insight-card,
+.timeline-card,
+.algorithm-card,
+.learning-card,
+.training-card,
+.comparison-table-wrapper,
+.prediction-volatility-section {
+    border-radius: var(--card-radius) !important;
+}
+
+/* Unify inner padding so card content sits at the same inset
+   regardless of section. */
+.app-header {
+    padding-left: clamp(16px, 3vw, 24px) !important;
+    padding-right: clamp(16px, 3vw, 24px) !important;
+    padding-top: max(clamp(16px, 3vw, 24px), calc(env(safe-area-inset-top, 0px) + 16px)) !important;
+    padding-bottom: clamp(16px, 3vw, 24px) !important;
+}
+
+.prediction-card,
+.chart-card,
+.forecast-day-card,
+.stats-card,
+.confidence-card,
+.factor-card,
+.insight-card,
+.timeline-card,
+.algorithm-card,
+.learning-card,
+.training-card {
+    padding: clamp(16px, 3vw, 24px) !important;
+}
+
+/* Kill the double inset on .app-header::before gradient bar */
+.app-header::before { content: none !important; }
+
+/* Mobile: every top-level section sits at the same outer x and uses
+   the same border-radius. No section introduces its own side padding
+   (outer padding belongs to .app-container). */
+@media (max-width: 768px) {
+    .app-header,
+    .today-section,
+    .prediction-section,
+    .forecast-section,
+    .charts-section,
+    .confidence-dashboard,
+    .factors-section,
+    .model-training-section,
+    .algorithm-timeline-section,
+    .algorithm-section,
+    .dual-track-section,
+    .learning-section {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+    /* ...but the app-header IS a card, so it keeps its own INNER
+       padding — section-level 0 padding is overridden for it */
+    .app-header {
+        padding-left: clamp(14px, 4vw, 20px) !important;
+        padding-right: clamp(14px, 4vw, 20px) !important;
+    }
+}
+
+/* Prevent any decorative background from bleeding past the card's
+   rounded corners. */
+.app-header,
+.prediction-card,
+.chart-card,
+.stats-card,
+.confidence-card,
+.factor-card,
+.forecast-day-card,
+.insight-card,
+.timeline-card,
+.algorithm-card,
+.learning-card,
+.training-card,
+.prediction-volatility-section {
+    overflow: hidden;
+}
+
+/* Keep the prediction-card tooltips visible vertically (they can go
+   above/below), just clip the x-axis. */
+.prediction-card { overflow: hidden; }
+
+/* Universal horizontal containment — prevents any element anywhere
+   from causing horizontal scroll on the page, regardless of viewport. */
+html, body {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+}
+.app-container {
+    overflow-x: hidden;
+    max-width: 100%;
+}
+
