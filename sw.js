@@ -1,22 +1,22 @@
 /**
  * NDH AED 預測系統 - Service Worker
  * 提供離線支援和快取管理
- * v5.1.05 - Remove rogue mobile margin shifting chart/training/algorithm cards off-edge
+ * v5.2.03 - Refresh GPT-5.5 frontend assets and clear stale model-label caches
  */
 
-const SW_VERSION = '5.1.05';
-const CACHE_NAME = 'ndh-aed-v5.1.05';
-const STATIC_CACHE = 'ndh-static-v5.1.05';
-const DYNAMIC_CACHE = 'ndh-dynamic-v5.1.05';
+const SW_VERSION = '5.2.03';
+const CACHE_NAME = 'ndh-aed-v5.2.03';
+const STATIC_CACHE = 'ndh-static-v5.2.03';
+const DYNAMIC_CACHE = 'ndh-dynamic-v5.2.03';
 
 // 靜態資源（始終快取）
 const STATIC_ASSETS = [
     '/',
     '/index.html',
-    '/styles.css',
-    '/app.js',
-    '/prediction.js',
-    '/modules/ui-enhancements.js',
+    '/styles.css?v=19',
+    '/app.js?v=11',
+    '/prediction.js?v=24',
+    '/modules/ui-enhancements.js?v=6',
     '/modules/api.js',
     '/modules/datetime.js',
     '/modules/status.js',
@@ -259,4 +259,3 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 console.log('[SW] Service Worker 已載入 v' + SW_VERSION);
-

@@ -1,5 +1,27 @@
 # 版本更新日誌
 
+## v5.2.03 - 2026-04-25 HKT
+**🧹 前端 GPT-5.5 顯示刷新：清走舊 Service Worker / asset cache**
+
+### 修復內容
+- 原始前端檔案已顯示 `GPT-5.5`，但 `sw.js` 仍停在 `v5.1.05` 並 cache-first 保存 `/index.html`、`/prediction.js`、`/app.js`、`/modules/ui-enhancements.js`，導致瀏覽器/PWA 可能繼續顯示舊 `GPT-5.4` UI。
+- `sw.js` cache version 升到 `5.2.03`，強制建立新 static/dynamic cache 並刪除舊 `ndh-*` cache。
+- `index.html` asset query bump：
+  - `styles.css?v=19`
+  - `prediction.js?v=24`
+  - `app.js?v=11`
+- `app.js` import bump：
+  - `modules/ui-enhancements.js?v=6`
+- `index.html` meta / footer version 同步更新到 v5.2.03 / model v5.2.02。
+- regression 新增檢查：前端來源不可再包含 visible `GPT-5.4`，且 SW/cache 必須是 v5.2.03。
+
+### 驗證
+- `node scripts/verify-gpt-model-config.js`
+- `node --check app.js`
+- `node --check sw.js`
+- `node --check prediction.js`
+- `node --check modules/ui-enhancements.js`
+
 ## v5.2.02 - 2026-04-25 HKT
 **🧩 保留 GPT comparison 歷史線：只升級實際模型，不重開資料 key**
 

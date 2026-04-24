@@ -1,7 +1,7 @@
 {
   "name": "ndh-aed-prediction",
-  "version": "5.2.02",
-  "description": "NDH AED 病人數量預測系統 v5.2.02 - GPT-5.5 upgrade preserves canonical GPT comparison history key",
+  "version": "5.2.03",
+  "description": "NDH AED 病人數量預測系統 v5.2.03 - GPT-5.5 frontend refresh with preserved GPT comparison history",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -33,6 +33,11 @@ assertIncludes('server.js', 'model_name: canonicalizeModelComparisonName(row.mod
 assertIncludes('server.js', 'function selectPreferredModelComparisonRow');
 assertIncludes('server.js', 'const dedupedRowsByDateAndModel = new Map();');
 assertIncludes('server.js', "const key = `${row.date}:${row.model_name}`;");
+assertIncludes('sw.js', "const SW_VERSION = '5.2.03';");
+assertIncludes('sw.js', "const CACHE_NAME = 'ndh-aed-v5.2.03';");
+assertIncludes('index.html', 'prediction.js?v=24');
+assertIncludes('index.html', 'app.js?v=11');
+assertIncludes('app.js', "modules/ui-enhancements.js?v=6");
 
 for (const file of [
     'server.js',
@@ -54,6 +59,10 @@ for (const file of [
 assertNotIncludes('server.js', 'generateGpt54PredictionArm');
 assertNotIncludes('server.js', 'GPT54_PROMPT_VERSION');
 assertNotIncludes('server.js', 'gpt54_direct');
+assertNotIncludes('index.html', 'GPT-5.4');
+assertNotIncludes('prediction.js', 'GPT-5.4');
+assertNotIncludes('modules/ui-enhancements.js', 'GPT-5.4');
+assertNotIncludes('sw.js', 'GPT-5.4');
 assertNotIncludes('prediction.js', 'gpt_5_5');
 assertNotIncludes('modules/ui-enhancements.js', 'gpt_5_5');
 

@@ -3,7 +3,7 @@
  * prediction.js owns the prediction UI bootstrap and data refresh flow.
  */
 import { Learning } from './modules/learning.js?v=2';
-import { initUIEnhancements, AlertManager, Toast } from './modules/ui-enhancements.js?v=5';
+import { initUIEnhancements, AlertManager, Toast } from './modules/ui-enhancements.js?v=6';
 
 async function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) {
