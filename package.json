@@ -1,7 +1,7 @@
 {
   "name": "ndh-aed-prediction",
-  "version": "5.2.01",
-  "description": "NDH AED 病人數量預測系統 v5.2.01 - GPT prediction arm defaults to GPT-5.5 with GPT-5.4 fallback",
+  "version": "5.2.02",
+  "description": "NDH AED 病人數量預測系統 v5.2.02 - GPT-5.5 upgrade preserves canonical GPT comparison history key",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

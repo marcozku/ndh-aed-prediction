@@ -21,13 +21,18 @@ function assertNotIncludes(file, needle) {
 assertIncludes('ai-service.js', "const PRIMARY_MODEL = process.env.AI_MODEL || 'gpt-5.5';");
 assertIncludes('ai-service.js', "const PRIMARY_FALLBACK_MODEL = process.env.AI_FALLBACK_MODEL || 'gpt-5.4';");
 
-assertIncludes('server.js', "gpt_5_5: 'GPT-5.5'");
+assertIncludes('server.js', "gpt_5_4: 'GPT-5.5'");
+assertIncludes('server.js', "gpt_5_5: 'gpt_5_4'");
 assertIncludes('server.js', "const GPT55_PROMPT_VERSION = 'gpt55-arm-v1';");
 assertIncludes('server.js', "async function generateGpt55PredictionArm");
 assertIncludes('server.js', "aiService.callAI(prompt, 'gpt-5.5', 0)");
-assertIncludes('server.js', "modelName: 'gpt_5_5'");
+assertIncludes('server.js', "modelName: 'gpt_5_4'");
 assertIncludes('server.js', "modelVersion: 'gpt-5.5'");
 assertIncludes('server.js', "arm: 'gpt55_direct'");
+assertIncludes('server.js', 'model_name: canonicalizeModelComparisonName(row.model_name)');
+assertIncludes('server.js', 'function selectPreferredModelComparisonRow');
+assertIncludes('server.js', 'const dedupedRowsByDateAndModel = new Map();');
+assertIncludes('server.js', "const key = `${row.date}:${row.model_name}`;");
 
 for (const file of [
     'server.js',
@@ -43,13 +48,13 @@ for (const file of [
     'prediction.js',
     'modules/ui-enhancements.js'
 ]) {
-    assertIncludes(file, 'gpt_5_5');
+    assertIncludes(file, 'gpt_5_4');
 }
 
 assertNotIncludes('server.js', 'generateGpt54PredictionArm');
 assertNotIncludes('server.js', 'GPT54_PROMPT_VERSION');
 assertNotIncludes('server.js', 'gpt54_direct');
-assertNotIncludes('prediction.js', 'gpt_5_4');
-assertNotIncludes('modules/ui-enhancements.js', 'gpt_5_4');
+assertNotIncludes('prediction.js', 'gpt_5_5');
+assertNotIncludes('modules/ui-enhancements.js', 'gpt_5_5');
 
-console.log('GPT model config verified: primary gpt-5.5, fallback gpt-5.4, active comparison arm gpt-5.5.');
+console.log('GPT model config verified: primary gpt-5.5, fallback gpt-5.4, canonical comparison key gpt_5_4.');

@@ -3418,7 +3418,7 @@ function calculateAccuracyStats(comparisonData) {
 const MODEL_COMPARISON_CONFIG = {
     xgboost: { label: 'XGBoost', borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.12)', borderDash: [6, 4] },
     xgboost_ai: { label: 'XGBoost + AI', borderColor: '#059669', backgroundColor: 'rgba(5, 150, 105, 0.12)', borderDash: [] },
-    gpt_5_5: { label: 'GPT-5.5', borderColor: '#ea580c', backgroundColor: 'rgba(234, 88, 12, 0.12)', borderDash: [2, 4] }
+    gpt_5_4: { label: 'GPT-5.5', borderColor: '#ea580c', backgroundColor: 'rgba(234, 88, 12, 0.12)', borderDash: [2, 4] }
 };
 
 const MODEL_COMPARISON_ORDER = Object.keys(MODEL_COMPARISON_CONFIG);
@@ -4070,8 +4070,8 @@ function renderComparisonTableView(comparisonData) {
         const xgboostError = getComparisonErrorDisplay(historyItem, 'xgboost');
         const xgboostAiPrediction = getComparisonPredictionDisplay(historyItem, 'xgboost_ai');
         const xgboostAiError = getComparisonErrorDisplay(historyItem, 'xgboost_ai');
-        const gptPrediction = getComparisonPredictionDisplay(historyItem, 'gpt_5_5');
-        const gptError = getComparisonErrorDisplay(historyItem, 'gpt_5_5');
+        const gptPrediction = getComparisonPredictionDisplay(historyItem, 'gpt_5_4');
+        const gptError = getComparisonErrorDisplay(historyItem, 'gpt_5_4');
 
         return `
             <tr class="${historyItem.actual_count == null ? 'comparison-row-pending' : ''}">

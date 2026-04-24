@@ -1739,7 +1739,7 @@ const AccuracyChart = {
             const modelConfigs = [
                 { key: 'xgboost', label: 'XGBoost', color: '#2563eb', background: 'rgba(37, 99, 235, 0.10)', dash: [6, 4] },
                 { key: 'xgboost_ai', label: 'XGBoost + AI', color: '#059669', background: 'rgba(5, 150, 105, 0.10)', dash: [] },
-                { key: 'gpt_5_5', label: 'GPT-5.5', color: '#ea580c', background: 'rgba(234, 88, 12, 0.10)', dash: [2, 4] }
+                { key: 'gpt_5_4', label: 'GPT-5.5', color: '#ea580c', background: 'rgba(234, 88, 12, 0.10)', dash: [2, 4] }
             ];
 
             const datasets = modelConfigs.map(config => {
@@ -2136,5 +2136,4 @@ export function initUIEnhancements() {
 
 // 導出供外部使用
 export { ThemeManager, NavManager, Toast, AlertManager, ChartControls, ConfidenceDashboard };
-
 

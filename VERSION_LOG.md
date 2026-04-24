@@ -1,5 +1,27 @@
 # 版本更新日誌
 
+## v5.2.02 - 2026-04-25 HKT
+**🧩 保留 GPT comparison 歷史線：只升級實際模型，不重開資料 key**
+
+### 修復內容
+- 修正 v5.2.01 將 GPT comparison key 從 `gpt_5_4` 改成 `gpt_5_5` 的問題。
+- `model_prediction_runs` 的唯一鍵是 `(target_date, model_name)`，所以更改 `model_name` 會令前端/API 看不到舊的 GPT comparison 歷史資料。
+- GPT arm 的 canonical comparison key 恢復為 `gpt_5_4`，確保舊資料繼續接上同一條線。
+- API 會把短暫 v5.2.01 可能寫入的 `gpt_5_5` rows 映射回 `gpt_5_4`，避免同一 GPT arm 被拆成兩條線。
+- API 在映射後會按 `(date, model_name)` 去重，避免短暫壞版本 row 與舊 row 同時計入統計。
+- 實際 AI 呼叫仍使用 `gpt-5.5`，`modelVersion` 亦記錄為 `gpt-5.5`。
+- 前端顯示 label 維持 `GPT-5.5`，但讀取資料 key 回到 `gpt_5_4`。
+- `AI_FALLBACK_MODEL` 預設仍是 `gpt-5.4`。
+- 更新 `scripts/verify-gpt-model-config.js`，鎖住「primary 模型升級，但 comparison identity 不變」。
+
+### 驗證
+- `node scripts/verify-gpt-model-config.js`
+- `node --check ai-service.js`
+- `node --check server.js`
+- `node --check prediction.js`
+- `node --check modules/ui-enhancements.js`
+- `node --check modules/circuit-breaker.js`
+
 ## v5.2.01 - 2026-04-25 HKT
 **🤖 GPT 預測 arm 升級至 GPT-5.5，GPT-5.4 作為 fallback**
 

@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '5.2.01'; // v5.2.01: GPT prediction arm defaults to GPT-5.5 with GPT-5.4 fallback
+const MODEL_VERSION = '5.2.02'; // v5.2.02: GPT-5.5 upgrade preserves canonical GPT comparison history key
 
 // ============================================
 // HKT 時間工具函數
@@ -956,10 +956,38 @@ function calculateAdaptiveTargetMean(dow, monthFactor, predictionContext) {
 const MODEL_COMPARISON_LABELS = {
     xgboost: 'XGBoost',
     xgboost_ai: 'XGBoost + AI',
-    gpt_5_5: 'GPT-5.5'
+    gpt_5_4: 'GPT-5.5'
+};
+
+const MODEL_COMPARISON_ALIASES = {
+    gpt_5_5: 'gpt_5_4'
 };
 
 const GPT55_PROMPT_VERSION = 'gpt55-arm-v1';
+
+function canonicalizeModelComparisonName(modelName) {
+    return MODEL_COMPARISON_ALIASES[modelName] || modelName;
+}
+
+function selectPreferredModelComparisonRow(existingRow, nextRow) {
+    if (!existingRow) {
+        return nextRow;
+    }
+
+    const existingIsUpgradedGpt = existingRow.model_name === 'gpt_5_4' && existingRow.model_version === 'gpt-5.5';
+    const nextIsUpgradedGpt = nextRow.model_name === 'gpt_5_4' && nextRow.model_version === 'gpt-5.5';
+    if (existingIsUpgradedGpt !== nextIsUpgradedGpt) {
+        return nextIsUpgradedGpt ? nextRow : existingRow;
+    }
+
+    const existingUpdatedAt = existingRow.updated_at ? new Date(existingRow.updated_at).getTime() : 0;
+    const nextUpdatedAt = nextRow.updated_at ? new Date(nextRow.updated_at).getTime() : 0;
+    if (Number.isFinite(existingUpdatedAt) && Number.isFinite(nextUpdatedAt) && nextUpdatedAt !== existingUpdatedAt) {
+        return nextUpdatedAt > existingUpdatedAt ? nextRow : existingRow;
+    }
+
+    return nextRow;
+}
 
 function formatDbDate(value) {
     if (!value) return '';
@@ -1178,17 +1206,29 @@ function buildModelComparisonResponse(rows = []) {
         .filter(row => row && row.model_name)
         .map(row => ({
             date: formatDbDate(row.target_date),
-            model_name: row.model_name,
+            model_name: canonicalizeModelComparisonName(row.model_name),
+            model_version: row.model_version || null,
             predicted_count: Number(row.predicted_count),
             actual_count: row.actual_count == null ? null : Number(row.actual_count),
             abs_error: row.abs_error == null ? null : Number(row.abs_error),
-            mape: row.mape == null ? null : Number(row.mape)
+            mape: row.mape == null ? null : Number(row.mape),
+            updated_at: row.updated_at || null
         }));
+
+    const dedupedRowsByDateAndModel = new Map();
+    for (const row of normalizedRows) {
+        const key = `${row.date}:${row.model_name}`;
+        dedupedRowsByDateAndModel.set(
+            key,
+            selectPreferredModelComparisonRow(dedupedRowsByDateAndModel.get(key), row)
+        );
+    }
+    const comparisonRows = Array.from(dedupedRowsByDateAndModel.values());
 
     const byDate = new Map();
     const byModel = new Map();
 
-    for (const row of normalizedRows) {
+    for (const row of comparisonRows) {
         if (!byDate.has(row.date)) {
             byDate.set(row.date, { actual_count: row.actual_count, models: {} });
         }
@@ -1292,8 +1332,8 @@ function buildModelComparisonResponse(rows = []) {
 
     const pairings = [
         ['xgboost', 'xgboost_ai'],
-        ['xgboost', 'gpt_5_5'],
-        ['xgboost_ai', 'gpt_5_5']
+        ['xgboost', 'gpt_5_4'],
+        ['xgboost_ai', 'gpt_5_4']
     ];
 
     const pairwise = pairings.map(([baseModel, compareModel]) => {
@@ -7929,7 +7969,7 @@ async function generateServerSidePredictions(source = 'auto') {
                         predictionDate: hk.dateStr,
                         targetDate: pred.date,
                         horizonDays: pred.horizonDays,
-                        modelName: 'gpt_5_5',
+                        modelName: 'gpt_5_4',
                         modelVersion: 'gpt-5.5',
                         predictedCount: gptPrediction.predictedCount,
                         promptVersion: GPT55_PROMPT_VERSION,
@@ -7937,7 +7977,7 @@ async function generateServerSidePredictions(source = 'auto') {
                         metadata: {
                             source,
                             arm: 'gpt55_direct',
-                            label: MODEL_COMPARISON_LABELS.gpt_5_5,
+                            label: MODEL_COMPARISON_LABELS.gpt_5_4,
                             confidence: gptPrediction.confidence,
                             reason: gptPrediction.reason
                         }
