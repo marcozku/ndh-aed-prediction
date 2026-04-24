@@ -2,7 +2,7 @@
  * modules/circuit-breaker.js - v5.2.0
  *
  * Opossum-based circuit breakers for slow/unreliable dependencies:
- *  - AI service (GPT-5.4 calls can time out or 5xx)
+ *  - AI service (GPT-5.5 calls can time out or 5xx)
  *  - HKO weather external API
  *  - Python child-process predictions
  *

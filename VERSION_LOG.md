@@ -1,5 +1,32 @@
 # 版本更新日誌
 
+## v5.2.01 - 2026-04-25 HKT
+**🤖 GPT 預測 arm 升級至 GPT-5.5，GPT-5.4 作為 fallback**
+
+### 修復內容
+- `ai-service.js`
+  - `AI_MODEL` 未設定時，primary default 改為 `gpt-5.5`
+  - `AI_FALLBACK_MODEL` 未設定時，standard fallback 改為 `gpt-5.4`
+  - 保留環境變數 override 行為
+- `server.js`
+  - GPT direct prediction arm 改為先呼叫 `gpt-5.5`
+  - GPT arm 儲存欄位改為 `modelName: gpt_5_5`、`modelVersion: gpt-5.5`
+  - prompt version / metadata arm 同步改為 `gpt55`
+  - 若指定 GPT-5.5 呼叫失敗，現有 `callAI()` 流程會繼續嘗試 `MODEL_CONFIG.standard`，即 `gpt-5.4`
+- 前端比較圖表 / 表格
+  - GPT comparison label 與 key 同步改為 `GPT-5.5` / `gpt_5_5`
+- `scripts/verify-gpt-model-config.js`
+  - 新增回歸檢查，鎖住 primary/fallback/active comparison arm 設定
+
+### 驗證
+- `node scripts/verify-gpt-model-config.js`
+- `node --check ai-service.js`
+- `node --check server.js`
+- `node --check prediction.js`
+- `node --check modules/ui-enhancements.js`
+- `node --check modules/circuit-breaker.js`
+- `PORT=3119 node server.js` + `GET /api/status` smoke test
+
 ## v5.2.00 - 2026-04-21 HKT
 **⚡ In-memory cache 層 + opossum 斷路器（preparing for Railway log 瓶頸分析）**
 

@@ -4,7 +4,7 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const MODEL_VERSION = '5.0.00'; // v5.0.00: DB-only direct multi-horizon + baseline gate
+const MODEL_VERSION = '5.2.01'; // v5.2.01: GPT prediction arm defaults to GPT-5.5 with GPT-5.4 fallback
 
 // ============================================
 // HKT 時間工具函數
@@ -956,10 +956,10 @@ function calculateAdaptiveTargetMean(dow, monthFactor, predictionContext) {
 const MODEL_COMPARISON_LABELS = {
     xgboost: 'XGBoost',
     xgboost_ai: 'XGBoost + AI',
-    gpt_5_4: 'GPT-5.4'
+    gpt_5_5: 'GPT-5.5'
 };
 
-const GPT54_PROMPT_VERSION = 'gpt54-arm-v1';
+const GPT55_PROMPT_VERSION = 'gpt55-arm-v1';
 
 function formatDbDate(value) {
     if (!value) return '';
@@ -1080,7 +1080,7 @@ async function loadRecentActualSeries(limit = 28) {
         }));
 }
 
-async function generateGpt54PredictionArm({
+async function generateGpt55PredictionArm({
     predictionDate,
     predictions,
     predictionContext
@@ -1145,7 +1145,7 @@ async function generateGpt54PredictionArm({
         JSON.stringify(promptPayload)
     ].join('\n');
 
-    const raw = await aiService.callAI(prompt, 'gpt-5.4', 0);
+    const raw = await aiService.callAI(prompt, 'gpt-5.5', 0);
     const jsonText = extractJsonBlock(raw);
     const parsed = JSON.parse(jsonText);
     const predictionList = Array.isArray(parsed?.predictions) ? parsed.predictions : [];
@@ -1292,8 +1292,8 @@ function buildModelComparisonResponse(rows = []) {
 
     const pairings = [
         ['xgboost', 'xgboost_ai'],
-        ['xgboost', 'gpt_5_4'],
-        ['xgboost_ai', 'gpt_5_4']
+        ['xgboost', 'gpt_5_5'],
+        ['xgboost_ai', 'gpt_5_5']
     ];
 
     const pairwise = pairings.map(([baseModel, compareModel]) => {
@@ -7827,15 +7827,15 @@ async function generateServerSidePredictions(source = 'auto') {
 
         let gptPredictionMap = {};
         try {
-            gptPredictionMap = await generateGpt54PredictionArm({
+            gptPredictionMap = await generateGpt55PredictionArm({
                 predictionDate: hk.dateStr,
                 predictions,
                 predictionContext
             });
             const gptCount = Object.keys(gptPredictionMap).length;
-            console.log(`🤖 GPT-5.4 預測 arm 已生成 ${gptCount} 天`);
+            console.log(`🤖 GPT-5.5 預測 arm 已生成 ${gptCount} 天`);
         } catch (err) {
-            console.warn('⚠️ GPT-5.4 預測 arm 生成失敗:', err.message);
+            console.warn('⚠️ GPT-5.5 預測 arm 生成失敗:', err.message);
         }
         
         // 保存預測到數據庫
@@ -7929,15 +7929,15 @@ async function generateServerSidePredictions(source = 'auto') {
                         predictionDate: hk.dateStr,
                         targetDate: pred.date,
                         horizonDays: pred.horizonDays,
-                        modelName: 'gpt_5_4',
-                        modelVersion: 'gpt-5.4',
+                        modelName: 'gpt_5_5',
+                        modelVersion: 'gpt-5.5',
                         predictedCount: gptPrediction.predictedCount,
-                        promptVersion: GPT54_PROMPT_VERSION,
+                        promptVersion: GPT55_PROMPT_VERSION,
                         inputSnapshot: sharedSnapshot,
                         metadata: {
                             source,
-                            arm: 'gpt54_direct',
-                            label: MODEL_COMPARISON_LABELS.gpt_5_4,
+                            arm: 'gpt55_direct',
+                            label: MODEL_COMPARISON_LABELS.gpt_5_5,
                             confidence: gptPrediction.confidence,
                             reason: gptPrediction.reason
                         }

@@ -227,8 +227,8 @@ function isApiConfigEnabled(apiConfigName) {
     return Boolean(apiConfig && apiConfig.baseUrl && apiConfig.apiKey);
 }
 
-const PRIMARY_MODEL = process.env.AI_MODEL || 'gpt-5.4';
-const PRIMARY_FALLBACK_MODEL = process.env.AI_FALLBACK_MODEL || 'gpt-5.4-fast';
+const PRIMARY_MODEL = process.env.AI_MODEL || 'gpt-5.5';
+const PRIMARY_FALLBACK_MODEL = process.env.AI_FALLBACK_MODEL || 'gpt-5.4';
 const PRIMARY_BASIC_MODEL = process.env.AI_BASIC_MODEL || 'gpt-5';
 const FREE_DEFAULT_MODEL = process.env.FREE_AI_MODEL || 'gpt-4o-mini';
 const PRIMARY_REASONING_EFFORT = process.env.AI_REASONING_EFFORT || 'none';
