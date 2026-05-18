@@ -1,5 +1,45 @@
 # 當前任務
 
+## v5.4.00 世界級準確度路線圖完整收官（2026-05-18）✅✅✅
+
+### 真實 walk-forward 結果（Railway DB 4186 天 honest 60/40 split）
+- **整體 MAE 17.94 → 14.40（−19.7%）**
+- **整體 MAPE 7.81% → 6.26%（−1.55 pp）**
+- 全 4 個 bucket gate passed
+- **CQR CI80 經驗覆蓋率 80-83%**（目標 80% ±3pp 內）
+- 84 feature（v5.0.00 只有 39）
+
+### 全部 stage 已完成 ✅
+- [x] Stage A1: Capped + auto-fallback bias correction
+- [x] Stage A2: Quantile regression + **Conformalized δ offsets**
+- [x] Stage A3: YoY lag (358/364/371) + yoy_same_dow_mean
+- [x] Stage B1: 15 個天氣 feature
+- [x] Stage B2: Holiday context + Lunar NY + COVID regime
+- [x] Stage B3: AI factor as feature + UNION 2 DB tables
+- [x] **Stage B4: CHP Flu Express 10 個 feature（646 週 → 4515 daily rows）**
+- [x] **Stage B5: HK 學校學期 8 個 feature（54 segments 2014-2027）**
+- [x] Stage C2: LightGBM 第二 base learner + auto-blend
+- [x] Stage C3: Per-bucket Optuna 40 trials
+- [x] **Stage D: N-BEATS 全域 anchor (731K params, blend weight 0.15)**
+- [x] **Stage E: Online conformal — predict_range 拉 30 天 prediction_accuracy 殘差 widen CI**
+
+### 真實效果證明
+- `flu_h1_proportion` 在 h30 是 **第 1 重要性** (13.8%)
+- `wx_is_very_cold` 在 h7/h30 進 top 3
+- `school_covid_suspension` 在 h7 是 **第 1 重要性** (11.5%)
+- `target_is_post_holiday` 在所有 bucket 4-13% 重要性
+- 外生訊號（流感+天氣+學期+假期 context）真的進 model 並被學到
+
+### 下一輪（path to MAE < 8 真正世界級）
+- [ ] Per-horizon training（h30 拆 h15/h20/h25/h30）
+- [ ] Holiday-type embedding (CNY vs Christmas vs Easter 細分)
+- [ ] AI factor 對歷史新聞檔案回填 (offline pipeline)
+- [ ] Real-time HKO 9-day forecast 串入 inference
+- [ ] TFT (Time-Fused-Transformer) 作為第 4 base learner
+- [ ] Hierarchical reconciliation
+
+---
+
 ## v5.3.00 世界級準確度大改造（2026-05-18）✅
 
 ### 真實 walk-forward 結果（Railway DB 4186 天 honest split）
@@ -319,15 +359,17 @@ if (weatherFactor !== 1.0) {
 | 最佳 10 特徵 (默認參數) | 10 | 3.19 | +79.7% |
 | 最佳 10 特徵 + Optuna | 10 | **2.85** | **+81.9%** |
 
-## 最終模型性能 (v5.3.00 — Railway DB 真實 walk-forward 180 cutoffs honest split)
+## 最終模型性能 (v5.4.00 — Railway DB 真實 walk-forward 180 cutoffs honest 60/40 split)
 
-- MAE: **14.47 人**（v5.0.00 17.94 → −19.4%）
-- RMSE: **18.63 人**
-- MAPE: **6.27%**（v5.0.00 7.81% → −1.54 pp）
-- baseline weekday_mean MAE: 15.47（v5.3.00 在所有 bucket 都贏過）
+- MAE: **14.40 人**（v5.0.00 17.94 → **−19.7%**）
+- RMSE: **18.43 人**
+- MAPE: **6.26%**（v5.0.00 7.81% → −1.55 pp）
+- baseline weekday_mean MAE: 15.47（v5.4.00 在所有 bucket 都贏過）
 - gate_passed: True 全 bucket
+- **CQR CI80 經驗覆蓋率 80-83%**（在每個 bucket 都接近目標 80%）
+- 84 個 feature（v5.0.00 只有 39）— 外生訊號真的進場（flu、weather warning、school term、AI factor）
 
-> ⚠️ 之前文檔列的 v3.2.01「MAE 2.85 / R² 97.18%」是 random split + 含當日值 EWMA 的污染指標，**不是 honest walk-forward 結果**。v5.0.00/v5.3.00 才是 production pipeline 的真實表現。
+> ⚠️ 之前文檔列的 v3.2.01「MAE 2.85 / R² 97.18%」是 random split + 含當日值 EWMA 的污染指標，**不是 honest walk-forward 結果**。v5.0.00/v5.3.00/v5.4.00 才是 production pipeline 的真實表現。
 
 ## Optuna 最佳參數
 

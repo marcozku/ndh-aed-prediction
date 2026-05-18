@@ -1,192 +1,166 @@
-# 預測算法升級總結 v2.9.62
+# 預測算法升級總結 v5.4.00
 
 ## 🎯 升級目標
 
-基於真實的急診室預測研究，將預測準確度提升到極高水平。
+從 v5.0.00 的「fancy weekday-mean」(MAE 17.94) 提升到**世界級水準**，靠 (1) 真正的外生訊號 feature engineering、(2) per-bucket Optuna 調參、(3) 多模型 ensemble、(4) 校準的 conformalized quantile CI、(5) online residual adaptation。
 
-## 🚀 v2.9.62 重大更新：全面 XGBoost 整合
+## 📊 v5.4.00 真實 walk-forward 表現（Railway DB 4186 天 honest 60/40 split）
 
-### 問題
-- 之前只有伺服器端自動預測使用 XGBoost
-- 前端的今日預測、7天預測卡片、30天圖表都使用統計方法
-- 導致 XGBoost 的 1.59% MAPE 優勢未被利用
+| 指標 | v5.0.00（之前）| **v5.4.00（現在）** | 改善 |
+|---|---|---|---|
+| **MAE** | 17.94 | **14.40** | **−19.7%** |
+| **MAPE** | 7.81% | **6.26%** | −1.55 pp |
+| **RMSE** | 23.61 | **18.43** | −22.0% |
+| **特徵數** | 39 | **84** | +115% |
+| **CI80 經驗覆蓋率** | ~70%（靜態）| **80-83%（CQR + online）** | 完美校準 |
+| **Gate passed** | 部分 | **全 4 bucket** | ✓ |
 
-### 解決方案
-1. **新增 `getXGBoostPredictionWithMetadata()`**
-   - 結合 XGBoost 預測值和統計方法的元數據
-   - 保留因子分解顯示（月份因子、星期因子等）
+> ⚠️ 之前文檔到處宣稱「v3.2.01 MAE 2.85 / R² 97.18%」是 random split + 含當日值 EWMA 的**污染指標**，不是 honest walk-forward 結果。詳見 `.tasks/prediction-accuracy-deep-analysis.md`。
 
-2. **今日預測**：改用 XGBoost
-3. **7天預測卡片**：改用 XGBoost
-4. **30天趨勢圖**：全部使用 XGBoost
-5. **伺服器自動預測**：從 8 天擴展到 31 天
+## 🚀 v5.4.00 完整 Stage 清單
 
-### 效果
-- **所有預測都使用 XGBoost 模型**
-- **準確度統一為 1.59% MAPE**
-- **保留完整的因子分解 UI 顯示**
+### Stage A：免費午餐（修 v5.0.00 已存在但沒做的事）
+- **A1: Capped + auto-fallback bias correction**（per `target_dow` shrinkage with `n/(n+50)`, cap ±4.0, global ±5.0）
+  - 在 v5.0.00 上有 +3.87 ~ +9.60 系統性高估，這個層每個 bucket 個別修正
+  - Safety valve: 若 calibration → test 期間 bias 漂移使 corrected MAE > raw MAE，**自動回退到 raw 預測**
+- **A2: Quantile Regression + Conformalized δ offsets (CQR)**
+  - 每個 bucket 額外訓 q10 / q90 booster
+  - δ_low, δ_high 從 val set 計算：`δ_low = quantile(q10_pred - y, 0.90)`, `δ_high = quantile(y - q90_pred, 0.90)`
+  - CI80 = `[q10 - δ_low, q90 + δ_high]`，δ_95 用 0.975 quantile
+  - 實測 CI80 經驗覆蓋率 80-83%（目標 80% ±3pp）
+- **A3: Year-over-year lag**：lag358 / lag364 / lag371 + yoy_same_dow_mean
 
-## 📚 研究參考
+### Stage B：餵真正的訊號
+- **B1: 15 個天氣 feature** 從 Railway `weather_history` 4186 行直接餵 XGBoost
+  - temp_mean/range/min/max, rainfall_log, humidity, wind, pressure_dev
+  - typhoon_ord (0/1/3/8/9/10), rainstorm_ord (0/1/2/3)
+  - is_very_cold / is_very_hot / is_heavy_rain / is_strong_wind
+  - wx_temp_anomaly_30d (溫度與 30 天均值的差)
+- **B2: Holiday context + Lunar NY + COVID regime**
+  - target_is_holiday_eve / target_is_post_holiday / target_is_bridge_day
+  - lunar_ny_distance signed −15..+15
+  - is_covid_period (2022-01-01 ~ 2023-06-30 flag)
+- **B3: AI factor as feature**
+  - UNION `learning_records` + `daily_predictions` = 165 行
+  - is_pre_ai_era flag (對 2026-01-01 之前一律 1)
+- **B4: CHP Flu Express 10 個 feature**（**新世界級突破**）
+  - `python/chp_flu_express.csv` 646 週 → 4515 daily rows
+  - flu_ili_pmp, flu_ili_aed, flu_aandb_count, flu_adm_rate, flu_school_count
+  - flu_h1_proportion, flu_h3_proportion, flu_b_proportion
+  - flu_intensity_score (z-score of ILI_PMP)
+  - flu_trend_2week
+- **B5: HK 學校學期 8 個 feature**（**新世界級突破**）
+  - `python/hk_school_calendar.json` 13 年 + 54 holiday segments
+  - school_in_session, school_summer/christmas/lunar_ny/easter/covid_suspension
+  - school_days_to_term_start, school_days_since_term_end
 
-### 1. XGBoost 研究（法國醫院）
-- **MAE**: 2.63-2.64 病人
-- **方法**: 機器學習 + 超參數調優
+### Stage C：模型架構
+- **C2: LightGBM L1 第二 base learner** + auto-fallback blend (XGB:LGB = 0.55:0.45)
+  - 若 blend 在 val 比 XGB-only 差就保留 XGB
+- **C3: Per-bucket Optuna 40 trials TPE** (lr / depth / mcw / sub / cb / α / λ / γ)
+  - short 最佳 lr=0.057, h7 lr=0.061, h14 lr=0.023, h30 lr=0.115
 
-### 2. LSTM 網絡研究
-- **優勢**: 優於ARIMA和Prophet
-- **特點**: 適應數據分佈變化，無需完全重訓練
+### Stage D：深度學習 anchor
+- **N-BEATS 全域 anchor**
+  - 731 K params, identity + trend + seasonality stacks
+  - 90-day input window, 30-step horizon
+  - Trained on full 4186 days, blend_weight 0.15
+  - **不是主導，是 anchor**——主要 prediction 還是 XGBoost+LGB
 
-### 3. Prophet 模型研究
-- **優勢**: 適合強季節性模式
-- **特點**: 趨勢和季節性分解
+### Stage E：Online conformal CI
+- **predict_range 每批拉 30 天 prediction_accuracy 殘差**
+- σ_recent = std(residual)
+- CI 寬度自動加 `0.4 × σ_recent`（單側 padding）
+- 若 DB 連線失敗或 < 10 個樣本，安全降級到訓練時 CQR δ
 
-### 4. 天氣影響研究
-- **發現**: 相對溫度（與歷史平均比較）比絕對溫度更重要
-- **高溫**: 比歷史平均高 → 增加就診
-- **低溫**: 比歷史平均低 → 增加就診（寒冷相關疾病）
+## 🏆 v5.4.00 真實 top features（證明外生訊號真的有效）
 
-### 5. 星期效應研究
-- **週一**: 124% 平均（最高）
-- **週末**: 70% 平均（最低）
-- **月份差異**: 不同月份的星期模式不同
+| Bucket | Top-1 重要性 | Importance | 之前 v5.0.00 在這位置 |
+|---|---|---|---|
+| short | dow_recent_mean | 19.7% | dow_recent_mean (17.1%) |
+| h7 | **school_covid_suspension** | **11.5%** | ewma14 (28.1%) |
+| h14 | dow_recent_mean | 11.3% | roll14 (35.3%) |
+| **h30** | **flu_h1_proportion** | **13.8%** | roll14 (34.8%) |
 
-## 🚀 實施的改進
+外生訊號（flu / weather warning / school term / holiday context）在 h30 進場前 3：
+- `flu_h1_proportion` 13.8%
+- `target_is_post_holiday` 12.9%
+- `wx_is_very_cold` 12.2%
 
-### 1. 滾動窗口計算 ✅
-```javascript
-// 使用最近180天數據（而非全部歷史）
-const recentData = this.data.slice(-180);
-```
-**效果**: 自動適應數據分佈變化，反映當前趨勢
+對比 v5.0.00 top features 全部是 `dow_recent_mean / roll28 / ewma14` 等內生 lag/rolling，現在 **model 真的學到外生 signal**。
 
-### 2. 加權平均 ✅
-```javascript
-// 指數衰減權重：最近數據權重更高
-const weight = Math.exp(-0.02 * daysAgo);
-```
-**效果**: 更準確反映當前水平，減少舊數據影響
+## 🔬 研究基礎
 
-### 3. 月份-星期交互因子 ✅
-```javascript
-// 為每個月份計算獨立的星期因子
-this.monthDowFactors[month][dow]
-```
-**效果**: 12月的星期一與1月的星期一模式不同，更準確
+| 組件 | 引用 | 應用 |
+|---|---|---|
+| XGBoost | Chen & Guestrin (2016) | base learner 1 |
+| LightGBM | Ke et al. (2017) | base learner 2 |
+| Optuna TPE | Akiba et al. (2019) | per-bucket 調參 |
+| N-BEATS | Oreshkin et al. (2020) ICLR | global anchor learner |
+| **CQR** | **Romano, Patterson & Candes (2019) NeurIPS** | **state-dependent CI** |
+| **Online conformal** | **Gibbs & Candes (2021) JMLR** | **CI adaptation** |
+| Concept drift | Gama et al. (2014) ACM CS | COVID regime flag |
+| ED benchmark | BMC EM (2025) MAE 2.63 | 世界 SOTA 參考 |
+| Flu surveillance | HK CHP Flu Express | 流感 feature |
 
-### 4. 趨勢調整 ✅
-```javascript
-// 計算7天和30天移動平均
-const trend = (avg7 - avg30) / avg30;
-value += value * trend * 0.3; // 30%權重
-```
-**效果**: 捕捉短期趨勢變化，提高預測準確度
-
-### 5. 改進的置信區間 ✅
-```javascript
-// 更保守的估計
-const adjustedStdDev = this.stdDev * 1.2; // 20%不確定性
-CI80: ±1.5 × adjustedStdDev (從1.28改為1.5)
-CI95: ±2.5 × adjustedStdDev (從1.96改為2.5)
-```
-**效果**: 95% CI準確率從~70%提升到>95%
-
-### 6. 相對溫度天氣因子 ✅
-```javascript
-// 與歷史平均比較
-const tempDiff = temp - historicalAvgTemp;
-if (tempDiff > 5) factor = 1.06; // 高溫增加
-if (tempDiff < -5) factor = 1.10; // 低溫增加
-```
-**效果**: 更準確反映天氣影響（基於研究發現）
-
-### 7. AI因子限制 ✅
-```javascript
-// 限制在合理範圍
-aiFactor = Math.max(0.85, Math.min(1.15, aiFactor));
-```
-**效果**: 防止單一因素過度影響預測
-
-### 8. 異常檢測 ✅
-```javascript
-// 使用歷史分位數
-const p5 = attendances[Math.floor(length * 0.05)];
-const p95 = attendances[Math.floor(length * 0.95)];
-// 調整異常值到合理範圍
-```
-**效果**: 減少極端預測值，提高穩定性
-
-## 📊 預期改進效果
-
-| 指標 | 改進前 | 改進後 | 提升 |
-|------|--------|--------|------|
-| **MAE** | ~15-20 人 | < 5 人 | **75%+** |
-| **MAPE** | ~8-10% | < 3% | **70%+** |
-| **80% CI準確率** | ~50% | > 80% | **60%+** |
-| **95% CI準確率** | ~70% | > 95% | **35%+** |
-| **異常誤差(>15%)** | 常見 | 罕見 | **80%+** |
-
-## 🔧 技術參數
-
-- **滾動窗口**: 180天
-- **近期窗口**: 30天（趨勢計算）
-- **權重衰減率**: 0.02（指數）
-- **趨勢權重**: 30%（保守）
-- **不確定性因子**: 1.2（20%緩衝）
-- **標準差下限**: 25（保守估計）
-- **AI因子範圍**: 0.85 - 1.15
-- **預測範圍**: 150 - 350 人
-
-## 📈 算法流程
+## 📈 算法執行流程（v5.4.00 完整版）
 
 ```
-1. 使用滾動窗口（180天）獲取最近數據
-2. 計算加權平均和加權標準差（指數衰減權重）
-3. 計算月份因子（加權）
-4. 計算星期因子（加權）
-5. 計算月份-星期交互因子（加權）
-6. 基準值 = 全局平均 × 月份因子
-7. 預測值 = 基準值 × 月份-星期交互因子
-8. 應用假期因子
-9. 應用流感季節因子
-10. 應用天氣因子（相對溫度）
-11. 應用AI因子（限制範圍）
-12. 應用趨勢調整（30%權重）
-13. 異常檢測和調整
-14. 計算改進的置信區間
+1. 載入 Railway DB:
+   - actual_data (4186 天)
+   - weather_history (4186 天)
+   - learning_records UNION daily_predictions (165 天 AI factor)
+   - CHP Flu Express (646 週 → 4515 日)
+   - HK 學校學期 dict (54 segments)
+
+2. 每個 cutoff_idx 建 84 個 feature
+   - 時間/星期/月份 11 + 假期/CNY/COVID 7
+   - 滯後 8 + EWMA/Rolling 12 + DoW baseline 3
+   - 天氣 15 + AI 3 + 流感 10 + 學校 8
+
+3. 訓練（per bucket: short / h7 / h14 / h30）
+   - Optuna 40 trials TPE 調 XGBoost
+   - 訓 LightGBM L1 companion
+   - Blend XGB+LGB (auto-fallback if blend worse)
+   - 訓 q10 / q90 quantile booster
+   - 計算 CQR δ_low / δ_high
+
+4. Bias correction layer
+   - 60/40 calibration/test split val
+   - per-target_dow shrinkage with cap
+   - Auto-fallback if test MAE worse
+
+5. 訓 N-BEATS 全域 anchor（一次，全資料）
+
+6. Inference:
+   - XGBoost pred → blend with LGB → blend with N-BEATS
+   - subtract bias correction (if active)
+   - q10/q90 quantile boosters → CQR δ → CI80/CI95
+   - Online conformal: 拉 30 天 prediction_accuracy 殘差 → widen CI
 ```
 
-## 🎓 研究引用
-
-1. **XGBoost ED Prediction**: BMC Emergency Medicine (2025)
-2. **LSTM Adaptive Framework**: PubMed (2024)
-3. **Prophet Time Series**: Facebook Research
-4. **Weather Impact Study**: PubMed (2024)
-5. **Day of Week Patterns**: ResearchGate (2024)
-
-## ✅ 驗證方法
-
-運行 `analyze-prediction-accuracy.js` 腳本驗證改進效果：
+## ✅ 驗證指令
 
 ```bash
-node analyze-prediction-accuracy.js
+node --check server.js
+node --check modules/ensemble-predictor.js
+python3 python/predict.py 2026-05-22         # 含 nbeats_blend_weight, conformal_applied
+python3 python/rolling_predict.py 2026-05-18 7  # CI 寬度因 online conformal 自動加寬
+python3 python/run_railway_train.py          # end-to-end Railway DB 重訓並印 CQR + N-BEATS audit
 ```
 
-腳本會分析：
-- 平均誤差和誤差百分比
-- CI準確率
-- 誤差模式（高估/低估）
-- 星期效應分析
-- 問題診斷和改進建議
+## 🚀 v5.5 路線圖（目標 MAE < 10）
 
-## 🚀 下一步
-
-1. **監控實際效果**: 觀察未來幾天的預測準確度
-2. **持續優化**: 根據實際數據調整參數
-3. **A/B測試**: 比較新舊算法的準確度
-4. **考慮集成**: 未來可考慮結合多種模型（XGBoost + LSTM + 當前方法）
+- [ ] Per-horizon training (h30 拆 h15/h20/h25/h30 分別訓)
+- [ ] Holiday-type embedding (CNY day1 vs Christmas vs Easter 細分)
+- [ ] HKO 9-day forecast 即時串入 inference（forecast_predictor.py 已寫未串）
+- [ ] TFT (Time-Fused-Transformer) 作為第 4 base learner
+- [ ] Hierarchical reconciliation（各 triage level 預測 → 總量）
+- [ ] AQHI 空氣質素 historical CSV 整合（已有檔案）
 
 ## 📝 注意事項
 
-- 新算法需要足夠的歷史數據（至少180天）
-- 如果數據不足，會自動回退到較短的窗口
-- 所有改進都基於真實研究，但需要根據實際情況微調
+- v5.4.00 用 **honest walk-forward** 評估，不接受 random split / R² / EWMA-含當日 的污染指標
+- N-BEATS 是 anchor 不是主導（blend 0.15），主要 prediction 依然是 XGBoost ensemble
+- Online conformal 確保 CI 隨資料 drift 而 adaptive widening
+- 任何時候 bias correction 變差就自動回退到 raw 預測（auto-fallback safety valve）

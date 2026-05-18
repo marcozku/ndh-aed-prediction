@@ -2,16 +2,19 @@
 
 ## 🎯 目標：成為世界上最準確的 AI 驅動急診室就診預測系統
 
-### 當前狀態（v3.0.10）
-- **R²**: 95.8%（持續提升！）
-- **調整 R²**: 95.5%
-- **MAE**: 4.01 病人（持續改善中！）
-- **MAPE**: 1.59%（優於法國研究的 2.63 MAE！）
-- **特徵數**: 36+ 個特徵（含 21 個天氣特徵）
-- **方法**: XGBoost + Optuna + 自動特徵優化
-- **全面 XGBoost**: 所有預測（今日、7天、30天）都使用 XGBoost
-- **天氣特徵**: 溫度變化、颱風、暴雨、酷熱/寒冷警告
-- **最後更新**: 2026-01-02 23:30 HKT
+### 當前狀態（v5.4.00 — 真實 Railway DB walk-forward 4186 天）
+- **MAE**: **14.40 病人**（v5.0.00 17.94 → −19.7%）
+- **MAPE**: **6.26%**（v5.0.00 7.81% → −1.55 pp）
+- **RMSE**: **18.43 病人**
+- **CI80 經驗覆蓋率**: **80-83%**（CQR + online conformal calibrated）
+- **特徵數**: **84 個**（v5.0.00 只有 39）
+- **方法**: 84-feature XGBoost (per-bucket Optuna) + LightGBM L1 + N-BEATS anchor + Conformalized Quantile Regression + Online CI widening + Capped bias correction
+- **外生訊號**: 15 個天氣 / 10 個 CHP 流感 / 8 個學校學期 / 3 個 AI factor / 7 個假期 context
+- **Stage A→E 已全部完成**（見 VERSION_LOG v5.4.00）
+- **最後更新**: 2026-05-18 19:30 HKT
+
+### ⚠️ 之前的「MAE 2.85」是污染指標
+舊文檔到處引用的「v3.2.01 MAE 2.85 / R² 97.18%」是 **隨機 split + 含當日值 EWMA** 跑出來的污染數字。真實 production walk-forward 一直是 17.94，v5.4.00 才真正壓到 14.40。詳見 `.tasks/prediction-accuracy-deep-analysis.md`。
 
 ## 📚 最新世界級研究參考（2024-2025）
 
@@ -120,33 +123,23 @@
   - 保存每次優化結果
   - 追蹤歷史最佳配置
 
-### 階段 4：深度學習組件（計劃中）
-- [ ] **LSTM 網絡**：
-  - 處理時間序列依賴
-  - 自動學習長期和短期模式
-- [ ] **集成學習**：
-  - XGBoost + LightGBM + CatBoost
-  - Stacking 集成
-- [ ] **在線學習**：
-  - 隨著新數據到來自動更新模型
-  - 適應數據分佈漂移
-- [ ] **A/B 測試框架**：
-  - 並行運行多個模型版本
-  - 根據實際表現選擇最佳模型
-  - 逐步推出改進版本
+### 階段 4：深度學習組件（v5.4.00 完成 ✅）
+- [x] **N-BEATS 全域 anchor**：731K params, identity+trend+seasonality stacks, 90-day input window, blend_weight 0.15
+- [x] **集成學習**：XGBoost (per-bucket Optuna) + LightGBM L1 + N-BEATS anchor + auto-fallback blending
+- [x] **Online conformal CI**：每次 predict_range 從 prediction_accuracy 拉 30 天殘差自動 widen CI 寬度
+- [ ] **LSTM/TFT** （留待 v5.5）
+- [ ] **A/B 測試框架** （留待後續）
 
-### 階段 5：多數據源整合（v2.4.0 - 計劃中）
-- [ ] **實時數據整合**：
-  - 急診室追蹤系統數據
-  - 住院患者數據
-  - 天氣預報數據
-  - 本地事件日曆
-  - 公共衛生警報
-- [ ] **外部因素整合**：
-  - 流感監測數據
-  - 空氣質量指數
-  - 交通狀況
-  - 大型活動信息
+### 階段 5：多數據源整合（v5.4.00 大部分完成 ✅）
+- [x] **天氣資料**：HKO 4186 天直接餵 XGBoost（15 個 feature）
+- [x] **CHP 流感監測**：646 週 Flu Express 直接餵 XGBoost（10 個 feature）
+  - `flu_h1_proportion` 在 H30 是 top-1 重要性 (13.8%)
+- [x] **學校學期**：HK EDB 13 年 + 54 個 holiday segment dict（8 個 feature）
+  - `school_covid_suspension` 在 H7 是 top-1 重要性 (11.5%)
+- [x] **AI factor 歷史整合**：UNION learning_records + daily_predictions = 165 行
+- [ ] **AQHI 空氣質素**：歷史 CSV 存在但未串入新 pipeline（留待 v5.5）
+- [ ] **HKO 9 日天氣預報** 即時整合 inference（forecast_predictor.py 已寫但未串）
+- [ ] **大型活動信息** 結構化資料源（暫無公開 API）
 
 ### 階段 6：預測範圍擴展（v2.5.0 - 計劃中）
 - [ ] **多時間範圍預測**：
@@ -159,15 +152,18 @@
 
 ## 📊 性能基準與目標
 
-### 世界級準確度目標
-| 指標 | 當前目標 | 世界最佳 | 我們的目標 | 狀態 |
-|------|---------|---------|-----------|------|
-| **MAE** | < 5 人 | 2.63-2.64 | **< 2.5 人** | 🎯 進行中 |
-| **MAPE** | < 3% | ~2-3% | **< 2%** | 🎯 進行中 |
-| **80% CI 覆蓋率** | > 80% | ~85-90% | **> 90%** | 🎯 進行中 |
-| **95% CI 覆蓋率** | > 95% | ~95-98% | **> 98%** | 🎯 進行中 |
-| **RMSE** | - | ~3-4 | **< 3** | 📋 待實現 |
-| **R²** | - | > 0.95 | **> 0.97** | 📋 待實現 |
+### 世界級準確度目標 vs 當前
+| 指標 | v5.0.00 起點 | **v5.4.00 現在** | 世界最佳 (法國 BMC EM 2025) | 中期目標 v5.5 | 終極目標 |
+|------|---------|---------|---------|---------|------|
+| **MAE** | 17.94 | **14.40** | 2.63 (規模不可比) | < 10.0 | < 8.0 |
+| **MAPE** | 7.81% | **6.26%** | ~1% | < 4% | < 3% |
+| **CI80 經驗覆蓋率** | ~70%（無校準）| **80-83%（CQR + online）** | ~85% | > 85% | > 88% |
+| **CI95 經驗覆蓋率** | ~92% | **TBD（要等 30 天觀察）** | ~96% | > 95% | > 98% |
+| **RMSE** | 23.61 | **18.43** | - | < 14 | < 11 |
+| **R²** | n/a（intentionally null）| n/a | - | n/a | n/a |
+| **比 weekday_mean baseline 改善** | +9.7% | **+19.7%** | - | +35% | +50% |
+
+R² 在這個 pipeline 不報，因為 walk-forward 殘差結構 + 異質方差讓 R² 失去意義。我們改報 MAE / MAPE / RMSE / coverage / baseline-relative improvement，這是 forecast accuracy 領域的標準做法（Hyndman & Athanasopoulos 2021）。
 
 ### 持續監控指標
 - **每日準確度追蹤**

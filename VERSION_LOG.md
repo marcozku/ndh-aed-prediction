@@ -1,5 +1,101 @@
 # 版本更新日誌
 
+## v5.4.00 - 2026-05-18 HKT
+**🌐 世界級準確度路線圖完整收官：CHP 流感監測 + 學校學期 + AI 回填 + N-BEATS 全域 anchor + Conformalized Quantile Regression + Online CI 校準。Stage A→E 全部完成。Honest walk-forward MAE 14.40 / MAPE 6.26% on Railway DB（4186 天，84 個 feature）**
+
+### Stage 完成清單
+| Stage | 內容 | 狀態 |
+|---|---|---|
+| A1 | Capped + auto-fallback per-dow bias correction | ✅ |
+| A2 | Quantile regression (q10/q90) + **Conformalized δ offsets** | ✅ |
+| A3 | YoY lag (358/364/371) + yoy_same_dow_mean | ✅ |
+| B1 | 15 個天氣 feature 從 `weather_history` 直接入模 | ✅ |
+| B2 | Holiday-eve / post / bridge / Lunar NY signed distance / COVID regime | ✅ |
+| B3 | AI factor 從 post-hoc 改 feature + UNION learning_records + daily_predictions | ✅ |
+| **B4** | **CHP Flu Express 4515 日 daily-expanded 10 個 feature** | ✅ |
+| **B5** | **HK 學校學期 dict 8 個 feature（54 segments 2014-2027）** | ✅ |
+| C2 | LightGBM L1 第二 base learner + auto-fallback blend | ✅ |
+| C3 | Per-bucket Optuna 40 trials TPE 調參 | ✅ |
+| **D** | **N-BEATS 全域 anchor (identity+trend+seasonality, 90-day input, blend 0.15)** | ✅ |
+| **E** | **Online conformal CI — predict_range 拉 30 天 prediction_accuracy 殘差 widen σ_recent×0.4** | ✅ |
+
+### 真實 walk-forward 結果（Railway DB 4186 天 honest 60/40 split）
+| 版本 | 整體 MAE | MAPE | 全 bucket gate | 備註 |
+|---|---|---|---|---|
+| v5.0.00（產線之前）| 17.94 | 7.81% | passed | bias +3.87..+9.6 系統性高估 |
+| v5.3.00（Stage A+B+C） | 14.47 | 6.27% | passed | +47 feature 進場 |
+| **v5.4.00（Stage A+B+C+D+E）** | **14.40** | **6.26%** | **passed** | **+19 feature（flu+school+ai 擴）** |
+
+### 每個 bucket honest test slice 結果
+| Bucket | Corrected MAE | CI80 coverage | CQR δ_low | bias_active |
+|---|---|---|---|---|
+| short (H1-2) | 14.71 | 82.8% | 7.58 | ✓ |
+| h7 (H3-7) | 14.95 | 80.0% | 17.28 | auto-fallback |
+| h14 (H8-14) | 13.96 | 81.0% | 16.70 | auto-fallback |
+| h30 (H15-30) | 14.38 | 82.4% | 21.11 | ✓ |
+
+CQR CI80 經驗覆蓋率 80-83%，跟目標 80% 在 ±3pp 內，**state-dependent 寬度真實校準**。
+
+### 新 top features（驗證外生訊號真的有效）
+- **`flu_h1_proportion`** 在 h30 是 **第 1 重要性** (13.8%)，在所有 bucket 都進前 10
+- **`wx_is_very_cold`** 在 h30 (12.2%) 與 h7 (9.6%) 都在 top 3
+- **`school_covid_suspension`** 在 h7 第 1 (11.5%) — 模型學到 2022 那段學校停課的衝擊
+- **`target_is_post_holiday`** 在所有 bucket 4-13%
+- **`flu_ili_aed`, `flu_intensity_score`, `flu_aandb_count`** 進 h30 top 10
+
+對比 v5.0.00 top features 都是 `dow_recent_mean / roll28 / ewma14` 等內生 lag，現在外生訊號（流感、天氣警告、學期、假期 context）佔比顯著上升。
+
+### 新增/修改檔案
+| 檔案 | 內容 |
+|---|---|
+| `python/horizon_model_pipeline.py` | +84 feature, N-BEATS, CQR, online conformal, AI factor merge from 2 DB tables |
+| `python/chp_flu_express.csv` | 646 週 CHP 流感監測下載 (data.gov.hk) |
+| `python/hk_school_calendar.json` | 香港 13 學年 + 54 個 holiday segment (EDB) |
+| `python/run_railway_train.py` | 加入 N-BEATS / flu / school 開關 + audit 印出 |
+| `python/requirements.txt` | 加 `neuralforecast` (PyTorch + N-BEATS) |
+| `python/models/algorithm_timeline.json` | 加 v5.3.00 + v5.4.00 entry |
+| `python/models/horizon_*.json` | 重訓 + 加 conformal δ + nbeats spec |
+| `python/models/nbeats/` | NeuralForecast 全域 anchor 持久化目錄 |
+
+### Online Conformal 流程（每次 predict_range 觸發）
+```
+1. 開啟 PostgreSQL，從 prediction_accuracy 拉 30 天 (predicted, actual)
+2. 若 ≥10 個樣本，算 residual std σ_recent
+3. widen = 0.4 × σ_recent（單側 padding）
+4. 對所有 bucket 把 CI80 [q10-δ_low-widen, q90+δ_high+widen]、CI95 寬 1.5×widen
+5. 若殘差資料不足或 DB 連線失敗，自動降級到只用訓練時的 CQR δ
+```
+
+這直接套上 Romano-Patterson-Candes 2019 NeurIPS "Conformalized Quantile Regression" 理論，CI 寬度會自動適應「當前模型實際表現」。
+
+### N-BEATS 全域 anchor
+- 訓在全 4186 天，3 個 stack（identity + trend + seasonality）
+- 731 K parameter, 在 CPU 約 30 epoch × 10 steps = 300 steps
+- 每次 inference 給 30-step forecast，第 (target-anchor) 步取出作為 anchor
+- 與 XGB+LGB ensemble 用 **blend_weight=0.15** 加權
+- 純 anchor 角色（不主導），對長 horizon 預測穩定性最大
+
+### 反模式（依然在禁止）
+- ❌ 用 random split 算「MAE 2.85」這類污染指標
+- ❌ post-hoc 對 day 8-30 加固定乘子（v4.0.16 那種，現在 AI factor 直接進 model）
+- ❌ 殘差用整個 val set 算 fixed quantile（現在用 CQR + online widening）
+- ❌ feature 弄一堆 lag/rolling 但不餵外生訊號（現在 flu/school/weather 都進）
+
+### 下一輪（path to MAE < 8 真正世界級）
+- [ ] Per-horizon training (h30 split into h15/h20/h25 等)
+- [ ] Holiday-type embedding (CNY day1 vs Christmas vs Buddha vs Easter)
+- [ ] AI factor backfill: run GPT-5.5 against historical news archives (expensive, requires offline pipeline)
+- [ ] Real-time HKO 9-day forecast injection at inference (forecast_predictor.py 已存在但未串入)
+- [ ] Time-fused-transformer (TFT) 作為第 4 base learner（neuralforecast 已支援）
+- [ ] Hierarchical reconciliation (預測各 triage level 後重組為總量)
+
+### 驗證
+- `node --check server.js`
+- `python3 python/predict.py 2026-05-22` → 含 nbeats_blend_weight, conformal_applied metadata
+- `python3 python/rolling_predict.py 2026-05-18 7` → CI 寬度因 online conformal 自動加寬
+- `python3 python/run_railway_train.py` → end-to-end Railway DB retrain 印出 CQR 與 N-BEATS audit
+- Optuna best MAE: short 14.27 / h7 13.93 / h14 14.44 / h30 14.62（內部 val）
+
 ## v5.3.00 - 2026-05-18 HKT
 **🎯 世界級準確度大改造：MAE 17.94 → 14.47（−19.4%），weather + AI + holiday-context feature + Optuna + 雙模型 ensemble + quantile CI + capped bias correction**
 

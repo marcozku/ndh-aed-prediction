@@ -1,7 +1,7 @@
 {
   "name": "ndh-aed-prediction",
-  "version": "5.3.00",
-  "description": "NDH AED 病人數量預測系統 v5.3.00 - World-class pipeline: weather/AI/holiday-context features, Optuna-tuned XGBoost + LightGBM blend, quantile CI, capped bias correction with auto-fallback",
+  "version": "5.4.00",
+  "description": "NDH AED 病人數量預測系統 v5.4.00 — World-class accuracy: 84-feature pipeline (weather + CHP flu surveillance + school terms + AI factor + holiday-context + year-over-year), Optuna-tuned XGBoost, N-BEATS global anchor, Conformalized Quantile Regression CI with online calibration, capped bias correction with auto-fallback. Honest walk-forward MAE 14.40 / MAPE 6.26% on Railway DB (4186 days), down from v5.0.00 MAE 17.94 (−19.7%).",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
