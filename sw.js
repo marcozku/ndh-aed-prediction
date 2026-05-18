@@ -1,14 +1,14 @@
 /**
  * NDH AED 預測系統 - Service Worker
  * 提供離線支援和快取管理
- * v5.5.00 - v5.5 進階收官 (per-horizon split + holiday-type + HKO forecast inject + TFT + hierarchical shrinkage)
+ * v5.6.00 - AQHI + 5th learner + online 14d dynamic stacking
  *           Refresh all static caches to pick up new model.version display and 5-bucket metadata
  */
 
-const SW_VERSION = '5.5.00';
-const CACHE_NAME = 'ndh-aed-v5.5.00';
-const STATIC_CACHE = 'ndh-static-v5.5.00';
-const DYNAMIC_CACHE = 'ndh-dynamic-v5.5.00';
+const SW_VERSION = '5.6.00';
+const CACHE_NAME = 'ndh-aed-v5.6.00';
+const STATIC_CACHE = 'ndh-static-v5.6.00';
+const DYNAMIC_CACHE = 'ndh-dynamic-v5.6.00';
 
 // 靜態資源（始終快取）
 const STATIC_ASSETS = [

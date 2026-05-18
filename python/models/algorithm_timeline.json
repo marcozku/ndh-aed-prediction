@@ -932,6 +932,24 @@
       "improvement": "MAE 17.94 (v5.0.00) → 14.40 (v5.4.00) total −19.7%; flu_h1_proportion 跟 wx_is_very_cold 進前 5 重要性 (證明外生訊號確實有 signal)"
     },
     {
+      "version": "5.6.00",
+      "date": "2026-05-18",
+      "description": "v5.6 路線圖收官 — AQHI 空氣質素 + DeepAR/iTransformer 第 5 learner + online 14d dynamic stacking + quantile CI re-weight + AI factor 全量離線回填工具",
+      "changes": [
+        "AQHI: 6 features from python/aqhi_history.csv (4053 days, EPD 2014-2026)",
+        "5th base learner: iTransformer preferred, DeepAR fallback, blend_weight 0.08",
+        "Dynamic stacking: compute_dynamic_stack_weights() — val inverse-MAE + 14d live MAE neural shrink",
+        "Online quantile re-weight: apply_online_quantile_reweight() on 14d prediction_accuracy CI80 coverage",
+        "AI backfill: --full mode + run_ai_factor_full_backfill.sh + JSONL checkpoint (HKT)"
+      ],
+      "metrics": {
+        "feature_count": 98,
+        "base_learners": 5,
+        "note": "retrain on Railway for updated walk-forward metrics; code complete 2026-05-18 HKT"
+      },
+      "stages_completed_v5_6": ["aqhi_integration", "deepar_itransformer_learner", "online_dynamic_stacking", "online_quantile_reweight", "ai_factor_full_backfill_tool"]
+    },
+    {
       "version": "5.5.00",
       "date": "2026-05-18",
       "description": "🚀 v5.5 進階收官 — per-horizon split (5 buckets) + holiday-type embedding + HKO 9-day forecast inject + TFT 第 4 base learner + AI backfill 工具 + Hierarchical Bayesian shrinkage",

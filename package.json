@@ -1,7 +1,7 @@
 {
   "name": "ndh-aed-prediction",
-  "version": "5.5.00",
-  "description": "NDH AED 病人數量預測系統 v5.5.00 — World-class accuracy v5.5: 92-feature pipeline + 5-bucket per-horizon split (short/h7/h14/h21/h30) + holiday-type embedding + HKO 9-day forecast injection at inference + XGBoost (Optuna) + LightGBM + N-BEATS + TFT 4-learner ensemble + Conformalized Quantile Regression CI with online calibration + Hierarchical Bayesian shrinkage + capped bias correction with auto-fallback. Honest walk-forward MAE 13.84 / MAPE 6.04% on Railway DB (4186 days), down from v5.0.00 MAE 17.94 (−22.9%).",
+  "version": "5.6.00",
+  "description": "NDH AED 病人數量預測系統 v5.6.00 — 98-feature pipeline: AQHI air quality + 5-learner ensemble (XGBoost+LightGBM+N-BEATS+TFT+DeepAR/iTransformer) + online 14d dynamic stacking + quantile CI re-weighting + AI factor full backfill tool. 5 buckets, HKO 9-day forecast, conformalized quantile CI.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

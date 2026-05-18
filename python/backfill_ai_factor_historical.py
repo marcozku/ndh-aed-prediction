@@ -1,31 +1,27 @@
 """Offline batch tool to backfill historical AI factors via GPT-5.5.
 
-This is a v5.5.00 scaffold — it lets an operator generate AI factors for
-historical dates by replaying news archives through the existing AI service.
-Running it across all 4000+ historical days would cost real money and time
-(estimated at ~USD $80–$150 per full backfill at current GPT-5.5 pricing,
-roughly 6-8 hours wall-clock at 4 req/s), so the script defaults to a
-small sample window and writes results into ``learning_records.ai_factor``
-incrementally so a partial run is always useful.
+v5.6.00 — supports full historical offline runs with checkpoint/resume.
 
 Usage:
     DATABASE_URL=postgresql://... python3 python/backfill_ai_factor_historical.py \\
-        --start 2020-01-01 --end 2020-12-31 --rate-limit 3 --dry-run
+        --start 2014-12-01 --end 2025-12-31 --rate-limit 3
+
+Full offline run (all gaps, no row cap):
+    DATABASE_URL=... python3 python/backfill_ai_factor_historical.py --full
 
 Flags:
-    --start YYYY-MM-DD       Inclusive start date (default: oldest gap)
+    --start YYYY-MM-DD       Inclusive start date (default: 2014-12-01 with --full)
     --end   YYYY-MM-DD       Inclusive end date   (default: today minus 30 days)
     --rate-limit N           Max requests/second to the AI service (default 3)
     --dry-run                Print plan, don't write to DB
-    --max-rows N             Cap on rows actually processed in this run
-    --source archive|none    Which historical news source to feed GPT
-                             (default ``archive`` — wires into ai-service web
-                              search; ``none`` = ask GPT to reason from date
-                              alone, lower-quality but free of search API)
+    --max-rows N             Cap on rows processed this run (default 50; ignored with --full)
+    --full                   Process every missing date in range (sets max-rows very high)
+    --source archive|none    Historical news source for GPT
+    --checkpoint PATH        JSONL progress log (default: python/models/ai_backfill_checkpoint.jsonl)
+    --ai-base-url URL        Override prediction service base URL
 
 Resumability:
-    Skips any date that already has a non-NULL ``ai_factor`` in
-    ``learning_records`` so re-running the command continues from the gap.
+    Skips any date that already has a non-NULL ``ai_factor`` in ``learning_records``.
 """
 
 from __future__ import annotations
@@ -36,14 +32,21 @@ import os
 import sys
 import time
 import urllib.request
-from datetime import datetime, date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import psycopg2
 from dotenv import load_dotenv
 
 
 ROOT = Path(__file__).resolve().parents[1]
+HKT = ZoneInfo("Asia/Hong_Kong")
+DEFAULT_CHECKPOINT = ROOT / "python" / "models" / "ai_backfill_checkpoint.jsonl"
+
+
+def _hkt_now() -> str:
+    return datetime.now(HKT).strftime("%Y-%m-%d %H:%M:%S HKT")
 
 
 def _open_conn():
@@ -70,13 +73,30 @@ def _missing_dates(conn, start_iso: str, end_iso: str, limit: int) -> list:
     return rows
 
 
-def _call_ai_service(target_date: str, source: str, ai_base_url: str | None, ai_key: str | None) -> dict | None:
-    """Best-effort call into the running ai-service endpoint.
+def _count_missing(conn, start_iso: str, end_iso: str) -> int:
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT COUNT(*)
+        FROM actual_data a
+        LEFT JOIN learning_records lr ON lr.date = a.date
+        WHERE a.date BETWEEN %s AND %s
+          AND (lr.ai_factor IS NULL OR lr.ai_factor = 1.0)
+        """,
+        (start_iso, end_iso),
+    )
+    n = int(cur.fetchone()[0])
+    cur.close()
+    return n
 
-    Hits ``POST /api/ai-analyze`` on the production server which already
-    knows how to talk to GPT-5.5 with web search. Returns the parsed
-    response or None on failure (network / 5xx / no service).
-    """
+
+def _append_checkpoint(path: Path, record: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def _call_ai_service(target_date: str, source: str, ai_base_url: str | None, ai_key: str | None) -> dict | None:
     if not ai_base_url:
         ai_base_url = os.environ.get("PREDICTION_SERVICE_URL", "http://127.0.0.1:3001")
     url = f"{ai_base_url.rstrip('/')}/api/ai-analyze"
@@ -134,26 +154,37 @@ def _upsert_learning_record(conn, target_date: str, ai_factor: float, event_type
 
 
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description="Backfill AI factors via GPT-5.5")
+    parser = argparse.ArgumentParser(description="Backfill AI factors via GPT-5.5 (offline)")
     parser.add_argument("--start", default=None)
     parser.add_argument("--end", default=None)
     parser.add_argument("--max-rows", type=int, default=50)
+    parser.add_argument("--full", action="store_true", help="Backfill all missing dates in range (no row cap)")
     parser.add_argument("--rate-limit", type=float, default=3.0)
     parser.add_argument("--source", choices=["archive", "none"], default="archive")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--ai-base-url", default=None)
+    parser.add_argument("--checkpoint", default=str(DEFAULT_CHECKPOINT))
     args = parser.parse_args(argv)
 
     today = date.today()
     end_iso = args.end or (today - timedelta(days=30)).isoformat()
-    start_iso = args.start or "2020-01-01"
+    start_iso = args.start or ("2014-12-01" if args.full else "2020-01-01")
     if start_iso > end_iso:
         print("start must be <= end", file=sys.stderr)
         return 2
 
+    max_rows = 2_000_000 if args.full else args.max_rows
+    checkpoint = Path(args.checkpoint)
+
     conn = _open_conn()
-    rows = _missing_dates(conn, start_iso, end_iso, args.max_rows)
-    print(f"📅 {len(rows)} missing dates in [{start_iso}, {end_iso}] (limit {args.max_rows})")
+    missing_total = _count_missing(conn, start_iso, end_iso)
+    rows = _missing_dates(conn, start_iso, end_iso, max_rows)
+    print(f"[{_hkt_now()}] 📅 {len(rows)} dates queued ({missing_total} total gaps in [{start_iso}, {end_iso}])")
+    if args.full:
+        est_cost = missing_total * 0.02
+        est_hours = missing_total / max(0.1, args.rate_limit) / 3600
+        print(f"  FULL RUN — est. cost ~USD ${est_cost:.0f}, wall-clock ~{est_hours:.1f}h @ {args.rate_limit} req/s")
+
     if args.dry_run:
         print("DRY-RUN — would request:", rows[:10], "…" if len(rows) > 10 else "")
         conn.close()
@@ -161,27 +192,34 @@ def main(argv: list[str]) -> int:
 
     ai_key = os.environ.get("AI_API_KEY")
     interval = 1.0 / max(0.1, args.rate_limit)
-    processed = 0
     written = 0
-    for d in rows:
+    for i, d in enumerate(rows, 1):
         payload = _call_ai_service(d, args.source, args.ai_base_url, ai_key)
         time.sleep(interval)
         if not payload:
+            _append_checkpoint(checkpoint, {"ts": _hkt_now(), "date": d, "status": "error"})
             continue
         factor = _extract_factor(payload)
         if factor is None:
             print(f"  ⚠️ {d}: no factor in response, skipping")
+            _append_checkpoint(checkpoint, {"ts": _hkt_now(), "date": d, "status": "no_factor"})
             continue
         event_type = None
         if isinstance(payload, dict):
             event_type = payload.get("eventType") or payload.get("type")
         _upsert_learning_record(conn, d, factor, event_type)
         written += 1
-        processed += 1
-        print(f"  ✓ {d} → factor {factor:.3f} ({event_type or 'unspecified'})")
+        _append_checkpoint(
+            checkpoint,
+            {"ts": _hkt_now(), "date": d, "status": "ok", "ai_factor": factor, "event_type": event_type},
+        )
+        if i % 25 == 0 or i == len(rows):
+            print(f"  [{_hkt_now()}] progress {i}/{len(rows)} written={written}")
+        else:
+            print(f"  ✓ {d} → factor {factor:.3f} ({event_type or 'unspecified'})")
 
     conn.close()
-    print(f"✅ done — processed {processed}, written {written}/{len(rows)}")
+    print(f"[{_hkt_now()}] ✅ done — written {written}/{len(rows)}")
     return 0
 
 

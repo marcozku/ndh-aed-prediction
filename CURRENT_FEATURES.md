@@ -1,8 +1,8 @@
-# XGBoost + LightGBM + N-BEATS + TFT 完整特徵列表 (v5.5.00)
+# XGBoost + LightGBM + N-BEATS + TFT + DeepAR/iTransformer 完整特徵列表 (v5.6.00)
 
 **生成於**: 2026-05-18 HKT
-**特徵數量**: **92 個**（v5.0.00 39 → v5.4.00 84 → v5.5.00 92）
-**模型版本**: 5.5.00 (`horizon_direct_xgboost` + 4-learner ensemble)
+**特徵數量**: **98 個**（v5.5.00 92 + 6 AQHI）
+**模型版本**: 5.6.00 (`horizon_direct_xgboost` + 5-learner ensemble + 14d dynamic stacking)
 **Bucket 數量**: **5**（short / h7 / h14 / **h21 NEW** / h30 shrunk to H22-30）
 **訓練資料**: 4186 天 Railway DB（2014-12-01 到 2026-05-17）
 
@@ -42,7 +42,12 @@
 ### 5. Same-DoW 基準 (3 個)
 - `dow_recent_mean`, `seasonal_baseline`, `seasonal_gap`, `dow_gap`
 
-### 6. 天氣 (15 個，Stage B1 加，全部從 `weather_history` 4186 行)
+### 6. AQHI 空氣質素 (6 個，v5.6 從 `python/aqhi_history.csv` 4053 行)
+- `aqhi_general_max`, `aqhi_roadside_max`, `aqhi_general_avg`
+- `aqhi_risk_ord` (1-5)
+- `aqhi_is_high` (>=7), `aqhi_is_very_high` (>=8)
+
+### 7. 天氣 (15 個，Stage B1 加，全部從 `weather_history` 4186 行)
 - 溫度: `wx_temp_mean`, `wx_temp_range`, `wx_temp_min`, `wx_temp_max`, `wx_temp_anomaly_30d`
 - 降雨/濕度/風/氣壓: `wx_rainfall_log`, `wx_humidity`, `wx_wind`, `wx_pressure_dev`
 - HKO 警告 ordinal: `wx_typhoon_signal_ord`（0/1/3/8/9/10）, `wx_rainstorm_signal_ord`（0/1/2/3）

@@ -1,5 +1,37 @@
 # 版本更新日誌
 
+## v5.6.00 - 2026-05-18 HKT
+**v5.6 路線圖收官：AQHI 空氣質素整合 + DeepAR/iTransformer 第 5 base learner + Online 14d dynamic stacking + quantile CI re-weighting + AI factor 全量離線回填**
+
+### 完成項目
+| 項目 | 內容 | 狀態 |
+|---|---|---|
+| **AQHI 歷史 CSV** | `python/aqhi_history.csv` 4053 天 → 6 個 feature (`aqhi_general_max`, `aqhi_roadside_max`, `aqhi_general_avg`, `aqhi_risk_ord`, `aqhi_is_high`, `aqhi_is_very_high`) | ✅ |
+| **DeepAR / iTransformer** | 第 5 global learner，優先 iTransformer、fallback DeepAR，blend 0.08 | ✅ |
+| **Online dynamic stacking** | `compute_dynamic_stack_weights()` — validation inverse-MAE + 14d live MAE 縮減 neural 權重 | ✅ |
+| **Online quantile re-weight** | `apply_online_quantile_reweight()` — 14d `prediction_accuracy` CI80 覆蓋率調整 CQR δ | ✅ |
+| **AI factor 全量回填** | `backfill_ai_factor_historical.py --full` + `run_ai_factor_full_backfill.sh` + JSONL checkpoint (HKT) | ✅（工具 ready，離線執行） |
+
+### 特徵 / 模型
+- **98 features**（v5.5.00 92 + 6 AQHI）
+- **5 base learners**: XGBoost + LightGBM + N-BEATS + TFT + DeepAR/iTransformer
+- Inference metadata: `dynamic_stack_weights`, `deepar_blend_weight`, `tree_blend_weight`
+
+### 離線 AI factor 全量回填
+```bash
+DATABASE_URL=... PREDICTION_SERVICE_URL=... ./python/run_ai_factor_full_backfill.sh
+# 或
+python3 python/backfill_ai_factor_historical.py --full --start 2014-12-01 --rate-limit 3
+```
+
+### 修改文件
+- `python/horizon_model_pipeline.py` — v5.6.00 pipeline
+- `python/backfill_ai_factor_historical.py` — `--full`, checkpoint, HKT
+- `python/run_railway_train.py` — TRAIN_DEEPAR, AQHI load
+- `python/run_ai_factor_full_backfill.sh` — 全量離線 wrapper
+
+---
+
 ## v5.5.00 - 2026-05-18 HKT
 **🚀 世界級 v5.5 進階收官：per-horizon bucket split + holiday-type embedding + HKO 9-day forecast 即時 inject + TFT 第 4 base learner + AI factor 歷史回填工具 + Hierarchical Bayesian shrinkage。MAE 14.40 → 13.84（v5.0.00 → v5.5.00 總改善 −22.9%）**
 

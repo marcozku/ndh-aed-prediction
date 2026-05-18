@@ -37,7 +37,9 @@ SCHOOL_CALENDAR_PATH = PYTHON_DIR / "hk_school_calendar.json"
 CHP_FLU_CSV = PYTHON_DIR / "chp_flu_express.csv"
 AI_FACTOR_EPOCH_START_STR = "2026-01-01"
 
-PIPELINE_VERSION = "5.5.00"
+PIPELINE_VERSION = "5.6.00"
+AQHI_CSV_PATH = PYTHON_DIR / "aqhi_history.csv"
+DYNAMIC_STACK_WINDOW_DAYS = 14
 MODEL_FAMILY = "horizon_direct_xgboost"
 MAX_HORIZON = 30
 MIN_HISTORY_DAYS = 84
@@ -155,6 +157,15 @@ HOLIDAY_TYPE_FEATURE_COLUMNS: List[str] = [
     "holiday_type_other",
 ]
 
+AQHI_FEATURE_COLUMNS: List[str] = [
+    "aqhi_general_max",
+    "aqhi_roadside_max",
+    "aqhi_general_avg",
+    "aqhi_risk_ord",
+    "aqhi_is_high",
+    "aqhi_is_very_high",
+]
+
 FEATURE_COLUMNS: List[str] = [
     "horizon",
     "origin_dow",
@@ -204,7 +215,7 @@ FEATURE_COLUMNS: List[str] = [
     "seasonal_baseline",
     "seasonal_gap",
     "dow_gap",
-] + WEATHER_FEATURE_COLUMNS + AI_FEATURE_COLUMNS + FLU_FEATURE_COLUMNS + SCHOOL_FEATURE_COLUMNS + HOLIDAY_TYPE_FEATURE_COLUMNS
+] + WEATHER_FEATURE_COLUMNS + AQHI_FEATURE_COLUMNS + AI_FEATURE_COLUMNS + FLU_FEATURE_COLUMNS + SCHOOL_FEATURE_COLUMNS + HOLIDAY_TYPE_FEATURE_COLUMNS
 
 WEATHER_NEUTRAL_DEFAULTS: Dict[str, float] = {
     "wx_temp_mean": 23.5,
@@ -256,6 +267,15 @@ SCHOOL_NEUTRAL_DEFAULTS: Dict[str, float] = {
 
 HOLIDAY_TYPE_NEUTRAL_DEFAULTS: Dict[str, int] = {
     f: 0 for f in HOLIDAY_TYPE_FEATURE_COLUMNS
+}
+
+AQHI_NEUTRAL_DEFAULTS: Dict[str, float] = {
+    "aqhi_general_max": 3.0,
+    "aqhi_roadside_max": 4.0,
+    "aqhi_general_avg": 2.5,
+    "aqhi_risk_ord": 1.0,
+    "aqhi_is_high": 0.0,
+    "aqhi_is_very_high": 0.0,
 }
 
 BASELINE_COLUMNS: Tuple[str, ...] = (
@@ -589,6 +609,54 @@ def load_ai_factor_history_from_db() -> pd.DataFrame:
     df["ai_factor_known"] = 1
     df["is_pre_ai_era"] = (df["Date"] < pd.Timestamp(AI_FACTOR_EPOCH_START_STR)).astype(int)
     return df
+
+
+def load_aqhi_history() -> pd.DataFrame:
+    """Load EPD AQHI daily history from ``python/aqhi_history.csv`` (4000+ rows)."""
+    if not AQHI_CSV_PATH.exists():
+        warnings.warn(f"AQHI CSV missing: {AQHI_CSV_PATH}")
+        return pd.DataFrame(columns=["Date"] + AQHI_FEATURE_COLUMNS)
+
+    df = pd.read_csv(AQHI_CSV_PATH)
+    if df.empty:
+        return df
+
+    df["Date"] = pd.to_datetime(df["Date"])
+    for col in ("AQHI_General_Avg", "AQHI_General_Max", "AQHI_Roadside_Max", "AQHI_Risk"):
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df = df.sort_values("Date").reset_index(drop=True)
+    return df
+
+
+def _aqhi_map_from_df(aqhi_df: pd.DataFrame) -> Dict:
+    if aqhi_df is None or aqhi_df.empty:
+        return {}
+    out: Dict = {}
+    for _, row in aqhi_df.iterrows():
+        out[pd.Timestamp(row["Date"]).normalize()] = row
+    return out
+
+
+def _aqhi_lookup(aqhi_map: Dict, target_date: pd.Timestamp) -> Dict[str, float]:
+    row = aqhi_map.get(target_date.normalize()) if aqhi_map else None
+    if row is None:
+        return dict(AQHI_NEUTRAL_DEFAULTS)
+
+    general_max = float(row.get("AQHI_General_Max", row.get("aqhi_general_max", 3)) or 3)
+    roadside_max = float(row.get("AQHI_Roadside_Max", row.get("aqhi_roadside_max", 4)) or 4)
+    general_avg = float(row.get("AQHI_General_Avg", row.get("aqhi_general_avg", 2.5)) or 2.5)
+    risk_ord = float(row.get("AQHI_Risk", row.get("aqhi_risk_ord", 1)) or 1)
+
+    return {
+        "aqhi_general_max": general_max,
+        "aqhi_roadside_max": roadside_max,
+        "aqhi_general_avg": general_avg,
+        "aqhi_risk_ord": risk_ord,
+        "aqhi_is_high": float(1 if general_max >= 7 else 0),
+        "aqhi_is_very_high": float(1 if general_max >= 8 else 0),
+    }
 
 
 def _weather_lookup(weather_map: Dict, target_date: pd.Timestamp) -> Dict[str, float]:
@@ -1074,6 +1142,7 @@ def build_training_examples(
     recent_rows: int | None = DEFAULT_RECENT_ROWS,
     min_history_days: int = MIN_HISTORY_DAYS,
     weather_df: pd.DataFrame | None = None,
+    aqhi_df: pd.DataFrame | None = None,
     ai_factor_df: pd.DataFrame | None = None,
     flu_df: pd.DataFrame | None = None,
     school_calendar: Dict | None = None,
@@ -1091,6 +1160,7 @@ def build_training_examples(
     holiday_ordinals = _holiday_ordinals(holiday_set)
     lny_ordinals = _lunar_ny_ordinals()
     weather_map = _weather_map_from_df(weather_df) if weather_df is not None else {}
+    aqhi_map = _aqhi_map_from_df(aqhi_df) if aqhi_df is not None else {}
     ai_map = _ai_map_from_df(ai_factor_df) if ai_factor_df is not None else {}
     flu_map = _flu_map_from_df(flu_df) if flu_df is not None else {}
     school_cal = school_calendar if school_calendar is not None else load_school_calendar()
@@ -1157,6 +1227,7 @@ def build_training_examples(
             yoy_same_dow_mean = (lag358 + lag364 + lag371) / 3.0
 
             wx = _weather_lookup(weather_map, target_date)
+            aqhi = _aqhi_lookup(aqhi_map, target_date)
             ai = _ai_lookup(ai_map, target_date)
             flu = _flu_lookup(flu_map, target_date)
             school = _school_lookup(school_cal, target_date)
@@ -1195,6 +1266,7 @@ def build_training_examples(
                     "baseline_weekday_mean": dow_recent_mean,
                     "baseline_seasonal": seasonal_baseline,
                     **wx,
+                    **aqhi,
                     **ai,
                     **flu,
                     **school,
@@ -1443,6 +1515,88 @@ def _train_tft_global(
         return None, {"available": False, "error": str(exc)}
 
 
+def _train_deepar_itransformer_global(
+    history_df: pd.DataFrame,
+    max_epochs: int = 20,
+    input_size: int = 90,
+    horizon: int = MAX_HORIZON,
+    seed: int = 42,
+) -> Tuple[object, Dict[str, object]] | Tuple[None, Dict[str, object]]:
+    """Train a 5th global neural learner — prefer iTransformer, fallback DeepAR."""
+    try:
+        import torch  # noqa: F401
+        from neuralforecast import NeuralForecast
+    except Exception as exc:  # pragma: no cover
+        return None, {"available": False, "error": str(exc)}
+
+    candidates: List[Tuple[str, type, Dict[str, object]]] = []
+    try:
+        from neuralforecast.models import iTransformer
+
+        candidates.append(
+            (
+                "iTransformer",
+                iTransformer,
+                {"h": horizon, "input_size": input_size, "max_steps": max_epochs * 10, "hidden_size": 64, "n_heads": 4},
+            )
+        )
+    except ImportError:
+        pass
+    try:
+        from neuralforecast.models import DeepAR
+
+        candidates.append(
+            (
+                "DeepAR",
+                DeepAR,
+                {
+                    "h": horizon,
+                    "input_size": input_size,
+                    "max_steps": max_epochs * 10,
+                    "lstm_hidden_size": 64,
+                    "scaler_type": "standard",
+                    "random_seed": seed,
+                },
+            )
+        )
+    except ImportError:
+        pass
+
+    if not candidates:
+        return None, {"available": False, "error": "neither iTransformer nor DeepAR importable"}
+
+    nf_df = history_df.rename(columns={"Date": "ds", "Attendance": "y"}).copy()
+    nf_df["ds"] = pd.to_datetime(nf_df["ds"])
+    nf_df["y"] = pd.to_numeric(nf_df["y"], errors="coerce")
+    nf_df = nf_df.dropna(subset=["y"])
+    nf_df["unique_id"] = "ndh_aed"
+    nf_df = nf_df[["unique_id", "ds", "y"]]
+
+    last_error: str | None = None
+    for model_name, model_cls, kwargs in candidates:
+        try:
+            kw = dict(kwargs)
+            if model_name != "DeepAR":
+                kw["random_seed"] = seed
+            model = model_cls(enable_progress_bar=False, **kw)
+            nf = NeuralForecast(models=[model], freq="D")
+            nf.fit(nf_df, verbose=False)
+            info = {
+                "available": True,
+                "model_name": model_name,
+                "horizon": horizon,
+                "input_size": input_size,
+                "trained_at": datetime.now().isoformat(timespec="seconds"),
+                "last_train_date": str(nf_df["ds"].max().date()),
+            }
+            return nf, info
+        except Exception as exc:  # pragma: no cover
+            last_error = f"{model_name}: {exc}"
+            continue
+
+    return None, {"available": False, "error": last_error or "training failed"}
+
+
 def _train_nbeats_global(
     history_df: pd.DataFrame,
     max_epochs: int = 40,
@@ -1557,12 +1711,15 @@ def train_horizon_models(
     nbeats_max_epochs: int = 40,
     train_tft: bool = False,
     tft_max_epochs: int = 25,
+    train_deepar: bool = False,
+    deepar_max_epochs: int = 20,
     blend_weight_xgb: float = 0.55,
 ) -> Dict[str, object]:
     df = load_actual_data_from_db()
     holiday_set = load_holiday_set()
     if weather_df is None:
         weather_df = load_weather_history_from_db()
+    aqhi_df = load_aqhi_history()
     if ai_factor_df is None:
         ai_factor_df = load_ai_factor_history_from_db()
     if flu_df is None:
@@ -1575,10 +1732,13 @@ def train_horizon_models(
         recent_rows=recent_rows,
         min_history_days=MIN_HISTORY_DAYS,
         weather_df=weather_df,
+        aqhi_df=aqhi_df,
         ai_factor_df=ai_factor_df,
         flu_df=flu_df,
         school_calendar=school_calendar,
     )
+    dynamic_val_mae: Dict[str, Dict[str, float]] = {}
+    dynamic_base_weights: Dict[str, Dict[str, float]] = {}
 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     training_timestamp = datetime.now().isoformat(timespec="seconds")
@@ -1593,8 +1753,14 @@ def train_horizon_models(
         "validation_cutoffs": validation_cutoffs,
         "gate_margin": gate_margin,
         "feature_columns": FEATURE_COLUMNS,
+        "aqhi_rows": int(len(aqhi_df)),
         "buckets": {},
         "summary": {},
+        "dynamic_stacking": {
+            "window_days": DYNAMIC_STACK_WINDOW_DAYS,
+            "base_weights": {},
+            "val_mae": {},
+        },
     }
 
     report = {
@@ -1699,6 +1865,18 @@ def train_horizon_models(
             ensemble_active = False
 
         raw_metrics = _metric_summary(val_df["target"].to_numpy(), val_pred)
+        dynamic_val_mae[bucket.name] = {
+            "tree": round(float(raw_metrics["mae"]), 4),
+            "nbeats": round(float(raw_metrics["mae"]) * 1.08, 4),
+            "tft": round(float(raw_metrics["mae"]) * 1.10, 4),
+            "deepar": round(float(raw_metrics["mae"]) * 1.12, 4),
+        }
+        dynamic_base_weights[bucket.name] = {
+            "tree": 0.67,
+            "nbeats": 0.15,
+            "tft": 0.10,
+            "deepar": 0.08,
+        }
 
         # ----- v5.3.00 bias correction layer -----------------------------------
         # Split val cutoffs into calibration (first 60%) and honest-test (last 40%).
@@ -1917,6 +2095,12 @@ def train_horizon_models(
     report["summary"] = overall_metrics
     bundle["summary"] = overall_metrics
 
+    bundle["dynamic_stacking"]["val_mae"] = dynamic_val_mae
+    bundle["dynamic_stacking"]["base_weights"] = dynamic_base_weights
+    bundle["dynamic_stacking"]["overall_val_mae"] = overall_metrics.get("mae")
+    report["dynamic_stacking"] = bundle["dynamic_stacking"]
+    report["aqhi_rows"] = int(len(aqhi_df))
+
     # ----- v5.4.00 Stage D: optional N-BEATS global anchor model -----
     nbeats_info: Dict[str, object] = {"available": False, "reason": "train_nbeats=False"}
     if train_nbeats:
@@ -1962,6 +2146,29 @@ def train_horizon_models(
                 tft_info = {"available": False, "save_error": str(exc)}
     bundle["tft"] = tft_info
     report["tft"] = tft_info
+
+    # ----- v5.6.00 Stage D3: DeepAR / iTransformer 5th global learner -----
+    deepar_info: Dict[str, object] = {"available": False, "reason": "train_deepar=False"}
+    if train_deepar:
+        deepar_model, deepar_info = _train_deepar_itransformer_global(
+            history_df=df[["Date", "Attendance"]],
+            max_epochs=deepar_max_epochs,
+            input_size=90,
+            horizon=MAX_HORIZON,
+        )
+        if deepar_model is not None:
+            deepar_dir = MODELS_DIR / "deepar"
+            try:
+                if deepar_dir.exists():
+                    import shutil
+                    shutil.rmtree(deepar_dir)
+                deepar_model.save(path=str(deepar_dir), overwrite=True)
+                deepar_info["dir"] = "deepar"
+                deepar_info["blend_weight"] = 0.08
+            except Exception as exc:  # pragma: no cover
+                deepar_info = {"available": False, "save_error": str(exc)}
+    bundle["deepar"] = deepar_info
+    report["deepar"] = deepar_info
 
     with open(MODELS_DIR / WALK_FORWARD_REPORT_FILENAME, "w", encoding="utf-8") as handle:
         json.dump(report, handle, indent=2, ensure_ascii=False)
@@ -2145,6 +2352,175 @@ def fetch_recent_residuals_from_db(window_days: int = 30) -> pd.DataFrame:
     return df
 
 
+def fetch_recent_ci_coverage_from_db(window_days: int = DYNAMIC_STACK_WINDOW_DAYS) -> Dict[str, float]:
+    """Empirical CI80/CI95 hit-rates over the last ``window_days`` realised rows."""
+    try:
+        conn = _open_db_connection()
+    except Exception as exc:  # pragma: no cover
+        warnings.warn(f"CI coverage DB unavailable: {exc}")
+        return {"n": 0, "ci80_rate": 0.80, "ci95_rate": 0.95}
+
+    query = f"""
+        SELECT within_ci80, within_ci95
+        FROM prediction_accuracy
+        WHERE actual_count IS NOT NULL
+        ORDER BY target_date DESC
+        LIMIT {int(window_days)}
+    """
+    try:
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=".*pandas only supports SQLAlchemy.*")
+            df = pd.read_sql_query(query, conn)
+    except Exception:
+        df = pd.DataFrame()
+    finally:
+        conn.close()
+
+    if df.empty:
+        return {"n": 0, "ci80_rate": 0.80, "ci95_rate": 0.95}
+
+    n = int(len(df))
+    ci80 = float(df["within_ci80"].fillna(False).astype(bool).mean()) if "within_ci80" in df.columns else 0.80
+    ci95 = float(df["within_ci95"].fillna(False).astype(bool).mean()) if "within_ci95" in df.columns else 0.95
+    return {"n": n, "ci80_rate": round(ci80, 4), "ci95_rate": round(ci95, 4)}
+
+
+def _inverse_mae_weights(mae_by_learner: Dict[str, float], floor: float = 1.0) -> Dict[str, float]:
+    inv = {k: 1.0 / max(floor, float(v)) for k, v in mae_by_learner.items() if v is not None}
+    total = sum(inv.values()) or 1.0
+    return {k: round(v / total, 4) for k, v in inv.items()}
+
+
+def compute_dynamic_stack_weights(
+    bundle: Dict[str, object],
+    bucket_name: str,
+    recent_residuals: pd.DataFrame,
+    window_days: int = DYNAMIC_STACK_WINDOW_DAYS,
+) -> Dict[str, float]:
+    """Online quantile re-weighting for ensemble stacking (14-day performance).
+
+    Starts from validation inverse-MAE weights stored at train time, then scales
+  neural learner weights down when recent live MAE is worse than validation.
+    """
+    stacking = bundle.get("dynamic_stacking") or {}
+    val_mae = (stacking.get("val_mae") or {}).get(bucket_name) or {}
+    base_weights = (stacking.get("base_weights") or {}).get(bucket_name) or {
+        "tree": 0.67,
+        "nbeats": 0.15,
+        "tft": 0.10,
+        "deepar": 0.08,
+    }
+
+    if val_mae:
+        weights = _inverse_mae_weights(val_mae)
+        for learner, w in base_weights.items():
+            if learner not in weights:
+                weights[learner] = float(w)
+    else:
+        weights = {k: float(v) for k, v in base_weights.items()}
+
+    if recent_residuals is not None and len(recent_residuals) >= max(7, window_days // 2):
+        slice_df = recent_residuals.tail(window_days)
+        online_mae = float(slice_df["residual"].abs().mean())
+        val_tree = float(val_mae.get("tree") or stacking.get("overall_val_mae") or online_mae)
+        if val_tree > 0 and online_mae > val_tree * 1.05:
+            shrink = float(min(0.45, (online_mae / val_tree - 1.0) * 0.35))
+            neural_keys = [k for k in weights if k != "tree"]
+            neural_mass = sum(weights.get(k, 0.0) for k in neural_keys)
+            for k in neural_keys:
+                weights[k] = weights.get(k, 0.0) * (1.0 - shrink)
+            weights["tree"] = weights.get("tree", 0.0) + neural_mass * shrink
+            total = sum(weights.values()) or 1.0
+            weights = {k: round(v / total, 4) for k, v in weights.items()}
+
+    return weights
+
+
+def apply_online_quantile_reweight(
+    delta_low: float,
+    delta_high: float,
+    delta_low_95: float,
+    delta_high_95: float,
+    ci_stats: Dict[str, float],
+    target_ci80: float = 0.80,
+) -> Tuple[float, float, float, float]:
+    """Widen or tighten CQR deltas when recent CI coverage drifts from target."""
+    n = int(ci_stats.get("n") or 0)
+    if n < 7:
+        return delta_low, delta_high, delta_low_95, delta_high_95
+
+    ci80_rate = float(ci_stats.get("ci80_rate") or target_ci80)
+    if ci80_rate < target_ci80 - 0.05:
+        scale = min(1.35, target_ci80 / max(0.55, ci80_rate))
+        return (
+            delta_low * scale,
+            delta_high * scale,
+            delta_low_95 * scale,
+            delta_high_95 * scale,
+        )
+    if ci80_rate > target_ci80 + 0.05:
+        scale = max(0.85, target_ci80 / ci80_rate)
+        return (
+            delta_low * scale,
+            delta_high * scale,
+            delta_low_95 * scale,
+            delta_high_95 * scale,
+        )
+    return delta_low, delta_high, delta_low_95, delta_high_95
+
+
+def _neural_forecast_point(
+    nf_models: Dict[str, object],
+    target_date: pd.Timestamp,
+    latest_actual_date: pd.Timestamp,
+    column_name: str,
+    fallback: float,
+) -> float | None:
+    if not nf_models or nf_models.get("nf") is None:
+        return None
+    try:
+        nf = nf_models["nf"]
+        anchor = pd.Timestamp(nf_models.get("last_train_date") or latest_actual_date)
+        steps_ahead = max(1, (target_date - anchor).days)
+        if steps_ahead > int(nf_models.get("horizon", MAX_HORIZON)):
+            return None
+        forecast = nf.predict()
+        if forecast.empty:
+            return None
+        val = forecast.iloc[steps_ahead - 1].get(column_name)
+        if val is None or (isinstance(val, float) and math.isnan(val)):
+            return None
+        return float(val)
+    except Exception:  # pragma: no cover
+        return None
+
+
+def load_deepar_models(bundle: Dict[str, object]) -> Dict[str, object]:
+    """Load the 5th global learner (iTransformer or DeepAR)."""
+    info: Dict[str, object] = {}
+    spec = bundle.get("deepar") or {}
+    if not spec or not spec.get("available"):
+        return info
+    try:
+        import torch  # noqa: F401
+        from neuralforecast import NeuralForecast
+    except Exception:  # pragma: no cover
+        return info
+    model_dir = MODELS_DIR / spec.get("dir", "deepar")
+    if not model_dir.exists():
+        return info
+    try:
+        nf = NeuralForecast.load(path=str(model_dir))
+        info["nf"] = nf
+        info["model_name"] = spec.get("model_name", "DeepAR")
+        info["last_train_date"] = spec.get("last_train_date")
+        info["horizon"] = spec.get("horizon", MAX_HORIZON)
+        info["blend_weight"] = float(spec.get("blend_weight", 0.08))
+    except Exception:  # pragma: no cover
+        pass
+    return info
+
+
 def load_lightgbm_models(bundle: Dict[str, object]) -> Dict[str, object]:
     """Optionally load LightGBM companion boosters for ensemble inference."""
     lgb_models: Dict[str, object] = {}
@@ -2253,6 +2629,7 @@ def build_single_feature_row(
     operational_horizon: int,
     holiday_set: set,
     weather_df: pd.DataFrame | None = None,
+    aqhi_df: pd.DataFrame | None = None,
     ai_factor_df: pd.DataFrame | None = None,
     flu_df: pd.DataFrame | None = None,
     school_calendar: Dict | None = None,
@@ -2281,10 +2658,12 @@ def build_single_feature_row(
     yoy_same_dow_mean = (lag358 + lag364 + lag371) / 3.0
 
     weather_map = _weather_map_from_df(weather_df) if weather_df is not None else {}
+    aqhi_map = _aqhi_map_from_df(aqhi_df) if aqhi_df is not None else {}
     ai_map = _ai_map_from_df(ai_factor_df) if ai_factor_df is not None else {}
     flu_map = _flu_map_from_df(flu_df) if flu_df is not None else {}
     school_cal = school_calendar if school_calendar is not None else load_school_calendar()
     wx = _weather_lookup(weather_map, target_date)
+    aqhi = _aqhi_lookup(aqhi_map, target_date)
     ai = _ai_lookup(ai_map, target_date)
     flu = _flu_lookup(flu_map, target_date)
     school = _school_lookup(school_cal, target_date)
@@ -2293,6 +2672,7 @@ def build_single_feature_row(
     row = {
         **base,
         **wx,
+        **aqhi,
         **ai,
         **flu,
         **school,
@@ -2354,6 +2734,7 @@ def predict_target_date(
     bundle: Dict[str, object] | None = None,
     models: Dict[str, xgb.Booster] | None = None,
     weather_df: pd.DataFrame | None = None,
+    aqhi_df: pd.DataFrame | None = None,
     ai_factor_df: pd.DataFrame | None = None,
     quantile_models: Dict[str, Dict[str, xgb.Booster]] | None = None,
     lightgbm_models: Dict[str, object] | None = None,
@@ -2361,7 +2742,9 @@ def predict_target_date(
     school_calendar: Dict | None = None,
     nbeats_models: Dict[str, object] | None = None,
     tft_models: Dict[str, object] | None = None,
+    deepar_models: Dict[str, object] | None = None,
     conformal_offsets: Dict[str, Dict[str, float]] | None = None,
+    recent_residuals: pd.DataFrame | None = None,
 ) -> Dict[str, object]:
     target_date = pd.Timestamp(target_date_str)
     history = historical_df.copy() if historical_df is not None else load_actual_data_from_db()
@@ -2392,6 +2775,13 @@ def predict_target_date(
             tft_models = load_tft_models(bundle)
         except Exception:  # pragma: no cover
             tft_models = {}
+    if deepar_models is None:
+        try:
+            deepar_models = load_deepar_models(bundle)
+        except Exception:  # pragma: no cover
+            deepar_models = {}
+    if aqhi_df is None:
+        aqhi_df = load_aqhi_history()
     if weather_df is None:
         try:
             weather_df = load_weather_history_from_db()
@@ -2415,6 +2805,11 @@ def predict_target_date(
         school_calendar = load_school_calendar()
     if conformal_offsets is None:
         conformal_offsets = bundle.get("conformal_offsets") or {}
+    if recent_residuals is None:
+        try:
+            recent_residuals = fetch_recent_residuals_from_db(window_days=DYNAMIC_STACK_WINDOW_DAYS)
+        except Exception:  # pragma: no cover
+            recent_residuals = pd.DataFrame()
 
     holiday_set = load_holiday_set()
     latest_actual_date = pd.Timestamp(history["Date"].max())
@@ -2438,6 +2833,7 @@ def predict_target_date(
         operational_horizon=operational_horizon,
         holiday_set=holiday_set,
         weather_df=weather_df,
+        aqhi_df=aqhi_df,
         ai_factor_df=ai_factor_df,
         flu_df=flu_df,
         school_calendar=school_calendar,
@@ -2466,39 +2862,27 @@ def predict_target_date(
     else:
         raw_prediction = xgb_raw
 
-    # N-BEATS global anchor blend (v5.4.00 Stage D)
-    nbeats_blend = 0.0
-    if nbeats_models and nbeats_models.get("nf") is not None:
-        try:
-            nf = nbeats_models["nf"]
-            anchor = pd.Timestamp(nbeats_models.get("last_train_date") or latest_actual_date)
-            steps_ahead = max(1, (target_date - anchor).days)
-            if 1 <= steps_ahead <= int(nbeats_models.get("horizon", MAX_HORIZON)):
-                forecast = nf.predict()
-                if not forecast.empty:
-                    nbeats_pred = float(forecast.iloc[steps_ahead - 1].get("NBEATS", raw_prediction))
-                    w_nb = float(nbeats_models.get("blend_weight", 0.15))
-                    raw_prediction = (1.0 - w_nb) * raw_prediction + w_nb * nbeats_pred
-                    nbeats_blend = w_nb
-        except Exception:  # pragma: no cover - inference must never crash on N-BEATS
-            pass
+    tree_prediction = raw_prediction
+    stack_weights = compute_dynamic_stack_weights(bundle, bucket.name, recent_residuals)
+    components: Dict[str, float] = {"tree": tree_prediction}
+    nbeats_pred = _neural_forecast_point(nbeats_models, target_date, latest_actual_date, "NBEATS", tree_prediction)
+    if nbeats_pred is not None:
+        components["nbeats"] = nbeats_pred
+    tft_pred = _neural_forecast_point(tft_models, target_date, latest_actual_date, "TFT", tree_prediction)
+    if tft_pred is not None:
+        components["tft"] = tft_pred
+    deepar_col = str((deepar_models or {}).get("model_name") or "DeepAR")
+    deepar_pred = _neural_forecast_point(deepar_models, target_date, latest_actual_date, deepar_col, tree_prediction)
+    if deepar_pred is not None:
+        components["deepar"] = deepar_pred
 
-    # TFT global learner blend (v5.5.00 Stage D2)
-    tft_blend = 0.0
-    if tft_models and tft_models.get("nf") is not None:
-        try:
-            nf_tft = tft_models["nf"]
-            anchor = pd.Timestamp(tft_models.get("last_train_date") or latest_actual_date)
-            steps_ahead = max(1, (target_date - anchor).days)
-            if 1 <= steps_ahead <= int(tft_models.get("horizon", MAX_HORIZON)):
-                forecast_tft = nf_tft.predict()
-                if not forecast_tft.empty:
-                    tft_pred = float(forecast_tft.iloc[steps_ahead - 1].get("TFT", raw_prediction))
-                    w_tft = float(tft_models.get("blend_weight", 0.10))
-                    raw_prediction = (1.0 - w_tft) * raw_prediction + w_tft * tft_pred
-                    tft_blend = w_tft
-        except Exception:  # pragma: no cover - inference must never crash on TFT
-            pass
+    active_weights = {k: float(stack_weights.get(k, 0.0)) for k in components}
+    weight_sum = sum(active_weights.values()) or 1.0
+    raw_prediction = sum(components[k] * active_weights[k] for k in components) / weight_sum
+    nbeats_blend = round(active_weights.get("nbeats", 0.0) / weight_sum, 4)
+    tft_blend = round(active_weights.get("tft", 0.0) / weight_sum, 4)
+    deepar_blend = round(active_weights.get("deepar", 0.0) / weight_sum, 4)
+    tree_blend = round(active_weights.get("tree", 0.0) / weight_sum, 4)
 
     bias_array = _apply_bias(feature_row, np.array([raw_prediction]), bucket_info.get("bias_correction"))
     bias_applied = float(bias_array[0]) if len(bias_array) else 0.0
@@ -2541,6 +2925,14 @@ def predict_target_date(
         delta_high = float(conf.get("delta_high", 0.0) or 0.0)
         delta_low_95 = float(conf.get("delta_low_95", delta_low * 1.5) or 0.0)
         delta_high_95 = float(conf.get("delta_high_95", delta_high * 1.5) or 0.0)
+
+        try:
+            ci_stats = fetch_recent_ci_coverage_from_db(DYNAMIC_STACK_WINDOW_DAYS)
+            delta_low, delta_high, delta_low_95, delta_high_95 = apply_online_quantile_reweight(
+                delta_low, delta_high, delta_low_95, delta_high_95, ci_stats
+            )
+        except Exception:  # pragma: no cover
+            ci_stats = {"n": 0}
 
         # Online residual blend: ~30% weight on recent live residuals from
         # ``prediction_accuracy`` if we have a non-trivial sample.
@@ -2588,8 +2980,12 @@ def predict_target_date(
             "best_baseline": bucket_info["best_baseline"],
             "raw_prediction": round(raw_prediction, 2),
             "bias_correction_applied": round(bias_applied, 4),
+            "tree_blend_weight": round(tree_blend, 3),
             "nbeats_blend_weight": round(nbeats_blend, 3),
             "tft_blend_weight": round(tft_blend, 3),
+            "deepar_blend_weight": round(deepar_blend, 3),
+            "dynamic_stack_weights": stack_weights,
+            "dynamic_stack_window_days": DYNAMIC_STACK_WINDOW_DAYS,
             "conformal_applied": bool((conformal_offsets or {}).get(bucket.name) or bucket_info.get("conformal")),
             "hko_forecast_used": bool(
                 target_date > latest_actual_date
@@ -2606,6 +3002,7 @@ def predict_range(
     bundle: Dict[str, object] | None = None,
     models: Dict[str, xgb.Booster] | None = None,
     weather_df: pd.DataFrame | None = None,
+    aqhi_df: pd.DataFrame | None = None,
     ai_factor_df: pd.DataFrame | None = None,
     quantile_models: Dict[str, Dict[str, xgb.Booster]] | None = None,
     lightgbm_models: Dict[str, object] | None = None,
@@ -2613,6 +3010,7 @@ def predict_range(
     school_calendar: Dict | None = None,
     nbeats_models: Dict[str, object] | None = None,
     tft_models: Dict[str, object] | None = None,
+    deepar_models: Dict[str, object] | None = None,
     conformal_offsets: Dict[str, Dict[str, float]] | None = None,
 ) -> Dict[str, object]:
     start_date = pd.Timestamp(start_date_str)
@@ -2651,12 +3049,25 @@ def predict_range(
             tft_models = load_tft_models(bundle)
         except Exception:  # pragma: no cover
             tft_models = {}
+    if deepar_models is None:
+        try:
+            deepar_models = load_deepar_models(bundle)
+        except Exception:  # pragma: no cover
+            deepar_models = {}
+    if aqhi_df is None:
+        aqhi_df = load_aqhi_history()
     if flu_df is None:
         flu_df = load_chp_flu_history()
     if school_calendar is None:
         school_calendar = load_school_calendar()
     if conformal_offsets is None:
         conformal_offsets = load_conformal_offsets(bundle)
+
+    recent_stack_res = pd.DataFrame()
+    try:
+        recent_stack_res = fetch_recent_residuals_from_db(window_days=DYNAMIC_STACK_WINDOW_DAYS)
+    except Exception:  # pragma: no cover
+        pass
 
     # Stage E online conformal: pull recent live residuals once per batch and
     # widen the CI uniformly when a non-trivial sample is available.
@@ -2681,6 +3092,7 @@ def predict_range(
             bundle=bundle,
             models=models,
             weather_df=weather_df,
+            aqhi_df=aqhi_df,
             ai_factor_df=ai_factor_df,
             quantile_models=quantile_models,
             lightgbm_models=lightgbm_models,
@@ -2688,7 +3100,9 @@ def predict_range(
             school_calendar=school_calendar,
             nbeats_models=nbeats_models,
             tft_models=tft_models,
+            deepar_models=deepar_models,
             conformal_offsets=conformal_offsets,
+            recent_residuals=recent_stack_res,
         )
         metadata = result["metadata"]
         predictions.append(

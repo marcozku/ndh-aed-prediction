@@ -47,11 +47,16 @@ def main() -> int:
     train_lgb = os.getenv("TRAIN_LIGHTGBM", "1") not in ("0", "false", "False")
     train_nb = os.getenv("TRAIN_NBEATS", "1") not in ("0", "false", "False")
     train_tft = os.getenv("TRAIN_TFT", "1") not in ("0", "false", "False")
+    train_deepar = os.getenv("TRAIN_DEEPAR", "1") not in ("0", "false", "False")
     nbeats_epochs = int(os.getenv("NBEATS_EPOCHS", "30"))
     tft_epochs = int(os.getenv("TFT_EPOCHS", "20"))
+    deepar_epochs = int(os.getenv("DEEPAR_EPOCHS", "20"))
+    aqhi_df = hmp.load_aqhi_history()
+    print(f"  aqhi:       {len(aqhi_df)} rows from {hmp.AQHI_CSV_PATH.name}")
     print(f"  optuna_trials={optuna_trials} optuna_timeout={optuna_timeout}s")
     print(f"  train_lightgbm={train_lgb} train_nbeats={train_nb} nbeats_epochs={nbeats_epochs}")
     print(f"  train_tft={train_tft} tft_epochs={tft_epochs}")
+    print(f"  train_deepar={train_deepar} deepar_epochs={deepar_epochs}")
 
     result = hmp.train_horizon_models(
         recent_rows=hmp.DEFAULT_RECENT_ROWS,
@@ -70,6 +75,8 @@ def main() -> int:
         nbeats_max_epochs=nbeats_epochs,
         train_tft=train_tft,
         tft_max_epochs=tft_epochs,
+        train_deepar=train_deepar,
+        deepar_max_epochs=deepar_epochs,
     )
     elapsed = time.time() - t0
     print(f"[{time.strftime('%H:%M:%S')}] training finished in {elapsed:.1f}s")
@@ -127,6 +134,20 @@ def main() -> int:
         print(f"  trained_at={tft.get('trained_at')} last_train_date={tft.get('last_train_date')} blend_weight={tft.get('blend_weight')}")
     else:
         print(f"  unavailable: {tft.get('error') or tft.get('reason') or tft.get('save_error')}")
+
+    deepar = bundle.get("deepar") or {}
+    print(f"\n=== DeepAR / iTransformer (5th learner) ===")
+    if deepar.get("available"):
+        print(
+            f"  model={deepar.get('model_name')} trained_at={deepar.get('trained_at')} "
+            f"last_train_date={deepar.get('last_train_date')} blend_weight={deepar.get('blend_weight')}"
+        )
+    else:
+        print(f"  unavailable: {deepar.get('error') or deepar.get('reason') or deepar.get('save_error')}")
+
+    ds = bundle.get("dynamic_stacking") or {}
+    print(f"\n=== Dynamic stacking (14d online) ===")
+    print(f"  window_days={ds.get('window_days')} overall_val_mae={ds.get('overall_val_mae')}")
 
     if result.get("gating_failures"):
         print("\nWARN gating failures:")

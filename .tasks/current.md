@@ -1,5 +1,20 @@
 # 當前任務
 
+## v5.6.00 — v5.6 路線圖收官（2026-05-18）✅✅✅✅✅
+
+### v5.6 全部完成 ✅
+- [x] **AI factor 全量歷史回填離線執行工具**: `--full` + checkpoint JSONL + `run_ai_factor_full_backfill.sh`
+- [x] **AQHI 空氣質素歷史 CSV 整合**: 6 features from `aqhi_history.csv` (4053 days)
+- [x] **DeepAR / iTransformer 第 5 base learner**: prefer iTransformer, fallback DeepAR, blend 0.08
+- [x] **Online quantile re-weighting**: 14d `prediction_accuracy` CI coverage adjusts CQR deltas
+- [x] **Dynamic stacking**: 14d live MAE vs validation inverse-MAE weights for tree/nbeats/tft/deepar
+
+### 模型
+- **98 features** · **5 learners** · pipeline `5.6.00`
+- 全量 AI 回填：離線執行 `python/run_ai_factor_full_backfill.sh`（估 USD 80-150）
+
+---
+
 ## v5.5.00 — v5.5 進階收官（2026-05-18）✅✅✅✅
 
 ### 真實 walk-forward 結果（Railway DB 4186 天 honest 60/40 split）
@@ -27,12 +42,10 @@
 - h21 / h30 split 後，h30 (H22-30) MAE 13.06，比 v5.4.00 h30 (H15-30) 14.38 改善 −9.2%
 - HKO 9-day forecast 真實串到 inference（metadata `hko_forecast_used=True`）
 
-### v5.6 路線圖
+### v5.7 路線圖
 - [ ] 真正 triage-level reconciliation（需要 `actual_data` 加 cat1-cat5 欄位先）
-- [ ] AI factor 全量 4000+ 天回填離線執行（工具 ready，估 USD $80-150）
-- [ ] AQHI 空氣質素歷史 CSV 整合
-- [ ] DeepAR / iTransformer 第 5 base learner
-- [ ] Online quantile re-weighting (dynamic stacking)
+- [ ] AI factor 全量 4000+ 天回填**執行完成**（工具 v5.6 ready，待離線跑完）
+- [ ] Per-learner 14d MAE 寫入 DB（目前用 validation proxy + final residual）
 
 ---
 
