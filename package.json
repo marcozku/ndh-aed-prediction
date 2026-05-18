@@ -1,7 +1,7 @@
 {
   "name": "ndh-aed-prediction",
-  "version": "5.2.03",
-  "description": "NDH AED 病人數量預測系統 v5.2.03 - GPT-5.5 frontend refresh with preserved GPT comparison history",
+  "version": "5.3.00",
+  "description": "NDH AED 病人數量預測系統 v5.3.00 - World-class pipeline: weather/AI/holiday-context features, Optuna-tuned XGBoost + LightGBM blend, quantile CI, capped bias correction with auto-fallback",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

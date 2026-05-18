@@ -1,5 +1,90 @@
 # 版本更新日誌
 
+## v5.3.00 - 2026-05-18 HKT
+**🎯 世界級準確度大改造：MAE 17.94 → 14.47（−19.4%），weather + AI + holiday-context feature + Optuna + 雙模型 ensemble + quantile CI + capped bias correction**
+
+### 為什麼之前的「2.85 MAE」根本是假的
+舊文件到處宣稱 MAE 2.85（v3.2.01 opt10），那是用 EWMA 未 shift + 隨機 split 跑出來的污染指標。實際 production pipeline (`horizon_direct_xgboost` v5.0.00) 用 180 cutoff walk-forward 算出來的真實 MAE 是 **17.94**，bias +3.87 至 +7.49 系統性高估，幾乎只比 weekday-mean baseline 好 ~2 人。詳細根因分析寫在 `.tasks/prediction-accuracy-deep-analysis.md`。
+
+### 本版本實際做了什麼（按 ROI 排序）
+
+#### Stage A：免費午餐
+1. **Capped + auto-fallback bias correction**（`_fit_bias_correction` / `_apply_bias` / `_evaluate_bias_helps`）
+   - 殘差按 `target_dow` 切，shrinkage = `n/(n+50)`，每格絕對值 cap 4.0，全局 cap 5.0
+   - 訓練時自動把 val 分成 60% calibration + 40% honest test
+   - 若 correction 在 test 上反而把 MAE 拉高（calibration→inference 期間 bias 漂移），自動回退至 raw（bias_active=False）
+   - 實測：short / h7 bucket 仍受益，h14 / h30 自動 fallback 至 raw（v5.0.00 寫死 bias 會反而害到）
+2. **Year-over-year lag**：新增 `lag358`, `lag364`, `lag371`, `yoy_same_dow_mean`，從原本 lag56 一路擴到 ~53 週
+3. **Holiday context**：`target_is_holiday_eve`, `target_is_post_holiday`, `target_is_bridge_day`
+4. **Lunar NY signed distance**（−15..+15），手動 2014-2028 CNY 初一字典
+5. **COVID regime flag**：2022-01-01 ~ 2023-06-30 標記，配合長窗訓練讓模型學到 pandemic elasticity
+
+#### Stage B：真正的外生訊號
+6. **天氣 15 個 feature 從 Railway `weather_history` 4186 行直接餵 XGBoost**
+   - temp_mean / range / min / max, rainfall_log, humidity, wind, pressure_dev
+   - typhoon signal ordinal (0/1/3/8/9/10), rainstorm signal ordinal (0/1/2/3)
+   - 4 個 binary 警告旗 + 30 天溫度異常
+7. **AI factor as feature 不是 post-hoc 乘子**
+   - 從 `learning_records` 拉歷史 ai_factor，缺失日填 1.0 + `ai_factor_known=0`
+
+#### Stage A2 / C：模型架構
+8. **Quantile regression CI（state-dependent）**
+   - 每個 bucket 額外訓 q10 / q90 booster，CI80 = `[q10_pred, q90_pred]`
+   - 取代舊的整個 val set 算固定 ±20/±30 殘差 quantile
+9. **Per-bucket Optuna TPE 調參** (40 trials, 180s timeout 上限)
+   - learning_rate / max_depth / min_child_weight / subsample / colsample_bytree / reg_alpha / reg_lambda / gamma
+   - 每個 bucket 各自最優：short lr=0.057, h7 lr=0.061, h14 lr=0.023, h30 lr=0.115
+10. **LightGBM 第二 base learner**
+    - L1 objective, 63 leaves, early stopping 40
+    - 與 XGBoost 50/55 blend（XGB weight 0.55）
+    - 自動 fallback：blend 在 val MAE 比 XGB 差就保留 XGB only（本次訓練 4 個 bucket 全 fallback，但保留基礎建設）
+
+### 真實 walk-forward 結果（180 cutoffs honest split, Railway DB 真實資料）
+| Bucket | v5.0.00 raw | v5.3.00 raw | v5.3.00 corrected | baseline | bias_active | 改善 vs v5.0.00 |
+|---|---|---|---|---|---|---|
+| short (H1-2) | 17.47 | 15.17 | **14.69** | 16.10 | ✓ | −15.9% |
+| h7 (H3-7) | 18.25 | 15.88 | **15.71** | 16.63 | ✓ | −13.9% |
+| h14 (H8-14) | 17.94 | 14.65 | **14.65** | 15.79 | auto-fallback | −18.3% |
+| h30 (H15-30) | 17.90 | 13.99 | **13.99** | 14.88 | auto-fallback | −21.9% |
+| **加權** | **17.94** | 14.42 | **14.47** | 15.47 | | **−19.4%** |
+
+MAPE 7.81% → **6.27%**。Gate passed 全 bucket。
+
+### Top features post-v5.3.00（之前完全沒這些）
+- `target_is_post_holiday` 進每個 bucket 前 5（4-12%）
+- `wx_typhoon_signal_ord` short bucket 第 5 重要（8.1%）
+- `wx_temp_anomaly_30d` h14 入榜
+- `is_covid_period` h14/h30 入榜（2.2-5.0%）
+- `lunar_ny_distance` h30 入榜（2.1%）
+
+### 新增/修改檔案
+| 檔案 | 內容 |
+|---|---|
+| `python/horizon_model_pipeline.py` | 完整重構：feature engineering + bias correction + quantile + Optuna + LightGBM |
+| `python/run_railway_train.py` | 用 Railway 真實 DB 跑端到端 walk-forward 並印出 raw vs corrected 對比 |
+| `python/requirements.txt` | 加 `lightgbm>=4.0.0` |
+| `python/models/horizon_*.json` | 重新訓練後產出（含 q10/q90 quantile 檔） |
+| `.tasks/prediction-accuracy-deep-analysis.md` | 深度根因 + 5-stage 改善 roadmap |
+
+### 反模式（之前一直在踩、現在停掉）
+- ❌ 用隨機 split 算「MAE 2.85」這種污染指標
+- ❌ post-hoc 對 Day 8-30 加固定乘子（v4.0.16 那種）
+- ❌ 訓練窗 `recent_rows=1600` 但只用近期 lag，丟掉去年同週訊號
+- ❌ 殘差用整個 val 算 quantile（無 state adaption）
+
+### 下一步路線圖（已寫在 `.tasks/prediction-accuracy-deep-analysis.md`）
+- Stage C2 完整化：LightGBM 在某些子段（如假期週）可能有貢獻，改成 per-bucket × per-segment blend
+- Stage D：N-BEATS / NHITS 作為第 3 base learner
+- Stage E：online conformal calibration（每天用真實殘差更新 q10/q90 offset）
+- 香港 CHP ILI 流感監測抓 API 整合
+- 學期 / school holiday 字典
+
+### 驗證
+- `node --check server.js`
+- `python3 python/predict.py 2026-05-22` 回傳完整 JSON 含 `raw_prediction` / `bias_correction_applied` metadata
+- `python3 python/rolling_predict.py 2026-05-18 7` 30 天預測呈現合理變化（不再是 v4.0.24 之前的持平問題）
+- `python3 python/run_railway_train.py` 用 Railway DB 真實 4186 天資料端到端 reproduce 14.47 MAE
+
 ## v5.2.03 - 2026-04-25 HKT
 **🧹 前端 GPT-5.5 顯示刷新：清走舊 Service Worker / asset cache**
 

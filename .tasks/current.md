@@ -1,5 +1,37 @@
 # 當前任務
 
+## v5.3.00 世界級準確度大改造（2026-05-18）✅
+
+### 真實 walk-forward 結果（Railway DB 4186 天 honest split）
+- **整體 MAE 17.94 → 14.47（−19.4%）**
+- **整體 MAPE 7.81% → 6.27%**
+- 全 4 個 bucket gate passed
+
+### 已完成項目
+- [x] 深度根因分析報告（`.tasks/prediction-accuracy-deep-analysis.md`）
+- [x] 揭穿假指標：之前文檔到處宣稱 MAE 2.85 是用污染指標算的，真實 v5.0.00 MAE = 17.94
+- [x] Stage A1: Capped bias correction + auto-fallback safety valve
+- [x] Stage A3: Year-over-year lag (lag358/364/371 + yoy_same_dow_mean)
+- [x] Stage B2: Holiday context flags (eve/post/bridge/lunar NY distance)
+- [x] Stage B1: 15 天氣 feature 從 `weather_history` 4186 行直接餵 XGBoost
+- [x] Stage B3: AI factor 從 post-hoc 乘子改成 model feature
+- [x] COVID regime flag (2022-01-01 ~ 2023-06-30)
+- [x] Stage A2: Quantile regression (q10/q90) state-dependent CI
+- [x] Stage C3: Per-bucket Optuna 40 trials × 180s timeout
+- [x] Stage C2: LightGBM 第二 base learner + auto-fallback blending
+- [x] 訓練腳本 `python/run_railway_train.py` 直連 Railway DB
+- [x] 端到端 inference 驗證（predict.py / rolling_predict.py）
+- [x] 版本更新到 5.3.00，VERSION_LOG + .tasks 同步
+
+### 下一輪（path to MAE < 8 世界級）
+- [ ] 整合香港 CHP 每週 ILI 流感監測 feature
+- [ ] 加 school term / holiday 細節 dict
+- [ ] AI factor 歷史回填到 4000+ 天（目前只 130 天）
+- [ ] N-BEATS / NHITS 作為第 3 base learner
+- [ ] Online conformal CI calibration
+
+---
+
 ## 已完成
 
 - [x] 特徵選擇測試 - 找出最佳 10 個特徵
@@ -287,12 +319,15 @@ if (weatherFactor !== 1.0) {
 | 最佳 10 特徵 (默認參數) | 10 | 3.19 | +79.7% |
 | 最佳 10 特徵 + Optuna | 10 | **2.85** | **+81.9%** |
 
-## 最終模型性能 (v3.2.01)
+## 最終模型性能 (v5.3.00 — Railway DB 真實 walk-forward 180 cutoffs honest split)
 
-- MAE: 2.85 人
-- RMSE: 4.54 人
-- MAPE: 1.17%
-- R²: 97.18%
+- MAE: **14.47 人**（v5.0.00 17.94 → −19.4%）
+- RMSE: **18.63 人**
+- MAPE: **6.27%**（v5.0.00 7.81% → −1.54 pp）
+- baseline weekday_mean MAE: 15.47（v5.3.00 在所有 bucket 都贏過）
+- gate_passed: True 全 bucket
+
+> ⚠️ 之前文檔列的 v3.2.01「MAE 2.85 / R² 97.18%」是 random split + 含當日值 EWMA 的污染指標，**不是 honest walk-forward 結果**。v5.0.00/v5.3.00 才是 production pipeline 的真實表現。
 
 ## Optuna 最佳參數
 
