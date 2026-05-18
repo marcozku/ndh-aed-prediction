@@ -10,6 +10,10 @@ optuna>=3.4.0
 # LightGBM companion learner (v5.3.00 ensemble)
 lightgbm>=4.0.0
 
+# N-BEATS deep-learning global anchor (v5.4.00 Stage D)
+# Pulls PyTorch, PyTorch-Lightning, Ray automatically.
+neuralforecast>=3.0.0
+
 # Database (optional)
 psycopg2-binary>=2.9.0
 python-dotenv>=1.0.0
