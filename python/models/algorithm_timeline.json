@@ -849,6 +849,87 @@
         "只接受 DB-only walk-forward 可避免被前端/後端 heuristic 製造虛高精度"
       ],
       "improvement": "相對最佳 baseline MAE 19.865 再改善約 9.7%"
+    },
+    {
+      "version": "5.3.00",
+      "date": "2026-05-18",
+      "description": "🎯 世界級準確度大改造 Stage A+B+C — 加 weather/AI/holiday-context feature + Optuna + LightGBM + quantile CI + capped bias correction",
+      "changes": [
+        "揭穿假指標: 之前的 MAE 2.85 是污染指標 (隨機 split + 含當日 EWMA)",
+        "Stage A1: capped+shrunken+auto-fallback bias correction (per target_dow)",
+        "Stage A2: quantile regression boosters (q10/q90) state-dependent CI80",
+        "Stage A3: lag358/364/371 + yoy_same_dow_mean (year-over-year lags)",
+        "Stage B1: 15 個天氣 feature 從 weather_history 直接餵 XGBoost",
+        "Stage B2: holiday-eve/post/bridge + lunar NY signed distance + COVID regime",
+        "Stage B3: AI factor 從 post-hoc 乘子改成 model feature",
+        "Stage C2: LightGBM L1 第二 base learner + auto-fallback blending",
+        "Stage C3: Per-bucket Optuna 40 trials TPE 調參"
+      ],
+      "metrics": {
+        "mae": 14.4748,
+        "mape": 6.27,
+        "rmse": 18.6348,
+        "r2": null,
+        "feature_count": 65,
+        "best_baseline_mae": 15.4655,
+        "gate_passed": true,
+        "data_points": 4186,
+        "note": "honest walk-forward 180 cutoff 60/40 split on Railway DB real data"
+      },
+      "bucket_metrics": {
+        "short": {"label": "H0/H1", "raw_mae": 15.84, "corrected_mae": 14.69, "bias_active": true},
+        "h7":    {"label": "H2-H7", "raw_mae": 15.88, "corrected_mae": 15.71, "bias_active": true},
+        "h14":   {"label": "H8-H14", "raw_mae": 14.65, "corrected_mae": 14.65, "bias_active": false},
+        "h30":   {"label": "H15-H30", "raw_mae": 13.99, "corrected_mae": 13.99, "bias_active": false}
+      },
+      "improvement": "MAE 17.94 → 14.47 (−19.4% vs v5.0.00), MAPE 7.81% → 6.27%"
+    },
+    {
+      "version": "5.4.00",
+      "date": "2026-05-18",
+      "description": "🌐 世界級 Stage D+E — CHP 流感監測 + 學校學期 + AI 回填 + N-BEATS 全域 anchor + Conformalized Quantile Regression + Online CI calibration",
+      "changes": [
+        "Stage B4: CHP Flu Express 整合 (646 週 → 4515 daily rows) 10 個 feature: ILI_PMP/AED, A+B count, Adm rate, H1/H3/B proportion, 2-week trend, intensity z-score",
+        "School 8 feature: in_session, summer/christmas/lunar_ny/easter/covid_suspension, days_to_term_start, days_since_term_end (54 segments, 2014-2027)",
+        "AI factor 從 learning_records + daily_predictions UNION (130 → 165 rows + is_pre_ai_era flag)",
+        "Stage D: N-BEATS 全域 anchor (3-block identity+trend+seasonality, 90-day input, blend_weight 0.15)",
+        "Stage A2/E: Conformalized Quantile Regression — fitted δ_low/δ_high offsets per bucket on val set (CI80 coverage 80-83%)",
+        "Stage E: Online CI calibration — predict_range pulls last 30 days of (predicted, actual) from prediction_accuracy and widens CI by 0.4σ_recent"
+      ],
+      "metrics": {
+        "mae": 14.3995,
+        "mape": 6.257,
+        "rmse": 18.4263,
+        "r2": null,
+        "feature_count": 84,
+        "best_baseline_mae": 15.4655,
+        "gate_passed": true,
+        "data_points": 4186,
+        "note": "honest walk-forward 180 cutoff Railway DB; CQR CI80 coverage 80-83% per bucket"
+      },
+      "bucket_metrics": {
+        "short": {"label": "H0/H1", "corrected_mae": 14.71, "ci80_coverage": 0.828, "conf_delta_low": 7.58},
+        "h7":    {"label": "H2-H7", "corrected_mae": 14.95, "ci80_coverage": 0.800, "conf_delta_low": 17.28},
+        "h14":   {"label": "H8-H14", "corrected_mae": 13.96, "ci80_coverage": 0.810, "conf_delta_low": 16.70},
+        "h30":   {"label": "H15-H30", "corrected_mae": 14.38, "ci80_coverage": 0.824, "conf_delta_low": 21.11}
+      },
+      "top_features_h30": [
+        {"feature": "flu_h1_proportion", "importance": 0.138},
+        {"feature": "target_is_post_holiday", "importance": 0.129},
+        {"feature": "wx_is_very_cold", "importance": 0.122},
+        {"feature": "roll28", "importance": 0.076},
+        {"feature": "roll14", "importance": 0.073},
+        {"feature": "flu_ili_aed", "importance": 0.021},
+        {"feature": "flu_intensity_score", "importance": 0.017}
+      ],
+      "research": [
+        "Romano, Patterson & Candes (2019) — Conformalized Quantile Regression, NeurIPS",
+        "Oreshkin et al. (2020) — N-BEATS: Neural basis expansion analysis, ICLR",
+        "BMC EM (2025) — French ED MAE benchmark 2.63",
+        "CHP HK Flu Express weekly surveillance dataset (data.gov.hk)"
+      ],
+      "stages_completed": ["A1", "A2", "A3", "B1", "B2", "B3", "B4 (CHP ILI)", "C2", "C3", "D (N-BEATS)", "E (Online conformal)"],
+      "improvement": "MAE 17.94 (v5.0.00) → 14.40 (v5.4.00) total −19.7%; flu_h1_proportion 跟 wx_is_very_cold 進前 5 重要性 (證明外生訊號確實有 signal)"
     }
   ],
   "references": [
@@ -958,5 +1039,5 @@
       "relevance": "維度災難、偏差-方差權衡理論"
     }
   ],
-  "last_updated": "2026-04-14T23:55:00+08:00"
+  "last_updated": "2026-05-18T19:30:00+08:00"
 }

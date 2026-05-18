@@ -1,21 +1,21 @@
 {
-  "version": "5.3.00",
+  "version": "5.4.00",
   "model_name": "horizon_direct_xgboost",
-  "mae": 14.4748,
-  "rmse": 18.6348,
-  "mape": 6.2674,
+  "mae": 14.3995,
+  "rmse": 18.4263,
+  "mape": 6.257,
   "r2": null,
-  "training_date": "2026-05-18T19:07:24",
+  "training_date": "2026-05-18T19:27:32",
   "data_count": 4186,
   "train_count": 39180,
   "test_count": 5400,
-  "feature_count": 65,
+  "feature_count": 84,
   "ai_factors_count": 0,
   "baseline_gate_passed": true,
   "best_baseline_mae": 15.4655,
   "buckets": {
     "short": {
-      "mae": 14.694,
+      "mae": 14.712,
       "best_baseline": {
         "name": "weekday_mean",
         "mae": 16.1036
@@ -23,11 +23,11 @@
       "gate": {
         "passed": true,
         "margin_required": 0.005,
-        "improvement_vs_best_baseline": 1.4096
+        "improvement_vs_best_baseline": 1.3916
       }
     },
     "h7": {
-      "mae": 15.7068,
+      "mae": 14.9479,
       "best_baseline": {
         "name": "weekday_mean",
         "mae": 16.6287
@@ -35,11 +35,11 @@
       "gate": {
         "passed": true,
         "margin_required": 0.005,
-        "improvement_vs_best_baseline": 0.9219
+        "improvement_vs_best_baseline": 1.6808
       }
     },
     "h14": {
-      "mae": 14.6509,
+      "mae": 13.956,
       "best_baseline": {
         "name": "weekday_mean",
         "mae": 15.7892
@@ -47,11 +47,11 @@
       "gate": {
         "passed": true,
         "margin_required": 0.005,
-        "improvement_vs_best_baseline": 1.1383
+        "improvement_vs_best_baseline": 1.8332
       }
     },
     "h30": {
-      "mae": 13.9853,
+      "mae": 14.383,
       "best_baseline": {
         "name": "weekday_mean",
         "mae": 14.8807
@@ -59,7 +59,7 @@
       "gate": {
         "passed": true,
         "margin_required": 0.005,
-        "improvement_vs_best_baseline": 0.8954
+        "improvement_vs_best_baseline": 0.4977
       }
     }
   }
