@@ -1,65 +1,65 @@
 {
-  "version": "5.0.00",
+  "version": "5.3.00",
   "model_name": "horizon_direct_xgboost",
-  "mae": 17.9395,
-  "rmse": 23.6128,
-  "mape": 7.8076,
+  "mae": 14.4748,
+  "rmse": 18.6348,
+  "mape": 6.2674,
   "r2": null,
-  "training_date": "2026-04-14T22:52:05",
-  "data_count": 4152,
+  "training_date": "2026-05-18T19:07:24",
+  "data_count": 4186,
   "train_count": 39180,
   "test_count": 5400,
-  "feature_count": 39,
+  "feature_count": 65,
   "ai_factors_count": 0,
   "baseline_gate_passed": true,
-  "best_baseline_mae": 19.865,
+  "best_baseline_mae": 15.4655,
   "buckets": {
     "short": {
-      "mae": 17.4747,
+      "mae": 14.694,
       "best_baseline": {
         "name": "weekday_mean",
-        "mae": 19.7565
+        "mae": 16.1036
       },
       "gate": {
         "passed": true,
-        "margin_required": 0.01,
-        "improvement_vs_best_baseline": 2.2818
+        "margin_required": 0.005,
+        "improvement_vs_best_baseline": 1.4096
       }
     },
     "h7": {
-      "mae": 18.2508,
+      "mae": 15.7068,
       "best_baseline": {
         "name": "weekday_mean",
-        "mae": 19.8415
+        "mae": 16.6287
       },
       "gate": {
         "passed": true,
-        "margin_required": 0.01,
-        "improvement_vs_best_baseline": 1.5907
+        "margin_required": 0.005,
+        "improvement_vs_best_baseline": 0.9219
       }
     },
     "h14": {
-      "mae": 17.9392,
+      "mae": 14.6509,
       "best_baseline": {
         "name": "weekday_mean",
-        "mae": 19.6952
+        "mae": 15.7892
       },
       "gate": {
         "passed": true,
-        "margin_required": 0.01,
-        "improvement_vs_best_baseline": 1.756
+        "margin_required": 0.005,
+        "improvement_vs_best_baseline": 1.1383
       }
     },
     "h30": {
-      "mae": 17.9005,
+      "mae": 13.9853,
       "best_baseline": {
         "name": "weekday_mean",
-        "mae": 19.9601
+        "mae": 14.8807
       },
       "gate": {
         "passed": true,
-        "margin_required": 0.01,
-        "improvement_vs_best_baseline": 2.0596
+        "margin_required": 0.005,
+        "improvement_vs_best_baseline": 0.8954
       }
     }
   }
