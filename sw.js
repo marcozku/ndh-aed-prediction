@@ -1,23 +1,23 @@
 /**
  * NDH AED 預測系統 - Service Worker
  * 提供離線支援和快取管理
- * v5.4.00 - World-class accuracy pipeline (CHP flu + school + N-BEATS + CQR + online conformal)
- *           Refresh all static caches to pick up new model.version display and metadata
+ * v5.5.00 - v5.5 進階收官 (per-horizon split + holiday-type + HKO forecast inject + TFT + hierarchical shrinkage)
+ *           Refresh all static caches to pick up new model.version display and 5-bucket metadata
  */
 
-const SW_VERSION = '5.4.00';
-const CACHE_NAME = 'ndh-aed-v5.4.00';
-const STATIC_CACHE = 'ndh-static-v5.4.00';
-const DYNAMIC_CACHE = 'ndh-dynamic-v5.4.00';
+const SW_VERSION = '5.5.00';
+const CACHE_NAME = 'ndh-aed-v5.5.00';
+const STATIC_CACHE = 'ndh-static-v5.5.00';
+const DYNAMIC_CACHE = 'ndh-dynamic-v5.5.00';
 
 // 靜態資源（始終快取）
 const STATIC_ASSETS = [
     '/',
     '/index.html',
-    '/styles.css?v=20',
-    '/app.js?v=12',
-    '/prediction.js?v=25',
-    '/modules/ui-enhancements.js?v=7',
+    '/styles.css?v=21',
+    '/app.js?v=13',
+    '/prediction.js?v=26',
+    '/modules/ui-enhancements.js?v=8',
     '/modules/api.js',
     '/modules/datetime.js',
     '/modules/status.js',
