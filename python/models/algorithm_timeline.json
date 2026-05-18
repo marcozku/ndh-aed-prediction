@@ -930,6 +930,55 @@
       ],
       "stages_completed": ["A1", "A2", "A3", "B1", "B2", "B3", "B4 (CHP ILI)", "C2", "C3", "D (N-BEATS)", "E (Online conformal)"],
       "improvement": "MAE 17.94 (v5.0.00) → 14.40 (v5.4.00) total −19.7%; flu_h1_proportion 跟 wx_is_very_cold 進前 5 重要性 (證明外生訊號確實有 signal)"
+    },
+    {
+      "version": "5.5.00",
+      "date": "2026-05-18",
+      "description": "🚀 v5.5 進階收官 — per-horizon split (5 buckets) + holiday-type embedding + HKO 9-day forecast inject + TFT 第 4 base learner + AI backfill 工具 + Hierarchical Bayesian shrinkage",
+      "changes": [
+        "Per-horizon split: h30 (H15-30, 16 horizons) 拆成 h21 (H15-21) + h30 (H22-30)",
+        "Holiday-type embedding: 8 個 one-hot (CNY/Christmas/Easter/Buddha/Mid-Autumn/Dragon Boat/National/Other) 推斷自 calendar 位置",
+        "HKO 9-day forecast 即時 inject: fetch_hko_9day_forecast() + 6h cache + merge_forecast_into_weather_df() — 未來日期 weather 從 HKO API 取",
+        "TFT 第 4 base learner: neuralforecast TFT 56K params (vs N-BEATS 731K), hidden=32, 2-head, blend_weight 0.10",
+        "AI factor backfill tool: python/backfill_ai_factor_historical.py — resume, rate-limit, dry-run, cost note",
+        "Hierarchical Bayesian shrinkage (軟版): h14/h21/h30 預測往 anchor=(dow_recent_mean+recent_mean_84+seasonal_baseline)/3 shrink 0.10 — 真正 triage MinT reconciliation 受限於資料庫無 triage 細分"
+      ],
+      "metrics": {
+        "mae": 13.838,
+        "mape": 6.0374,
+        "rmse": 17.828,
+        "r2": null,
+        "feature_count": 92,
+        "best_baseline_mae": 15.4655,
+        "gate_passed": true,
+        "data_points": 4186,
+        "note": "honest walk-forward 180 cutoff Railway DB; CQR CI80 coverage 81-83% per bucket; 5 buckets"
+      },
+      "bucket_metrics": {
+        "short": {"label": "H0/H1", "corrected_mae": 14.46, "ci80_coverage": 0.833, "conf_delta_low": 9.03},
+        "h7":    {"label": "H2-H7", "corrected_mae": 15.17, "ci80_coverage": 0.817, "conf_delta_low": 12.55},
+        "h14":   {"label": "H8-H14", "corrected_mae": 14.04, "ci80_coverage": 0.810, "conf_delta_low": 18.12},
+        "h21":   {"label": "H15-H21 (NEW split)", "corrected_mae": 13.50, "ci80_coverage": 0.811, "conf_delta_low": 15.35},
+        "h30":   {"label": "H22-H30 (shrunk)", "corrected_mae": 13.06, "ci80_coverage": 0.828, "conf_delta_low": 18.96}
+      },
+      "top_features_h30": [
+        {"feature": "flu_h1_proportion", "importance": 0.204},
+        {"feature": "target_is_post_holiday", "importance": 0.099},
+        {"feature": "dow_recent_mean", "importance": 0.062},
+        {"feature": "target_is_weekend", "importance": 0.048},
+        {"feature": "roll28", "importance": 0.045},
+        {"feature": "flu_intensity_score", "importance": 0.042},
+        {"feature": "is_covid_period", "importance": 0.033},
+        {"feature": "flu_adm_rate", "importance": 0.025}
+      ],
+      "research": [
+        "Lim, Arık, Loeff & Pfister (2021) — Temporal Fusion Transformers, IJOF",
+        "Romano, Patterson & Candes (2019) — Conformalized Quantile Regression, NeurIPS",
+        "Oreshkin et al. (2020) — N-BEATS, ICLR",
+        "Hyndman & Athanasopoulos (2021) — Forecasting Principles and Practice, hierarchical reconciliation chapter"
+      ],
+      "stages_completed_v5_5": ["per_horizon_split", "holiday_type_embedding", "ai_backfill_tool", "hko_forecast_inject", "tft_base_learner", "hierarchical_shrinkage_soft"],
+      "improvement": "MAE 17.94 (v5.0.00) → 13.84 (v5.5.00) total −22.9%; h30 split 後 MAE 14.38 → 13.06 (−9.2% on long horizon); flu_h1_proportion 在 h30 飆到 20.4% top-1; HKO forecast 已串到 inference (metadata.hko_forecast_used=true)"
     }
   ],
   "references": [
@@ -1039,5 +1088,5 @@
       "relevance": "維度災難、偏差-方差權衡理論"
     }
   ],
-  "last_updated": "2026-05-18T19:30:00+08:00"
+  "last_updated": "2026-05-18T19:58:00+08:00"
 }
