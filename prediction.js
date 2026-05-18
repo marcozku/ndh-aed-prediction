@@ -10153,14 +10153,14 @@ function initAlgorithmContent() {
             </div>
             
             <div style="background: rgba(245, 158, 11, 0.1); padding: 10px; border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 10px;">
-                <strong style="color: #f59e0b;">📊 模型性能 (v3.2.01):</strong> MAE = 2.85 人 · MAPE = 1.17% · R² = 97.18% · 10 最佳特徵 · Optuna 優化<br>
-                <span style="color: var(--text-tertiary); font-size: 0.68rem;">🦠 COVID 排除法 + 特徵優化: 相比 v3.0.98 改善 84.3%</span>
+                <strong style="color: #f59e0b;">📊 模型性能 (v5.4.00, honest walk-forward Railway DB 4186 天):</strong> MAE = 14.40 人 · MAPE = 6.26% · RMSE = 18.43 · CI80 經驗覆蓋率 80-83% · 84 特徵 · per-bucket Optuna<br>
+                <span style="color: var(--text-tertiary); font-size: 0.68rem;">⚠️ 之前的「MAE 2.85 / R² 97.18%」是 random split + 含當日值 EWMA 的污染指標，不是真實 walk-forward 結果。v5.4.00 才是 production pipeline 的真實表現。</span>
             </div>
             
-            <!-- v3.0.98: COVID Exclusion Info -->
+            <!-- v5.4.00: World-class accuracy roadmap Stage A→E complete -->
             <div style="background: rgba(139, 92, 246, 0.1); padding: 10px; border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary);">
-                <strong style="color: #8b5cf6;">🔬 v3.2.01 優化歷程:</strong> 特徵選擇 (10 最佳特徵) + Optuna 超參數優化 (30 trials) → 達到世界級水準<br>
-                <span style="color: var(--text-tertiary); font-size: 0.68rem;">📚 研究基礎: Gama et al. (2014) Concept Drift · Tukey (1977) Outlier Detection · Chen & Guestrin (2016) XGBoost</span>
+                <strong style="color: #8b5cf6;">🌐 v5.4.00 世界級準確度路線圖完整收官:</strong> Stage A (bias correction + CQR + YoY lag) + B (天氣+流感+學校+假期+AI feature) + C (Optuna + LightGBM ensemble) + D (N-BEATS anchor) + E (Online conformal CI) — MAE 17.94 → 14.40 (−19.7%)<br>
+                <span style="color: var(--text-tertiary); font-size: 0.68rem;">📚 研究基礎: Romano-Patterson-Candes (2019) CQR · Oreshkin (2020) N-BEATS · Gibbs-Candes (2021) Online Conformal · Akiba (2019) Optuna · Chen-Guestrin (2016) XGBoost · BMC EM (2025) 法國 ED 基準 MAE 2.63</span>
             </div>
         </div>
         
@@ -10438,7 +10438,7 @@ function initAlgorithmContent() {
                         </tr>
                     </table>
                     <div style="margin-top: 6px; color: #22c55e;">
-                        ✓ v3.2.01 最終優化: MAE 2.85 (改善 84.3%)
+                        ✓ v5.4.00 真實 walk-forward 結果: MAE 14.40 (vs v5.0.00 MAE 17.94, 改善 19.7%)
                     </div>
                 </div>
             </div>
