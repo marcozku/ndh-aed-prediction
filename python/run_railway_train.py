@@ -46,9 +46,12 @@ def main() -> int:
     optuna_timeout = float(os.getenv("OPTUNA_TIMEOUT", "120"))
     train_lgb = os.getenv("TRAIN_LIGHTGBM", "1") not in ("0", "false", "False")
     train_nb = os.getenv("TRAIN_NBEATS", "1") not in ("0", "false", "False")
+    train_tft = os.getenv("TRAIN_TFT", "1") not in ("0", "false", "False")
     nbeats_epochs = int(os.getenv("NBEATS_EPOCHS", "30"))
+    tft_epochs = int(os.getenv("TFT_EPOCHS", "20"))
     print(f"  optuna_trials={optuna_trials} optuna_timeout={optuna_timeout}s")
     print(f"  train_lightgbm={train_lgb} train_nbeats={train_nb} nbeats_epochs={nbeats_epochs}")
+    print(f"  train_tft={train_tft} tft_epochs={tft_epochs}")
 
     result = hmp.train_horizon_models(
         recent_rows=hmp.DEFAULT_RECENT_ROWS,
@@ -65,6 +68,8 @@ def main() -> int:
         train_lightgbm=train_lgb,
         train_nbeats=train_nb,
         nbeats_max_epochs=nbeats_epochs,
+        train_tft=train_tft,
+        tft_max_epochs=tft_epochs,
     )
     elapsed = time.time() - t0
     print(f"[{time.strftime('%H:%M:%S')}] training finished in {elapsed:.1f}s")
@@ -115,6 +120,13 @@ def main() -> int:
         print(f"  trained_at={nb.get('trained_at')} last_train_date={nb.get('last_train_date')} blend_weight={nb.get('blend_weight')}")
     else:
         print(f"  unavailable: {nb.get('error') or nb.get('reason') or nb.get('save_error')}")
+
+    tft = bundle.get("tft") or {}
+    print(f"\n=== TFT global learner ===")
+    if tft.get("available"):
+        print(f"  trained_at={tft.get('trained_at')} last_train_date={tft.get('last_train_date')} blend_weight={tft.get('blend_weight')}")
+    else:
+        print(f"  unavailable: {tft.get('error') or tft.get('reason') or tft.get('save_error')}")
 
     if result.get("gating_failures"):
         print("\nWARN gating failures:")

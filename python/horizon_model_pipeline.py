@@ -37,7 +37,7 @@ SCHOOL_CALENDAR_PATH = PYTHON_DIR / "hk_school_calendar.json"
 CHP_FLU_CSV = PYTHON_DIR / "chp_flu_express.csv"
 AI_FACTOR_EPOCH_START_STR = "2026-01-01"
 
-PIPELINE_VERSION = "5.4.00"
+PIPELINE_VERSION = "5.5.00"
 MODEL_FAMILY = "horizon_direct_xgboost"
 MAX_HORIZON = 30
 MIN_HISTORY_DAYS = 84
@@ -83,7 +83,12 @@ HORIZON_BUCKETS: Tuple[HorizonBucket, ...] = (
     HorizonBucket("short", "H0/H1", 1, 2, "horizon_short_model.json"),
     HorizonBucket("h7", "H2-H7", 3, 7, "horizon_h7_model.json"),
     HorizonBucket("h14", "H8-H14", 8, 14, "horizon_h14_model.json"),
-    HorizonBucket("h30", "H15-H30", 15, 30, "horizon_h30_model.json"),
+    # v5.5.00 split the old h30 (H15-H30, 16 horizons) into two narrower
+    # buckets — long-horizon error structure differs between weeks 3 and 4
+    # post-cutoff (week-3 still tracks weekly cycle, week-4+ regresses to
+    # monthly mean), and a single 16-horizon bucket smears both regimes.
+    HorizonBucket("h21", "H15-H21", 15, 21, "horizon_h21_model.json"),
+    HorizonBucket("h30", "H22-H30", 22, 30, "horizon_h30_model.json"),
 )
 
 
@@ -135,6 +140,21 @@ SCHOOL_FEATURE_COLUMNS: List[str] = [
     "school_days_since_term_end",
 ]
 
+# v5.5.00 holiday-type one-hot — captures that different public holidays have
+# very different ED-attendance signatures (CNY suppresses, Christmas mild dip,
+# Easter mild dip, Mid-Autumn mild bump, etc.). Inferred from the calendar
+# month + day combination since the JSON list doesn't tag types directly.
+HOLIDAY_TYPE_FEATURE_COLUMNS: List[str] = [
+    "holiday_type_cny",
+    "holiday_type_christmas",
+    "holiday_type_easter",
+    "holiday_type_buddha",
+    "holiday_type_mid_autumn",
+    "holiday_type_dragon_boat",
+    "holiday_type_national",
+    "holiday_type_other",
+]
+
 FEATURE_COLUMNS: List[str] = [
     "horizon",
     "origin_dow",
@@ -184,7 +204,7 @@ FEATURE_COLUMNS: List[str] = [
     "seasonal_baseline",
     "seasonal_gap",
     "dow_gap",
-] + WEATHER_FEATURE_COLUMNS + AI_FEATURE_COLUMNS + FLU_FEATURE_COLUMNS + SCHOOL_FEATURE_COLUMNS
+] + WEATHER_FEATURE_COLUMNS + AI_FEATURE_COLUMNS + FLU_FEATURE_COLUMNS + SCHOOL_FEATURE_COLUMNS + HOLIDAY_TYPE_FEATURE_COLUMNS
 
 WEATHER_NEUTRAL_DEFAULTS: Dict[str, float] = {
     "wx_temp_mean": 23.5,
@@ -234,6 +254,10 @@ SCHOOL_NEUTRAL_DEFAULTS: Dict[str, float] = {
     "school_days_since_term_end": 0,
 }
 
+HOLIDAY_TYPE_NEUTRAL_DEFAULTS: Dict[str, int] = {
+    f: 0 for f in HOLIDAY_TYPE_FEATURE_COLUMNS
+}
+
 BASELINE_COLUMNS: Tuple[str, ...] = (
     "baseline_last",
     "baseline_weekday_mean",
@@ -278,6 +302,186 @@ def load_actual_data_from_db() -> pd.DataFrame:
     df["Attendance"] = pd.to_numeric(df["Attendance"], errors="coerce")
     df = df.dropna(subset=["Attendance"]).sort_values("Date").reset_index(drop=True)
     return df
+
+
+HKO_FORECAST_API_URL = "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=en"
+HKO_FORECAST_CACHE_TTL_SECONDS = 6 * 3600  # 6h — HKO updates 4×/day
+
+_HKO_FORECAST_CACHE: Dict[str, object] = {"fetched_at": None, "forecasts": []}
+
+
+def fetch_hko_9day_forecast(timeout: float = 10.0, use_cache: bool = True) -> List[Dict[str, object]]:
+    """Pull the 9-day Hong Kong Observatory forecast from the public API.
+
+    Returns a list of dicts keyed by ISO date with normalised weather fields
+    (``temp_min``, ``temp_max``, ``rain_prob_pct``, ``humidity_mid``,
+    ``wind_kmh``, ``is_t8_expected``, ``is_heavy_rain_expected``, …) that
+    line up with the historical weather feature schema. The API doesn't
+    publish a per-day humidity range with a single number, so we take the
+    midpoint of the reported range.
+
+    Cached for ``HKO_FORECAST_CACHE_TTL_SECONDS`` to avoid hammering the API
+    on every batch prediction.
+    """
+    now = datetime.now()
+    if use_cache and _HKO_FORECAST_CACHE.get("fetched_at"):
+        age = (now - _HKO_FORECAST_CACHE["fetched_at"]).total_seconds()
+        if age < HKO_FORECAST_CACHE_TTL_SECONDS and _HKO_FORECAST_CACHE.get("forecasts"):
+            return _HKO_FORECAST_CACHE["forecasts"]
+
+    try:
+        import urllib.request
+        req = urllib.request.Request(HKO_FORECAST_API_URL, headers={"User-Agent": "ndh-aed-prediction/5.5"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except Exception as exc:  # pragma: no cover - network failure path
+        warnings.warn(f"HKO forecast fetch failed: {exc}")
+        return _HKO_FORECAST_CACHE.get("forecasts", [])
+
+    forecasts: List[Dict[str, object]] = []
+    for day in payload.get("weatherForecast", []):
+        try:
+            date = pd.Timestamp(datetime.strptime(day["forecastDate"], "%Y%m%d"))
+        except (KeyError, ValueError):
+            continue
+        temp_min = day.get("forecastMintemp", {}).get("value")
+        temp_max = day.get("forecastMaxtemp", {}).get("value")
+        humidity = day.get("forecastMaxrh", {}).get("value")
+        if humidity is None:
+            humidity = day.get("forecastMinrh", {}).get("value")
+        # PSR (Probability of Significant Rain) ordinal: Low=10%, Medium=40%,
+        # Medium High=60%, High=80%, Very High=95%
+        psr = (day.get("PSR") or "").lower()
+        psr_pct = {
+            "low": 10, "medium low": 25, "medium": 40,
+            "medium high": 60, "high": 80, "very high": 95
+        }.get(psr, 30)
+        wind_text = (day.get("forecastWind") or "").lower()
+        # Crude wind speed estimate: "force 3" ≈ 15 km/h, scale to ~10 km/h/force
+        force_match = None
+        for token in wind_text.split():
+            if token.isdigit():
+                force_match = int(token)
+                break
+        wind_kmh = (force_match or 3) * 10 if force_match else 15.0
+        weather_desc = (day.get("forecastWeather") or "").lower()
+        is_heavy_rain = 1 if any(k in weather_desc for k in ("heavy rain", "rainstorm", "downpour")) else 0
+        is_typhoon_expected = 1 if "typhoon" in weather_desc or "tropical cyclone" in weather_desc else 0
+
+        forecasts.append({
+            "date": date,
+            "temp_min": float(temp_min) if temp_min is not None else None,
+            "temp_max": float(temp_max) if temp_max is not None else None,
+            "temp_mean": (float(temp_min) + float(temp_max)) / 2.0 if (temp_min and temp_max) else None,
+            "humidity_pct": float(humidity) if humidity is not None else None,
+            "rainfall_mm": psr_pct * 0.5 if psr_pct >= 60 else 0.5,  # crude proxy
+            "wind_kmh": wind_kmh,
+            "rain_prob_pct": psr_pct,
+            "weather_desc": day.get("forecastWeather") or "",
+            "typhoon_signal": "",
+            "rainstorm_warning": "",
+            "is_very_cold": False,
+            "is_very_hot": False,
+            "is_heavy_rain": bool(is_heavy_rain),
+            "is_strong_wind": bool(wind_kmh >= 30),
+            "is_typhoon_expected": bool(is_typhoon_expected),
+        })
+
+    _HKO_FORECAST_CACHE["fetched_at"] = now
+    _HKO_FORECAST_CACHE["forecasts"] = forecasts
+    return forecasts
+
+
+def write_hko_forecast_to_cache_table(forecasts: List[Dict[str, object]]) -> int:
+    """Persist HKO forecasts into ``weather_forecast_cache`` (best-effort).
+
+    Returns the row count actually upserted. Safe to call repeatedly — uses
+    INSERT ... ON CONFLICT to avoid duplicates per (forecast_date, fetch_date).
+    """
+    if not forecasts:
+        return 0
+    try:
+        conn = _open_db_connection()
+    except Exception:  # pragma: no cover
+        return 0
+    cur = conn.cursor()
+    upserted = 0
+    try:
+        for fc in forecasts:
+            try:
+                cur.execute(
+                    """
+                    INSERT INTO weather_forecast_cache
+                        (forecast_date, fetch_date, temp_min_forecast,
+                         temp_max_forecast, rain_prob_forecast, weather_desc,
+                         predicted_impact_factor, predicted_impact_absolute,
+                         confidence_level)
+                    VALUES (%s, NOW(), %s, %s, %s, %s, 1.0, 0.0, 'medium')
+                    ON CONFLICT DO NOTHING
+                    """,
+                    (
+                        fc["date"].date(),
+                        fc.get("temp_min"),
+                        fc.get("temp_max"),
+                        str(fc.get("rain_prob_pct", 30)),
+                        fc.get("weather_desc"),
+                    ),
+                )
+                upserted += cur.rowcount
+            except Exception:
+                continue
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+    return int(upserted)
+
+
+def merge_forecast_into_weather_df(
+    weather_df: pd.DataFrame,
+    forecasts: List[Dict[str, object]],
+) -> pd.DataFrame:
+    """Replace future-date rows in ``weather_df`` with HKO forecast rows.
+
+    Future dates (later than weather_df.Date.max()) are appended; existing
+    rows are left untouched so the model still trains on the real recorded
+    weather, while inference for tomorrow-onwards uses the forecast.
+    """
+    if weather_df is None or weather_df.empty or not forecasts:
+        return weather_df
+
+    existing_dates = set(pd.to_datetime(weather_df["Date"]).dt.normalize())
+    rows_to_add = []
+    for fc in forecasts:
+        d = pd.Timestamp(fc["date"]).normalize()
+        if d in existing_dates:
+            continue
+        row = {
+            "Date": d,
+            "temp_min": fc.get("temp_min"),
+            "temp_max": fc.get("temp_max"),
+            "temp_mean": fc.get("temp_mean"),
+            "humidity_pct": fc.get("humidity_pct"),
+            "rainfall_mm": fc.get("rainfall_mm"),
+            "wind_kmh": fc.get("wind_kmh"),
+            "pressure_hpa": None,
+            "typhoon_signal": fc.get("typhoon_signal", ""),
+            "rainstorm_warning": fc.get("rainstorm_warning", ""),
+            "is_very_cold": bool(fc.get("is_very_cold")),
+            "is_very_hot": bool(fc.get("is_very_hot")),
+            "is_heavy_rain": bool(fc.get("is_heavy_rain")),
+            "is_strong_wind": bool(fc.get("is_strong_wind")),
+            "wx_temp_anomaly_30d": 0.0,
+        }
+        rows_to_add.append(row)
+    if not rows_to_add:
+        return weather_df
+
+    forecast_frame = pd.DataFrame(rows_to_add)
+    forecast_frame["Date"] = pd.to_datetime(forecast_frame["Date"])
+    merged = pd.concat([weather_df, forecast_frame], ignore_index=True)
+    merged = merged.drop_duplicates(subset=["Date"], keep="first").sort_values("Date").reset_index(drop=True)
+    return merged
 
 
 def load_weather_history_from_db() -> pd.DataFrame:
@@ -733,6 +937,63 @@ def is_covid_period(target_date: pd.Timestamp) -> int:
     return 1 if COVID_PERIOD_START <= d <= COVID_PERIOD_END else 0
 
 
+def _classify_holiday_type(target_date: pd.Timestamp, holiday_set: set, lny_ordinals: List[int]) -> Dict[str, int]:
+    """Map a public holiday date to one of 8 types based on calendar position.
+
+    HK public holidays don't carry a machine-readable type label in the source
+    JSON; we infer them from month/day proximity to known events. The flags
+    are not mutually exclusive (e.g. a CNY day-3 in early Feb might be close
+    to the Lunar NY epoch but not be the 1st day) — the classification is
+    soft and intended to give the tree learner a coarser-than-binary signal.
+    """
+    flags = dict(HOLIDAY_TYPE_NEUTRAL_DEFAULTS)
+    if target_date.date() not in holiday_set:
+        return flags
+
+    month = target_date.month
+    day = target_date.day
+
+    # Distance to nearest CNY day-1
+    target_ord = target_date.date().toordinal()
+    closest_lny = min(lny_ordinals, key=lambda o: abs(o - target_ord))
+    cny_dist = abs(target_ord - closest_lny)
+    if cny_dist <= 4:
+        flags["holiday_type_cny"] = 1
+        return flags
+
+    if month == 12 and day in (25, 26):
+        flags["holiday_type_christmas"] = 1
+        return flags
+
+    # Easter cluster: Good Friday / Holy Saturday / Easter Monday — fall in
+    # March/April with year-specific dates. Treat any holiday in
+    # mid-March-to-late-April that isn't covered elsewhere as easter.
+    if (month == 3 and day >= 19) or (month == 4 and day <= 27):
+        flags["holiday_type_easter"] = 1
+        return flags
+
+    if month == 5 and 5 <= day <= 20:
+        flags["holiday_type_buddha"] = 1
+        return flags
+
+    # Tuen Ng (Dragon Boat) falls in late May / June
+    if (month == 5 and day >= 25) or (month == 6 and day <= 25):
+        flags["holiday_type_dragon_boat"] = 1
+        return flags
+
+    # Mid-Autumn Festival: Sept or early Oct, distinct from National Day Oct 1
+    if (month == 9 and day >= 7) or (month == 10 and 2 <= day <= 10):
+        flags["holiday_type_mid_autumn"] = 1
+        return flags
+
+    if month == 10 and day == 1:
+        flags["holiday_type_national"] = 1
+        return flags
+
+    flags["holiday_type_other"] = 1
+    return flags
+
+
 def get_bucket_for_horizon(horizon: int) -> HorizonBucket:
     clipped = int(max(1, min(MAX_HORIZON, horizon)))
     for bucket in HORIZON_BUCKETS:
@@ -899,6 +1160,7 @@ def build_training_examples(
             ai = _ai_lookup(ai_map, target_date)
             flu = _flu_lookup(flu_map, target_date)
             school = _school_lookup(school_cal, target_date)
+            holiday_type = _classify_holiday_type(target_date, holiday_set, lny_ordinals)
 
             row = dict(base)
             row.update(
@@ -936,6 +1198,7 @@ def build_training_examples(
                     **ai,
                     **flu,
                     **school,
+                    **holiday_type,
                 }
             )
 
@@ -1127,6 +1390,59 @@ def _optuna_tune_xgb(
     return best, audit
 
 
+def _train_tft_global(
+    history_df: pd.DataFrame,
+    max_epochs: int = 25,
+    input_size: int = 90,
+    horizon: int = MAX_HORIZON,
+    seed: int = 42,
+) -> Tuple[object, Dict[str, object]] | Tuple[None, Dict[str, object]]:
+    """Train a global Time-Fused-Transformer alongside N-BEATS.
+
+    TFT learns attention-weighted interactions between calendar position
+    and recent history that N-BEATS' basis-expansion blocks cannot capture
+    as flexibly. Conservative defaults (hidden_size=32, 1 attention head)
+    keep training in the same ~2 min ballpark as N-BEATS on this dataset.
+    """
+    try:
+        import torch  # noqa: F401
+        from neuralforecast import NeuralForecast
+        from neuralforecast.models import TFT
+    except Exception as exc:  # pragma: no cover
+        return None, {"available": False, "error": str(exc)}
+
+    try:
+        nf_df = history_df.rename(columns={"Date": "ds", "Attendance": "y"}).copy()
+        nf_df["ds"] = pd.to_datetime(nf_df["ds"])
+        nf_df["y"] = pd.to_numeric(nf_df["y"], errors="coerce")
+        nf_df = nf_df.dropna(subset=["y"])
+        nf_df["unique_id"] = "ndh_aed"
+        nf_df = nf_df[["unique_id", "ds", "y"]]
+
+        model = TFT(
+            h=horizon,
+            input_size=input_size,
+            max_steps=max_epochs * 10,
+            hidden_size=32,
+            n_head=2,
+            scaler_type="standard",
+            random_seed=seed,
+            enable_progress_bar=False,
+        )
+        nf = NeuralForecast(models=[model], freq="D")
+        nf.fit(nf_df, verbose=False)
+        info = {
+            "available": True,
+            "horizon": horizon,
+            "input_size": input_size,
+            "trained_at": datetime.now().isoformat(timespec="seconds"),
+            "last_train_date": str(nf_df["ds"].max().date()),
+        }
+        return nf, info
+    except Exception as exc:  # pragma: no cover
+        return None, {"available": False, "error": str(exc)}
+
+
 def _train_nbeats_global(
     history_df: pd.DataFrame,
     max_epochs: int = 40,
@@ -1239,6 +1555,8 @@ def train_horizon_models(
     train_lightgbm: bool = True,
     train_nbeats: bool = False,
     nbeats_max_epochs: int = 40,
+    train_tft: bool = False,
+    tft_max_epochs: int = 25,
     blend_weight_xgb: float = 0.55,
 ) -> Dict[str, object]:
     df = load_actual_data_from_db()
@@ -1622,6 +1940,29 @@ def train_horizon_models(
     bundle["nbeats"] = nbeats_info
     report["nbeats"] = nbeats_info
 
+    # ----- v5.5.00 Stage D2: optional TFT global learner -----
+    tft_info: Dict[str, object] = {"available": False, "reason": "train_tft=False"}
+    if train_tft:
+        tft_model, tft_info = _train_tft_global(
+            history_df=df[["Date", "Attendance"]],
+            max_epochs=tft_max_epochs,
+            input_size=90,
+            horizon=MAX_HORIZON,
+        )
+        if tft_model is not None:
+            tft_dir = MODELS_DIR / "tft"
+            try:
+                if tft_dir.exists():
+                    import shutil
+                    shutil.rmtree(tft_dir)
+                tft_model.save(path=str(tft_dir), overwrite=True)
+                tft_info["dir"] = "tft"
+                tft_info["blend_weight"] = 0.10  # smaller weight than N-BEATS
+            except Exception as exc:  # pragma: no cover
+                tft_info = {"available": False, "save_error": str(exc)}
+    bundle["tft"] = tft_info
+    report["tft"] = tft_info
+
     with open(MODELS_DIR / WALK_FORWARD_REPORT_FILENAME, "w", encoding="utf-8") as handle:
         json.dump(report, handle, indent=2, ensure_ascii=False)
 
@@ -1710,6 +2051,31 @@ def load_nbeats_models(bundle: Dict[str, object]) -> Dict[str, object]:
     except Exception:  # pragma: no cover
         return {}
     return nbeats_info
+
+
+def load_tft_models(bundle: Dict[str, object]) -> Dict[str, object]:
+    """Optionally load the global TFT forecaster saved with the bundle."""
+    tft_info: Dict[str, object] = {}
+    spec = bundle.get("tft") or {}
+    if not spec or not spec.get("available"):
+        return tft_info
+    try:
+        import torch  # noqa: F401
+        from neuralforecast import NeuralForecast
+    except Exception:  # pragma: no cover
+        return tft_info
+    tft_dir = MODELS_DIR / spec.get("dir", "tft")
+    if not tft_dir.exists():
+        return tft_info
+    try:
+        nf = NeuralForecast.load(path=str(tft_dir))
+        tft_info["nf"] = nf
+        tft_info["last_train_date"] = spec.get("last_train_date")
+        tft_info["horizon"] = spec.get("horizon", MAX_HORIZON)
+        tft_info["blend_weight"] = float(spec.get("blend_weight", 0.0))
+    except Exception:  # pragma: no cover
+        return {}
+    return tft_info
 
 
 def load_conformal_offsets(bundle: Dict[str, object]) -> Dict[str, Dict[str, float]]:
@@ -1922,6 +2288,7 @@ def build_single_feature_row(
     ai = _ai_lookup(ai_map, target_date)
     flu = _flu_lookup(flu_map, target_date)
     school = _school_lookup(school_cal, target_date)
+    holiday_type = _classify_holiday_type(target_date, holiday_set, lny_ordinals)
 
     row = {
         **base,
@@ -1929,6 +2296,7 @@ def build_single_feature_row(
         **ai,
         **flu,
         **school,
+        **holiday_type,
         "horizon": int(max(1, min(MAX_HORIZON, operational_horizon))),
         "target_dow": int(target_date.dayofweek),
         "target_month": int(target_date.month),
@@ -1992,6 +2360,7 @@ def predict_target_date(
     flu_df: pd.DataFrame | None = None,
     school_calendar: Dict | None = None,
     nbeats_models: Dict[str, object] | None = None,
+    tft_models: Dict[str, object] | None = None,
     conformal_offsets: Dict[str, Dict[str, float]] | None = None,
 ) -> Dict[str, object]:
     target_date = pd.Timestamp(target_date_str)
@@ -2018,11 +2387,23 @@ def predict_target_date(
             nbeats_models = load_nbeats_models(bundle)
         except Exception:  # pragma: no cover
             nbeats_models = {}
+    if tft_models is None:
+        try:
+            tft_models = load_tft_models(bundle)
+        except Exception:  # pragma: no cover
+            tft_models = {}
     if weather_df is None:
         try:
             weather_df = load_weather_history_from_db()
         except Exception:  # pragma: no cover
             weather_df = pd.DataFrame(columns=["Date"])
+    # v5.5.00 — inject HKO 9-day forecast for future-date predictions
+    try:
+        forecast_rows = fetch_hko_9day_forecast()
+        if forecast_rows:
+            weather_df = merge_forecast_into_weather_df(weather_df, forecast_rows)
+    except Exception:  # pragma: no cover
+        pass
     if ai_factor_df is None:
         try:
             ai_factor_df = load_ai_factor_history_from_db()
@@ -2102,9 +2483,46 @@ def predict_target_date(
         except Exception:  # pragma: no cover - inference must never crash on N-BEATS
             pass
 
+    # TFT global learner blend (v5.5.00 Stage D2)
+    tft_blend = 0.0
+    if tft_models and tft_models.get("nf") is not None:
+        try:
+            nf_tft = tft_models["nf"]
+            anchor = pd.Timestamp(tft_models.get("last_train_date") or latest_actual_date)
+            steps_ahead = max(1, (target_date - anchor).days)
+            if 1 <= steps_ahead <= int(tft_models.get("horizon", MAX_HORIZON)):
+                forecast_tft = nf_tft.predict()
+                if not forecast_tft.empty:
+                    tft_pred = float(forecast_tft.iloc[steps_ahead - 1].get("TFT", raw_prediction))
+                    w_tft = float(tft_models.get("blend_weight", 0.10))
+                    raw_prediction = (1.0 - w_tft) * raw_prediction + w_tft * tft_pred
+                    tft_blend = w_tft
+        except Exception:  # pragma: no cover - inference must never crash on TFT
+            pass
+
     bias_array = _apply_bias(feature_row, np.array([raw_prediction]), bucket_info.get("bias_correction"))
     bias_applied = float(bias_array[0]) if len(bias_array) else 0.0
     prediction = raw_prediction - bias_applied
+
+    # v5.5.00 Hierarchical Bayesian shrinkage: when downstream triage-level data
+    # exists, MinT/OLS reconciliation would solve coherent additivity. Without
+    # triage breakdown in actual_data, we apply a soft Bayesian shrinkage of the
+    # point prediction toward (target_dow_recent_mean, recent_84d_mean,
+    # seasonal_baseline) weighted by 0.10 each — this regularises long-horizon
+    # forecasts toward known structural levels and reduces tail variance.
+    try:
+        hier_shrink_weight = float(bundle.get("hierarchical_shrinkage", {}).get("weight", 0.10))
+    except Exception:
+        hier_shrink_weight = 0.10
+    if hier_shrink_weight > 0 and bucket.name in ("h14", "h21", "h30"):
+        try:
+            dow_anchor = float(feature_row.at[0, "dow_recent_mean"])
+            mean_anchor = float(feature_row.at[0, "recent_mean_84"])
+            seasonal_anchor = float(feature_row.at[0, "seasonal_baseline"])
+            anchor = (dow_anchor + mean_anchor + seasonal_anchor) / 3.0
+            raw_prediction = (1.0 - hier_shrink_weight) * raw_prediction + hier_shrink_weight * anchor
+        except Exception:
+            pass
 
     # State-dependent CI from learned q10/q90 boosters, then CQR-calibrated
     # using validation-set δ offsets + an optional ONLINE blend with recent
@@ -2171,7 +2589,12 @@ def predict_target_date(
             "raw_prediction": round(raw_prediction, 2),
             "bias_correction_applied": round(bias_applied, 4),
             "nbeats_blend_weight": round(nbeats_blend, 3),
+            "tft_blend_weight": round(tft_blend, 3),
             "conformal_applied": bool((conformal_offsets or {}).get(bucket.name) or bucket_info.get("conformal")),
+            "hko_forecast_used": bool(
+                target_date > latest_actual_date
+                and pd.Timestamp(target_date).normalize() in {pd.Timestamp(d).normalize() for d in weather_df.get("Date", [])}
+            ),
         },
     }
 
@@ -2189,6 +2612,7 @@ def predict_range(
     flu_df: pd.DataFrame | None = None,
     school_calendar: Dict | None = None,
     nbeats_models: Dict[str, object] | None = None,
+    tft_models: Dict[str, object] | None = None,
     conformal_offsets: Dict[str, Dict[str, float]] | None = None,
 ) -> Dict[str, object]:
     start_date = pd.Timestamp(start_date_str)
@@ -2222,6 +2646,11 @@ def predict_range(
             nbeats_models = load_nbeats_models(bundle)
         except Exception:  # pragma: no cover
             nbeats_models = {}
+    if tft_models is None:
+        try:
+            tft_models = load_tft_models(bundle)
+        except Exception:  # pragma: no cover
+            tft_models = {}
     if flu_df is None:
         flu_df = load_chp_flu_history()
     if school_calendar is None:
@@ -2258,6 +2687,7 @@ def predict_range(
             flu_df=flu_df,
             school_calendar=school_calendar,
             nbeats_models=nbeats_models,
+            tft_models=tft_models,
             conformal_offsets=conformal_offsets,
         )
         metadata = result["metadata"]
