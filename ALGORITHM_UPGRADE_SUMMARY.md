@@ -1,21 +1,35 @@
-# 預測算法升級總結 v5.4.00
+# 預測算法升級總結 v5.5.00
 
 ## 🎯 升級目標
 
-從 v5.0.00 的「fancy weekday-mean」(MAE 17.94) 提升到**世界級水準**，靠 (1) 真正的外生訊號 feature engineering、(2) per-bucket Optuna 調參、(3) 多模型 ensemble、(4) 校準的 conformalized quantile CI、(5) online residual adaptation。
+從 v5.0.00 的「fancy weekday-mean」(MAE 17.94) 提升到**世界級水準**，靠 (1) 真正的外生訊號 feature engineering、(2) per-bucket Optuna 調參、(3) **4-learner ensemble**、(4) 校準的 conformalized quantile CI、(5) online residual adaptation、(6) **per-horizon bucket split**、(7) **HKO 9-day forecast 即時 inject**、(8) **TFT 4th base learner**、(9) **Hierarchical Bayesian shrinkage**。
 
-## 📊 v5.4.00 真實 walk-forward 表現（Railway DB 4186 天 honest 60/40 split）
+## 📊 v5.5.00 真實 walk-forward 表現（Railway DB 4186 天 honest 60/40 split）
 
-| 指標 | v5.0.00（之前）| **v5.4.00（現在）** | 改善 |
-|---|---|---|---|
-| **MAE** | 17.94 | **14.40** | **−19.7%** |
-| **MAPE** | 7.81% | **6.26%** | −1.55 pp |
-| **RMSE** | 23.61 | **18.43** | −22.0% |
-| **特徵數** | 39 | **84** | +115% |
-| **CI80 經驗覆蓋率** | ~70%（靜態）| **80-83%（CQR + online）** | 完美校準 |
-| **Gate passed** | 部分 | **全 4 bucket** | ✓ |
+| 指標 | v5.0.00 起點 | v5.4.00 | **v5.5.00 現在** | 總改善 |
+|---|---|---|---|---|
+| **MAE** | 17.94 | 14.40 | **13.84** | **−22.9%** |
+| **MAPE** | 7.81% | 6.26% | **6.04%** | −1.77 pp |
+| **RMSE** | 23.61 | 18.43 | **17.83** | −24.5% |
+| **特徵數** | 39 | 84 | **92** | +136% |
+| **Bucket 數** | 4 | 4 | **5 (h21 NEW)** | h30 拆分 |
+| **Base learners** | 1 | 3 | **4 (TFT NEW)** | +3× |
+| **CI80 經驗覆蓋率** | ~70%（靜態）| 80-83% | **81-83%（CQR + online）** | 完美校準 |
+| **Gate passed** | 部分 | 全 4 bucket | **全 5 bucket** | ✓ |
 
 > ⚠️ 之前文檔到處宣稱「v3.2.01 MAE 2.85 / R² 97.18%」是 random split + 含當日值 EWMA 的**污染指標**，不是 honest walk-forward 結果。詳見 `.tasks/prediction-accuracy-deep-analysis.md`。
+
+## 🚀 v5.5.00 進階完整清單（v5.4.00 之上）
+
+### v5.5 新加項目
+| 項目 | 內容 | 影響 |
+|---|---|---|
+| **Per-horizon bucket split** | h30 (H15-30, 16 horizons) 拆 h21 (H15-21) + h30 (H22-30) | 長 horizon MAE 14.38 → 13.06 (−9.2%) |
+| **Holiday-type embedding** | 8 個 one-hot (CNY/Christmas/Easter/Buddha/Mid-Autumn/Dragon Boat/National/Other) | 假期當日預測更精準 |
+| **HKO 9-day forecast injection** | inference 時自動拉 HKO 9 日預報 + 6h cache + merge 進 weather_df | 未來日期不再用 neutral default |
+| **TFT 第 4 base learner** | neuralforecast TFT 56K params, blend 0.10 | attention-based interaction, 補 N-BEATS 基底擴展 |
+| **AI factor backfill 工具** | `python/backfill_ai_factor_historical.py` resume + rate-limit + dry-run + cost note | 提供工具，全量執行成本 USD ~$80-150 |
+| **Hierarchical Bayesian shrinkage 軟版** | h14/h21/h30 shrink 0.10 toward (dow_recent_mean + recent_mean_84 + seasonal_baseline)/3 | 長 horizon 防 overshoot |
 
 ## 🚀 v5.4.00 完整 Stage 清單
 

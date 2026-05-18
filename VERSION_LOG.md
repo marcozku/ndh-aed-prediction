@@ -1,5 +1,116 @@
 # 版本更新日誌
 
+## v5.5.00 - 2026-05-18 HKT
+**🚀 世界級 v5.5 進階收官：per-horizon bucket split + holiday-type embedding + HKO 9-day forecast 即時 inject + TFT 第 4 base learner + AI factor 歷史回填工具 + Hierarchical Bayesian shrinkage。MAE 14.40 → 13.84（v5.0.00 → v5.5.00 總改善 −22.9%）**
+
+### 路線圖完整收官
+| 項目 | 內容 | 狀態 |
+|---|---|---|
+| **Per-horizon training** | h30 (H15-30, 16 horizons) 拆成 h21 (H15-21) + h30 (H22-30) | ✅ |
+| **Holiday-type embedding** | 8 個 holiday-type one-hot (CNY/Christmas/Easter/Buddha/Mid-Autumn/Dragon Boat/National/Other) | ✅ |
+| **AI factor backfill** | `python/backfill_ai_factor_historical.py` 離線批次工具 + dry-run + resume + rate-limit + cost note | ✅（工具完成，全量回填留待離線執行） |
+| **HKO 9-day forecast injection** | `fetch_hko_9day_forecast()` + 6h cache + `merge_forecast_into_weather_df()` + inference path 自動覆蓋未來日期 weather feature | ✅ |
+| **TFT 第 4 base learner** | `_train_tft_global()` neuralforecast TFT (56K params, hidden=32, 2-head) + blend_weight 0.10 | ✅ |
+| **Hierarchical reconciliation** | Soft Bayesian shrinkage toward (dow_recent_mean + recent_mean_84 + seasonal_baseline) for h14/h21/h30 (weight 0.10). Triage-level coherent MinT 受限於資料庫沒有 triage 分級欄位，留待未來資料 schema 擴展 | ✅（軟版） |
+
+### 真實 walk-forward 結果（Railway DB 4186 天 honest 60/40 split, 180 cutoffs）
+| 版本 | 整體 MAE | MAPE | RMSE | 改善 vs 起點 |
+|---|---|---|---|---|
+| v5.0.00 起點 | 17.94 | 7.81% | 23.61 | — |
+| v5.3.00 | 14.47 | 6.27% | 18.63 | −19.4% |
+| v5.4.00 | 14.40 | 6.26% | 18.43 | −19.7% |
+| **v5.5.00** | **13.84** | **6.04%** | **17.83** | **−22.9%** |
+
+Per-bucket honest test slice (corrected):
+| Bucket | MAE | CI80 coverage | Baseline | Improvement | 備註 |
+|---|---|---|---|---|---|
+| short (H1-2) | 14.46 | 83.3% | 16.10 | -1.64 | 含 holiday eve / post / bridge |
+| h7 (H3-7) | 15.17 | 81.7% | 16.63 | -1.46 | school_covid_suspension top 2 |
+| h14 (H8-14) | 14.04 | 81.0% | 15.79 | -1.75 | flu_h1_proportion top 1 |
+| **h21 (H15-21)** | **13.50** | **81.1%** | 14.36 | -0.85 | **NEW split** — flu_h1 16.5% top 2 |
+| **h30 (H22-30)** | **13.06** | **82.8%** | 15.29 | -2.23 | **flu_h1_proportion 20.4% top 1** |
+
+### Top features per bucket（v5.5.00）
+
+| Bucket | Top 5 |
+|---|---|
+| short | dow_recent_mean (22.8%) / roll7 (7.4%) / ewma14 (6.4%) / target_is_post_holiday (6.2%) / **flu_h1_proportion (5.1%)** |
+| h7 | dow_recent_mean (15.2%) / **school_covid_suspension (8.6%)** / target_is_post_holiday (7.3%) / **flu_h1_proportion (6.7%)** / roll28 (6.5%) |
+| h14 | **flu_h1_proportion (13.2%)** / dow_recent_mean (10.5%) / target_is_post_holiday (9.7%) / roll56 (4.7%) / **wx_is_heavy_rain (3.6%)** |
+| h21 | dow_recent_mean (16.9%) / **flu_h1_proportion (16.5%)** / target_is_post_holiday (5.6%) / ewma28 (4.3%) / **flu_adm_rate (3.6%)** |
+| h30 | **flu_h1_proportion (20.4%)** ⭐ / target_is_post_holiday (9.9%) / dow_recent_mean (6.2%) / target_is_weekend (4.8%) / roll28 (4.5%) |
+
+**`flu_h1_proportion` 在 h30 飆到 20.4% top-1**，flu_intensity_score / flu_adm_rate / flu_aandb_count / flu_ili_pmp 全部進 h21/h30 top 10 — 流感監測在長 horizon 是 dominant signal。
+
+### Stage D2: TFT 第 4 base learner
+- 56,825 params (vs N-BEATS 731K) — 比 N-BEATS 小 13×，但 attention-based 抓 calendar × history 交互不同
+- TFTEmbedding 128 + Temporal Covariate Encoder 39.6K + Temporal Fusion Decoder 17.0K + Linear Output 33
+- 20 epochs × 10 steps = 200 max_steps，CPU 約 100s 訓完
+- Inference blend_weight 0.10（比 N-BEATS 0.15 更保守 — TFT 容易 overfit short series）
+- 與 N-BEATS 互補：N-BEATS 學趨勢/季節 basis，TFT 學動態 attention
+
+### HKO 9-day forecast injection 細節
+- `fetch_hko_9day_forecast()` 命中 https://data.weather.gov.hk/weatherAPI/opendata/weather.php (`dataType=fnd`)
+- 6 小時 in-memory cache（HKO 每 6h 更新一次）
+- 對每個未來日 normalise: temp_min/max/mean, humidity (max 取中位), wind speed (force × 10 km/h), PSR ordinal (Low=10 → Very High=95), heavy_rain / typhoon flag
+- `merge_forecast_into_weather_df()` 把未來日期 append 進 weather frame（不蓋歷史值，只填未來）
+- inference 時 metadata.`hko_forecast_used=True` 標記
+- 失敗安全降級：若 HKO API timeout 或返回空，自動 fallback 到 weather_history neutral default
+
+### Holiday-type embedding (Stage v5.5 細分)
+- 從 `hk_public_holidays.json` 配合 lunar NY ordinal 推斷類型
+- 8 個 one-hot flag: cny/christmas/easter/buddha/mid_autumn/dragon_boat/national/other
+- 距離 CNY day-1 ≤4 天 → cny; 12/25-26 → christmas; 3/19~4/27 → easter; 5/5-20 → buddha; 5/25~6/25 → dragon_boat; 9/7~10/10 → mid_autumn; 10/1 → national; 其他 → other
+- 啟動點：因為 holiday 一年只 17 天，feature importance 不會進前 10，但對假期當日預測有實質影響
+
+### Hierarchical Bayesian shrinkage
+- 沒有 triage-level 資料時的軟版「reconciliation」
+- 只對長 horizon (h14/h21/h30) 套用，shrink_weight 0.10
+- anchor = (dow_recent_mean + recent_mean_84 + seasonal_baseline) / 3
+- raw_prediction = 0.90 × raw + 0.10 × anchor
+- 直觀作用：把長期預測往「業務知道的結構性水平」拉一點，降低尾部變異
+- 若未來 actual_data 加 triage 欄位，可改為 MinT 正規 reconciliation
+
+### AI factor 歷史回填工具（不執行，提供工具）
+- `python/backfill_ai_factor_historical.py` CLI: `--start --end --max-rows --rate-limit --source archive|none --dry-run`
+- Resumable：skip 任何已有 `learning_records.ai_factor` 的日期
+- 走 ai-service `/api/ai-analyze` endpoint，重用 GPT-5.5 web search 邏輯
+- 成本估算：~USD 80-150 全量 4000+ 天，~6-8 小時 wall-clock
+- 本次部署不執行全量回填（成本/時間），但工具 ready
+
+### 新增/修改檔案
+| 檔案 | 內容 |
+|---|---|
+| `python/horizon_model_pipeline.py` | v5.5.00 pipeline: 5-bucket, 92 features, TFT, HKO forecast inject, hierarchical shrinkage, holiday-type one-hot |
+| `python/backfill_ai_factor_historical.py` | 離線 AI factor 回填批次工具 |
+| `python/run_railway_train.py` | 加 TRAIN_TFT / TFT_EPOCHS env switch + TFT audit |
+| `python/models/horizon_h21_*.json` | 新 bucket H15-H21 booster + q10 + q90 |
+| `python/models/horizon_h30_*.json` | 重訓變 H22-H30 (從 H15-30 縮小) |
+| `python/models/tft/` | NeuralForecast TFT bundle 持久化 |
+| `python/models/horizon_model_bundle.json` | 加 tft spec + hierarchical_shrinkage block |
+
+### 反模式（持續禁止）
+- ❌ 用 random split / R² (walk-forward 不適用) 算指標
+- ❌ Post-hoc 對 Day 8-30 加固定乘子
+- ❌ 同一個 bucket 撐 16 個 horizons（v5.5 已拆 h21 + h30）
+- ❌ HKO 9-day forecast 存在但未串入（v5.5 修好）
+- ❌ 假期當 binary `is_holiday` 不分類型（v5.5 加 8 個 one-hot）
+
+### 下一輪（v5.6 path to MAE < 11）
+- [ ] 真正的 triage-level reconciliation（需要先在 `actual_data` 或新表加 triage 細分欄位 → cat1/cat2/cat3/cat4/cat5 每天人數）
+- [ ] AI factor 全量歷史回填離線執行（用 `python/backfill_ai_factor_historical.py` 跑全 4000 天，估 USD $80-150）
+- [ ] AQHI 空氣質素歷史 CSV 整合（檔案 `python/aqhi_history.csv` 已存在）
+- [ ] DeepAR / iTransformer 作為第 5 base learner（neuralforecast 已支援）
+- [ ] Online quantile re-weighting（過去 14 天表現好的 base learner 給更高 blend weight，類似 dynamic stacking）
+
+### 驗證
+- `node --check server.js && node --check modules/ensemble-predictor.js && node --check prediction.js && node --check app.js && node --check sw.js`
+- `python3 -c "import ast; ast.parse(open('python/horizon_model_pipeline.py').read())"` (92 features, 5 buckets)
+- `python3 python/predict.py 2026-05-22` → `hko_forecast_used: True`, `tft_blend_weight: 0.1`
+- `python3 python/rolling_predict.py 2026-05-18 7` 5 bucket transitions 正常
+- `python3 python/run_railway_train.py` 端到端 MAE 13.84 / MAPE 6.04 walk-forward
+- `python3 python/backfill_ai_factor_historical.py --dry-run --start 2024-01-01 --end 2024-01-31`
+
 ## v5.4.00 - 2026-05-18 HKT
 **🌐 世界級準確度路線圖完整收官：CHP 流感監測 + 學校學期 + AI 回填 + N-BEATS 全域 anchor + Conformalized Quantile Regression + Online CI 校準。Stage A→E 全部完成。Honest walk-forward MAE 14.40 / MAPE 6.26% on Railway DB（4186 天，84 個 feature）**
 

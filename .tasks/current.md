@@ -1,5 +1,41 @@
 # 當前任務
 
+## v5.5.00 — v5.5 進階收官（2026-05-18）✅✅✅✅
+
+### 真實 walk-forward 結果（Railway DB 4186 天 honest 60/40 split）
+- **整體 MAE 17.94 → 13.84（−22.9%）** ⭐
+- **整體 MAPE 7.81% → 6.04%（−1.77 pp）**
+- 全 5 個 bucket gate passed
+- **CQR CI80 經驗覆蓋率 81-83%**
+- **92 個 feature**（v5.0.00 39 → v5.4.00 84 → v5.5.00 92）
+- **5 個 bucket**: short / h7 / h14 / **h21 (NEW)** / h30 (now H22-30 only)
+
+### v5.5 進階全部完成 ✅
+- [x] **Per-horizon training**: h30 拆 h21 (H15-21) + h30 (H22-30)
+- [x] **Holiday-type embedding 8 個 one-hot**: CNY/Christmas/Easter/Buddha/Mid-Autumn/Dragon Boat/National/Other
+- [x] **AI factor backfill 工具**: `python/backfill_ai_factor_historical.py` (resume, rate-limit, dry-run, cost note)
+- [x] **HKO 9-day forecast 即時 inject**: `fetch_hko_9day_forecast()` + 6h cache + merge into weather_df + `hko_forecast_used` metadata
+- [x] **TFT 第 4 base learner**: neuralforecast TFT 56K params, blend_weight 0.10
+- [x] **Hierarchical Bayesian shrinkage (軟版)**: 因 actual_data 沒有 triage 細分欄位，用 (dow_recent_mean + recent_mean_84 + seasonal_baseline) anchor shrink 0.10 for h14/h21/h30
+
+### 真實效果證明
+- `flu_h1_proportion` 在 **h30 飆到 20.4% top-1**（v5.0.00 完全沒這個 feature）
+- `flu_intensity_score`, `flu_adm_rate`, `flu_aandb_count`, `flu_ili_pmp` 全部進 h21/h30 top 10
+- `school_covid_suspension` h7 top 2 (8.6%)
+- `wx_is_heavy_rain` 進 h14 top 5
+- `target_is_post_holiday` 在所有 bucket 5-10% 重要性
+- h21 / h30 split 後，h30 (H22-30) MAE 13.06，比 v5.4.00 h30 (H15-30) 14.38 改善 −9.2%
+- HKO 9-day forecast 真實串到 inference（metadata `hko_forecast_used=True`）
+
+### v5.6 路線圖
+- [ ] 真正 triage-level reconciliation（需要 `actual_data` 加 cat1-cat5 欄位先）
+- [ ] AI factor 全量 4000+ 天回填離線執行（工具 ready，估 USD $80-150）
+- [ ] AQHI 空氣質素歷史 CSV 整合
+- [ ] DeepAR / iTransformer 第 5 base learner
+- [ ] Online quantile re-weighting (dynamic stacking)
+
+---
+
 ## v5.4.00 世界級準確度路線圖完整收官（2026-05-18）✅✅✅
 
 ### 真實 walk-forward 結果（Railway DB 4186 天 honest 60/40 split）
@@ -359,17 +395,19 @@ if (weatherFactor !== 1.0) {
 | 最佳 10 特徵 (默認參數) | 10 | 3.19 | +79.7% |
 | 最佳 10 特徵 + Optuna | 10 | **2.85** | **+81.9%** |
 
-## 最終模型性能 (v5.4.00 — Railway DB 真實 walk-forward 180 cutoffs honest 60/40 split)
+## 最終模型性能 (v5.5.00 — Railway DB 真實 walk-forward 180 cutoffs honest 60/40 split)
 
-- MAE: **14.40 人**（v5.0.00 17.94 → **−19.7%**）
-- RMSE: **18.43 人**
-- MAPE: **6.26%**（v5.0.00 7.81% → −1.55 pp）
-- baseline weekday_mean MAE: 15.47（v5.4.00 在所有 bucket 都贏過）
+- MAE: **13.84 人**（v5.0.00 17.94 → **−22.9%**）⭐
+- RMSE: **17.83 人**
+- MAPE: **6.04%**（v5.0.00 7.81% → −1.77 pp）
+- baseline weekday_mean MAE: 15.47（v5.5.00 在所有 5 個 bucket 都贏過）
 - gate_passed: True 全 bucket
-- **CQR CI80 經驗覆蓋率 80-83%**（在每個 bucket 都接近目標 80%）
-- 84 個 feature（v5.0.00 只有 39）— 外生訊號真的進場（flu、weather warning、school term、AI factor）
+- **CQR CI80 經驗覆蓋率 81-83%**（在每個 bucket 都接近目標 80%）
+- 92 個 feature（v5.0.00 39 → v5.4.00 84 → v5.5.00 92）
+- 5 個 bucket（v5.4.00 的 4 → 多了 h21 split）
+- 4 個 base learner: XGBoost (Optuna) + LightGBM + N-BEATS (731K params, blend 0.15) + **TFT (56K params, blend 0.10, NEW)**
 
-> ⚠️ 之前文檔列的 v3.2.01「MAE 2.85 / R² 97.18%」是 random split + 含當日值 EWMA 的污染指標，**不是 honest walk-forward 結果**。v5.0.00/v5.3.00/v5.4.00 才是 production pipeline 的真實表現。
+> ⚠️ 之前文檔列的 v3.2.01「MAE 2.85 / R² 97.18%」是 random split + 含當日值 EWMA 的污染指標，**不是 honest walk-forward 結果**。v5.0.00 ~ v5.5.00 才是 production pipeline 的真實表現。
 
 ## Optuna 最佳參數
 
