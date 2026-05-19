@@ -945,7 +945,13 @@
       "metrics": {
         "feature_count": 98,
         "base_learners": 5,
-        "note": "retrain on Railway for updated walk-forward metrics; code complete 2026-05-18 HKT"
+        "mae": 13.5398,
+        "mape": 5.8805,
+        "rmse": 17.719,
+        "best_baseline_mae": 15.4655,
+        "gate_passed": true,
+        "data_points": 4186,
+        "note": "honest walk-forward 180 cutoff Railway DB; latest retrain completed 2026-05-19 HKT"
       },
       "stages_completed_v5_6": ["aqhi_integration", "deepar_itransformer_learner", "online_dynamic_stacking", "online_quantile_reweight", "ai_factor_full_backfill_tool"]
     },

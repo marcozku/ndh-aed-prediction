@@ -16,7 +16,7 @@ const STATIC_ASSETS = [
     '/index.html',
     '/styles.css?v=21',
     '/app.js?v=13',
-    '/prediction.js?v=26',
+    '/prediction.js?v=27',
     '/modules/ui-enhancements.js?v=8',
     '/modules/api.js',
     '/modules/datetime.js',

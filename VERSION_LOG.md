@@ -16,6 +16,7 @@
 - **98 features**（v5.5.00 92 + 6 AQHI）
 - **5 base learners**: XGBoost + LightGBM + N-BEATS + TFT + DeepAR/iTransformer
 - Inference metadata: `dynamic_stack_weights`, `deepar_blend_weight`, `tree_blend_weight`
+- **最新 honest walk-forward**: MAE **13.5398** / MAPE **5.8805%** / RMSE **17.719** / best baseline MAE **15.4655**
 
 ### 離線 AI factor 全量回填
 ```bash

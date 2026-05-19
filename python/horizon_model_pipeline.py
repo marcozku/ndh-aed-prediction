@@ -3117,6 +3117,7 @@ def predict_range(
                 "baseline_reference": metadata["baseline_reference"],
                 "ci80": result["ci80"],
                 "ci95": result["ci95"],
+                "metadata": metadata,
             }
         )
 

@@ -65,15 +65,19 @@ LIMIT 100;
 CREATE OR REPLACE VIEW v_model_performance AS
 SELECT
     model_name,
+    version,
     mae,
     rmse,
     mape,
     r2,
     training_date,
     data_count,
+    n_features,
+    optimization_method,
+    created_at,
     updated_at
 FROM model_metrics
-ORDER BY updated_at DESC;
+ORDER BY created_at DESC;
 
 -- ============================================
 -- 性能優化說明

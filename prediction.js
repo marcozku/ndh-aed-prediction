@@ -10044,7 +10044,7 @@ function initAlgorithmContent() {
                 </div>
                 <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px;">
                     <div style="font-size: 0.75rem; color: #f59e0b; font-weight: 600; margin-bottom: 6px;">最新訓練摘要</div>
-                    <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.6;">目前模型檔：MAE 17.94 · MAPE 7.81% · Best baseline MAE 19.87 · Gate = Pass</div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.6;">目前模型檔：MAE 13.54 · MAPE 5.88% · Best baseline MAE 15.47 · Gate = Pass</div>
                 </div>
             </div>
         </div>
@@ -10153,14 +10153,14 @@ function initAlgorithmContent() {
             </div>
             
             <div style="background: rgba(245, 158, 11, 0.1); padding: 10px; border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 10px;">
-                <strong style="color: #f59e0b;">📊 模型性能 (v5.5.00, honest walk-forward Railway DB 4186 天):</strong> MAE = 13.84 人 · MAPE = 6.04% · RMSE = 17.83 · CI80 經驗覆蓋率 81-83% · 92 特徵 · 5 buckets · 4 base learners<br>
-                <span style="color: var(--text-tertiary); font-size: 0.68rem;">⚠️ 之前的「MAE 2.85 / R² 97.18%」是 random split + 含當日值 EWMA 的污染指標，不是真實 walk-forward 結果。v5.5.00 才是 production pipeline 的真實表現（總改善 v5.0.00 → v5.5.00 = −22.9%）。</span>
+                <strong style="color: #f59e0b;">📊 模型性能 (v5.6.00, honest walk-forward Railway DB 4186 天):</strong> MAE = 13.54 人 · MAPE = 5.88% · RMSE = 17.72 · CI80 經驗覆蓋率 81-86% · 98 特徵 · 5 buckets · 5 base learners<br>
+                <span style="color: var(--text-tertiary); font-size: 0.68rem;">⚠️ 之前的「MAE 2.85 / R² 97.18%」是 random split + 含當日值 EWMA 的污染指標，不是真實 walk-forward 結果。v5.6.00 才是 production pipeline 的最新表現（總改善 v5.0.00 → v5.6.00 = −24.6%）。</span>
             </div>
             
-            <!-- v5.5.00: World-class accuracy roadmap v5.5 advanced complete -->
+            <!-- v5.6.00: World-class accuracy roadmap v5.6 advanced complete -->
             <div style="background: rgba(139, 92, 246, 0.1); padding: 10px; border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary);">
-                <strong style="color: #8b5cf6;">🚀 v5.5.00 v5.5 進階收官:</strong> Per-horizon bucket split (5 buckets: short/h7/h14/<b>h21</b>/h30) + Holiday-type 8-way embedding + <b>HKO 9-day forecast 即時 inject</b> + <b>TFT</b> 第 4 base learner (56K params, blend 0.10) + Hierarchical Bayesian shrinkage + AI factor 回填工具 — MAE 17.94 → 13.84 (−22.9%)<br>
-                <span style="color: var(--text-tertiary); font-size: 0.68rem;">📚 研究基礎: Lim (2021) TFT · Oreshkin (2020) N-BEATS · Romano-Patterson-Candes (2019) CQR · Gibbs-Candes (2021) Online Conformal · Hyndman-Athanasopoulos (2021) Hierarchical Reconciliation · Akiba (2019) Optuna · BMC EM (2025) 法國 ED 基準 MAE 2.63</span>
+                <strong style="color: #8b5cf6;">🚀 v5.6.00 v5.6 收官:</strong> AQHI 6 features + <b>DeepAR/iTransformer</b> 第 5 base learner + online 14d dynamic stacking + quantile CI re-weight + AI factor 全量離線回填工具 — MAE 13.54 · MAPE 5.88% · 98 features · 5 buckets · 5 base learners<br>
+                <span style="color: var(--text-tertiary); font-size: 0.68rem;">📚 研究基礎: Lim (2021) TFT · Oreshkin (2020) N-BEATS · DeepAR (2017) · iTransformer (2024) · Romano-Patterson-Candes (2019) CQR · Gibbs-Candes (2021) Online Conformal · Hyndman-Athanasopoulos (2021) Hierarchical Reconciliation · Akiba (2019) Optuna</span>
             </div>
         </div>
         
@@ -10438,7 +10438,7 @@ function initAlgorithmContent() {
                         </tr>
                     </table>
                     <div style="margin-top: 6px; color: #22c55e;">
-                        ✓ v5.5.00 真實 walk-forward 結果: MAE 13.84 (vs v5.0.00 MAE 17.94, 總改善 22.9%); 5 buckets / 92 features / 4 base learners
+                        ✓ v5.6.00 真實 walk-forward 結果: MAE 13.54 (vs v5.0.00 MAE 17.94, 總改善 24.6%); 5 buckets / 98 features / 5 base learners
                     </div>
                 </div>
             </div>

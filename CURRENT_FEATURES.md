@@ -1,6 +1,6 @@
 # XGBoost + LightGBM + N-BEATS + TFT + DeepAR/iTransformer 完整特徵列表 (v5.6.00)
 
-**生成於**: 2026-05-18 HKT
+**生成於**: 2026-05-19 HKT
 **特徵數量**: **98 個**（v5.5.00 92 + 6 AQHI）
 **模型版本**: 5.6.00 (`horizon_direct_xgboost` + 5-learner ensemble + 14d dynamic stacking)
 **Bucket 數量**: **5**（short / h7 / h14 / **h21 NEW** / h30 shrunk to H22-30）
@@ -8,15 +8,23 @@
 
 ## 📊 真實 walk-forward 模型性能（honest 60/40 split, 180 cutoffs）
 
-| 指標 | v5.0.00 起點 | v5.4.00 | **v5.5.00 現在** | 總改善 |
+| 指標 | v5.0.00 起點 | v5.4.00 | **v5.6.00 現在** | 總改善 |
 |------|------|------|------|------|
-| MAE  | 17.94 | 14.40 | **13.84** | **−22.9%** |
-| MAPE | 7.81% | 6.26% | **6.04%** | −1.77 pp |
-| RMSE | 23.61 | 18.43 | **17.83** | −24.5% |
-| CI80 經驗覆蓋率 | ~70%（靜態）| 80-83% | **81-83%（CQR + online）** | 校準完美 |
-| Gate passed | 部分 | 全 4 bucket | **全 5 bucket** | ✓ |
+| MAE  | 17.94 | 14.40 | 13.84 | **13.54** |
+| MAPE | 7.81% | 6.26% | 6.04% | **5.88%** |
+| RMSE | 23.61 | 18.43 | 17.83 | **17.72** |
+| CI80 經驗覆蓋率 | ~70%（靜態）| 80-83% | 81-83% | **81-86%** |
+| Gate passed | 部分 | 全 4 bucket | 全 5 bucket | **全 5 bucket** |
 
-## 🎯 92 個 feature 分類
+### v5.6.00 最新 honest walk-forward
+- **MAE**: **13.5398**
+- **MAPE**: **5.8805%**
+- **RMSE**: **17.719**
+- **best baseline MAE**: **15.4655**
+- **feature count**: **98**
+- **base learners**: **5**
+
+## 🎯 98 個 feature 分類
 
 ### 1. 時間/星期/月份 (11 個)
 - `horizon`, `origin_dow`, `origin_month`

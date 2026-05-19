@@ -2,17 +2,17 @@
 
 ## 🎯 目標：成為世界上最準確的 AI 驅動急診室就診預測系統
 
-### 當前狀態（v5.5.00 — 真實 Railway DB walk-forward 4186 天）
-- **MAE**: **13.84 病人**（v5.0.00 17.94 → **−22.9%**）⭐
-- **MAPE**: **6.04%**（v5.0.00 7.81% → −1.77 pp）
-- **RMSE**: **17.83 病人**
-- **CI80 經驗覆蓋率**: **81-83%**（CQR + online conformal calibrated）
-- **特徵數**: **92 個**（v5.0.00 39 → v5.4.00 84 → v5.5.00 92）
+### 當前狀態（v5.6.00 — 真實 Railway DB walk-forward 4186 天）
+- **MAE**: **13.54 病人**（v5.0.00 17.94 → **−24.6%**）⭐
+- **MAPE**: **5.88%**（v5.0.00 7.81% → −1.93 pp）
+- **RMSE**: **17.72 病人**
+- **CI80 經驗覆蓋率**: **81-86%**（CQR + online conformal calibrated）
+- **特徵數**: **98 個**（v5.0.00 39 → v5.4.00 84 → v5.5.00 92 → v5.6.00 98）
 - **Bucket 數**: **5**（short / h7 / h14 / **h21** / h30 — v5.5 拆 h30）
-- **方法**: 92-feature XGBoost (per-bucket Optuna) + LightGBM L1 + **N-BEATS** anchor + **TFT** 第 4 base learner + Conformalized Quantile Regression + Online CI widening + Capped bias correction + **Hierarchical Bayesian shrinkage** + **HKO 9-day forecast inject at inference**
-- **外生訊號**: 15 天氣 / 10 CHP 流感 / 8 學校學期 / **8 holiday-type embedding (v5.5 NEW)** / 3 AI factor / 7 假期 context
-- **Stage A→E + v5.5 進階全部完成**（見 VERSION_LOG v5.5.00）
-- **最後更新**: 2026-05-18 19:58 HKT
+- **方法**: 98-feature XGBoost (per-bucket Optuna) + LightGBM L1 + **N-BEATS** anchor + **TFT** + **DeepAR/iTransformer** + Conformalized Quantile Regression + Online CI widening + Capped bias correction + **Hierarchical Bayesian shrinkage** + **HKO 9-day forecast inject at inference**
+- **外生訊號**: 15 天氣 / 10 CHP 流感 / 8 學校學期 / **8 holiday-type embedding (v5.5 NEW)** / 6 AQHI / 3 AI factor / 7 假期 context
+- **Stage A→E + v5.6 進階全部完成**（見 VERSION_LOG v5.6.00）
+- **最後更新**: 2026-05-19 HKT
 
 ### ⚠️ 之前的「MAE 2.85」是污染指標
 舊文檔到處引用的「v3.2.01 MAE 2.85 / R² 97.18%」是 **隨機 split + 含當日值 EWMA** 跑出來的污染數字。真實 production walk-forward 一直是 17.94，v5.4.00 才真正壓到 14.40。詳見 `.tasks/prediction-accuracy-deep-analysis.md`。
@@ -157,16 +157,16 @@
 ## 📊 性能基準與目標
 
 ### 世界級準確度目標 vs 當前
-| 指標 | v5.0.00 起點 | v5.4.00 | **v5.5.00 現在** | 世界最佳 (法國 BMC EM 2025) | 中期目標 v5.6 | 終極目標 |
+| 指標 | v5.0.00 起點 | v5.4.00 | **v5.6.00 現在** | 世界最佳 (法國 BMC EM 2025) | 中期目標 v5.6 | 終極目標 |
 |------|---------|---------|---------|---------|---------|------|
-| **MAE** | 17.94 | 14.40 | **13.84** | 2.63 (規模不可比) | < 11.0 | < 8.0 |
-| **MAPE** | 7.81% | 6.26% | **6.04%** | ~1% | < 5% | < 3% |
-| **CI80 經驗覆蓋率** | ~70%（無校準）| 80-83% | **81-83%（CQR + online）** | ~85% | > 85% | > 88% |
+| **MAE** | 17.94 | 14.40 | **13.54** | 2.63 (規模不可比) | < 11.0 | < 8.0 |
+| **MAPE** | 7.81% | 6.26% | **5.88%** | ~1% | < 5% | < 3% |
+| **CI80 經驗覆蓋率** | ~70%（無校準）| 80-83% | **81-86%（CQR + online）** | ~85% | > 85% | > 88% |
 | **CI95 經驗覆蓋率** | ~92% | TBD | **TBD（要等 30 天觀察）** | ~96% | > 95% | > 98% |
-| **RMSE** | 23.61 | 18.43 | **17.83** | - | < 14 | < 11 |
-| **比 weekday_mean baseline 改善** | +9.7% | +19.7% | **+22.9%** | - | +35% | +50% |
+| **RMSE** | 23.61 | 18.43 | **17.72** | - | < 14 | < 11 |
+| **比 weekday_mean baseline 改善** | +9.7% | +19.7% | **+24.6%** | - | +35% | +50% |
 | **Buckets** | 4 | 4 | **5 (h21 新加)** | n/a | 7-10 | n/a |
-| **Base learners** | 1 | 3 | **4 (TFT 新加)** | varies | 5 | n/a |
+| **Base learners** | 1 | 3 | **5 (DeepAR/iTransformer 新加)** | varies | 5 | n/a |
 
 R² 在這個 pipeline 不報，因為 walk-forward 殘差結構 + 異質方差讓 R² 失去意義。我們改報 MAE / MAPE / RMSE / coverage / baseline-relative improvement，這是 forecast accuracy 領域的標準做法（Hyndman & Athanasopoulos 2021）。
 

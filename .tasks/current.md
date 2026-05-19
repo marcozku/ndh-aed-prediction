@@ -1,6 +1,6 @@
 # 當前任務
 
-## v5.6.00 — v5.6 路線圖收官（2026-05-18）✅✅✅✅✅
+## v5.6.00 — v5.6 路線圖收官（2026-05-19）✅✅✅✅✅
 
 ### v5.6 全部完成 ✅
 - [x] **AI factor 全量歷史回填離線執行工具**: `--full` + checkpoint JSONL + `run_ai_factor_full_backfill.sh`
@@ -408,19 +408,19 @@ if (weatherFactor !== 1.0) {
 | 最佳 10 特徵 (默認參數) | 10 | 3.19 | +79.7% |
 | 最佳 10 特徵 + Optuna | 10 | **2.85** | **+81.9%** |
 
-## 最終模型性能 (v5.5.00 — Railway DB 真實 walk-forward 180 cutoffs honest 60/40 split)
+## 最終模型性能 (v5.6.00 — Railway DB 真實 walk-forward 180 cutoffs honest 60/40 split)
 
-- MAE: **13.84 人**（v5.0.00 17.94 → **−22.9%**）⭐
-- RMSE: **17.83 人**
-- MAPE: **6.04%**（v5.0.00 7.81% → −1.77 pp）
-- baseline weekday_mean MAE: 15.47（v5.5.00 在所有 5 個 bucket 都贏過）
+- MAE: **13.54 人**（v5.0.00 17.94 → **−24.6%**）⭐
+- RMSE: **17.72 人**
+- MAPE: **5.88%**（v5.0.00 7.81% → −1.93 pp）
+- baseline weekday_mean MAE: 15.47（v5.6.00 在所有 5 個 bucket 都贏過）
 - gate_passed: True 全 bucket
-- **CQR CI80 經驗覆蓋率 81-83%**（在每個 bucket 都接近目標 80%）
-- 92 個 feature（v5.0.00 39 → v5.4.00 84 → v5.5.00 92）
+- **CQR CI80 經驗覆蓋率 81-86%**（在每個 bucket 都接近目標 80%）
+- 98 個 feature（v5.0.00 39 → v5.4.00 84 → v5.5.00 92 → v5.6.00 98）
 - 5 個 bucket（v5.4.00 的 4 → 多了 h21 split）
-- 4 個 base learner: XGBoost (Optuna) + LightGBM + N-BEATS (731K params, blend 0.15) + **TFT (56K params, blend 0.10, NEW)**
+- 5 個 base learner: XGBoost (Optuna) + LightGBM + N-BEATS (731K params, blend 0.15) + **TFT (56K params, blend 0.10)** + **DeepAR/iTransformer (blend 0.08)**
 
-> ⚠️ 之前文檔列的 v3.2.01「MAE 2.85 / R² 97.18%」是 random split + 含當日值 EWMA 的污染指標，**不是 honest walk-forward 結果**。v5.0.00 ~ v5.5.00 才是 production pipeline 的真實表現。
+> ⚠️ 之前文檔列的 v3.2.01「MAE 2.85 / R² 97.18%」是 random split + 含當日值 EWMA 的污染指標，**不是 honest walk-forward 結果**。v5.0.00 ~ v5.6.00 才是 production pipeline 的真實表現。
 
 ## Optuna 最佳參數
 

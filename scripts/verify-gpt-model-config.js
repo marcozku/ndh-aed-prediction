@@ -33,11 +33,11 @@ assertIncludes('server.js', 'model_name: canonicalizeModelComparisonName(row.mod
 assertIncludes('server.js', 'function selectPreferredModelComparisonRow');
 assertIncludes('server.js', 'const dedupedRowsByDateAndModel = new Map();');
 assertIncludes('server.js', "const key = `${row.date}:${row.model_name}`;");
-assertIncludes('sw.js', "const SW_VERSION = '5.2.03';");
-assertIncludes('sw.js', "const CACHE_NAME = 'ndh-aed-v5.2.03';");
-assertIncludes('index.html', 'prediction.js?v=24');
-assertIncludes('index.html', 'app.js?v=11');
-assertIncludes('app.js', "modules/ui-enhancements.js?v=6");
+assertIncludes('sw.js', "const SW_VERSION = '5.6.00';");
+assertIncludes('sw.js', "const CACHE_NAME = 'ndh-aed-v5.6.00';");
+assertIncludes('index.html', 'prediction.js?v=27');
+assertIncludes('index.html', 'app.js?v=13');
+assertIncludes('app.js', "modules/ui-enhancements.js?v=8");
 
 for (const file of [
     'server.js',

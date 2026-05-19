@@ -1,21 +1,21 @@
 {
-  "version": "5.5.00",
+  "version": "5.6.00",
   "model_name": "horizon_direct_xgboost",
-  "mae": 13.838,
-  "rmse": 17.828,
-  "mape": 6.0374,
+  "mae": 13.5398,
+  "rmse": 17.719,
+  "mape": 5.8805,
   "r2": null,
-  "training_date": "2026-05-18T19:54:28",
+  "training_date": "2026-05-19T07:33:02",
   "data_count": 4186,
   "train_count": 39180,
   "test_count": 5400,
-  "feature_count": 92,
+  "feature_count": 98,
   "ai_factors_count": 0,
   "baseline_gate_passed": true,
   "best_baseline_mae": 15.4655,
   "buckets": {
     "short": {
-      "mae": 14.4623,
+      "mae": 14.0248,
       "best_baseline": {
         "name": "weekday_mean",
         "mae": 16.1036
@@ -23,11 +23,11 @@
       "gate": {
         "passed": true,
         "margin_required": 0.005,
-        "improvement_vs_best_baseline": 1.6413
+        "improvement_vs_best_baseline": 2.0788
       }
     },
     "h7": {
-      "mae": 15.1713,
+      "mae": 14.7807,
       "best_baseline": {
         "name": "weekday_mean",
         "mae": 16.6287
@@ -35,11 +35,11 @@
       "gate": {
         "passed": true,
         "margin_required": 0.005,
-        "improvement_vs_best_baseline": 1.4574
+        "improvement_vs_best_baseline": 1.848
       }
     },
     "h14": {
-      "mae": 14.0447,
+      "mae": 13.4789,
       "best_baseline": {
         "name": "weekday_mean",
         "mae": 15.7892
@@ -47,11 +47,11 @@
       "gate": {
         "passed": true,
         "margin_required": 0.005,
-        "improvement_vs_best_baseline": 1.7445
+        "improvement_vs_best_baseline": 2.3103
       }
     },
     "h21": {
-      "mae": 13.5041,
+      "mae": 13.0588,
       "best_baseline": {
         "name": "weekday_mean",
         "mae": 14.356
@@ -59,11 +59,11 @@
       "gate": {
         "passed": true,
         "margin_required": 0.005,
-        "improvement_vs_best_baseline": 0.8519
+        "improvement_vs_best_baseline": 1.2972
       }
     },
     "h30": {
-      "mae": 13.0575,
+      "mae": 13.164,
       "best_baseline": {
         "name": "weekday_mean",
         "mae": 15.2888
@@ -71,8 +71,9 @@
       "gate": {
         "passed": true,
         "margin_required": 0.005,
-        "improvement_vs_best_baseline": 2.2313
+        "improvement_vs_best_baseline": 2.1248
       }
     }
-  }
+  },
+  "summary_updated": true
 }
